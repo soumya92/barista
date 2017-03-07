@@ -24,9 +24,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/google/barista/bar"
-	"github.com/google/barista/bar/outputs"
-	"github.com/google/barista/modules/base"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/bar/outputs"
+	"github.com/soumya92/barista/modules/base"
 
 	"github.com/vishvananda/netlink"
 )

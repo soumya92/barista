@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/barista/bar"
-	"github.com/google/barista/modules/multi"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/modules/multi"
 
 	"github.com/dustin/go-humanize"
 )

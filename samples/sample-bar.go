@@ -21,16 +21,16 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/google/barista/bar"
-	"github.com/google/barista/bar/outputs"
-	"github.com/google/barista/modules/clock"
-	"github.com/google/barista/modules/cputemp"
-	"github.com/google/barista/modules/media"
-	"github.com/google/barista/modules/meminfo"
-	"github.com/google/barista/modules/netspeed"
-	"github.com/google/barista/modules/sysinfo"
-	"github.com/google/barista/modules/volume"
-	"github.com/google/barista/modules/weather"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/bar/outputs"
+	"github.com/soumya92/barista/modules/clock"
+	"github.com/soumya92/barista/modules/cputemp"
+	"github.com/soumya92/barista/modules/media"
+	"github.com/soumya92/barista/modules/meminfo"
+	"github.com/soumya92/barista/modules/netspeed"
+	"github.com/soumya92/barista/modules/sysinfo"
+	"github.com/soumya92/barista/modules/volume"
+	"github.com/soumya92/barista/modules/weather"
 )
 
 func truncate(in string, l int) string {

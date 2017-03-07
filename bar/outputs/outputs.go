@@ -21,7 +21,7 @@ import (
 	htmlTemplate "html/template"
 	textTemplate "text/template"
 
-	"github.com/google/barista/bar"
+	"github.com/soumya92/barista/bar"
 )
 
 // TemplateFunc is a function that takes in a single argument constructs a

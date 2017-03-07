@@ -41,8 +41,8 @@ and should be bundled as much as possible.
 package multi
 
 import (
-	"github.com/google/barista/bar"
-	"github.com/google/barista/modules/base"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/modules/base"
 )
 
 // ModuleSet represents a multi-module consisting of many individual modules.

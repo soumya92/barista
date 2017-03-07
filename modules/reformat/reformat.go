@@ -29,7 +29,7 @@ r := reformat.New(t, func(o *bar.Output) *bar.Output {
 package reformat
 
 import (
-	"github.com/google/barista/bar"
+	"github.com/soumya92/barista/bar"
 )
 
 // FormatFunc takes the module's output and returns a modified version.

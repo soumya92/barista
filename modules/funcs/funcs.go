@@ -18,8 +18,8 @@ package funcs
 import (
 	"time"
 
-	"github.com/google/barista/bar"
-	"github.com/google/barista/modules/base"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/modules/base"
 )
 
 // Module is an interface that allows functions to display their module output.
