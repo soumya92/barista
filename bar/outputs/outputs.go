@@ -22,6 +22,7 @@ import (
 	textTemplate "text/template"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/bar/pango"
 )
 
 // TemplateFunc is a function that takes in a single argument constructs a
@@ -30,7 +31,7 @@ type TemplateFunc func(interface{}) *bar.Output
 
 // Empty constructs an empty output, which will hide a module from the bar.
 func Empty() *bar.Output {
-	return &bar.Output{}
+	return nil
 }
 
 // Error constructs a bar output that indicates an error.
@@ -59,6 +60,12 @@ func PangoUnsafe(markup string) *bar.Output {
 		Text:   markup,
 		Markup: bar.MarkupPango,
 	}
+}
+
+// Pango constructs a bar output from a list of things.
+func Pango(things ...interface{}) *bar.Output {
+	// The extra span tag will be collapsed if no attributes were added.
+	return PangoUnsafe(pango.Span(things...).Pango())
 }
 
 // TextTemplate creates a TemplateFunc from the given text template.

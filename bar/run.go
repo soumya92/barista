@@ -86,11 +86,12 @@ func (b *I3Bar) Add(modules ...Module) *I3Bar {
 	for _, m := range modules {
 		b.addModule(m)
 	}
+	// Return the bar for chaining (e.g. bar.Add(x, y).Run())
 	return b
 }
 
 // addModule adds a single module to the bar.
-func (b *I3Bar) addModule(module Module) *I3Bar {
+func (b *I3Bar) addModule(module Module) {
 	// Use the type, e.g. "*tztime.module", as the name. This doesn't matter,
 	// but i3 would like to have it.
 	name := reflect.TypeOf(module).String()
@@ -102,8 +103,6 @@ func (b *I3Bar) addModule(module Module) *I3Bar {
 		Identifier: identifier{name, instance},
 	}
 	b.i3Modules = append(b.i3Modules, i3Module)
-	// Return the bar for chaining (e.g. bar.Add(x).Add(y).Run())
-	return b
 }
 
 // Run sets up all the streams and enters the main loop.
