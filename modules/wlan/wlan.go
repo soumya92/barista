@@ -24,11 +24,11 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/bar/outputs"
 	"github.com/soumya92/barista/modules/base"
-
-	"github.com/vishvananda/netlink"
 )
 
 // Info represents the wireless card status.

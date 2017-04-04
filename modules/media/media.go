@@ -20,11 +20,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/godbus/dbus"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/bar/outputs"
 	"github.com/soumya92/barista/modules/base"
-
-	"github.com/godbus/dbus"
 )
 
 // PlaybackStatus represents the state of the media player.

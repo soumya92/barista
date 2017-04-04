@@ -19,10 +19,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dustin/go-humanize"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/modules/multi"
-
-	"github.com/dustin/go-humanize"
 )
 
 // Info wraps the result of sysinfo and makes it more useful.
