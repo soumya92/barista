@@ -79,6 +79,9 @@ type I3Bar struct {
 	writer io.Writer
 	// A json encoder set to write to the output stream.
 	encoder *json.Encoder
+	// Flipped when Run() is called, to prevent issues with modules
+	// being added after the bar has been started.
+	started bool
 }
 
 // Add adds a module to a bar, and returns the bar for chaining.
@@ -92,6 +95,11 @@ func (b *I3Bar) Add(modules ...Module) *I3Bar {
 
 // addModule adds a single module to the bar.
 func (b *I3Bar) addModule(module Module) {
+	// Panic if adding modules to an already running bar.
+	// TODO: Support this in the future.
+	if b.started {
+		panic("Cannot add modules after .Run()")
+	}
 	// Use the type, e.g. "*tztime.module", as the name. This doesn't matter,
 	// but i3 would like to have it.
 	name := reflect.TypeOf(module).String()
@@ -124,6 +132,9 @@ func (b *I3Bar) Run() error {
 		return err
 	}
 
+	// Mark the bar as started.
+	b.started = true
+
 	// Read events from the input stream, pipe them to the events channel.
 	go b.readEvents()
 	// Merge all module outputs to the outputs channel.
@@ -135,7 +146,7 @@ func (b *I3Bar) Run() error {
 	for {
 		select {
 		case out := <-b.outputs:
-			// Module outputs update it's own "last output"
+			// Any output from a module updates its "last output",
 			// but the complete bar needs to printed each time.
 			if module, ok := b.get(out.Instance); ok {
 				module.LastOutput = out
