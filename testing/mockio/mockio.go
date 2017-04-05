@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// mockio provides infinite streams that can be used for testing stdin/stdout.
+// Package mockio provides infinite streams that can be used for testing stdin/stdout.
 package mockio
 
 import (
