@@ -34,10 +34,11 @@ func TestTextFmt(t *testing.T) {
 		expected string
 	}{
 		{"empty string", Text(""), ""},
-		{"no interpolation", Text("test"), "test"},
-		{"with no fmt-args", Text("%d %s %d"), "%d %s %d"},
-		{"with string args", Text("%s=%s", "a", "b"), "a=b"},
-		{"with multiple args", Text("%s=%0.4f, %d^2=%d", "pi", 3.14159, 2, 4), "pi=3.1416, 2^2=4"},
+		{"simple string", Text("test"), "test"},
+		{"percent sign without interpolation", Text("100%"), "100%"},
+		{"no interpolation", Textf("test"), "test"},
+		{"with string args", Textf("%s=%s", "a", "b"), "a=b"},
+		{"with multiple args", Textf("%s=%0.4f, %d^2=%d", "pi", 3.14159, 2, 4), "pi=3.1416, 2^2=4"},
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.expected, tc.output.Text, tc.desc)

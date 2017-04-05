@@ -65,9 +65,9 @@ func mediaFormatFunc(m media.Info) *bar.Output {
 		artist = truncate(m.Artist, 40-len(title))
 	}
 	if m.PlaybackStatus != media.Playing {
-		return outputs.Text("%s - %s", title, artist)
+		return outputs.Textf("%s - %s", title, artist)
 	}
-	return outputs.Text(
+	return outputs.Textf(
 		"%s/%s: %s - %s",
 		formatMediaTime(m.Position()),
 		formatMediaTime(m.Length),
@@ -106,13 +106,13 @@ func main() {
 			if v.Mute {
 				return outputs.Text("MUT")
 			}
-			return outputs.Text("%02d%%", v.Pct())
+			return outputs.Textf("%02d%%", v.Pct())
 		}),
 	)
 
 	loadAvg := sysinfo.New(
 		sysinfo.OutputFunc("loadAvg", func(s sysinfo.Info) *bar.Output {
-			out := outputs.Text("%0.2f %0.2f", s.Loads[0], s.Loads[2])
+			out := outputs.Textf("%0.2f %0.2f", s.Loads[0], s.Loads[2])
 			// Load averages are unusually high for a few minutes after boot.
 			if s.Uptime < 10*time.Minute {
 				// so don't add colours until 10 minutes after system start.
@@ -154,7 +154,7 @@ func main() {
 		cputemp.RefreshInterval(2*time.Second),
 		cputemp.OutputFunc(func(temp cputemp.Temperature) *bar.Output {
 			celcius := temp.C()
-			out := outputs.Text("%2d℃", celcius)
+			out := outputs.Textf("%2d℃", celcius)
 			switch {
 			case celcius > 90:
 				out.Urgent = true

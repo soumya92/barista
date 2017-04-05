@@ -43,13 +43,13 @@ func Error(e error) *bar.Output {
 	}
 }
 
-// Text constructs simple text output from a format string and arguments.
-// If no arguments are given, the format string is treated as a literal string instead.
-func Text(format string, args ...interface{}) *bar.Output {
-	if len(args) == 0 {
-		return &bar.Output{Text: format}
-	}
-	text := fmt.Sprintf(format, args...)
+// Textf constructs simple text output from a format string and arguments.
+func Textf(format string, args ...interface{}) *bar.Output {
+	return Text(fmt.Sprintf(format, args...))
+}
+
+//Text constructs a simple text output from the given string.
+func Text(text string) *bar.Output {
 	return &bar.Output{Text: text}
 }
 

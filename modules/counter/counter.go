@@ -36,7 +36,7 @@ func New(format string) bar.Module {
 		count:  0,
 		format: format,
 	}
-	m.Output(outputs.Text(format, 0))
+	m.Output(outputs.Textf(format, 0))
 	return m
 }
 
@@ -47,6 +47,6 @@ func (m *module) Click(e bar.Event) {
 	case bar.ButtonRight, bar.ScrollUp, bar.ScrollRight, bar.ButtonForward:
 		m.count++
 	}
-	m.Output(outputs.Text(m.format, m.count))
+	m.Output(outputs.Textf(m.format, m.count))
 	m.Base.Click(e)
 }
