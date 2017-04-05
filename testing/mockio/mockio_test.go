@@ -80,7 +80,7 @@ func TestStdout(t *testing.T) {
 	})(stdout)
 
 	wait <- nil
-	val, err = stdout.ReadUntil('x', 3*time.Millisecond)
+	val, err = stdout.ReadUntil('i', 3*time.Millisecond)
 	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
 	assert.Equal(t, "abcdef", val, "returns content written before timeout")
 
