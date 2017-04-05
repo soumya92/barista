@@ -69,13 +69,13 @@ var testObject = struct {
 	Number   int
 	Text     string
 	Fraction float64
-	Html     string
+	HTML     string
 	Object   struct{ YesNo bool }
 }{
 	Number:   42,
 	Text:     "test-string",
 	Fraction: 2.7182818,
-	Html:     "<b>bold</b>",
+	HTML:     "<b>bold</b>",
 	Object:   struct{ YesNo bool }{YesNo: true},
 }
 
@@ -95,7 +95,7 @@ func TestTextTemplate(t *testing.T) {
 		{"if/else", TextTemplate(`{{if .Object.YesNo}}yes{{else}}no{{end}}`), "yes"},
 		{
 			"pango markup not interpreted",
-			TextTemplate(`<span size='{{.Number}}'>{{.Html}}</span>`),
+			TextTemplate(`<span size='{{.Number}}'>{{.HTML}}</span>`),
 			"<span size='42'><b>bold</b></span>",
 		},
 	}
@@ -124,7 +124,7 @@ func TestPangoTemplate(t *testing.T) {
 		{"if/else", PangoTemplate(`{{if .Object.YesNo}}yes{{else}}no{{end}}`), "yes"},
 		{
 			"pango markup escaped",
-			PangoTemplate(`<span size='{{.Number}}'>{{.Html}}</span>`),
+			PangoTemplate(`<span size='{{.Number}}'>{{.HTML}}</span>`),
 			"<span size='42'>&lt;b&gt;bold&lt;/b&gt;</span>",
 		},
 	}

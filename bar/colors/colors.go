@@ -90,7 +90,7 @@ func LoadFromMap(s map[string]string) {
 	}
 }
 
-var fs afero.Fs = afero.NewOsFs()
+var fs = afero.NewOsFs()
 
 // LoadFromConfig loads a color scheme from a i3status config file
 // by reading all keys that start with 'color_'

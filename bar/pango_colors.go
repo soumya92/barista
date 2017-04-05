@@ -23,10 +23,12 @@ package bar
 // to produce: <span color="red">bad-thing</span>
 // assuming that the current scheme's 'bad' color is 'red'.
 
+// AttrName returns the name of the pango 'color' attribute.
 func (c Color) AttrName() string {
 	return "color"
 }
 
+// AttrValue returns the color as a pango 'color' value.
 func (c Color) AttrValue() string {
 	return string(c)
 }
