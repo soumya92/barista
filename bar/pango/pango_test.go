@@ -79,7 +79,7 @@ var stringifyingTests = []struct {
 	},
 	{
 		"tag with fmt-formatted text",
-		Span(Weight("bold"), Text("%03d", 4)),
+		Span(Weight("bold"), Textf("%03d", 4)),
 		"<span weight='bold'>004</span>",
 	},
 	{
@@ -106,7 +106,7 @@ var stringifyingTests = []struct {
 	},
 	{
 		"span collapsing with child nodes",
-		Span(Text("%s-%d", "string", 1), Tag("u", " "), Span(Tag("b", "e="), 2.718, "..."), Span()),
+		Span(Textf("%s-%d", "string", 1), Tag("u", " "), Span(Tag("b", "e="), 2.718, "..."), Span()),
 		"string-1<u> </u><b>e=</b>2.718...",
 	},
 }
@@ -155,7 +155,7 @@ func BenchmarkSimple(b *testing.B)          { benchmarkConstructAndStringify(b, 
 func BenchmarkSimpleConstruct(b *testing.B) { benchmarkConstructOnly(b, simple) }
 func BenchmarkSimpleStringify(b *testing.B) { benchmarkStringifyOnly(b, simple) }
 
-func textonly() Node                      { return Text("%s-%d", "test", 1024) }
+func textonly() Node                      { return Textf("%s-%d", "test", 1024) }
 func BenchmarkText(b *testing.B)          { benchmarkConstructAndStringify(b, textonly) }
 func BenchmarkTextConstruct(b *testing.B) { benchmarkConstructOnly(b, textonly) }
 func BenchmarkTextStringify(b *testing.B) { benchmarkStringifyOnly(b, textonly) }
@@ -163,9 +163,9 @@ func BenchmarkTextStringify(b *testing.B) { benchmarkStringifyOnly(b, textonly) 
 func complex() Node {
 	return Span(
 		Font("monospace"), Weight("bold"),
-		Tag("b", Font("serif"), Text("Number %d", 42)),
+		Tag("b", Font("serif"), Textf("Number %d", 42)),
 		Tag("small", Tag("u", "small underline")),
-		Tag("i", Tag("b", Tag("u", Tag("small", Text("%s %s %s!", "all", "the", "tags"))))),
+		Tag("i", Tag("b", Tag("u", Tag("small", Textf("%s %s %s!", "all", "the", "tags"))))),
 	)
 }
 func BenchmarkComplex(b *testing.B)          { benchmarkConstructAndStringify(b, complex) }

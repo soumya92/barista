@@ -89,23 +89,20 @@ func (e *element) Pango() string {
 	return out.String()
 }
 
-// text represents a plaintext section of text.
-type text string
+// Text represents a plaintext section of text.
+type Text string
 
 // Pango returns html-escaped text.
-func (t text) Pango() string {
+func (t Text) Pango() string {
 	return html.EscapeString(string(t))
 }
 
-// Text constructs a text node by interpolating arguments.
+// Textf constructs a text node by interpolating arguments.
 // Note that it will escape both the format string and arguments,
 // so you should use pango constructs to add formatting.
-// i.e., Text("<span color='%s'>%s</span>", "red", "text") won't give you red text.
-func Text(format string, args ...interface{}) Node {
-	if len(args) == 0 {
-		return text(format)
-	}
-	return text(fmt.Sprintf(format, args...))
+// i.e., Textf("<span color='%s'>%s</span>", "red", "text") won't give you red text.
+func Textf(format string, args ...interface{}) Node {
+	return Text(fmt.Sprintf(format, args...))
 }
 
 // Tag constructs a pango element with the given name, with any children and/or attributes.
@@ -122,7 +119,7 @@ func Tag(tagName string, things ...interface{}) Node {
 		case Node:
 			e.children = append(e.children, thing)
 		default:
-			e.children = append(e.children, Text("%v", thing))
+			e.children = append(e.children, Textf("%v", thing))
 		}
 	}
 	return e
