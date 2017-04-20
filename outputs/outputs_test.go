@@ -20,7 +20,7 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/bar/pango"
+	"github.com/soumya92/barista/pango"
 )
 
 func TestEmpty(t *testing.T) {

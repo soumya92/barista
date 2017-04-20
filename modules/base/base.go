@@ -19,7 +19,7 @@ import (
 	"os/exec"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/bar/outputs"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Base is a simple module that satisfies the bar.Module interface, while adding

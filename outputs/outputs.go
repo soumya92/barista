@@ -22,7 +22,7 @@ import (
 	textTemplate "text/template"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/bar/pango"
+	"github.com/soumya92/barista/pango"
 )
 
 // TemplateFunc is a function that takes in a single argument constructs a

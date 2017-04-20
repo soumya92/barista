@@ -29,7 +29,7 @@ import (
 	"unsafe"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/bar/outputs"
+	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/base"
 )
 
