@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/clock"
 	"github.com/soumya92/barista/modules/cputemp"
 	"github.com/soumya92/barista/modules/media"
@@ -31,6 +30,7 @@ import (
 	"github.com/soumya92/barista/modules/sysinfo"
 	"github.com/soumya92/barista/modules/volume"
 	"github.com/soumya92/barista/modules/weather"
+	"github.com/soumya92/barista/outputs"
 )
 
 func truncate(in string, l int) string {
@@ -98,7 +98,7 @@ func main() {
 	wthr := weather.New(
 		weather.Zipcode{"94043", "US"},
 		weather.APIKey(string(apiKey)),
-		weather.OutputTemplate(outputs.TextTemplate(`{{Description}}, {{Temperature.C}}℃`)),
+		weather.OutputTemplate(outputs.TextTemplate(`{{.Description}}, {{.Temperature.C}}℃`)),
 	)
 
 	vol := volume.New(
@@ -167,7 +167,7 @@ func main() {
 		}),
 	)
 
-	netspeedTpl := `{{Tx.SI | printf '%5s'}} {{Rx.SI | printf '%5s'}}`
+	netspeedTpl := `{{.Tx.SI | printf "%5s"}} {{.Rx.SI | printf "%5s"}}`
 	net := netspeed.New(
 		netspeed.Interface("em1"),
 		netspeed.RefreshInterval(2*time.Second),
