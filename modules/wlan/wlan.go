@@ -27,8 +27,8 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Info represents the wireless card status.

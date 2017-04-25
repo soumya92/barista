@@ -19,8 +19,8 @@ package counter
 
 import (
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/outputs"
 )
 
 type module struct {

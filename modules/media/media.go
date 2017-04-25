@@ -23,8 +23,8 @@ import (
 	"github.com/godbus/dbus"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/outputs"
 )
 
 // PlaybackStatus represents the state of the media player.

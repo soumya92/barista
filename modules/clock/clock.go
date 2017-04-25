@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Config represents a configuration that can be applied to a module instance.

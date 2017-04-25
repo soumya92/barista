@@ -25,8 +25,8 @@ import (
 	"github.com/dustin/go-humanize"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Speed represents unidirectional network traffic per second.

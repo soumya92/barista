@@ -29,8 +29,8 @@ import (
 	"unsafe"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Volume represents the current audio volume and mute state.

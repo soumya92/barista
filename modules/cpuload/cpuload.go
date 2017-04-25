@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/outputs"
 )
 
 // LoadAvg represents the CPU load average for the past 1, 5, and 15 minutes.
