@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"os/user"
+	"path/filepath"
 	"time"
 
 	"github.com/soumya92/barista/bar"
@@ -82,6 +84,14 @@ func startTaskManager(e bar.Event) {
 	}
 }
 
+func home(path string) string {
+	usr, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(usr.HomeDir, path)
+}
+
 func main() {
 
 	localtime := clock.New(clock.OutputFormat("Mon Jan 2 15:04"))
@@ -91,7 +101,7 @@ func main() {
 		}
 	})
 
-	apiKey, err := ioutil.ReadFile("/etc/config/owm.apikey")
+	apiKey, err := ioutil.ReadFile(home(".config/owm.apikey"))
 	if err != nil {
 		panic(err)
 	}
