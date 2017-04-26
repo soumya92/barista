@@ -56,7 +56,7 @@ func TestPango(t *testing.T) {
 		{"empty", Pango(), ""},
 		{"empty string", Pango(""), ""},
 		{"simple string", Pango("test"), "test"},
-		{"with attribute", Pango(pango.Weight("bold"), "test"), "<span weight='bold'>test</span>"},
+		{"with attribute", Pango(pango.Bold, "test"), "<span weight='bold'>test</span>"},
 		{"with tag", Pango(pango.Tag("b", "test")), "<b>test</b>"},
 	}
 	for _, tc := range tests {

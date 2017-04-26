@@ -129,29 +129,3 @@ func Tag(tagName string, things ...interface{}) Node {
 func Span(things ...interface{}) Node {
 	return Tag("span", things...)
 }
-
-// Weight sets the font weight.
-type Weight string
-
-// AttrName returns the name of the pango 'weight' attribute.
-func (w Weight) AttrName() string {
-	return "weight"
-}
-
-// AttrValue returns the weight as a pango 'weight' value.
-func (w Weight) AttrValue() string {
-	return string(w)
-}
-
-// Font sets the font face.
-type Font string
-
-// AttrName returns the name of the pango 'face' attribute.
-func (f Font) AttrName() string {
-	return "face"
-}
-
-// AttrValue returns the font as a pango 'face' value.
-func (f Font) AttrValue() string {
-	return string(f)
-}

@@ -50,10 +50,10 @@ var stringifyingTests = []struct {
 }{
 	{"empty span", Span(), ""},
 	{"empty not-span tag", Tag("b"), "<b></b>"},
-	{"empty span with attribute", Tag("span", Weight("bold")), "<span weight='bold'></span>"},
+	{"empty span with attribute", Tag("span", Weight(400)), "<span weight='400'></span>"},
 
 	{"empty span()", Span(), ""},
-	{"span() with attribute and text", Span(Weight("bold"), "text"), "<span weight='bold'>text</span>"},
+	{"span() with attribute and text", Span(Bold, "text"), "<span weight='bold'>text</span>"},
 
 	{"nested tags", Tag("i", Tag("b")), "<i><b></b></i>"},
 	{
@@ -63,7 +63,7 @@ var stringifyingTests = []struct {
 	},
 	{
 		"nested tags with attributes",
-		Tag("span", Font("monospace"), Span(Weight("bold"))),
+		Tag("span", Font("monospace"), Span(Bold)),
 		"<span face='monospace'><span weight='bold'></span></span>",
 	},
 
@@ -74,13 +74,13 @@ var stringifyingTests = []struct {
 	{"tag with non-string child", Tag("b", 4.5), "<b>4.5</b>"},
 	{
 		"tag with text and attributes",
-		Tag("span", Weight("bold"), "some text", Font("monospace")),
-		"<span weight='bold' face='monospace'>some text</span>",
+		Tag("span", Rise(400), "some text", Font("monospace")),
+		"<span rise='400' face='monospace'>some text</span>",
 	},
 	{
 		"tag with fmt-formatted text",
-		Span(Weight("bold"), Textf("%03d", 4)),
-		"<span weight='bold'>004</span>",
+		Span(SemiExpanded, Textf("%03d", 4)),
+		"<span stretch='semiexpanded'>004</span>",
 	},
 	{
 		"tag with multiple children",
@@ -162,7 +162,7 @@ func BenchmarkTextStringify(b *testing.B) { benchmarkStringifyOnly(b, textonly) 
 
 func complex() Node {
 	return Span(
-		Font("monospace"), Weight("bold"),
+		Font("monospace"), Weight(600), Rise(400), Size(14.0),
 		Tag("b", Font("serif"), Textf("Number %d", 42)),
 		Tag("small", Tag("u", "small underline")),
 		Tag("i", Tag("b", Tag("u", Tag("small", Textf("%s %s %s!", "all", "the", "tags"))))),
