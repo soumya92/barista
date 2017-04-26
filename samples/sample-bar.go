@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/soumya92/barista/bar"
@@ -107,7 +108,7 @@ func main() {
 	}
 	wthr := weather.New(
 		weather.Zipcode{"94043", "US"},
-		weather.APIKey(string(apiKey)),
+		weather.APIKey(strings.TrimSpace(string(apiKey))),
 		weather.OutputTemplate(outputs.TextTemplate(`{{.Description}}, {{.Temperature.C}}℃`)),
 	)
 
