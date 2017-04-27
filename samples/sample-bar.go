@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/modules/clock"
 	"github.com/soumya92/barista/modules/cputemp"
 	"github.com/soumya92/barista/modules/media"
@@ -34,7 +35,15 @@ import (
 	"github.com/soumya92/barista/modules/volume"
 	"github.com/soumya92/barista/modules/weather"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/pango"
+	"github.com/soumya92/barista/pango/icons/fontawesome"
+	"github.com/soumya92/barista/pango/icons/ionicons"
+	"github.com/soumya92/barista/pango/icons/material"
+	"github.com/soumya92/barista/pango/icons/material_community"
+	"github.com/soumya92/barista/pango/icons/typicons"
 )
+
+var spacer = pango.Span(" ", pango.XXSmall)
 
 func truncate(in string, l int) string {
 	if len([]rune(in)) <= l {
@@ -67,16 +76,20 @@ func mediaFormatFunc(m media.Info) *bar.Output {
 	if len(title) < 20 {
 		artist = truncate(m.Artist, 40-len(title))
 	}
-	if m.PlaybackStatus != media.Playing {
-		return outputs.Textf("%s - %s", title, artist)
+	var iconAndPosition pango.Node
+	if m.PlaybackStatus == media.Playing {
+		iconAndPosition = pango.Span(
+			colors.Hex("#f70"),
+			fontawesome.Icon("music"),
+			spacer,
+			formatMediaTime(m.Position()),
+			"/",
+			formatMediaTime(m.Length),
+		)
+	} else {
+		iconAndPosition = fontawesome.Icon("music", colors.Hex("#f70"))
 	}
-	return outputs.Textf(
-		"%s/%s: %s - %s",
-		formatMediaTime(m.Position()),
-		formatMediaTime(m.Length),
-		title,
-		artist,
-	)
+	return outputs.Pango(iconAndPosition, spacer, title, " - ", artist)
 }
 
 func startTaskManager(e bar.Event) {
@@ -94,8 +107,27 @@ func home(path string) string {
 }
 
 func main() {
+	material.Load(home("Github/material-design-icons"))
+	material_community.Load(home("Github/MaterialDesign-Webfont"))
+	typicons.Load(home("Github/typicons.font"))
+	ionicons.Load(home("Github/ionicons"))
+	fontawesome.Load(home("Github/Font-Awesome"))
 
-	localtime := clock.New(clock.OutputFormat("Mon Jan 2 15:04"))
+	colors.LoadFromMap(map[string]string{
+		"good":     "#6d6",
+		"degraded": "#dd6",
+		"bad":      "#d66",
+		"dim-icon": "#777",
+	})
+
+	localtime := clock.New(clock.OutputFunc(func(now time.Time) *bar.Output {
+		return outputs.Pango(
+			material.Icon("today", colors.Scheme("dim-icon")),
+			now.Format("Mon Jan 2 "),
+			material.Icon("access-time", colors.Scheme("dim-icon")),
+			now.Format("15:04:05"),
+		)
+	}))
 	localtime.OnClick(func(e bar.Event) {
 		if e.Button == bar.ButtonLeft {
 			exec.Command("gsimplecal").Run()
@@ -109,15 +141,72 @@ func main() {
 	wthr := weather.New(
 		weather.Zipcode{"94043", "US"},
 		weather.APIKey(strings.TrimSpace(string(apiKey))),
-		weather.OutputTemplate(outputs.TextTemplate(`{{.Description}}, {{.Temperature.C}}℃`)),
+		weather.OutputFunc(func(w weather.Weather) *bar.Output {
+			iconName := ""
+			switch w.Condition {
+			case weather.ConditionThunderstorm,
+				weather.ConditionTropicalStorm,
+				weather.ConditionHurricane:
+				iconName = "stormy"
+			case weather.ConditionDrizzle,
+				weather.ConditionHail:
+				iconName = "shower"
+			case weather.ConditionRain:
+				iconName = "downpour"
+			case weather.ConditionSnow,
+				weather.ConditionSleet:
+				iconName = "snow"
+			case weather.ConditionMist,
+				weather.ConditionSmoke,
+				weather.ConditionWhirls,
+				weather.ConditionHaze,
+				weather.ConditionFog:
+				iconName = "windy-cloudy"
+			case weather.ConditionClear:
+				if time.Now().After(w.Sunset) {
+					iconName = "night"
+				} else {
+					iconName = "sunny"
+				}
+			case weather.ConditionCloudy:
+				iconName = "partly-sunny"
+			case weather.ConditionOvercast:
+				iconName = "cloudy"
+			case weather.ConditionTornado,
+				weather.ConditionWindy:
+				iconName = "windy"
+			}
+			if iconName == "" {
+				iconName = "warning-outline"
+			} else {
+				iconName = "weather-" + iconName
+			}
+			return outputs.Pango(
+				typicons.Icon(iconName), spacer,
+				fmt.Sprintf("%d℃", w.Temperature.C()),
+			)
+		}),
 	)
 
 	vol := volume.New(
 		volume.OutputFunc(func(v volume.Volume) *bar.Output {
 			if v.Mute {
-				return outputs.Text("MUT")
+				out := outputs.Pango(ionicons.Icon("volume-mute"), "MUT")
+				out.Color = colors.Scheme("degraded")
+				return out
 			}
-			return outputs.Textf("%02d%%", v.Pct())
+			iconName := "low"
+			pct := v.Pct()
+			if pct > 66 {
+				iconName = "high"
+			} else if pct > 33 {
+				iconName = "medium"
+			}
+			return outputs.Pango(
+				ionicons.Icon("volume-"+iconName),
+				spacer,
+				pango.Textf("%2d%%", pct),
+			)
 		}),
 	)
 
@@ -133,9 +222,9 @@ func main() {
 			case s.Loads[0] > 128, s.Loads[2] > 64:
 				out.Urgent = true
 			case s.Loads[0] > 64, s.Loads[2] > 32:
-				out.Color = bar.Color("red")
+				out.Color = colors.Scheme("bad")
 			case s.Loads[0] > 32, s.Loads[2] > 16:
-				out.Color = bar.Color("yellow")
+				out.Color = colors.Scheme("degraded")
 			}
 			return out
 		}),
@@ -144,17 +233,17 @@ func main() {
 
 	freeMem := meminfo.New(
 		meminfo.OutputFunc("freeMem", func(m meminfo.Info) *bar.Output {
-			out := outputs.Text(m.Available().IEC())
+			out := outputs.Pango(material.Icon("memory"), m.Available().IEC())
 			freeGigs := m.Available().In("GiB")
 			switch {
 			case freeGigs < 0.5:
 				out.Urgent = true
 			case freeGigs < 1:
-				out.Color = bar.Color("red")
+				out.Color = colors.Scheme("bad")
 			case freeGigs < 2:
-				out.Color = bar.Color("yellow")
+				out.Color = colors.Scheme("degraded")
 			case freeGigs > 12:
-				out.Color = bar.Color("green")
+				out.Color = colors.Scheme("good")
 			}
 			return out
 		}),
@@ -165,24 +254,32 @@ func main() {
 		cputemp.RefreshInterval(2*time.Second),
 		cputemp.OutputFunc(func(temp cputemp.Temperature) *bar.Output {
 			celcius := temp.C()
-			out := outputs.Textf("%2d℃", celcius)
+			out := outputs.Pango(
+				material_community.Icon("fan"), spacer,
+				pango.Textf("%2d℃", celcius),
+			)
 			switch {
 			case celcius > 90:
 				out.Urgent = true
 			case celcius > 70:
-				out.Color = bar.Color("red")
+				out.Color = colors.Scheme("bad")
 			case celcius > 60:
-				out.Color = bar.Color("yellow")
+				out.Color = colors.Scheme("degraded")
 			}
 			return out
 		}),
 	)
 
-	netspeedTpl := `{{.Tx.SI | printf "%5s"}} {{.Rx.SI | printf "%5s"}}`
 	net := netspeed.New(
-		netspeed.Interface("em1"),
+		netspeed.Interface("eno1"),
 		netspeed.RefreshInterval(2*time.Second),
-		netspeed.OutputTemplate(outputs.TextTemplate(netspeedTpl)),
+		netspeed.OutputFunc(func(s netspeed.Speeds) *bar.Output {
+			return outputs.Pango(
+				fontawesome.Icon("upload"), spacer, pango.Textf("%5s", s.Tx.SI()),
+				pango.Span(" ", pango.Small),
+				fontawesome.Icon("download"), spacer, pango.Textf("%5s", s.Rx.SI()),
+			)
+		}),
 	)
 
 	rhythmbox := media.New(
