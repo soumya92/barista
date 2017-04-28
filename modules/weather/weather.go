@@ -12,19 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package weather provides an i3bar module that displays weather info.
-
-This module uses weather information provided by the OpenWeatherMap API,
-available at https://openweathermap.org/api.
-*/
+// Package weather provides an i3bar module that displays weather info.
 package weather
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/soumya92/barista/bar"
@@ -45,6 +36,7 @@ type Weather struct {
 	Sunrise     time.Time
 	Sunset      time.Time
 	Updated     time.Time
+	Attribution string
 }
 
 // Wind stores the wind speed and direction together.
@@ -81,7 +73,8 @@ const (
 	ConditionHail
 )
 
-// Temperature provides unit conversions for temperature.
+// Temperature provides unit conversions for temperature,
+// and stores the temperature in kelvin.
 type Temperature float64
 
 // K returns the temperature in kelvin.
@@ -100,7 +93,8 @@ func (t Temperature) F() int {
 	return int(c*1.8 + 32)
 }
 
-// Pressure provides unit conversions for pressure.
+// Pressure provides unit conversions for pressure,
+// and stores the temperature in millibar.
 type Pressure float64
 
 // Millibar returns pressure in millibars (hPa).
@@ -128,7 +122,8 @@ func (p Pressure) Psi() float64 {
 	return p.Millibar() * 0.01450377
 }
 
-// Speed provides unit conversions for speed.
+// Speed provides unit conversions for speed,
+// and stores the speed in meters per second.
 type Speed float64
 
 // Ms returns the speed in meters per second.
@@ -208,62 +203,16 @@ func OutputTemplate(template func(interface{}) *bar.Output) Config {
 	})
 }
 
-// APIKey sets the api key for openweathermap.
-// Get yours from https://home.openweathermap.org/users/sign_up
-type APIKey string
-
-func (a APIKey) apply(m *module) {
-	m.apiKey = string(a)
-}
-
-// RefreshInterval configures the polling frequency for OWM.
-// Since free users can only make 60 requests per hour,
-// and the weather doesn't change that frequently,
-// set this to at least 5 minutes.
+// RefreshInterval configures the polling frequency.
 type RefreshInterval time.Duration
 
 func (r RefreshInterval) apply(m *module) {
 	m.refreshInterval = time.Duration(r)
 }
 
-// Location encodes different types of location queries for OWM.
-type Location interface {
-	addTo(*url.Values)
-}
-
-// CityID queries OWM by city id. Recommended.
-type CityID string
-
-func (c CityID) addTo(qp *url.Values) {
-	qp.Add("id", string(c))
-}
-
-// CityName queries OWM using a named city. Least accurate.
-type CityName struct {
-	City, Country string
-}
-
-func (c CityName) addTo(qp *url.Values) {
-	qp.Add("q", fmt.Sprintf("%s,%s", c.City, c.Country))
-}
-
-// Coords queries OWM using lat/lon co-ordinates.
-type Coords struct {
-	Lat, Lon float64
-}
-
-func (c Coords) addTo(qp *url.Values) {
-	qp.Add("lat", fmt.Sprintf("%f", c.Lat))
-	qp.Add("lon", fmt.Sprintf("%f", c.Lon))
-}
-
-// Zipcode queries OWM using a zip code or post code and country.
-type Zipcode struct {
-	Zip, Country string
-}
-
-func (z Zipcode) addTo(qp *url.Values) {
-	qp.Add("zip", fmt.Sprintf("%s,%s", z.Zip, z.Country))
+// Provider is an interface for weather providers,
+type Provider interface {
+	GetWeather() (*Weather, error)
 }
 
 // Module is the public interface for a weather module.
@@ -277,8 +226,7 @@ type Module interface {
 
 type module struct {
 	*base.Base
-	location        Location
-	apiKey          string
+	provider        Provider
 	refreshInterval time.Duration
 	outputFunc      func(Weather) *bar.Output
 	// cache last weather info for click handler.
@@ -286,15 +234,13 @@ type module struct {
 }
 
 // New constructs an instance of the weather module with the provided configuration.
-func New(location Location, config ...Config) Module {
+func New(provider Provider, config ...Config) Module {
 	m := &module{
 		Base: base.New(),
-		// Location is required, so it's a param instead of being an optional Config.
-		location: location,
+		// Provider is required, so it's a param instead of being an optional Config.
+		provider: provider,
 		// Default is to refresh every 10 minutes
 		refreshInterval: 10 * time.Minute,
-		// Barista API Key, can be overridden by users if they want to use their own.
-		apiKey: "9c51204f81fc8e1998981de83a7cabc9",
 	}
 	// Apply each configuration.
 	for _, c := range config {
@@ -322,142 +268,17 @@ func (m *module) OnClick(f func(Weather, bar.Event)) {
 	})
 }
 
-// owmWeather represents an openweathermap json response.
-type owmWeather struct {
-	Weather []struct {
-		ID          int
-		Main        string
-		Description string
-		Icon        string
-	}
-	Main struct {
-		Temp     float64
-		Pressure float64
-		Humidity float64
-		TempMin  float64
-		TempMax  float64
-	}
-	Wind struct {
-		Speed float64
-		Deg   float64
-		Gust  float64
-	}
-	Clouds struct {
-		All float64
-	}
-	Sys struct {
-		Sunrise int64
-		Sunset  int64
-	}
-	Name string
-	Dt   int64
-}
-
-// A compromise between OWN's not detailed enough conditions
-// and their overly detailed descriptions.
-var owmConditions = map[int]Condition{
-	200: ConditionThunderstorm,
-	201: ConditionThunderstorm,
-	202: ConditionThunderstorm,
-	210: ConditionThunderstorm,
-	211: ConditionThunderstorm,
-	212: ConditionThunderstorm,
-	221: ConditionThunderstorm,
-	230: ConditionThunderstorm,
-	231: ConditionThunderstorm,
-	232: ConditionThunderstorm,
-	300: ConditionDrizzle,
-	301: ConditionDrizzle,
-	302: ConditionDrizzle,
-	310: ConditionDrizzle,
-	311: ConditionDrizzle,
-	312: ConditionDrizzle,
-	321: ConditionDrizzle,
-	500: ConditionRain,
-	501: ConditionRain,
-	502: ConditionRain,
-	503: ConditionRain,
-	504: ConditionRain,
-	511: ConditionRain,
-	520: ConditionRain,
-	521: ConditionRain,
-	522: ConditionRain,
-	600: ConditionSnow,
-	601: ConditionSnow,
-	602: ConditionSnow,
-	611: ConditionSleet,
-	621: ConditionSnow,
-	701: ConditionMist,
-	711: ConditionSmoke,
-	721: ConditionHaze,
-	731: ConditionWhirls,
-	741: ConditionFog,
-	800: ConditionClear,
-	801: ConditionCloudy,
-	802: ConditionCloudy,
-	803: ConditionCloudy,
-	804: ConditionOvercast,
-	900: ConditionTornado,
-	901: ConditionTropicalStorm,
-	902: ConditionHurricane,
-	903: ConditionCold,
-	904: ConditionHot,
-	905: ConditionWindy,
-	906: ConditionHail,
-}
-
 func (m *module) loop() error {
-	// Build the OWM URL.
-	qp := url.Values{}
-	qp.Add("appid", m.apiKey)
-	m.location.addTo(&qp)
-	owmURL := url.URL{
-		Scheme:   "http",
-		Host:     "api.openweathermap.org",
-		Path:     "/data/2.5/weather",
-		RawQuery: qp.Encode(),
-	}
-	url := owmURL.String()
 	for {
-		if err := m.updateWeather(url); err != nil {
+		weather, err := m.provider.GetWeather()
+		if err != nil {
 			return err
 		}
-		m.Output(m.outputFunc(m.lastWeather))
+		if weather != nil {
+			// nil weather means unchanged.
+			m.lastWeather = *weather
+			m.Output(m.outputFunc(m.lastWeather))
+		}
 		time.Sleep(m.refreshInterval)
 	}
-}
-
-func (m *module) updateWeather(url string) error {
-	response, err := http.Get(url)
-	if err != nil {
-		// Treat http errors as unchanged weather.
-		return nil
-	}
-	defer response.Body.Close()
-	o := owmWeather{}
-	err = json.NewDecoder(response.Body).Decode(&o)
-	if err != nil {
-		return err
-	}
-	if len(o.Weather) < 1 {
-		return fmt.Errorf("Bad response from OWM")
-	}
-	condition, ok := owmConditions[o.Weather[0].ID]
-	if !ok {
-		condition = ConditionUnknown
-	}
-	m.lastWeather = Weather{
-		City:        o.Name,
-		Condition:   condition,
-		Description: o.Weather[0].Description,
-		Temperature: Temperature(o.Main.Temp),
-		Humidity:    o.Main.Humidity,
-		Pressure:    Pressure(o.Main.Pressure),
-		Wind:        Wind{Speed(o.Wind.Speed), Direction(int(o.Wind.Deg))},
-		CloudCover:  o.Clouds.All,
-		Sunrise:     time.Unix(o.Sys.Sunrise, 0),
-		Sunset:      time.Unix(o.Sys.Sunset, 0),
-		Updated:     time.Unix(o.Dt, 0),
-	}
-	return nil
 }

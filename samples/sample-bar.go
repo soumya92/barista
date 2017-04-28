@@ -32,6 +32,7 @@ import (
 	"github.com/soumya92/barista/modules/sysinfo"
 	"github.com/soumya92/barista/modules/volume"
 	"github.com/soumya92/barista/modules/weather"
+	"github.com/soumya92/barista/modules/weather/openweathermap"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/pango/icons/fontawesome"
@@ -135,7 +136,7 @@ func main() {
 	// Weather information comes from OpenWeatherMap.
 	// https://openweathermap.org/api.
 	wthr := weather.New(
-		weather.Zipcode{"94043", "US"},
+		openweathermap.New().Zipcode("94043", "US").Build(),
 		weather.OutputFunc(func(w weather.Weather) *bar.Output {
 			iconName := ""
 			switch w.Condition {
@@ -179,7 +180,7 @@ func main() {
 			return outputs.Pango(
 				typicons.Icon(iconName), spacer,
 				pango.Textf("%d℃", w.Temperature.C()),
-				pango.Span(" [OpenWeatherMap]", pango.XSmall),
+				pango.Span(" (provided by ", w.Attribution, ")", pango.XSmall),
 			)
 		}),
 	)
