@@ -17,11 +17,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os/exec"
 	"os/user"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/soumya92/barista/bar"
@@ -134,13 +132,10 @@ func main() {
 		}
 	})
 
-	apiKey, err := ioutil.ReadFile(home(".config/owm.apikey"))
-	if err != nil {
-		panic(err)
-	}
+	// Weather information comes from OpenWeatherMap.
+	// https://openweathermap.org/api.
 	wthr := weather.New(
 		weather.Zipcode{"94043", "US"},
-		weather.APIKey(strings.TrimSpace(string(apiKey))),
 		weather.OutputFunc(func(w weather.Weather) *bar.Output {
 			iconName := ""
 			switch w.Condition {
@@ -183,7 +178,8 @@ func main() {
 			}
 			return outputs.Pango(
 				typicons.Icon(iconName), spacer,
-				fmt.Sprintf("%d℃", w.Temperature.C()),
+				pango.Textf("%d℃", w.Temperature.C()),
+				pango.Span(" [OpenWeatherMap]", pango.XSmall),
 			)
 		}),
 	)

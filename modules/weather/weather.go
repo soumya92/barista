@@ -12,8 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package weather provides an i3bar module that displays weather info.
-// It uses OpenWeatherMap's API with a user-specified key.
+/*
+Package weather provides an i3bar module that displays weather info.
+
+This module uses weather information provided by the OpenWeatherMap API,
+available at https://openweathermap.org/api.
+*/
 package weather
 
 import (
@@ -289,6 +293,8 @@ func New(location Location, config ...Config) Module {
 		location: location,
 		// Default is to refresh every 10 minutes
 		refreshInterval: 10 * time.Minute,
+		// Barista API Key, can be overridden by users if they want to use their own.
+		apiKey: "9c51204f81fc8e1998981de83a7cabc9",
 	}
 	// Apply each configuration.
 	for _, c := range config {
