@@ -49,8 +49,8 @@ func (s Size) AttrValue() string {
 
 type size string
 
+// Keyword sizes supported in Pango.
 var (
-	// Keyword sizes supported in Pango.
 	XXSmall Attribute = size("xx-small")
 	XSmall            = size("x-small")
 	Small             = size("small")
@@ -75,8 +75,8 @@ func (s size) AttrValue() string {
 
 type style string
 
+// Font styles supported in Pango.
 var (
-	// Font styles supported in Pango.
 	StyleNormal Attribute = style("normal")
 	Oblique               = style("oblique")
 	Italic                = style("italic")
@@ -107,8 +107,8 @@ func (w Weight) AttrValue() string {
 
 type weight string
 
+// Keyword weights supported in Pango.
 var (
-	// Keyword weights supported in Pango.
 	Ultralight   Attribute = weight("ultralight")
 	Light                  = weight("light")
 	WeightNormal           = weight("normal")
@@ -129,8 +129,8 @@ func (w weight) AttrValue() string {
 
 type variant string
 
+// Pango font variants.
 var (
-	// Pango font variants.
 	VariantNormal Attribute = variant("normal")
 	SmallCaps               = variant("smallcaps")
 )
@@ -147,8 +147,8 @@ func (v variant) AttrValue() string {
 
 type stretch string
 
+// Pango font stretch keywords.
 var (
-	// Pango font stretch keywords.
 	StretchNormal  Attribute = stretch("normal")
 	UltraCondensed           = stretch("ultracondensed")
 	ExtraCondensed           = stretch("extracondensed")
@@ -209,8 +209,8 @@ func (b BgAlpha) AttrValue() string {
 
 type underline string
 
+// Pango underline keywords.
 var (
-	// Pango underline keywords.
 	UnderlineNone   Attribute = underline("none")
 	UnderlineSingle           = underline("single")
 	UnderlineDouble           = underline("double")
@@ -253,8 +253,8 @@ func (r Rise) AttrValue() string {
 
 type strikethrough bool
 
+// Whether to strike through the text.
 var (
-	// Whether to strike through the text.
 	Strikethrough   Attribute = strikethrough(true)
 	NoStrikethrough           = strikethrough(false)
 )

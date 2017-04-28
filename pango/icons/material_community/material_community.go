@@ -33,10 +33,13 @@ import (
 
 var provider icons.Provider
 
+// Icon returns a pango node for the given icon name and styles.
 func Icon(name string, style ...pango.Attribute) pango.Node {
 	return provider.Icon(name, style...)
 }
 
+// Load initialises the material design (community) icon provider
+// from the given repo.
 func Load(repoPath string) error {
 	c := icons.Config{
 		RepoPath: repoPath,

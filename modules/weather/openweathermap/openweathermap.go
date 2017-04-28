@@ -28,11 +28,14 @@ import (
 	"github.com/soumya92/barista/modules/weather"
 )
 
+// Config represents open weather map API configuration
+// from which a weather.Provider can be built.
 type Config struct {
 	query  map[string]string
 	apiKey string
 }
 
+// New creates a default configuration with barista's API key.
 func New() *Config {
 	return &Config{
 		// Barista API Key, can be overridden by users if they want to use their own.
@@ -47,8 +50,8 @@ func (c *Config) APIKey(apiKey string) *Config {
 }
 
 // CityID queries OWM by city id. Recommended.
-func (c *Config) CityID(cityId string) *Config {
-	c.query = map[string]string{"id": cityId}
+func (c *Config) CityID(cityID string) *Config {
+	c.query = map[string]string{"id": cityID}
 	return c
 }
 
@@ -176,6 +179,7 @@ func getOwmCondition(owmCondition int) weather.Condition {
 	return weather.ConditionUnknown
 }
 
+// GetWeather gets weather information from OpenWeatherMap.
 func (owm OWMProvider) GetWeather() (*weather.Weather, error) {
 	response, err := http.Get(string(owm))
 	if err != nil {
