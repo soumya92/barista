@@ -77,112 +77,16 @@ const (
 // and stores the temperature in kelvin.
 type Temperature float64
 
-// K returns the temperature in kelvin.
-func (t Temperature) K() int {
-	return int(t)
-}
-
-// C returns the temperature in degrees celcius.
-func (t Temperature) C() int {
-	return int(float64(t) - 273.15)
-}
-
-// F returns the temperature in degrees fahrenheit.
-func (t Temperature) F() int {
-	c := float64(t) - 273.15
-	return int(c*1.8 + 32)
-}
-
 // Pressure provides unit conversions for pressure,
 // and stores the temperature in millibar.
 type Pressure float64
-
-// Millibar returns pressure in millibars (hPa).
-func (p Pressure) Millibar() float64 {
-	return float64(p)
-}
-
-// Pascal returns pressure in pascals.
-func (p Pressure) Pascal() float64 {
-	return p.Millibar() * 100
-}
-
-// Atm returns pressure in atmospheres.
-func (p Pressure) Atm() float64 {
-	return p.Millibar() * 0.000986923
-}
-
-// Torr returns pressure in torr. ~= mmHg.
-func (p Pressure) Torr() float64 {
-	return p.Millibar() * 0.750062
-}
-
-// Psi returns pressure in pounds per square inch.
-func (p Pressure) Psi() float64 {
-	return p.Millibar() * 0.01450377
-}
 
 // Speed provides unit conversions for speed,
 // and stores the speed in meters per second.
 type Speed float64
 
-// Ms returns the speed in meters per second.
-func (s Speed) Ms() float64 {
-	return float64(s)
-}
-
-// Kmh returns the speed in kilometers per hour.
-func (s Speed) Kmh() float64 {
-	return s.Ms() * 3.6
-}
-
-// Mph returns the speed in miles per hour.
-func (s Speed) Mph() float64 {
-	return s.Ms() * 2.23694
-}
-
-// Knots returns the speed in knots.
-func (s Speed) Knots() float64 {
-	return s.Ms() * 1.94384
-}
-
 // Direction represents a compass direction stored as degrees.
 type Direction int
-
-// Deg returns the direction in meteorological degrees.
-func (d Direction) Deg() int {
-	return int(d)
-}
-
-// Cardinal returns the cardinal direction.
-func (d Direction) Cardinal() string {
-	cardinal := ""
-	deg := d.Deg()
-	m := 34
-	// primary cardinal direction first. N, E, S, W.
-	switch {
-	case deg < m || deg > 360-m:
-		cardinal = "N"
-	case 90-m < deg && deg < 90+m:
-		cardinal = "E"
-	case 180-m < deg && deg < 180+m:
-		cardinal = "S"
-	case 270-m < deg && deg < 270+m:
-		cardinal = "W"
-	}
-	// Now append the midway points. NE, NW, SE, SW.
-	switch {
-	case 45-m < deg && deg < 45+m:
-		cardinal += "NE"
-	case 135-m < deg && deg < 135+m:
-		cardinal += "SE"
-	case 225-m < deg && deg < 225+m:
-		cardinal += "SW"
-	case 315-m < deg && deg < 315+m:
-		cardinal += "NW"
-	}
-	return cardinal
-}
 
 // Config represents a configuration that can be applied to a module instance.
 type Config interface {
