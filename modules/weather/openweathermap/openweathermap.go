@@ -80,9 +80,9 @@ func (c *Config) Zipcode(zip, country string) *Config {
 	return c
 }
 
-// OWMProvider wraps an open weather map API url so that
+// Provider wraps an open weather map API url so that
 // it can be used as a weather.Provider.
-type OWMProvider string
+type Provider string
 
 // Build builds a weather provider from the configuration.
 func (c *Config) Build() weather.Provider {
@@ -98,7 +98,7 @@ func (c *Config) Build() weather.Provider {
 		Path:     "/data/2.5/weather",
 		RawQuery: qp.Encode(),
 	}
-	return OWMProvider(owmURL.String())
+	return Provider(owmURL.String())
 }
 
 // owmWeather represents an openweathermap json response.
@@ -180,7 +180,7 @@ func getOwmCondition(owmCondition int) weather.Condition {
 }
 
 // GetWeather gets weather information from OpenWeatherMap.
-func (owm OWMProvider) GetWeather() (*weather.Weather, error) {
+func (owm Provider) GetWeather() (*weather.Weather, error) {
 	response, err := http.Get(string(owm))
 	if err != nil {
 		return nil, err
