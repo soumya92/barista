@@ -105,21 +105,16 @@ func (c *Config) Build() weather.Provider {
 type owmWeather struct {
 	Weather []struct {
 		ID          int
-		Main        string
 		Description string
-		Icon        string
 	}
 	Main struct {
 		Temp     float64
 		Pressure float64
 		Humidity float64
-		TempMin  float64
-		TempMax  float64
 	}
 	Wind struct {
 		Speed float64
 		Deg   float64
-		Gust  float64
 	}
 	Clouds struct {
 		All float64
@@ -132,7 +127,7 @@ type owmWeather struct {
 	Dt   int64
 }
 
-func getOwmCondition(owmCondition int) weather.Condition {
+func getCondition(owmCondition int) weather.Condition {
 	switch owmCondition {
 	case 611:
 		return weather.ConditionSleet
@@ -196,7 +191,7 @@ func (owm Provider) GetWeather() (*weather.Weather, error) {
 	}
 	return &weather.Weather{
 		City:        o.Name,
-		Condition:   getOwmCondition(o.Weather[0].ID),
+		Condition:   getCondition(o.Weather[0].ID),
 		Description: o.Weather[0].Description,
 		Temperature: weather.TemperatureFromK(o.Main.Temp),
 		Humidity:    o.Main.Humidity,
