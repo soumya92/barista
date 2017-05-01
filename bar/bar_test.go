@@ -44,7 +44,6 @@ func TestHeader(t *testing.T) {
 type testModule chan *Output
 
 func (t *testModule) Stream() <-chan *Output { return (<-chan *Output)(*t) }
-func (t *testModule) Click(e Event)          { /* TODO: Test click events. */ }
 func (t *testModule) Output(o *Output)       { *t <- o }
 
 func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {

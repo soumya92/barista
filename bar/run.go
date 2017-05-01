@@ -19,9 +19,11 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/signal"
 	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 // identifier stores a Name and instance pair used when communicating with i3bar.
@@ -120,6 +122,10 @@ func (b *I3Bar) Run() error {
 	header := i3Header{
 		Version:     1,
 		ClickEvents: true,
+		// Go doesn't allow us to handle the default SIGSTOP,
+		// so we'll use SIGUSR1 and SIGUSR2 for pause/resume.
+		StopSignal: int(syscall.SIGUSR1),
+		ContSignal: int(syscall.SIGUSR2),
 	}
 	// Set up the encoder for the output stream,
 	// so that module outputs can be written directly.
@@ -142,6 +148,10 @@ func (b *I3Bar) Run() error {
 		go m.output(b.outputs)
 	}
 
+	// Set up signal handlers for USR1/2 to pause/resume supported modules.
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
+
 	// Infinite arrays on both sides.
 	for {
 		select {
@@ -158,8 +168,18 @@ func (b *I3Bar) Run() error {
 			// Events are stripped of name and instance before being dispatched to the
 			// correct module.
 			if module, ok := b.get(event.Instance); ok {
-				// Goroutine to prevent click handlers from blocking the bar.
-				go module.Click(event.Event)
+				// Check that the module actually supports click events.
+				if clickable, ok := module.Module.(Clickable); ok {
+					// Goroutine to prevent click handlers from blocking the bar.
+					go clickable.Click(event.Event)
+				}
+			}
+		case sig := <-signalChan:
+			switch sig {
+			case syscall.SIGUSR1:
+				b.pause()
+			case syscall.SIGUSR2:
+				b.resume()
 			}
 		}
 	}
@@ -251,6 +271,24 @@ func (b *I3Bar) readEvents() {
 		// Consume ','
 		if _, err := reader.ReadString(','); err != nil {
 			return
+		}
+	}
+}
+
+// pause instructs all pausable modules to suspend processing.
+func (b *I3Bar) pause() {
+	for _, m := range b.i3Modules {
+		if pausable, ok := m.Module.(Pausable); ok {
+			pausable.Pause()
+		}
+	}
+}
+
+// resume instructs all pausable modules to continue processing.
+func (b *I3Bar) resume() {
+	for _, m := range b.i3Modules {
+		if pausable, ok := m.Module.(Pausable); ok {
+			pausable.Resume()
 		}
 	}
 }

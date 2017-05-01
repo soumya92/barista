@@ -110,7 +110,23 @@ type Module interface {
 	// refresh the display when needed. Each new item on this channel will immediately
 	// update the module output.
 	Stream() <-chan *Output
+}
+
+// Clickable is an additional interface modules may implement if they handle click events.
+type Clickable interface {
 	// Click will be called by the bar when it receives a mouse event from i3 that is
 	// meant for this module.
 	Click(Event)
+}
+
+// Pausable is an additional interface modules may implement if they support being "paused".
+type Pausable interface {
+	// Pause will be called by the bar when it receives a SIGSTOP, usually when it is no
+	// longer visible. Modules should use this as a signal to suspend background processing.
+	Pause()
+
+	// Resume will be called by the bar when it receives a SIGCONT, usually when it becomes
+	// visible again. Modules should use this as a trigger for resuming background processing,
+	// as well as immediately updating their output (or triggering a process to do so).
+	Resume()
 }
