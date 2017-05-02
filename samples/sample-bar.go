@@ -140,36 +140,36 @@ func main() {
 		weather.OutputFunc(func(w weather.Weather) *bar.Output {
 			iconName := ""
 			switch w.Condition {
-			case weather.ConditionThunderstorm,
-				weather.ConditionTropicalStorm,
-				weather.ConditionHurricane:
+			case weather.Thunderstorm,
+				weather.TropicalStorm,
+				weather.Hurricane:
 				iconName = "stormy"
-			case weather.ConditionDrizzle,
-				weather.ConditionHail:
+			case weather.Drizzle,
+				weather.Hail:
 				iconName = "shower"
-			case weather.ConditionRain:
+			case weather.Rain:
 				iconName = "downpour"
-			case weather.ConditionSnow,
-				weather.ConditionSleet:
+			case weather.Snow,
+				weather.Sleet:
 				iconName = "snow"
-			case weather.ConditionMist,
-				weather.ConditionSmoke,
-				weather.ConditionWhirls,
-				weather.ConditionHaze,
-				weather.ConditionFog:
+			case weather.Mist,
+				weather.Smoke,
+				weather.Whirls,
+				weather.Haze,
+				weather.Fog:
 				iconName = "windy-cloudy"
-			case weather.ConditionClear:
+			case weather.Clear:
 				if time.Now().After(w.Sunset) {
 					iconName = "night"
 				} else {
 					iconName = "sunny"
 				}
-			case weather.ConditionCloudy:
+			case weather.PartlyCloudy:
 				iconName = "partly-sunny"
-			case weather.ConditionOvercast:
+			case weather.Cloudy, weather.Overcast:
 				iconName = "cloudy"
-			case weather.ConditionTornado,
-				weather.ConditionWindy:
+			case weather.Tornado,
+				weather.Windy:
 				iconName = "windy"
 			}
 			if iconName == "" {

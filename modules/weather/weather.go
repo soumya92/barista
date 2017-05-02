@@ -51,26 +51,27 @@ type Condition int
 // Possible weather conditions
 const (
 	ConditionUnknown = iota
-	ConditionThunderstorm
-	ConditionDrizzle
-	ConditionRain
-	ConditionSnow
-	ConditionSleet
-	ConditionMist
-	ConditionSmoke
-	ConditionWhirls
-	ConditionHaze
-	ConditionFog
-	ConditionClear
-	ConditionCloudy
-	ConditionOvercast
-	ConditionTornado
-	ConditionTropicalStorm
-	ConditionHurricane
-	ConditionCold
-	ConditionHot
-	ConditionWindy
-	ConditionHail
+	Thunderstorm
+	Drizzle
+	Rain
+	Snow
+	Sleet
+	Mist
+	Smoke
+	Whirls
+	Haze
+	Fog
+	Clear
+	Cloudy
+	PartlyCloudy
+	Overcast
+	Tornado
+	TropicalStorm
+	Hurricane
+	Cold
+	Hot
+	Windy
+	Hail
 )
 
 // Temperature provides unit conversions for temperature,

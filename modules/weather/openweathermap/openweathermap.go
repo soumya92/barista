@@ -130,46 +130,48 @@ type owmWeather struct {
 func getCondition(owmCondition int) weather.Condition {
 	switch owmCondition {
 	case 611:
-		return weather.ConditionSleet
+		return weather.Sleet
 	case 701:
-		return weather.ConditionMist
+		return weather.Mist
 	case 711:
-		return weather.ConditionSmoke
+		return weather.Smoke
 	case 721:
-		return weather.ConditionHaze
+		return weather.Haze
 	case 731:
-		return weather.ConditionWhirls
+		return weather.Whirls
 	case 741:
-		return weather.ConditionFog
+		return weather.Fog
 	case 800:
-		return weather.ConditionClear
-	case 801, 802, 803:
-		return weather.ConditionCloudy
+		return weather.Clear
+	case 801, 802:
+		return weather.PartlyCloudy
+	case 803:
+		return weather.Cloudy
 	case 804:
-		return weather.ConditionOvercast
+		return weather.Overcast
 	case 900:
-		return weather.ConditionTornado
+		return weather.Tornado
 	case 901:
-		return weather.ConditionTropicalStorm
+		return weather.TropicalStorm
 	case 902:
-		return weather.ConditionHurricane
+		return weather.Hurricane
 	case 903:
-		return weather.ConditionCold
+		return weather.Cold
 	case 904:
-		return weather.ConditionHot
+		return weather.Hot
 	case 905:
-		return weather.ConditionWindy
+		return weather.Windy
 	case 906:
-		return weather.ConditionHail
+		return weather.Hail
 	}
 	if owmCondition >= 200 && owmCondition < 300 {
-		return weather.ConditionThunderstorm
+		return weather.Thunderstorm
 	} else if owmCondition >= 300 && owmCondition < 500 {
-		return weather.ConditionDrizzle
+		return weather.Drizzle
 	} else if owmCondition >= 500 && owmCondition < 600 {
-		return weather.ConditionRain
+		return weather.Rain
 	} else if owmCondition >= 600 && owmCondition < 700 {
-		return weather.ConditionSnow
+		return weather.Snow
 	}
 	return weather.ConditionUnknown
 }

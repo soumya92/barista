@@ -99,27 +99,27 @@ type dsWeather struct {
 func getCondition(icon string) weather.Condition {
 	switch icon {
 	case "thunderstorm":
-		return weather.ConditionThunderstorm
+		return weather.Thunderstorm
 	case "rain":
-		return weather.ConditionRain
+		return weather.Rain
 	case "snow":
-		return weather.ConditionSnow
+		return weather.Snow
 	case "sleet":
-		return weather.ConditionSleet
+		return weather.Sleet
 	case "fog":
-		return weather.ConditionFog
+		return weather.Fog
 	case "clear-day", "clear-night":
-		return weather.ConditionClear
+		return weather.Clear
 	case "cloudy":
-		return weather.ConditionCloudy
+		return weather.Cloudy
 	case "partly-cloudy-day", "partly-cloudy-night":
-		return weather.ConditionOvercast
+		return weather.PartlyCloudy
 	case "tornado":
-		return weather.ConditionTornado
+		return weather.Tornado
 	case "wind":
-		return weather.ConditionWindy
+		return weather.Windy
 	case "hail":
-		return weather.ConditionHail
+		return weather.Hail
 	}
 	return weather.ConditionUnknown
 }

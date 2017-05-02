@@ -127,23 +127,23 @@ type wuWeather struct {
 func getCondition(icon string) weather.Condition {
 	switch icon {
 	case "chancetstorms", "tstorms":
-		return weather.ConditionThunderstorm
+		return weather.Thunderstorm
 	case "chancerain", "rain":
-		return weather.ConditionRain
+		return weather.Rain
 	case "chanceflurries", "chancesnow", "flurries", "snow":
-		return weather.ConditionSnow
+		return weather.Snow
 	case "chancesleet", "sleet":
-		return weather.ConditionSleet
+		return weather.Sleet
 	case "hazy":
-		return weather.ConditionHaze
+		return weather.Haze
 	case "fog":
-		return weather.ConditionFog
+		return weather.Fog
 	case "clear", "mostlysunny", "sunny":
-		return weather.ConditionClear
+		return weather.Clear
 	case "cloudy", "mostlycloudy":
-		return weather.ConditionCloudy
+		return weather.Cloudy
 	case "partlycloudy", "partlysunny":
-		return weather.ConditionOvercast
+		return weather.PartlyCloudy
 	}
 	return weather.ConditionUnknown
 }
