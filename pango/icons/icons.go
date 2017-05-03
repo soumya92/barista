@@ -115,7 +115,7 @@ var fs = afero.NewOsFs()
 func (c *Config) LoadFromFile(parseFile func(io.Reader, func(string, string)) error) (Provider, error) {
 	f, err := fs.Open(filepath.Join(c.RepoPath, c.FilePath))
 	if err != nil {
-		return nil, err
+		return &provider{}, err
 	}
 	defer f.Close()
 	i := provider{
