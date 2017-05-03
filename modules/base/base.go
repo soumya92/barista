@@ -69,8 +69,7 @@ func (b *Base) Click(e bar.Event) {
 			b.startWorker()
 		}
 		if e.Button == bar.ButtonLeft {
-			// TODO: Use dbus.
-			go exec.Command("notify-send", b.lastError.Error()).Run()
+			go exec.Command("i3-nagbar", "-m", b.lastError.Error()).Run()
 		}
 		return
 	}
