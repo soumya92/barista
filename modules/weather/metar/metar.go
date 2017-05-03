@@ -328,7 +328,7 @@ func (p Provider) GetWeather() (*weather.Weather, error) {
 	}
 
 	return &weather.Weather{
-		City:        m.StationID,
+		Location:    m.StationID,
 		Condition:   m.getCondition(),
 		Description: m.encodeMetar(p.stripRemarks, p.includeFlightCat),
 		Temperature: weather.TemperatureFromC(m.Temperature),

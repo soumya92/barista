@@ -179,7 +179,7 @@ func (wu Provider) GetWeather() (*weather.Weather, error) {
 		return nil, err
 	}
 	return &weather.Weather{
-		City:        w.CurrentObservation.DisplayLocation.City,
+		Location:    w.CurrentObservation.DisplayLocation.City,
 		Condition:   getCondition(w.CurrentObservation.Icon),
 		Description: w.CurrentObservation.Weather,
 		Temperature: weather.TemperatureFromC(w.CurrentObservation.TempC),

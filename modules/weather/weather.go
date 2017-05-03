@@ -25,7 +25,7 @@ import (
 
 // Weather represents the current weather conditions.
 type Weather struct {
-	City        string
+	Location    string
 	Condition   Condition
 	Description string
 	Temperature Temperature

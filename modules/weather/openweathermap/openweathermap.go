@@ -192,7 +192,7 @@ func (owm Provider) GetWeather() (*weather.Weather, error) {
 		return nil, fmt.Errorf("Bad response from OWM")
 	}
 	return &weather.Weather{
-		City:        o.Name,
+		Location:    o.Name,
 		Condition:   getCondition(o.Weather[0].ID),
 		Description: o.Weather[0].Description,
 		Temperature: weather.TemperatureFromK(o.Main.Temp),

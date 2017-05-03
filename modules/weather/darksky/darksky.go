@@ -137,7 +137,7 @@ func (ds Provider) GetWeather() (*weather.Weather, error) {
 		return nil, err
 	}
 	w := weather.Weather{
-		City:        fmt.Sprintf("%f,%f", d.Latitude, d.Longitude),
+		Location:    fmt.Sprintf("%f,%f", d.Latitude, d.Longitude),
 		Condition:   getCondition(d.Currently.Icon),
 		Description: d.Currently.Summary,
 		Temperature: weather.TemperatureFromF(d.Currently.Temperature),
