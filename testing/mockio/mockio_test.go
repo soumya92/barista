@@ -43,8 +43,10 @@ func TestStdout(t *testing.T) {
 	go (func(w io.Writer) {
 		io.WriteString(w, "ab")
 		io.WriteString(w, "cdef")
+		wait <- nil
 	})(stdout)
 
+	<-wait
 	val, err = stdout.ReadUntil('c', 1*time.Millisecond)
 	assert.Nil(t, err, "no error when multiple writes in goroutine")
 	assert.Equal(t, "abc", val, "read joins output from multiple writes in goroutine")
@@ -52,11 +54,13 @@ func TestStdout(t *testing.T) {
 
 	go (func(w io.Writer) {
 		io.WriteString(w, "ab")
+		wait <- nil
 		<-wait
 		io.WriteString(w, "cd")
 		wait <- nil
 	})(stdout)
 
+	<-wait
 	val, err = stdout.ReadUntil('d', 1*time.Millisecond)
 	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
 	assert.Equal(t, "ab", val, "returns content written before timeout")
@@ -68,19 +72,19 @@ func TestStdout(t *testing.T) {
 	go (func(w io.Writer) {
 		<-wait
 		io.WriteString(w, "ab")
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 		io.WriteString(w, "cd")
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 		io.WriteString(w, "ef")
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 		io.WriteString(w, "gh")
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 		io.WriteString(w, "ij")
 		wait <- nil
 	})(stdout)
 
 	wait <- nil
-	val, err = stdout.ReadUntil('i', 3*time.Millisecond)
+	val, err = stdout.ReadUntil('i', 50*time.Millisecond)
 	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
 	assert.Equal(t, "abcdef", val, "returns content written before timeout")
 
