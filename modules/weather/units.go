@@ -85,6 +85,16 @@ func PressureFromTorr(t float64) Pressure {
 	return Pressure(t * 1.33322)
 }
 
+// InHg returns pressure in inches of mercury (inHg).
+func (p Pressure) InHg() float64 {
+	return p.Millibar() * 0.0295301
+}
+
+// PressureFromInHg creates an inches of mercury pressure value.
+func PressureFromInHg(inHg float64) Pressure {
+	return Pressure(inHg * 33.8638)
+}
+
 // Psi returns pressure in pounds per square inch.
 func (p Pressure) Psi() float64 {
 	return p.Millibar() * 0.01450377
