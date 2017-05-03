@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+Package metar provides weather using the METAR API from
+the NOAA Aviation Digital Data Service,
+available at https://www.aviationweather.gov/.
+*/
 package metar
 
 import (
@@ -27,42 +32,46 @@ import (
 	"github.com/soumya92/barista/modules/weather"
 )
 
+// Config represents NOAA ADDS configuration
+// from which a weather.Provider can be built.
 type Config struct {
 	station          string
-	stripRmk         bool
+	stripRemarks     bool
 	includeFlightCat bool
 }
 
+// New creates an empty configuration.
 func New() *Config {
 	return &Config{}
 }
 
+// Station sets the airport code (e.g. KSEA) to query.
 func (c *Config) Station(station string) *Config {
 	c.station = station
 	return c
 }
 
+// StripRemarks strips remarks from the description.
 func (c *Config) StripRemarks() *Config {
-	c.stripRmk = true
+	c.stripRemarks = true
 	return c
 }
 
+// IncludeFlightCat adds flight category to the description.
 func (c *Config) IncludeFlightCat() *Config {
 	c.includeFlightCat = true
 	return c
 }
 
-type skyCondition struct {
-	SkyCover  string `xml:"sky_cover,attr"`
-	CloudBase int    `xml:"cloud_base_ft_agl,attr"`
-}
-
+// Provider wraps an ADDS XML url and configuration
+// so that it can be used as a weather.Provider.
 type Provider struct {
 	url              string
-	stripRmk         bool
+	stripRemarks     bool
 	includeFlightCat bool
 }
 
+// Build builds a weather provider from the configuration.
 func (c *Config) Build() weather.Provider {
 	if len(c.station) == 0 {
 		panic("Must provide a station ID before calling Build()")
@@ -84,14 +93,19 @@ func (c *Config) Build() weather.Provider {
 
 	return Provider{
 		url:              u.String(),
-		stripRmk:         c.stripRmk,
+		stripRemarks:     c.stripRemarks,
 		includeFlightCat: c.includeFlightCat,
 	}
 }
 
+type skyCondition struct {
+	SkyCover  string `xml:"sky_cover,attr"`
+	CloudBase int    `xml:"cloud_base_ft_agl,attr"`
+}
+
 type metar struct {
 	RawText            string         `xml:"raw_text"`
-	StationId          string         `xml:"station_id"`
+	StationID          string         `xml:"station_id"`
 	ObservationTime    string         `xml:"observation_time"`
 	Latitude           float64        `xml:"latitude"`
 	Longitude          float64        `xml:"longitude"`
@@ -110,12 +124,11 @@ type metar struct {
 	StationElevation   float64        `xml:"elevation_m"`
 }
 
-func (m metar) GetBarometricPressure() weather.Pressure {
-	if m.SeaLevelPressure != 0.0 {
-		return weather.PressureFromMillibar(m.SeaLevelPressure)
-	} else {
+func (m metar) getBarometricPressure() weather.Pressure {
+	if m.SeaLevelPressure == 0.0 {
 		return weather.PressureFromInHg(m.Altimeter)
 	}
+	return weather.PressureFromMillibar(m.SeaLevelPressure)
 }
 
 type addsResponse struct {
@@ -125,7 +138,7 @@ type addsResponse struct {
 // The August-Roche-Magnus approximation to the saturation vapor pressure.
 // https://en.wikipedia.org/wiki/Clausius–Clapeyron_relation
 func satVaporPressure(temp float64) float64 {
-	return 6.1094 * math.Exp((17.625 * temp) / (temp + 243.04))
+	return 6.1094 * math.Exp((17.625*temp)/(temp+243.04))
 }
 
 // See also: http://andrew.rsmas.miami.edu/bmcnoldy/Humidity.html
@@ -147,9 +160,9 @@ func encodeMetarTemp(temp float64) string {
 	return fmt.Sprintf("%s%04.1f", minus, temp)
 }
 
-func (m metar) encodeMetar(stripRmk bool, includeFlightCat bool) string {
+func (m metar) encodeMetar(stripRemarks bool, includeFlightCat bool) string {
 	mt := strings.TrimSpace(m.RawText)
-	if stripRmk {
+	if stripRemarks {
 		mt = remarksPattern.ReplaceAllString(mt, "")
 
 		// Include the temperature to 0.1C, if it's included in the
@@ -176,11 +189,11 @@ func (m metar) encodeMetar(stripRmk bool, includeFlightCat bool) string {
 type cloudiness int
 
 const (
-	cloudsNone      = 0
-	cloudsFew       = 2
-	cloudsScattered = 4
-	cloudsBroken    = 7
-	cloudsOvercast  = 8
+	cloudsNone      cloudiness = 0
+	cloudsFew                  = 2
+	cloudsScattered            = 4
+	cloudsBroken               = 7
+	cloudsOvercast             = 8
 )
 
 var cloudinessMap = map[string]cloudiness{
@@ -195,7 +208,7 @@ var cloudinessMap = map[string]cloudiness{
 }
 
 func (m metar) getCloudiness() cloudiness {
-	var c cloudiness = cloudsNone
+	c := cloudsNone
 	for _, skyCond := range m.SkyConditions {
 		coverage := cloudinessMap[skyCond.SkyCover]
 		if coverage > c {
@@ -288,6 +301,7 @@ func (m metar) getCondition() weather.Condition {
 	return weather.Clear
 }
 
+// GetWeather gets weather information from NOAA ADDS.
 func (p Provider) GetWeather() (*weather.Weather, error) {
 	response, err := http.Get(p.url)
 	if err != nil {
@@ -314,12 +328,12 @@ func (p Provider) GetWeather() (*weather.Weather, error) {
 	}
 
 	return &weather.Weather{
-		City:        m.StationId,
+		City:        m.StationID,
 		Condition:   m.getCondition(),
-		Description: m.encodeMetar(p.stripRmk, p.includeFlightCat),
+		Description: m.encodeMetar(p.stripRemarks, p.includeFlightCat),
 		Temperature: weather.TemperatureFromC(m.Temperature),
 		Humidity:    relativeHumidity(m.Temperature, m.Dewpoint),
-		Pressure:    m.GetBarometricPressure(),
+		Pressure:    m.getBarometricPressure(),
 		Wind: weather.Wind{
 			weather.SpeedFromKnots(float64(m.WindSpeed)),
 			weather.Direction(m.WindDirection),
