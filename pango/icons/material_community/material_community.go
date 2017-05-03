@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-Package material_community provides support for the community
+Package materialCommunity provides support for the community
 fork "Material Design Icons" from https://materialdesignicons.com/
 
 It requires cloning the webfont repo
@@ -21,7 +21,7 @@ https://github.com/Templarian/MaterialDesign-Webfont,
 uses scss/_variables.scss to get the list of icons,
 and requires fonts/materialdesignicons-webfont.ttf to be installed.
 */
-package material_community
+package materialCommunity
 
 import (
 	"strings"

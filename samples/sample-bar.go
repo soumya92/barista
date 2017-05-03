@@ -107,7 +107,7 @@ func home(path string) string {
 
 func main() {
 	material.Load(home("Github/material-design-icons"))
-	material_community.Load(home("Github/MaterialDesign-Webfont"))
+	materialCommunity.Load(home("Github/MaterialDesign-Webfont"))
 	typicons.Load(home("Github/typicons.font"))
 	ionicons.Load(home("Github/ionicons"))
 	fontawesome.Load(home("Github/Font-Awesome"))
@@ -252,7 +252,7 @@ func main() {
 		cputemp.OutputFunc(func(temp cputemp.Temperature) *bar.Output {
 			celcius := temp.C()
 			out := outputs.Pango(
-				material_community.Icon("fan"), spacer,
+				materialCommunity.Icon("fan"), spacer,
 				pango.Textf("%2d℃", celcius),
 			)
 			switch {
