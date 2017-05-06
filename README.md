@@ -1,5 +1,7 @@
 # Bar-i-sta
 
+[![Build Status](https://travis-ci.org/soumya92/barista.svg?branch=master)](https://travis-ci.org/soumya92/barista)
+
 Bar-i-sta is an i3 status bar written in golang.
 
 **This is not an official Google product**
