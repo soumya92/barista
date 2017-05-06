@@ -279,7 +279,7 @@ func (b *I3Bar) readEvents() {
 func (b *I3Bar) pause() {
 	for _, m := range b.i3Modules {
 		if pausable, ok := m.Module.(Pausable); ok {
-			pausable.Pause()
+			go pausable.Pause()
 		}
 	}
 }
@@ -288,7 +288,7 @@ func (b *I3Bar) pause() {
 func (b *I3Bar) resume() {
 	for _, m := range b.i3Modules {
 		if pausable, ok := m.Module.(Pausable); ok {
-			pausable.Resume()
+			go pausable.Resume()
 		}
 	}
 }
