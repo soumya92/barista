@@ -18,138 +18,149 @@ Package multi provides the ability for a single source to update multiple output
 For example, the gmail API supports getting the unread count for multiple labels,
 but users might prefer a separate output for each label.
 
-On the module side, it's mostly the same as base.Module,
-with an additional "key" on each method.
+Multi module supports an update function that will only be run once per update
+across all submodules.
 
-e.g. Output(key, output), Clear(key), OnClick(key, func), SetWorker(func).
+It's up to extending modules to decide how to expose the submodule creation,
+but one simple way to do so is to have OutputFunc/OutputTemplate return new
+submodules with that output template. This would allow for code like:
 
-On the user side, a multi module provides access to it's "submodules",
-so the code would look something like:
-
-m := SomeMultiModule(key1, key2)
-bar.Run(m.Get(key1), m.Get(key2))
-
-Because multi-modules introduce awkward syntax in the bar,
-they should only be used if there is a very clear advantage.
-
-For example, splitting the time and date is not worthy of a multi module
-since running a simple timer is cheap.
-
-Splitting email or system information is, because those are expensive,
-and should be bundled as much as possible.
+multi := multimodule.New(... config ...)
+bar.Run(
+	multi.OutputTemplate(`{{.Prop1}}`),
+	othermodule,
+	multi.OutputTemplate(``{{.Prop2}}`),
+)
 */
 package multi
 
 import (
+	"time"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/modules/base"
 )
 
 // ModuleSet represents a multi-module consisting of many individual modules.
 type ModuleSet struct {
-	modules      map[interface{}]*base.Base
-	clickHandler func(interface{}, bar.Event)
-	worker       func() error
-	running      bool
-}
-
-// Module is the public interface for ModuleSet.
-// It only allows getting individual modules, nothing else.
-// It should be provided to the user for use in their bar.
-type Module interface {
-	Get(key interface{}) base.Module
-	AddAll(*bar.I3Bar)
-}
-
-// OnClick sets the click handler.
-func (m *ModuleSet) OnClick(handler func(interface{}, bar.Event)) {
-	m.clickHandler = handler
-	for key, module := range m.modules {
-		if handler == nil {
-			module.OnClick(nil)
-			continue
-		}
-		module.OnClick(func(e bar.Event) {
-			handler(key, e)
-		})
-	}
+	submodules []*base.Base
+	updateFunc func()
+	scheduler  *scheduler
+	primaryIdx int
 }
 
 // NewModuleSet constructs a new multi-module.
 func NewModuleSet() *ModuleSet {
-	return &ModuleSet{
-		modules: make(map[interface{}]*base.Base),
-	}
+	// A negative primaryIdx means no submodule has updated yet.
+	return &ModuleSet{primaryIdx: -1}
 }
 
-// Add adds new keys to the module set.
-func (m *ModuleSet) Add(keys ...interface{}) {
-	for _, k := range keys {
-		module := base.New()
-		if m.clickHandler != nil {
-			module.OnClick(func(e bar.Event) {
-				m.clickHandler(k, e)
-			})
-		}
-		if m.worker != nil {
-			module.SetWorker(m.onDemandWorker)
-		}
-		m.modules[k] = module
-	}
+// Submodule exposes the base module interface with a click handler,
+// and some additional function to control the output.
+type Submodule interface {
+	base.WithClickHandler
+	Clear()
+	Output(out *bar.Output)
+	Error(err error) bool
 }
 
-// Clear hides a module from the bar.
-func (m *ModuleSet) Clear(key interface{}) {
-	if module, ok := m.modules[key]; ok {
+// New creates a submodule
+func (m *ModuleSet) New() Submodule {
+	module := base.New()
+	key := len(m.submodules)
+	module.OnUpdate(m.onDemandUpdate(key))
+	m.submodules = append(m.submodules, module)
+	return module
+}
+
+// Clear hides all modules from the bar.
+func (m *ModuleSet) Clear() {
+	for _, module := range m.submodules {
 		module.Clear()
 	}
 }
 
-// ClearAll hides all modules from the bar.
-func (m *ModuleSet) ClearAll() {
-	for _, module := range m.modules {
-		module.Clear()
+// Error sets all modules to an error state.
+func (m *ModuleSet) Error(err error) bool {
+	if err == nil {
+		return false
+	}
+	for _, module := range m.submodules {
+		module.Error(err)
+	}
+	return true
+}
+
+// Update marks submodules as ready for an update.
+func (m *ModuleSet) Update() {
+	if m.primaryIdx >= 0 {
+		m.submodules[m.primaryIdx].Update()
+		return
+	}
+	for _, module := range m.submodules {
+		module.Update()
 	}
 }
 
-// Output updates a single module's output.
-func (m *ModuleSet) Output(key interface{}, out *bar.Output) {
-	if module, ok := m.modules[key]; ok {
-		module.Output(out)
+// scheduler stores scheduled update information and applies
+// it to the first submodule that becomes active. onDemandUpdate
+// takes care of propagating the updates to other submodules.
+type scheduler struct {
+	when     time.Time
+	delay    time.Duration
+	interval time.Duration
+}
+
+func (s *scheduler) applyTo(b *base.Base) {
+	switch {
+	case !s.when.IsZero():
+		b.UpdateAt(s.when)
+	case s.delay > 0:
+		b.UpdateAfter(s.delay)
+	case s.interval > 0:
+		b.UpdateEvery(s.interval)
 	}
 }
 
-// SetWorker sets a worker function that will be run in a goroutine.
-// Useful if the module requires continuous background work.
-// The worker will be started whenever the first module begins streaming.
-func (m *ModuleSet) SetWorker(worker func() error) {
-	m.worker = worker
-	for _, module := range m.modules {
-		module.SetWorker(m.onDemandWorker)
-	}
+// UpdateAt schedules submodules for updating at a specific time.
+func (m *ModuleSet) UpdateAt(when time.Time) {
+	m.scheduler = &scheduler{when: when}
 }
 
-// Get gets a single module from the list of modules.
-func (m *ModuleSet) Get(key interface{}) base.Module {
-	return m.modules[key]
+// UpdateAfter schedules submodules for updating after a delay.
+func (m *ModuleSet) UpdateAfter(delay time.Duration) {
+	m.scheduler = &scheduler{delay: delay}
 }
 
-// AddAll adds all submodules (in indeterminate order) to the given bar.
-func (m *ModuleSet) AddAll(bar *bar.I3Bar) {
-	for _, module := range m.modules {
-		bar.Add(module)
-	}
+// UpdateEvery schedules submodules for repeated updating at an interval.
+func (m *ModuleSet) UpdateEvery(interval time.Duration) {
+	m.scheduler = &scheduler{interval: interval}
 }
 
-func (m *ModuleSet) onDemandWorker() error {
-	// Only one copy of the worker will run, others will be no-ops.
-	if m.running {
-		return nil
+// OnUpdate sets the function that will be run on each update.
+// An initial update will occur when the first module begins streaming,
+// and subsequent updates may be scheduled using timer.AfterFunc,
+// a goroutine, or an asynchronous mechanism.
+func (m *ModuleSet) OnUpdate(updateFunc func()) {
+	m.updateFunc = updateFunc
+}
+
+// onDemandUpdate wraps the update func with deduplication logic to
+// ensure that it's only called once between updates for all submodules.
+func (m *ModuleSet) onDemandUpdate(key int) func() {
+	return func() {
+		// The first submodule to update is marked "primary".
+		// Any calls to update actually end up calling update on the primary submodule,
+		// and all update scheduling is performed on the primary submodule as well.
+		if m.primaryIdx < 0 {
+			m.primaryIdx = key
+			if m.scheduler != nil {
+				m.scheduler.applyTo(m.submodules[key])
+				m.scheduler = nil
+			}
+		}
+		if m.updateFunc != nil {
+			m.updateFunc()
+		}
 	}
-	m.running = true
-	// This will block as long as the worker is running.
-	err := m.worker()
-	m.running = false
-	// Only one module will display the error. Pretend that's WAI ;)
-	return err
 }

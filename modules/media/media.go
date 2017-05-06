@@ -171,8 +171,7 @@ const (
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to control the media player.
 type Module interface {
-	Stream() <-chan *bar.Output
-	Click(e bar.Event)
+	base.Module
 	OnClick(func(Info, Controller, bar.Event))
 }
 
@@ -186,6 +185,9 @@ type module struct {
 	// To simplify adding/removing matches and querying metadata,
 	// store references to bus and player dbus objects.
 	player *mprisPlayer
+	// An additional update every second while music is playing
+	// to keep the position up to date.
+	positionScheduler base.Scheduler
 }
 
 // New constructs an instance of the media module with the provided configuration.
@@ -206,47 +208,7 @@ func New(player string, config ...Config) Module {
 		defTpl := outputs.TextTemplate(`{{if .Connected}}{{.Title}}{{end}}`)
 		OutputTemplate(defTpl).apply(m)
 	}
-	// Worker goroutine that listens for updates on dbus.
-	m.SetWorker(m.worker)
 	return m
-}
-
-// Play resumes playback of the current track.
-func (m *module) Play() {
-	m.player.Call(mprisPlay)
-}
-
-// Pause pauses the track. No effect if not playing.
-func (m *module) Pause() {
-	m.player.Call(mprisPause)
-}
-
-// PlayPause toggles between play and pause on the media player.
-func (m *module) PlayPause() {
-	m.player.Call(mprisPlayPause)
-}
-
-// Stop stops and clears the currently playing track.
-func (m *module) Stop() {
-	m.player.Call(mprisStop)
-}
-
-// Next switches to the next track
-func (m *module) Next() {
-	m.player.Call(mprisNext)
-}
-
-// Previous switches to the previous track (or restarts the current track).
-// Implementation is player-dependent.
-func (m *module) Previous() {
-	m.player.Call(mprisPrev)
-}
-
-// Seek seeks to the specified offset from the current position.
-// Use negative durations to seek backwards.
-func (m *module) Seek(offset time.Duration) {
-	micros := int64(offset) / int64(time.Microsecond)
-	m.player.Call(mprisSeek, micros)
 }
 
 // OnClick sets a click handler for the module.
@@ -256,7 +218,7 @@ func (m *module) OnClick(f func(Info, Controller, bar.Event)) {
 		return
 	}
 	m.Base.OnClick(func(e bar.Event) {
-		f(m.info, m, e)
+		f(m.info, m.player, e)
 	})
 }
 
@@ -277,28 +239,35 @@ func defaultClickHandler(i Info, c Controller, e bar.Event) {
 	}
 }
 
-func (m *module) worker() error {
+// Stream sets up d-bus connections and then returns the output
+// channel from the base module. This allows us to skip error
+// checking in the update function since we're guaranteed that
+// the update function will only be called if there were no errors
+// during startup.
+func (m *module) Stream() (ch <-chan *bar.Output) {
+	ch = m.Base.Stream()
 	// Need a private bus in-case other modules (or other instances of media) are
 	// using dbus as well. Since we rely on (Add|Remove)Match and Signal,
 	// we cannot share the session bus.
 	sessionBus, err := dbus.SessionBusPrivate()
-	if err != nil {
-		return err
+	if m.Error(err) {
+		return
 	}
-	defer sessionBus.Close()
 	// Need to handle auth and handshake ourselves for private sessions busses.
-	if err := sessionBus.Auth(nil); err != nil {
-		return err
+	if err := sessionBus.Auth(nil); m.Error(err) {
+		return
 	}
-	if err := sessionBus.Hello(); err != nil {
-		return err
+	if err := sessionBus.Hello(); m.Error(err) {
+		return
 	}
 	m.player = m.newMprisPlayer(sessionBus)
-	if m.player.err != nil {
-		return m.player.err
+	if m.Error(m.player.err) {
+		return
 	}
+	// If we made it this far, set the update function.
+	m.OnUpdate(m.update)
 	// Initial output.
-	m.refresh()
+	m.Update()
 
 	// Since the channel is shared with method call responses,
 	// we need a buffer to prevent deadlocks.
@@ -306,56 +275,56 @@ func (m *module) worker() error {
 	// and is also used in corp/access/credkit.
 	c := make(chan *dbus.Signal, 10)
 	sessionBus.Signal(c)
-	if m.trackPosition {
-		err = m.runWithPosition(c)
-	} else {
-		err = m.runWithoutPosition(c)
-	}
-	return err
+	go m.listen(c)
+	return
 }
 
 // runWithPosition updates the bar output every second,
 // in addition to updating it on every signal.
-func (m *module) runWithPosition(c <-chan *dbus.Signal) error {
-	t := time.NewTicker(time.Second)
-	defer t.Stop()
-	for {
-		select {
-		case v := <-c:
-			updated, err := m.player.handleDbusSignal(v)
-			if err != nil {
-				return err
-			}
-			if updated {
-				m.refresh()
-			}
-		case _ = <-t.C:
-			// Only position changes without a signal,
-			// so only update on the timer when playing.
-			if m.info.PlaybackStatus == Playing {
-				m.refresh()
-			}
-		}
-	}
-}
-
-// runWithoutPosition only updates the bar output on signals.
-func (m *module) runWithoutPosition(c <-chan *dbus.Signal) error {
+func (m *module) listen(c <-chan *dbus.Signal) {
 	for v := range c {
 		updated, err := m.player.handleDbusSignal(v)
-		if err != nil {
-			return err
+		if m.Error(err) {
+			continue
 		}
 		if updated {
-			m.refresh()
+			m.Update()
 		}
 	}
-	return nil
 }
 
-// refresh updates the bar output.
-func (m *module) refresh() {
+// update updates the bar output.
+func (m *module) update() {
 	m.Output(m.outputFunc(m.info))
+	m.positionScheduler.Stop()
+	if m.info.PlaybackStatus == Playing {
+		m.positionScheduler = m.UpdateEvery(time.Second)
+	}
+}
+
+// name represents a dbus name that can be decomposed into an interface + member.
+type name struct {
+	iface  string
+	member string
+}
+
+func (n name) String() string {
+	return n.iface + "." + n.member
+}
+
+// buildMatchString builds a match string for the dbus (Add|Remove)Match methods.
+func (n name) buildMatchString(sender string, args ...string) string {
+	conditions := make([]string, 0)
+	conditions = append(conditions, "type='signal'")
+	conditions = append(conditions, fmt.Sprintf("interface='%s'", n.iface))
+	conditions = append(conditions, fmt.Sprintf("member='%s'", n.member))
+	if sender != "" {
+		conditions = append(conditions, fmt.Sprintf("sender='%s'", sender))
+	}
+	for idx, val := range args {
+		conditions = append(conditions, fmt.Sprintf("arg%d='%s'", idx, val))
+	}
+	return strings.Join(conditions, ",")
 }
 
 // Constants, signals and properties.
@@ -431,6 +400,44 @@ func (m *module) newMprisPlayer(sessionBus *dbus.Conn) *mprisPlayer {
 	// Add listeners for player startup/shutdown to keep track of it's bus id.
 	player.Call(methodAddMatch, signalNameOwnerChanged.buildMatchString("", dest))
 	return player
+}
+
+// Play resumes playback of the current track.
+func (m *mprisPlayer) Play() {
+	m.Call(mprisPlay)
+}
+
+// Pause pauses the track. No effect if not playing.
+func (m *mprisPlayer) Pause() {
+	m.Call(mprisPause)
+}
+
+// PlayPause toggles between play and pause on the media player.
+func (m *mprisPlayer) PlayPause() {
+	m.Call(mprisPlayPause)
+}
+
+// Stop stops and clears the currently playing track.
+func (m *mprisPlayer) Stop() {
+	m.Call(mprisStop)
+}
+
+// Next switches to the next track
+func (m *mprisPlayer) Next() {
+	m.Call(mprisNext)
+}
+
+// Previous switches to the previous track (or restarts the current track).
+// Implementation is player-dependent.
+func (m *mprisPlayer) Previous() {
+	m.Call(mprisPrev)
+}
+
+// Seek seeks to the specified offset from the current position.
+// Use negative durations to seek backwards.
+func (m *mprisPlayer) Seek(offset time.Duration) {
+	micros := int64(offset) / int64(time.Microsecond)
+	m.Call(mprisSeek, micros)
 }
 
 // Get gets a player property from the mpris player object.
@@ -539,31 +546,6 @@ func (m *mprisPlayer) infoReader(getter dbusGetter) dbusInfoReader {
 	}
 }
 
-// name represents a dbus name that can be decomposed into an interface + member.
-type name struct {
-	iface  string
-	member string
-}
-
-func (n name) String() string {
-	return n.iface + "." + n.member
-}
-
-// buildMatchString builds a match string for the dbus (Add|Remove)Match methods.
-func (n name) buildMatchString(sender string, args ...string) string {
-	conditions := make([]string, 0)
-	conditions = append(conditions, "type='signal'")
-	conditions = append(conditions, fmt.Sprintf("interface='%s'", n.iface))
-	conditions = append(conditions, fmt.Sprintf("member='%s'", n.member))
-	if sender != "" {
-		conditions = append(conditions, fmt.Sprintf("sender='%s'", sender))
-	}
-	for idx, val := range args {
-		conditions = append(conditions, fmt.Sprintf("arg%d='%s'", idx, val))
-	}
-	return strings.Join(conditions, ",")
-}
-
 // dbusGetter allows getting named dbus properties.
 type dbusGetter interface {
 	Get(name) (interface{}, bool)
@@ -665,50 +647,52 @@ func (d *dbusInfoReader) updateRate() {
 }
 
 func (d *dbusInfoReader) updateMetadata() {
-	if metadataMap, ok := d.getter.Get(mprisMetadata); ok {
-		metadata := metadataMap.(map[string]dbus.Variant)
-		if length, ok := metadata["mpris:length"]; ok {
-			d.Length = time.Duration(getLong(length)) * time.Microsecond
+	metadataMap, ok := d.getter.Get(mprisMetadata)
+	if !ok {
+		return
+	}
+	metadata := metadataMap.(map[string]dbus.Variant)
+	if length, ok := metadata["mpris:length"]; ok {
+		d.Length = time.Duration(getLong(length)) * time.Microsecond
+		d.updated = true
+	}
+	if artist, ok := metadata["xesam:artist"]; ok {
+		artists := artist.Value().([]string)
+		if len(artists) > 0 {
+			d.Artist = artists[0]
 			d.updated = true
 		}
-		if artist, ok := metadata["xesam:artist"]; ok {
-			artists := artist.Value().([]string)
-			if len(artists) > 0 {
-				d.Artist = artists[0]
-				d.updated = true
-			}
-		}
-		if aArtist, ok := metadata["xesam:albumArtist"]; ok {
-			artists := aArtist.Value().([]string)
-			if len(artists) > 0 {
-				d.AlbumArtist = artists[0]
-				d.updated = true
-			}
-		}
-		if album, ok := metadata["xesam:album"]; ok {
-			d.Album = album.Value().(string)
+	}
+	if aArtist, ok := metadata["xesam:albumArtist"]; ok {
+		artists := aArtist.Value().([]string)
+		if len(artists) > 0 {
+			d.AlbumArtist = artists[0]
 			d.updated = true
 		}
-		if title, ok := metadata["xesam:title"]; ok {
-			d.Title = title.Value().(string)
-			d.updated = true
-		}
-		if ArtURL, ok := metadata["mpris:ArtURL"]; ok {
-			d.ArtURL = ArtURL.Value().(string)
-			d.updated = true
-		}
-		if !d.trackPosition {
-			// Don't bother setting track id if position doesn't matter.
-			return
-		}
-		if id, ok := metadata["mpris:trackid"]; ok {
-			trackID := id.Value().(string)
-			if trackID != d.trackID {
-				// mpris suggests that position should be reset on track change.
-				d.lastPosition = 0
-				d.lastUpdated = time.Now()
-				d.trackID = trackID
-			}
+	}
+	if album, ok := metadata["xesam:album"]; ok {
+		d.Album = album.Value().(string)
+		d.updated = true
+	}
+	if title, ok := metadata["xesam:title"]; ok {
+		d.Title = title.Value().(string)
+		d.updated = true
+	}
+	if ArtURL, ok := metadata["mpris:ArtURL"]; ok {
+		d.ArtURL = ArtURL.Value().(string)
+		d.updated = true
+	}
+	if !d.trackPosition {
+		// Don't bother setting track id if position doesn't matter.
+		return
+	}
+	if id, ok := metadata["mpris:trackid"]; ok {
+		trackID := id.Value().(string)
+		if trackID != d.trackID {
+			// mpris suggests that position should be reset on track change.
+			d.lastPosition = 0
+			d.lastUpdated = time.Now()
+			d.trackID = trackID
 		}
 	}
 }

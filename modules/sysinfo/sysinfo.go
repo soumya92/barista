@@ -22,6 +22,7 @@ import (
 	"github.com/dustin/go-humanize"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/modules/base"
 	"github.com/soumya92/barista/modules/multi"
 )
 
@@ -64,100 +65,82 @@ func (b Bytes) SI() string {
 
 // Config represents a configuration that can be applied to a module instance.
 type Config interface {
-	apply(*module)
-}
-
-type outputFunc struct {
-	Key    interface{}
-	Format func(Info) *bar.Output
-}
-
-func (o outputFunc) apply(m *module) {
-	m.ModuleSet.Add(o.Key)
-	m.outputFuncs[o.Key] = o.Format
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func OutputFunc(key interface{}, format func(Info) *bar.Output) Config {
-	return outputFunc{
-		Key:    key,
-		Format: format,
-	}
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(key interface{}, template func(interface{}) *bar.Output) Config {
-	return outputFunc{
-		Key: key,
-		Format: func(i Info) *bar.Output {
-			return template(i)
-		},
-	}
+	apply(*Module)
 }
 
 // RefreshInterval configures the polling frequency for sysinfo.
 type RefreshInterval time.Duration
 
-func (r RefreshInterval) apply(m *module) {
+func (r RefreshInterval) apply(m *Module) {
 	m.refreshInterval = time.Duration(r)
 }
 
-// module is the type of the i3bar module. It is unexported because it's an
-// implementation detail. It should never be used directly, only as something
-// that satisfies the bar.Module interface.
-type module struct {
-	*multi.ModuleSet
+// Module represents a sysinfo multi-module, and provides an interface
+// for creating bar.Modules with various output functions/templates
+// that share the same data source, cutting down on updates required.
+type Module struct {
+	moduleSet       *multi.ModuleSet
 	refreshInterval time.Duration
-	outputFuncs     map[interface{}]func(Info) *bar.Output
+	outputs         map[multi.Submodule]func(Info) *bar.Output
 }
 
 // New constructs an instance of the sysinfo multi-module
 // with the provided configuration.
-func New(config ...Config) multi.Module {
-	m := &module{
-		ModuleSet: multi.NewModuleSet(),
+func New(config ...Config) *Module {
+	m := &Module{
+		moduleSet: multi.NewModuleSet(),
 		// Default is to refresh every 3s, matching the behaviour of top.
 		refreshInterval: 3 * time.Second,
 		// Because the nil value of map is not sensible :(
-		outputFuncs: make(map[interface{}]func(Info) *bar.Output),
+		outputs: make(map[multi.Submodule]func(Info) *bar.Output),
 	}
 	// Apply each configuration.
 	for _, c := range config {
 		c.apply(m)
 	}
-	// Worker goroutine to update sysinfo at a fixed interval.
-	m.SetWorker(m.loop)
+	// Worker goroutine to update sysinfo.
+	m.moduleSet.OnUpdate(m.update)
+	m.moduleSet.UpdateEvery(m.refreshInterval)
 	return m
 }
 
-func (m *module) loop() error {
+// OutputFunc creates a submodule that displays the output of a user-defined function.
+func (m *Module) OutputFunc(format func(Info) *bar.Output) base.WithClickHandler {
+	submodule := m.moduleSet.New()
+	m.outputs[submodule] = format
+	return submodule
+}
+
+// OutputTemplate creates a submodule that displays the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) *bar.Output) base.WithClickHandler {
+	return m.OutputFunc(func(i Info) *bar.Output { return template(i) })
+}
+
+func (m *Module) update() {
 	var sysinfoT syscall.Sysinfo_t
 	const loadScale = 65536.0 // LINUX_SYSINFO_LOADS_SCALE
-	for {
-		if err := syscall.Sysinfo(&sysinfoT); err != nil {
-			return err
-		}
-		unit := uint64(sysinfoT.Unit)
-		sysinfo := Info{
-			Uptime: time.Duration(sysinfoT.Uptime) * time.Second,
-			Loads: [3]float64{
-				float64(sysinfoT.Loads[0]) / loadScale,
-				float64(sysinfoT.Loads[1]) / loadScale,
-				float64(sysinfoT.Loads[2]) / loadScale,
-			},
-			Procs:        sysinfoT.Procs,
-			TotalRAM:     Bytes(sysinfoT.Totalram * unit),
-			FreeRAM:      Bytes(sysinfoT.Freeram * unit),
-			SharedRAM:    Bytes(sysinfoT.Sharedram * unit),
-			BufferRAM:    Bytes(sysinfoT.Bufferram * unit),
-			TotalSwap:    Bytes(sysinfoT.Totalswap * unit),
-			FreeSwap:     Bytes(sysinfoT.Freeswap * unit),
-			TotalHighRAM: Bytes(sysinfoT.Totalhigh * unit),
-			FreeHighRAM:  Bytes(sysinfoT.Freehigh * unit),
-		}
-		for key, outputFunc := range m.outputFuncs {
-			m.Output(key, outputFunc(sysinfo))
-		}
-		time.Sleep(m.refreshInterval)
+	if m.moduleSet.Error(syscall.Sysinfo(&sysinfoT)) {
+		return
+	}
+	unit := uint64(sysinfoT.Unit)
+	sysinfo := Info{
+		Uptime: time.Duration(sysinfoT.Uptime) * time.Second,
+		Loads: [3]float64{
+			float64(sysinfoT.Loads[0]) / loadScale,
+			float64(sysinfoT.Loads[1]) / loadScale,
+			float64(sysinfoT.Loads[2]) / loadScale,
+		},
+		Procs:        sysinfoT.Procs,
+		TotalRAM:     Bytes(sysinfoT.Totalram * unit),
+		FreeRAM:      Bytes(sysinfoT.Freeram * unit),
+		SharedRAM:    Bytes(sysinfoT.Sharedram * unit),
+		BufferRAM:    Bytes(sysinfoT.Bufferram * unit),
+		TotalSwap:    Bytes(sysinfoT.Totalswap * unit),
+		FreeSwap:     Bytes(sysinfoT.Freeswap * unit),
+		TotalHighRAM: Bytes(sysinfoT.Totalhigh * unit),
+		FreeHighRAM:  Bytes(sysinfoT.Freehigh * unit),
+	}
+	for submodule, outputFunc := range m.outputs {
+		submodule.Output(outputFunc(sysinfo))
 	}
 }

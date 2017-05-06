@@ -95,7 +95,7 @@ type module struct {
 }
 
 // New constructs an instance of the wlan module with the provided configuration.
-func New(config ...Config) base.Module {
+func New(config ...Config) base.WithClickHandler {
 	m := &module{
 		Base: base.New(),
 		// Default interface for goobuntu laptops. Override using Interface(...)
@@ -111,27 +111,30 @@ func New(config ...Config) base.Module {
 		defTpl := outputs.TextTemplate("{{if .Connected}}{{.SSID}}{{end}}")
 		OutputTemplate(defTpl).apply(m)
 	}
-	// Worker goroutine to watch for changes to the interface state.
-	m.SetWorker(m.loop)
 	return m
 }
 
-func (m *module) loop() error {
+func (m *module) Stream() <-chan *bar.Output {
+	go m.worker()
+	return m.Base.Stream()
+}
+
+func (m *module) worker() {
 	// Initial state.
 	link, err := netlink.LinkByName(m.intf)
-	if err != nil {
-		return err
+	if m.Error(err) {
+		return
 	}
 	m.info = Info{}
 	if link.Attrs().Flags&net.FlagUp == net.FlagUp {
-		if err := m.getWifiInfo(); err != nil {
-			return err
+		if m.Error(m.getWifiInfo()) {
+			return
 		}
 		if m.info.SSID == "" {
 			m.info.State = Disconnected
 		}
 	}
-	m.refresh()
+	m.Output(m.outputFunc(m.info))
 
 	// Watch for changes.
 	ch := make(chan netlink.LinkUpdate)
@@ -158,18 +161,13 @@ func (m *module) loop() error {
 			} else if newFlags&syscall.IFF_RUNNING != syscall.IFF_RUNNING {
 				m.info.State = Disconnected
 			} else {
-				if err := m.getWifiInfo(); err != nil {
-					return err
+				if m.Error(m.getWifiInfo()) {
+					return
 				}
 			}
-			m.refresh()
+			m.Output(m.outputFunc(m.info))
 		}
 	}
-	return nil
-}
-
-func (m *module) refresh() {
-	m.Output(m.outputFunc(m.info))
 }
 
 func (m *module) getWifiInfo() error {

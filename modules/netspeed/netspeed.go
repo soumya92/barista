@@ -84,7 +84,8 @@ func OutputTemplate(template func(interface{}) *bar.Output) Config {
 type Interface string
 
 func (i Interface) apply(m *module) {
-	m.intf = string(i)
+	m.rxFile = fmt.Sprintf("/sys/class/net/%s/statistics/rx_bytes", string(i))
+	m.txFile = fmt.Sprintf("/sys/class/net/%s/statistics/tx_bytes", string(i))
 }
 
 // RefreshInterval configures the polling frequency for network speed.
@@ -117,7 +118,7 @@ func (i *info) Refresh(rx, tx uint64) (dRx, dTx uint64) {
 
 type module struct {
 	*base.Base
-	intf            string
+	rxFile, txFile  string
 	refreshInterval time.Duration
 	outputFunc      func(Speeds) *bar.Output
 	// To get network speed, we need to know delta-rx/tx,
@@ -126,11 +127,9 @@ type module struct {
 }
 
 // New constructs an instance of the netspeed module with the provided configuration.
-func New(config ...Config) base.Module {
+func New(config ...Config) base.WithClickHandler {
 	m := &module{
 		Base: base.New(),
-		// Default interface for goobuntu workstations. Override using Interface(...)
-		intf: "em1",
 		// Default is to refresh every 3s, similar to top.
 		refreshInterval: 3 * time.Second,
 	}
@@ -144,37 +143,30 @@ func New(config ...Config) base.Module {
 		defTpl := outputs.TextTemplate("{{.Tx.SI}}/s up | {{.Rx.SI}}/s down")
 		OutputTemplate(defTpl).apply(m)
 	}
-	// Worker goroutine to recalculate speeds at a fixed interval.
-	m.SetWorker(m.loop)
+	// Default interface for goobuntu workstations, if not specified.
+	if m.rxFile == "" {
+		Interface("em1").apply(m)
+	}
+	// Worker goroutine to recalculate speeds.
+	m.OnUpdate(m.update)
+	m.UpdateEvery(m.refreshInterval)
 	return m
 }
 
-func (m *module) loop() error {
-	rxFile := fmt.Sprintf("/sys/class/net/%s/statistics/rx_bytes", m.intf)
-	txFile := fmt.Sprintf("/sys/class/net/%s/statistics/tx_bytes", m.intf)
-	for {
-		rx, tx, err := getRxTx(rxFile, txFile)
-		if err != nil {
-			return err
-		}
-		shouldUpdate := !m.lastRead.Time.IsZero()
-		dRx, dTx := m.lastRead.Refresh(rx, tx)
-		if shouldUpdate {
-			m.Output(m.outputFunc(Speeds{
-				Rx: Speed(dRx),
-				Tx: Speed(dTx),
-			}))
-		}
-		time.Sleep(m.refreshInterval)
+func (m *module) update() {
+	rx, erx := readFileAsUInt(m.rxFile)
+	tx, etx := readFileAsUInt(m.txFile)
+	if m.Error(erx) || m.Error(etx) {
+		return
 	}
-}
-
-func getRxTx(rxFile, txFile string) (rx, tx uint64, err error) {
-	rx, err = readFileAsUInt(rxFile)
-	if err == nil {
-		tx, err = readFileAsUInt(txFile)
+	shouldOutput := !m.lastRead.Time.IsZero()
+	dRx, dTx := m.lastRead.Refresh(rx, tx)
+	if shouldOutput {
+		m.Output(m.outputFunc(Speeds{
+			Rx: Speed(dRx),
+			Tx: Speed(dTx),
+		}))
 	}
-	return // rx, tx, err
 }
 
 func readFileAsUInt(file string) (uint64, error) {

@@ -17,6 +17,7 @@ package base
 
 import (
 	"os/exec"
+	"time"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
@@ -25,57 +26,96 @@ import (
 // Base is a simple module that satisfies the bar.Module interface, while adding
 // some useful functions to make building modules on top somewhat simpler.
 type Base struct {
-	channel      chan *bar.Output
-	clickHandler func(bar.Event)
-	worker       func() error
-	lastError    error
+	channel        chan *bar.Output
+	clickHandler   func(bar.Event)
+	updateFunc     func()
+	paused         bool
+	updateOnResume bool
+	outputOnResume *bar.Output
+	lastError      error
 }
 
-// Module adds the ability to set a click handler on a bar.Module. Extending
-// modules should return a base.Module rather than a base.Base.
+// Module implements bar's Module, Clickable, and Pausable,
+// and adds a method to trigger updates on demand.
 type Module interface {
 	Stream() <-chan *bar.Output
-	Click(e bar.Event)
+	Click(bar.Event)
+	Pause()
+	Resume()
+	Update()
+}
+
+// WithClickHandler extends Module to add support for a generic click handler
+// that only receives the bar.Event. Most custom modules should extend Module
+// with their own OnClick method that provides module-specific information.
+type WithClickHandler interface {
+	Module
 	OnClick(func(bar.Event))
 }
 
 // Stream starts up the worker goroutine, and channels its output to the bar.
 func (b *Base) Stream() <-chan *bar.Output {
-	b.startWorker()
+	b.Resume()
 	// Constructed when New is called, but is not directly exposed to extending
 	// modules. Use Output or Clear to control the bar output.
 	return b.channel
 }
 
-// startWorker starts the worker goroutine (if any).
-func (b *Base) startWorker() {
-	if b.worker == nil {
+// Click handles click events from the bar.
+// A middle click will always force an update, but if the module
+// is currently in an error state, the configured click handler
+// will be replaced by one that:
+// - shows the error message in i3-nagbar on left click
+// - updates the module on right click
+func (b *Base) Click(e bar.Event) {
+	if b.lastError == nil {
+		if e.Button == bar.ButtonMiddle {
+			b.Update()
+		}
+		if b.clickHandler != nil {
+			b.clickHandler(e)
+		}
 		return
 	}
-	go func(b *Base) {
-		if err := b.worker(); err != nil {
-			b.lastError = err
-			b.Error(err)
-		}
-	}(b)
+	switch e.Button {
+	case bar.ButtonRight:
+	case bar.ButtonMiddle:
+		b.lastError = nil
+		b.Clear()
+		b.Update()
+	case bar.ButtonLeft:
+		go exec.Command("i3-nagbar", "-m", b.lastError.Error()).Run()
+	}
 }
 
-// Click handles click events from the bar,
-// and restarts the module's worker on a middle click.
-func (b *Base) Click(e bar.Event) {
-	if b.lastError != nil {
-		if e.Button == bar.ButtonMiddle || e.Button == bar.ButtonRight {
-			b.lastError = nil
-			b.startWorker()
-		}
-		if e.Button == bar.ButtonLeft {
-			go exec.Command("i3-nagbar", "-m", b.lastError.Error()).Run()
-		}
+// Pause marks the module as paused, which suspends updates
+// and outputs to the bar.
+func (b *Base) Pause() {
+	b.paused = true
+}
+
+// Resume continues normal updating of the module, and performs an
+// immediate update if any updates occurred while the module was paused.
+func (b *Base) Resume() {
+	b.paused = false
+	if b.outputOnResume != nil {
+		b.Output(b.outputOnResume)
+		b.outputOnResume = nil
+	}
+	if b.updateOnResume {
+		b.updateOnResume = false
+		b.updateFunc()
+	}
+}
+
+// Update marks the module as ready for an update.
+// The actual update may not happen immediately, e.g. if the bar is hidden.
+func (b *Base) Update() {
+	if b.paused {
+		b.updateOnResume = true
 		return
 	}
-	if b.clickHandler != nil {
-		b.clickHandler(e)
-	}
+	b.updateFunc()
 }
 
 // OnClick sets the click handler.
@@ -88,30 +128,93 @@ func (b *Base) OnClick(handler func(bar.Event)) {
 // New constructs a new base module.
 func New() *Base {
 	return &Base{
-		channel: make(chan *bar.Output),
+		channel:    make(chan *bar.Output),
+		updateFunc: func() {},
+		// Modules start paused so that any modifications prior to Stream()
+		// are not applied before the module has started.
+		paused: true,
+		// Trigger an initial update when Stream is first called.
+		updateOnResume: true,
 	}
+}
+
+// OnUpdate sets the function that will be called when the module needs
+// to be update. That function can choose to call Output/Clear/Error to
+// update the output, but is not required if no visual update is necessary.
+// This method is only called while the bar is visible, to conserve resources
+// when possible. For this reason, it is recommended that heavy update work,
+// e.g. http requests, should happen here and not in an independent timer.
+func (b *Base) OnUpdate(updateFunc func()) {
+	b.updateFunc = updateFunc
 }
 
 // Clear hides the module from the bar.
 func (b *Base) Clear() {
-	go func() { b.channel <- nil }()
+	b.Output(outputs.Empty())
 }
 
 // Output updates the module's output.
 func (b *Base) Output(out *bar.Output) {
+	if b.paused {
+		b.outputOnResume = out
+		return
+	}
 	go func() { b.channel <- out }()
 }
 
-// SetWorker sets a worker function that will be run in a goroutine.
-// Useful if the module requires continuous background work.
-func (b *Base) SetWorker(worker func() error) {
-	b.worker = worker
+// Error shows an error on the bar.
+// It shows an urgent "Error" on the bar (or the full text if it fits),
+// and when clicked shows the full error using i3-nagbar.
+func (b *Base) Error(err error) bool {
+	if err == nil {
+		return false
+	}
+	b.lastError = err
+	b.Output(outputs.Error(err))
+	return true
 }
 
-// Error shows an error on the bar.
-// This method currently replaces the module output, but may later be modified to
-// use i3-nagbar or similar.
-// It also marks the module as error'd so that a middle click restarts the worker.
-func (b *Base) Error(err error) {
-	b.Output(outputs.Error(err))
+// Scheduler holds either a timer or a ticker that schedules
+// the next update of the module. Since many modules need to
+// schedule updates, adding support into base simplifies module
+// code and works well with pause/resume.
+type Scheduler struct {
+	timer  *time.Timer
+	ticker *time.Ticker
+}
+
+// Stop cancels the next scheduled update, used when the update
+// frequency/schedule changes.
+func (s Scheduler) Stop() {
+	if s.timer != nil {
+		if !s.timer.Stop() {
+			<-s.timer.C
+		}
+	}
+	if s.ticker != nil {
+		s.ticker.Stop()
+	}
+}
+
+// UpdateAt schedules the module for updating at a specific time.
+func (b *Base) UpdateAt(when time.Time) Scheduler {
+	return b.UpdateAfter(time.Until(when))
+}
+
+// UpdateAfter schedules the module for updating after a delay.
+func (b *Base) UpdateAfter(delay time.Duration) Scheduler {
+	return Scheduler{
+		timer: time.AfterFunc(delay, b.Update),
+	}
+}
+
+// UpdateEvery schedules the module for repeated updating at an interval.
+func (b *Base) UpdateEvery(interval time.Duration) Scheduler {
+	ticker := time.NewTicker(interval)
+	go func() {
+		for _ = range ticker.C {
+			b.Update()
+		}
+	}()
+	return Scheduler{ticker: ticker}
 }

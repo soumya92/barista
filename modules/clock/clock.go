@@ -46,7 +46,9 @@ func OutputFormat(format string) Config {
 type Timezone string
 
 func (t Timezone) apply(m *module) {
-	m.timezone = string(t)
+	var err error
+	m.timezone, err = time.LoadLocation(string(t))
+	m.Error(err)
 }
 
 // Granularity configures the granularity at which the module should refresh.
@@ -63,17 +65,17 @@ type module struct {
 	*base.Base
 	granularity time.Duration
 	outputFunc  func(time.Time) *bar.Output
-	timezone    string
+	timezone    *time.Location
 }
 
 // New constructs an instance of the clock module with the provided configuration.
-func New(config ...Config) base.Module {
+func New(config ...Config) base.WithClickHandler {
 	m := &module{
 		Base: base.New(),
 		// Default granularity is 1 second, to avoid confusing users.
 		granularity: time.Second,
 		// Default to machine's timezone.
-		timezone: "Local",
+		timezone: time.Local,
 	}
 	// Apply each configuration.
 	for _, c := range config {
@@ -84,21 +86,15 @@ func New(config ...Config) base.Module {
 		OutputFormat("15:04").apply(m)
 		Granularity(time.Minute).apply(m)
 	}
-	// Worker goroutine to update load average at a fixed interval.
-	m.SetWorker(m.update)
+	m.OnUpdate(m.update)
 	return m
 }
 
-func (m *module) update() error {
-	zone, err := time.LoadLocation(m.timezone)
-	if err != nil {
-		return err
+func (m *module) update() {
+	if m.timezone == nil {
+		return
 	}
-	for {
-		t := time.Now()
-		m.Output(m.outputFunc(t.In(zone)))
-		// Sleep until the next time the granularity unit changes..
-		sleepDuration := t.Add(m.granularity).Truncate(m.granularity).Sub(t)
-		time.Sleep(sleepDuration)
-	}
+	now := time.Now()
+	m.Output(m.outputFunc(now.In(m.timezone)))
+	m.UpdateAt(now.Add(m.granularity).Truncate(m.granularity))
 }

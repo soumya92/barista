@@ -124,8 +124,7 @@ type Provider interface {
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to get the current weather.
 type Module interface {
-	Stream() <-chan *bar.Output
-	Click(e bar.Event)
+	base.Module
 	OnClick(func(Weather, bar.Event))
 }
 
@@ -158,7 +157,8 @@ func New(provider Provider, config ...Config) Module {
 		OutputTemplate(defTpl).apply(m)
 	}
 	// Worker goroutine to update weather at an interval.
-	m.SetWorker(m.loop)
+	m.OnUpdate(m.update)
+	m.UpdateEvery(m.refreshInterval)
 	return m
 }
 
@@ -173,17 +173,12 @@ func (m *module) OnClick(f func(Weather, bar.Event)) {
 	})
 }
 
-func (m *module) loop() error {
-	for {
-		weather, err := m.provider.GetWeather()
-		if err != nil {
-			return err
-		}
-		if weather != nil {
-			// nil weather means unchanged.
-			m.lastWeather = *weather
-			m.Output(m.outputFunc(m.lastWeather))
-		}
-		time.Sleep(m.refreshInterval)
+func (m *module) update() {
+	weather, err := m.provider.GetWeather()
+	if m.Error(err) || weather == nil {
+		// nil weather means unchanged.
+		return
 	}
+	m.lastWeather = *weather
+	m.Output(m.outputFunc(m.lastWeather))
 }

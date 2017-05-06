@@ -69,7 +69,7 @@ func OutputTemplate(template func(interface{}) *bar.Output) Config {
 type ThermalZone string
 
 func (t ThermalZone) apply(m *module) {
-	m.thermalZone = string(t)
+	m.thermalFile = fmt.Sprintf("/sys/class/thermal/%s/temp", string(t))
 }
 
 // RefreshInterval configures the polling frequency for cpu temperatures.
@@ -99,7 +99,7 @@ func (u UrgentWhen) apply(m *module) {
 
 type module struct {
 	*base.Base
-	thermalZone     string
+	thermalFile     string
 	refreshInterval time.Duration
 	outputFunc      func(Temperature) *bar.Output
 	colorFunc       func(Temperature) bar.Color
@@ -109,11 +109,9 @@ type module struct {
 }
 
 // New constructs an instance of the cputemp module with the provided configuration.
-func New(config ...Config) base.Module {
+func New(config ...Config) base.WithClickHandler {
 	m := &module{
 		Base: base.New(),
-		// Default thermal zone for goobuntu. Override using ThermalFile(...)
-		thermalZone: "thermal_zone0",
 		// Default is to refresh every 3s, matching the behaviour of top.
 		refreshInterval: 3 * time.Second,
 	}
@@ -127,36 +125,31 @@ func New(config ...Config) base.Module {
 		defTpl := outputs.TextTemplate(`{{.C}}℃`)
 		OutputTemplate(defTpl).apply(m)
 	}
+	// Default thermal file, if not specified.
+	if m.thermalFile == "" {
+		ThermalZone("thermal_zone0").apply(m)
+	}
 	// Worker goroutine to update load average at a fixed interval.
-	m.SetWorker(m.poll)
-	return m
-}
-
-func (m *module) poll() error {
 	// Ideally fsnotify would work for sensors as well, but it doesn't, so we'll
 	// compromise by polling here but only updating the bar when the temperature
 	// actually changes.
-	thermalFile := fmt.Sprintf("/sys/class/thermal/%s/temp", m.thermalZone)
-	for {
-		if err := m.maybeUpdate(thermalFile); err != nil {
-			return err
-		}
-		time.Sleep(m.refreshInterval)
-	}
+	m.OnUpdate(m.update)
+	m.UpdateEvery(m.refreshInterval)
+	return m
 }
 
-func (m *module) maybeUpdate(thermalFile string) error {
-	bytes, err := ioutil.ReadFile(thermalFile)
-	if err != nil {
-		return err
+func (m *module) update() {
+	bytes, err := ioutil.ReadFile(m.thermalFile)
+	if m.Error(err) {
+		return
 	}
 	value := strings.TrimSpace(string(bytes))
 	milliC, err := strconv.Atoi(value)
-	if err != nil {
-		return err
+	if m.Error(err) {
+		return
 	}
 	if milliC == m.lastTempMilliC {
-		return nil
+		return
 	}
 	temp := Temperature(float64(milliC) / 1000.0)
 	out := m.outputFunc(temp)
@@ -168,5 +161,4 @@ func (m *module) maybeUpdate(thermalFile string) error {
 	}
 	m.Output(out)
 	m.lastTempMilliC = milliC
-	return nil
 }

@@ -26,32 +26,25 @@ import (
 type Module interface {
 	Output(*bar.Output)
 	Clear()
+	Error(error) bool
 }
 
 // Func uses the Module interface for output.
-type Func func(Module) error
+type Func func(Module)
 
 // Once constructs a bar module that runs the given function once.
 // Useful if the function loops internally.
-func Once(f Func) base.Module {
+func Once(f Func) base.WithClickHandler {
 	b := base.New()
-	b.SetWorker(func() error {
-		return f(b)
-	})
+	f(b)
 	return b
 }
 
 // Every constructs a bar module that repeatedly runs the given function.
 // Useful if the function needs to poll a resource for output.
-func Every(d time.Duration, f Func) base.Module {
+func Every(d time.Duration, f Func) base.WithClickHandler {
 	b := base.New()
-	b.SetWorker(func() error {
-		for {
-			if err := f(b); err != nil {
-				return err
-			}
-			time.Sleep(d)
-		}
-	})
+	b.UpdateEvery(d)
+	b.OnUpdate(func() { f(b) })
 	return b
 }

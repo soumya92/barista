@@ -80,7 +80,7 @@ type module struct {
 }
 
 // New constructs an instance of the wlan module with the provided configuration.
-func New(config ...Config) base.Module {
+func New(config ...Config) base.WithClickHandler {
 	m := &module{
 		Base: base.New(),
 		// Default interface for openvpn. Override using Interface(...)
@@ -96,12 +96,15 @@ func New(config ...Config) base.Module {
 		defTpl := outputs.TextTemplate("{{if .Connected}}VPN{{end}}")
 		OutputTemplate(defTpl).apply(m)
 	}
-	// Worker goroutine to watch for vpn state changes.
-	m.SetWorker(m.loop)
 	return m
 }
 
-func (m *module) loop() error {
+func (m *module) Stream() <-chan *bar.Output {
+	go m.worker()
+	return m.Base.Stream()
+}
+
+func (m *module) worker() {
 	// Initial state.
 	state := Disconnected
 	if link, err := netlink.LinkByName(m.intf); err == nil {
@@ -141,5 +144,4 @@ func (m *module) loop() error {
 			m.Output(m.outputFunc(state))
 		}
 	}
-	return nil
 }

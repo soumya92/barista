@@ -159,7 +159,7 @@ func main() {
 				weather.Fog:
 				iconName = "windy-cloudy"
 			case weather.Clear:
-				if time.Now().After(w.Sunset) {
+				if !w.Sunset.IsZero() && time.Now().After(w.Sunset) {
 					iconName = "night"
 				} else {
 					iconName = "sunny"
@@ -207,63 +207,62 @@ func main() {
 		}),
 	)
 
-	loadAvg := sysinfo.New(
-		sysinfo.OutputFunc("loadAvg", func(s sysinfo.Info) *bar.Output {
-			out := outputs.Textf("%0.2f %0.2f", s.Loads[0], s.Loads[2])
-			// Load averages are unusually high for a few minutes after boot.
-			if s.Uptime < 10*time.Minute {
-				// so don't add colours until 10 minutes after system start.
-				return out
-			}
-			switch {
-			case s.Loads[0] > 128, s.Loads[2] > 64:
-				out.Urgent = true
-			case s.Loads[0] > 64, s.Loads[2] > 32:
-				out.Color = colors.Scheme("bad")
-			case s.Loads[0] > 32, s.Loads[2] > 16:
-				out.Color = colors.Scheme("degraded")
-			}
+	loadAvg := sysinfo.New().OutputFunc(func(s sysinfo.Info) *bar.Output {
+		out := outputs.Textf("%0.2f %0.2f", s.Loads[0], s.Loads[2])
+		// Load averages are unusually high for a few minutes after boot.
+		if s.Uptime < 10*time.Minute {
+			// so don't add colours until 10 minutes after system start.
 			return out
-		}),
-	).Get("loadAvg")
+		}
+		switch {
+		case s.Loads[0] > 128, s.Loads[2] > 64:
+			out.Urgent = true
+		case s.Loads[0] > 64, s.Loads[2] > 32:
+			out.Color = colors.Scheme("bad")
+		case s.Loads[0] > 32, s.Loads[2] > 16:
+			out.Color = colors.Scheme("degraded")
+		}
+		return out
+	})
 	loadAvg.OnClick(startTaskManager)
 
-	freeMem := meminfo.New(
-		meminfo.OutputFunc("freeMem", func(m meminfo.Info) *bar.Output {
-			out := outputs.Pango(material.Icon("memory"), m.Available().IEC())
-			freeGigs := m.Available().In("GiB")
-			switch {
-			case freeGigs < 0.5:
-				out.Urgent = true
-			case freeGigs < 1:
-				out.Color = colors.Scheme("bad")
-			case freeGigs < 2:
-				out.Color = colors.Scheme("degraded")
-			case freeGigs > 12:
-				out.Color = colors.Scheme("good")
-			}
-			return out
-		}),
-	).Get("freeMem")
+	freeMem := meminfo.New().OutputFunc(func(m meminfo.Info) *bar.Output {
+		out := outputs.Pango(material.Icon("memory"), m.Available().IEC())
+		freeGigs := m.Available().In("GiB")
+		switch {
+		case freeGigs < 0.5:
+			out.Urgent = true
+		case freeGigs < 1:
+			out.Color = colors.Scheme("bad")
+		case freeGigs < 2:
+			out.Color = colors.Scheme("degraded")
+		case freeGigs > 12:
+			out.Color = colors.Scheme("good")
+		}
+		return out
+	})
 	freeMem.OnClick(startTaskManager)
 
 	temp := cputemp.New(
 		cputemp.RefreshInterval(2*time.Second),
-		cputemp.OutputFunc(func(temp cputemp.Temperature) *bar.Output {
-			celcius := temp.C()
-			out := outputs.Pango(
-				materialCommunity.Icon("fan"), spacer,
-				pango.Textf("%2d℃", celcius),
-			)
+		cputemp.UrgentWhen(func(temp cputemp.Temperature) bool {
+			return temp.C() > 90
+		}),
+		cputemp.OutputColor(func(temp cputemp.Temperature) bar.Color {
 			switch {
-			case celcius > 90:
-				out.Urgent = true
-			case celcius > 70:
-				out.Color = colors.Scheme("bad")
-			case celcius > 60:
-				out.Color = colors.Scheme("degraded")
+			case temp.C() > 70:
+				return colors.Scheme("bad")
+			case temp.C() > 60:
+				return colors.Scheme("degraded")
+			default:
+				return colors.Empty()
 			}
-			return out
+		}),
+		cputemp.OutputFunc(func(temp cputemp.Temperature) *bar.Output {
+			return outputs.Pango(
+				materialCommunity.Icon("fan"), spacer,
+				pango.Textf("%2d℃", temp.C()),
+			)
 		}),
 	)
 

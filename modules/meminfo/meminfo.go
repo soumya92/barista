@@ -25,6 +25,7 @@ import (
 	"github.com/dustin/go-humanize"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/modules/base"
 	"github.com/soumya92/barista/modules/multi"
 )
 
@@ -74,89 +75,61 @@ func (b Bytes) SI() string {
 
 // Config represents a configuration that can be applied to a module instance.
 type Config interface {
-	apply(*module)
+	apply(*Module)
 }
 
-type outputFunc struct {
-	Key    interface{}
-	Format func(Info) *bar.Output
-}
-
-func (o outputFunc) apply(m *module) {
-	m.ModuleSet.Add(o.Key)
-	m.outputFuncs[o.Key] = o.Format
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func OutputFunc(key interface{}, format func(Info) *bar.Output) Config {
-	return outputFunc{
-		Key:    key,
-		Format: format,
-	}
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(key interface{}, template func(interface{}) *bar.Output) Config {
-	return outputFunc{
-		Key: key,
-		Format: func(i Info) *bar.Output {
-			return template(i)
-		},
-	}
-}
-
-// RefreshInterval configures the polling frequency for sysinfo.
+// RefreshInterval configures the polling frequency for meminfo.
 type RefreshInterval time.Duration
 
-func (r RefreshInterval) apply(m *module) {
+func (r RefreshInterval) apply(m *Module) {
 	m.refreshInterval = time.Duration(r)
 }
 
-// module is the type of the i3bar module. It is unexported because it's an
-// implementation detail. It should never be used directly, only as something
-// that satisfies the bar.Module interface.
-type module struct {
-	*multi.ModuleSet
+// Module represents a meminfo multi-module, and provides an interface
+// for creating bar.Modules with various output functions/templates
+// that share the same data source, cutting down on updates required.
+type Module struct {
+	moduleSet       *multi.ModuleSet
 	refreshInterval time.Duration
-	outputFuncs     map[interface{}]func(Info) *bar.Output
+	outputs         map[multi.Submodule]func(Info) *bar.Output
 }
 
-// New constructs an instance of the sysinfo multi-module
+// New constructs an instance of the meminfo multi-module
 // with the provided configuration.
-func New(config ...Config) multi.Module {
-	m := &module{
-		ModuleSet: multi.NewModuleSet(),
+func New(config ...Config) *Module {
+	m := &Module{
+		moduleSet: multi.NewModuleSet(),
 		// Default is to refresh every 3s, matching the behaviour of top.
 		refreshInterval: 3 * time.Second,
-		outputFuncs:     make(map[interface{}]func(Info) *bar.Output),
+		outputs:         make(map[multi.Submodule]func(Info) *bar.Output),
 	}
 	// Apply each configuration.
 	for _, c := range config {
 		c.apply(m)
 	}
-	// Worker goroutine to update sysinfo at a fixed interval.
-	m.SetWorker(m.loop)
+	// Worker goroutine to update meminfo.
+	m.moduleSet.OnUpdate(m.update)
+	m.moduleSet.UpdateEvery(m.refreshInterval)
 	return m
 }
 
-func (m *module) loop() error {
-	for {
-		i, err := memInfo()
-		if err != nil {
-			return err
-		}
-		for key, outputFunc := range m.outputFuncs {
-			m.Output(key, outputFunc(i))
-		}
-		time.Sleep(m.refreshInterval)
-	}
+// OutputFunc creates a submodule that displays the output of a user-defined function.
+func (m *Module) OutputFunc(format func(Info) *bar.Output) base.WithClickHandler {
+	submodule := m.moduleSet.New()
+	m.outputs[submodule] = format
+	return submodule
 }
 
-func memInfo() (Info, error) {
+// OutputTemplate creates a submodule that displays the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) *bar.Output) base.WithClickHandler {
+	return m.OutputFunc(func(i Info) *bar.Output { return template(i) })
+}
+
+func (m *Module) update() {
 	i := make(Info)
 	f, err := os.Open("/proc/meminfo")
-	if err != nil {
-		return nil, err
+	if m.moduleSet.Error(err) {
+		return
 	}
 	defer f.Close()
 	s := bufio.NewScanner(f)
@@ -177,10 +150,12 @@ func memInfo() (Info, error) {
 			value = value[:len(value)-len(" kB")]
 		}
 		intval, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return nil, err
+		if m.moduleSet.Error(err) {
+			return
 		}
 		i[name] = Bytes(intval << shift)
 	}
-	return i, nil
+	for submodule, outputFunc := range m.outputs {
+		submodule.Output(outputFunc(i))
+	}
 }

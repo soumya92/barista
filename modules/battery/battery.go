@@ -125,7 +125,7 @@ type module struct {
 }
 
 // New constructs an instance of the cputemp module with the provided configuration.
-func New(config ...Config) base.Module {
+func New(config ...Config) base.WithClickHandler {
 	m := &module{
 		Base: base.New(),
 		// Default battery for goobuntu laptops. Override using BatteryName(...)
@@ -144,26 +144,24 @@ func New(config ...Config) base.Module {
 		OutputTemplate(defTpl).apply(m)
 	}
 	// Worker goroutine to update load average at a fixed interval.
-	m.SetWorker(m.loop)
+	m.OnUpdate(m.update)
+	m.UpdateEvery(m.refreshInterval)
 	return m
 }
 
-func (m *module) loop() error {
-	for {
-		info, err := m.batteryInfo()
-		if err != nil {
-			return err
-		}
-		out := m.outputFunc(info)
-		if m.urgentFunc != nil {
-			out.Urgent = m.urgentFunc(info)
-		}
-		if m.colorFunc != nil {
-			out.Color = m.colorFunc(info)
-		}
-		m.Output(out)
-		time.Sleep(m.refreshInterval)
+func (m *module) update() {
+	info, err := m.batteryInfo()
+	if m.Error(err) {
+		return
 	}
+	out := m.outputFunc(info)
+	if m.urgentFunc != nil {
+		out.Urgent = m.urgentFunc(info)
+	}
+	if m.colorFunc != nil {
+		out.Color = m.colorFunc(info)
+	}
+	m.Output(out)
 }
 
 func (m *module) batteryInfo() (i Info, e error) {

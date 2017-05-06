@@ -92,8 +92,7 @@ func OutputTemplate(template func(interface{}) *bar.Output) Config {
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to control the system volume.
 type Module interface {
-	Stream() <-chan *bar.Output
-	Click(e bar.Event)
+	base.Module
 	OnClick(func(Volume, Controller, bar.Event))
 }
 
@@ -127,8 +126,6 @@ func New(config ...Config) Module {
 		defTpl := outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`)
 		OutputTemplate(defTpl).apply(m)
 	}
-	// Worker goroutine to update the volume when notified by alsa.
-	m.SetWorker(m.loop)
 	return m
 }
 
@@ -143,7 +140,7 @@ func (m *module) SetVolume(newVol int64) {
 	}
 	m.vol = C.long(newVol)
 	C.snd_mixer_selem_set_playback_volume_all(m.elem, m.vol)
-	m.refresh()
+	m.Update()
 }
 
 // SetMuted controls whether the system volume is muted.
@@ -154,7 +151,7 @@ func (m *module) SetMuted(muted bool) {
 		m.mute = C.int(1)
 	}
 	C.snd_mixer_selem_set_playback_switch_all(m.elem, m.mute)
-	m.refresh()
+	m.Update()
 }
 
 // OnClick sets the click handler for a module.
@@ -181,11 +178,7 @@ func defaultClickHandler(v Volume, c Controller, e bar.Event) {
 	}
 	lastVolumeChangeTime = now
 	if e.Button == bar.ButtonLeft {
-		if v.Mute {
-			c.SetMuted(false)
-		} else {
-			c.SetMuted(true)
-		}
+		c.SetMuted(!v.Mute)
 		return
 	}
 	volStep := (v.Max - v.Min) / 100
@@ -200,9 +193,15 @@ func defaultClickHandler(v Volume, c Controller, e bar.Event) {
 	}
 }
 
-// loop continuously waits for signals from alsa and refreshes the module
-// whenever the volume changes.
-func (m *module) loop() error {
+func (m *module) Stream() <-chan *bar.Output {
+	// Worker goroutine to update the volume when notified by alsa.
+	go func() { m.Error(m.worker()) }()
+	return m.Base.Stream()
+}
+
+// worker continuously waits for signals from alsa and refreshes
+// the module whenever the volume changes.
+func (m *module) worker() error {
 	cardName := C.CString(m.cardName)
 	defer C.free(unsafe.Pointer(cardName))
 	mixerName := C.CString(m.mixerName)
@@ -235,10 +234,11 @@ func (m *module) loop() error {
 		return fmt.Errorf("snd_mixer_find_selem NULL")
 	}
 	C.snd_mixer_selem_get_playback_volume_range(m.elem, &m.min, &m.max)
+	m.OnUpdate(m.update)
 	for {
 		C.snd_mixer_selem_get_playback_volume(m.elem, C.SND_MIXER_SCHN_MONO, &m.vol)
 		C.snd_mixer_selem_get_playback_switch(m.elem, C.SND_MIXER_SCHN_MONO, &m.mute)
-		m.refresh()
+		m.Update()
 		if err := int(C.snd_mixer_wait(handle, -1)); err < 0 {
 			return fmt.Errorf("snd_mixer_wait: %d", err)
 		}
@@ -257,6 +257,6 @@ func (m *module) volume() Volume {
 	}
 }
 
-func (m *module) refresh() {
+func (m *module) update() {
 	m.Output(m.outputFunc(m.volume()))
 }

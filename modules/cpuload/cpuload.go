@@ -100,10 +100,11 @@ type module struct {
 	outputFunc      func(LoadAvg) *bar.Output
 	colorFunc       func(LoadAvg) bar.Color
 	urgentFunc      func(LoadAvg) bool
+	loads           LoadAvg
 }
 
 // New constructs an instance of the cpuload module with the provided configuration.
-func New(config ...Config) base.Module {
+func New(config ...Config) base.WithClickHandler {
 	m := &module{
 		Base: base.New(),
 		// Default is to refresh every 3s, matching the behaviour of top.
@@ -120,28 +121,26 @@ func New(config ...Config) base.Module {
 		OutputTemplate(defTpl).apply(m)
 	}
 	// Worker goroutine to update load average at a fixed interval.
-	m.SetWorker(m.loop)
+	m.OnUpdate(m.update)
+	m.UpdateEvery(m.refreshInterval)
 	return m
 }
 
-func (m *module) loop() error {
-	var loads LoadAvg
-	for {
-		count, err := C.getloadavg((*C.double)(&loads[0]), 3)
-		if count != 3 {
-			return fmt.Errorf("getloadavg: %d", count)
-		}
-		if err != nil {
-			return err
-		}
-		out := m.outputFunc(loads)
-		if m.urgentFunc != nil {
-			out.Urgent = m.urgentFunc(loads)
-		}
-		if m.colorFunc != nil {
-			out.Color = m.colorFunc(loads)
-		}
-		m.Output(out)
-		time.Sleep(m.refreshInterval)
+func (m *module) update() {
+	count, err := C.getloadavg((*C.double)(&m.loads[0]), 3)
+	if count != 3 {
+		m.Error(fmt.Errorf("getloadavg: %d", count))
+		return
 	}
+	if m.Error(err) {
+		return
+	}
+	out := m.outputFunc(m.loads)
+	if m.urgentFunc != nil {
+		out.Urgent = m.urgentFunc(m.loads)
+	}
+	if m.colorFunc != nil {
+		out.Color = m.colorFunc(m.loads)
+	}
+	m.Output(out)
 }
