@@ -38,10 +38,9 @@ type Base struct {
 // Module implements bar's Module, Clickable, and Pausable,
 // and adds a method to trigger updates on demand.
 type Module interface {
-	Stream() <-chan *bar.Output
-	Click(bar.Event)
-	Pause()
-	Resume()
+	bar.Module
+	bar.Clickable
+	bar.Pausable
 	Update()
 }
 
