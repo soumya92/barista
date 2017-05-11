@@ -68,9 +68,7 @@ func (m *i3Module) output(ch chan<- interface{}) {
 	for o := range m.Stream() {
 		var i3out i3Output
 		for _, segment := range o {
-			if segment != nil {
-				i3out = append(i3out, i3Segment{segment, m.Identifier})
-			}
+			i3out = append(i3out, i3Segment{segment, m.Identifier})
 		}
 		m.LastOutput = i3out
 		ch <- nil

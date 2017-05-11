@@ -43,8 +43,8 @@ func TestHeader(t *testing.T) {
 
 type testModule chan Output
 
-func (t *testModule) Stream() <-chan Output { return (<-chan Output)(*t) }
-func (t *testModule) Output(s *Segment)     { *t <- Output{s} }
+func (t testModule) Stream() <-chan Output { return (<-chan Output)(t) }
+func (t testModule) Output(o Output)       { t <- o }
 
 func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {
 	var jsonOutputs []map[string]interface{}
@@ -58,6 +58,10 @@ func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {
 	_, err = stdout.ReadUntil(',', time.Millisecond)
 	assert.Nil(t, err, "outputs a comma after full bar")
 	return outputs
+}
+
+func textOutput(text string) Output {
+	return Output{&Segment{Text: text}}
 }
 
 func TestSingleModule(t *testing.T) {
@@ -76,7 +80,7 @@ func TestSingleModule(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module.Output(&Segment{Text: "test"})
+	module.Output(textOutput("test"))
 	out := readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"test"}, out,
 		"output contains an element for the module")
@@ -84,7 +88,7 @@ func TestSingleModule(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module.Output(&Segment{Text: "other"})
+	module.Output(textOutput("other"))
 	out = readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"other"}, out,
 		"output updates when module sends an update")
@@ -99,7 +103,7 @@ func TestMultipleModules(t *testing.T) {
 	module2 := make(testModule)
 	module3 := make(testModule)
 
-	bar.Add(&module1, &module2, &module3)
+	bar.Add(module1, module2, module3)
 	go bar.Run()
 
 	_, err := mockStdout.ReadUntil('[', time.Millisecond)
@@ -108,7 +112,7 @@ func TestMultipleModules(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module1.Output(&Segment{Text: "test"})
+	module1.Output(textOutput("test"))
 
 	out := readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"test"}, out,
@@ -117,22 +121,22 @@ func TestMultipleModules(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module3.Output(&Segment{Text: "module3"})
+	module3.Output(textOutput("module3"))
 	out = readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"test", "module3"}, out,
 		"new output repeats previous value for other modules")
 
-	module3.Output(&Segment{Text: "new value"})
+	module3.Output(textOutput("new value"))
 	out = readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"test", "new value"}, out,
 		"updated output repeats previous value for other modules")
 
-	module2.Output(&Segment{Text: "middle"})
+	module2.Output(textOutput("middle"))
 	out = readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"test", "middle", "new value"}, out,
 		"newly updated module correctly repositions other modules")
 
-	module1.Output(nil)
+	module1.Output(Output{})
 	out = readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"middle", "new value"}, out,
 		"nil output correctly repositions other modules")
