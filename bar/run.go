@@ -216,10 +216,10 @@ func (b *I3Bar) print() error {
 	// last cached value for each module and construct the current bar.
 	// The bar will update any modules before calling this method, so the
 	// LastOutput property of each module will represent the current state.
-	var outputs []*i3Segment
+	var outputs []i3Segment
 	for _, m := range b.i3Modules {
 		for _, segment := range m.LastOutput {
-			outputs = append(outputs, &segment)
+			outputs = append(outputs, segment)
 		}
 	}
 	if err := b.encoder.Encode(outputs); err != nil {
