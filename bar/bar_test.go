@@ -60,8 +60,12 @@ func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {
 	return outputs
 }
 
-func textOutput(text string) Output {
-	return Output{NewSegment().Text(text)}
+func textOutput(text ...string) Output {
+	var out Output
+	for _, t := range text {
+		out = append(out, NewSegment().Text(t))
+	}
+	return out
 }
 
 func TestSingleModule(t *testing.T) {
@@ -71,7 +75,7 @@ func TestSingleModule(t *testing.T) {
 
 	module := make(testModule)
 
-	bar.Add(&module)
+	bar.Add(module)
 	go bar.Run()
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
@@ -140,4 +144,42 @@ func TestMultipleModules(t *testing.T) {
 	out = readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"middle", "new value"}, out,
 		"nil output correctly repositions other modules")
+}
+
+func TestMultiSegmentModule(t *testing.T) {
+	mockStdin := mockio.Stdin()
+	mockStdout := mockio.Stdout()
+	bar := NewOnIo(mockStdin, mockStdout)
+
+	module := make(testModule)
+
+	bar.Add(module)
+	go bar.Run()
+
+	_, err := mockStdout.ReadUntil('[', time.Second)
+	assert.Nil(t, err, "output array started without any errors")
+
+	_, err = mockStdout.ReadUntil(']', time.Millisecond)
+	assert.Error(t, err, "no output until module updates")
+
+	module.Output(textOutput("1", "2", "3"))
+	out := readOneBarOutput(t, mockStdout)
+	assert.Equal(t, []string{"1", "2", "3"}, out,
+		"output contains an element for each segment")
+
+	// Implicit in the previous assertion is the fact that all segments
+	// are output together, not one at a time. That is, only one array is
+	// output with all three segments, rather than an array with 1, then
+	// with 1,2, then with 1,2,3, which is what would happen if we had
+	// three modules each output 1,2,3 respectively.
+
+	module.Output(textOutput("2", "3"))
+	out = readOneBarOutput(t, mockStdout)
+	assert.Equal(t, []string{"2", "3"}, out,
+		"bar handles a disappearing segment correctly")
+
+	module.Output(textOutput("2", "3", "4", "5", "6"))
+	out = readOneBarOutput(t, mockStdout)
+	assert.Equal(t, []string{"2", "3", "4", "5", "6"}, out,
+		"bar handles additional segments correctly")
 }

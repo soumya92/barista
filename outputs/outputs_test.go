@@ -35,6 +35,17 @@ func textOf(out bar.Output) string {
 	return str
 }
 
+func textWithSeparators(out bar.Output) string {
+	str := ""
+	for _, segment := range out {
+		str += segment["full_text"].(string)
+		if sep, ok := segment["separator"]; !ok || sep.(bool) {
+			str += "|"
+		}
+	}
+	return str
+}
+
 func TestTextFmt(t *testing.T) {
 	tests := []struct {
 		desc     string
@@ -138,5 +149,72 @@ func TestPangoTemplate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.expected, textOf(tc.template(testObject)), tc.desc)
+	}
+}
+
+func TestComposite(t *testing.T) {
+	tests := []struct {
+		desc     string
+		output   bar.Output
+		expected string
+	}{
+		{"empty output", Multi().Build(), ""},
+
+		{
+			"simple composite",
+			Multi().AddText("name1", "1").AddTextf("name2", "%d", 2).Build(),
+			"12|",
+		},
+
+		{
+			"composite with separator",
+			Multi().AddText("n1", "1").AddText("n2", "2").KeepSeparators(true).Build(),
+			"1|2|",
+		},
+
+		{
+			"calling KeepSeparators before adding modules",
+			Multi().KeepSeparators(true).AddText("n1", "1").AddText("n2", "2").Build(),
+			"1|2|",
+		},
+
+		{
+			"KeepSeparators with explicitly removed separators",
+			Multi().
+				KeepSeparators(true).
+				AddText("name1", "1").
+				Add("name2", bar.Output{bar.NewSegment().Separator(false).Text("2")}).
+				AddTextf("name3", "%d", 3).
+				Build(),
+			"1|23|",
+		},
+
+		{
+			"with explicitly added separators",
+			Multi().
+				AddText("name1", "1").
+				Add("name2", bar.Output{bar.NewSegment().Separator(true).Text("2")}).
+				AddTextf("name3", "%d", 3).
+				Build(),
+			"12|3|",
+		},
+
+		{
+			"Built from multi-segment bar.Output",
+			Multi().
+				AddText("name1", "1").
+				Add("name2", bar.Output{
+					bar.NewSegment().Separator(true).Text("2"),
+					bar.NewSegment().Separator(false).Text("3"),
+					bar.NewSegment().Text("4"),
+					bar.NewSegment().Separator(true).Text("5"),
+				}).
+				AddTextf("name3", "%d", 6).
+				Build(),
+			"12|345|6|",
+		},
+	}
+	for _, tc := range tests {
+		assert.Equal(t, tc.expected, textWithSeparators(tc.output), tc.desc)
 	}
 }
