@@ -61,7 +61,7 @@ func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {
 }
 
 func textOutput(text string) Output {
-	return Output{&Segment{Text: text}}
+	return Output{NewSegment().Text(text)}
 }
 
 func TestSingleModule(t *testing.T) {

@@ -25,25 +25,13 @@ import (
 	"syscall"
 )
 
-// identifier stores the Name used when communicating with i3bar.
-// This information is never exposed outside the bar.
-type identifier struct {
-	Name string `json:"name"`
-}
-
-// i3Segment adds an identifier to bar Segments.
-type i3Segment struct {
-	*Segment
-	identifier
-}
-
-// i3Output is sent to i3bar. It groups together one or more i3Segments.
-type i3Output []i3Segment
+// i3Output is sent to i3bar. It groups together one or more Segments.
+type i3Output []Segment
 
 // i3Event instances are received from i3bar on stdin.
 type i3Event struct {
 	Event
-	identifier
+	Name string `json:"name"`
 }
 
 // i3Header is sent at the beginning of output.
@@ -57,18 +45,19 @@ type i3Header struct {
 // i3Module wraps Module with extra information to help run i3bar.
 type i3Module struct {
 	Module
-	Identifier identifier
+	Name       string
 	LastOutput i3Output
 }
 
-// output converts the module's output to i3Output by adding an identifier,
-// sets the module's last output to the converted i3Output and signals the bar
+// output converts the module's output to i3Output by adding the name (position),
+// sets the module's last output to the converted i3Output, and signals the bar
 // to update its output.
 func (m *i3Module) output(ch chan<- interface{}) {
 	for o := range m.Stream() {
 		var i3out i3Output
 		for _, segment := range o {
-			i3out = append(i3out, i3Segment{segment, m.Identifier})
+			segment["name"] = m.Name
+			i3out = append(i3out, segment)
 		}
 		m.LastOutput = i3out
 		ch <- nil
@@ -114,8 +103,8 @@ func (b *I3Bar) addModule(module Module) {
 	// sends us events, we can use atoi(name) to get the correct module.
 	name := strconv.Itoa(len(b.i3Modules))
 	i3Module := i3Module{
-		Module:     module,
-		Identifier: identifier{name},
+		Module: module,
+		Name:   name,
 	}
 	b.i3Modules = append(b.i3Modules, &i3Module)
 }
@@ -216,7 +205,7 @@ func (b *I3Bar) print() error {
 	// last cached value for each module and construct the current bar.
 	// The bar will update any modules before calling this method, so the
 	// LastOutput property of each module will represent the current state.
-	var outputs []i3Segment
+	var outputs []Segment
 	for _, m := range b.i3Modules {
 		for _, segment := range m.LastOutput {
 			outputs = append(outputs, segment)

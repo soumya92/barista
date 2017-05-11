@@ -17,7 +17,7 @@ package bar
 // Color sets the color for all segments in the output.
 func (o Output) Color(color Color) Output {
 	for _, s := range o {
-		s.Color = color
+		s.Color(color)
 	}
 	return o
 }
@@ -25,7 +25,7 @@ func (o Output) Color(color Color) Output {
 // Background sets the background color for all segments in the output.
 func (o Output) Background(background Color) Output {
 	for _, s := range o {
-		s.Background = background
+		s.Background(background)
 	}
 	return o
 }
@@ -33,7 +33,7 @@ func (o Output) Background(background Color) Output {
 // Border sets the border color for all segments in the output.
 func (o Output) Border(border Color) Output {
 	for _, s := range o {
-		s.Border = border
+		s.Border(border)
 	}
 	return o
 }
@@ -41,7 +41,7 @@ func (o Output) Border(border Color) Output {
 // MinWidth sets the minimum width for each segment in the output.
 func (o Output) MinWidth(minWidth int) Output {
 	for _, s := range o {
-		s.MinWidth = minWidth
+		s.MinWidth(minWidth)
 	}
 	return o
 }
@@ -49,7 +49,7 @@ func (o Output) MinWidth(minWidth int) Output {
 // Align sets the text alignment for all segments in the output.
 func (o Output) Align(align TextAlignment) Output {
 	for _, s := range o {
-		s.Align = align
+		s.Align(align)
 	}
 	return o
 }
@@ -57,7 +57,7 @@ func (o Output) Align(align TextAlignment) Output {
 // Urgent sets the urgency flag for all segments in the output.
 func (o Output) Urgent(urgent bool) Output {
 	for _, s := range o {
-		s.Urgent = urgent
+		s.Urgent(urgent)
 	}
 	return o
 }
@@ -65,7 +65,7 @@ func (o Output) Urgent(urgent bool) Output {
 // Separator sets the separator for each segment in the output.
 func (o Output) Separator(separator bool) Output {
 	for _, s := range o {
-		s.Separator = separator
+		s.Separator(separator)
 	}
 	return o
 }
@@ -73,7 +73,7 @@ func (o Output) Separator(separator bool) Output {
 // SeparatorWidth sets the separator width for each segment in the output.
 func (o Output) SeparatorWidth(separatorWidth int) Output {
 	for _, s := range o {
-		s.SeparatorWidth = separatorWidth
+		s.SeparatorWidth(separatorWidth)
 	}
 	return o
 }
@@ -81,7 +81,7 @@ func (o Output) SeparatorWidth(separatorWidth int) Output {
 // Markup sets the markup type for all segments in the output.
 func (o Output) Markup(markup Markup) Output {
 	for _, s := range o {
-		s.Markup = markup
+		s.Markup(markup)
 	}
 	return o
 }

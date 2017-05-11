@@ -51,24 +51,18 @@ Note: Name is not included because only the bar needs to know the name in
 order to dispatch click events and maintain the output cache. Multiple outputs
 can still use the instance key (which the bar does not modify) to map click
 events to output segments.
+
+Since many of i3's default values do not match the default values in go for
+their types, Segment is just a map[string]interface{} with typed methods
+for setting values to allow distinguishing between unset values and values
+that happen to match go's defaults. (e.g. separator = false, MinWidth = 0).
+
+See segment.go for supported methods.
 */
-type Segment struct {
-	Text           string        `json:"full_text"`
-	ShortText      string        `json:"short_text,omitempty"`
-	Color          Color         `json:"color,omitempty"`
-	Background     Color         `json:"background,omitempty"`
-	Border         Color         `json:"border,omitempty"`
-	MinWidth       int           `json:"min_width,omitempty"`
-	Align          TextAlignment `json:"align,omitempty"`
-	Urgent         bool          `json:"urgent,omitempty"`
-	Separator      bool          `json:"separator,omitempty"`
-	SeparatorWidth int           `json:"separator_block_width,omitempty"`
-	Markup         Markup        `json:"markup,omitempty"`
-	Instance       string        `json:"instance"`
-}
+type Segment map[string]interface{}
 
 // Output groups together one or more segments to display on the bar.
-type Output []*Segment
+type Output []Segment
 
 // Button represents an X11 mouse button.
 type Button int

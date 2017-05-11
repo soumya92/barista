@@ -27,6 +27,14 @@ func TestEmpty(t *testing.T) {
 	assert.Empty(t, Empty(), "empty output")
 }
 
+func textOf(out bar.Output) string {
+	str := ""
+	for _, segment := range out {
+		str += segment["full_text"].(string)
+	}
+	return str
+}
+
 func TestTextFmt(t *testing.T) {
 	tests := []struct {
 		desc     string
@@ -41,7 +49,7 @@ func TestTextFmt(t *testing.T) {
 		{"with multiple args", Textf("%s=%0.4f, %d^2=%d", "pi", 3.14159, 2, 4), "pi=3.1416, 2^2=4"},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, tc.output[0].Text, tc.desc)
+		assert.Equal(t, tc.expected, textOf(tc.output), tc.desc)
 	}
 }
 
@@ -60,8 +68,8 @@ func TestPango(t *testing.T) {
 		{"with tag", Pango(pango.Tag("b", "test")), "<b>test</b>"},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, tc.output[0].Text, tc.desc)
-		assert.Equal(t, bar.MarkupPango, tc.output[0].Markup, tc.desc)
+		assert.Equal(t, tc.expected, textOf(tc.output), tc.desc)
+		assert.Equal(t, bar.MarkupPango, tc.output[0]["markup"].(bar.Markup), tc.desc)
 	}
 }
 
@@ -100,7 +108,7 @@ func TestTextTemplate(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, tc.template(testObject)[0].Text, tc.desc)
+		assert.Equal(t, tc.expected, textOf(tc.template(testObject)), tc.desc)
 	}
 }
 
@@ -129,6 +137,6 @@ func TestPangoTemplate(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, tc.template(testObject)[0].Text, tc.desc)
+		assert.Equal(t, tc.expected, textOf(tc.template(testObject)), tc.desc)
 	}
 }
