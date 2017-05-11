@@ -31,7 +31,7 @@ func TestHeader(t *testing.T) {
 	assert.Empty(t, mockStdout.ReadNow(), "Nothing written on construction")
 	go bar.Run()
 
-	out, err := mockStdout.ReadUntil('}', time.Millisecond)
+	out, err := mockStdout.ReadUntil('}', time.Second)
 	assert.Nil(t, err, "header was written")
 
 	header := make(map[string]interface{})
@@ -48,14 +48,14 @@ func (t testModule) Output(o Output)       { t <- o }
 
 func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {
 	var jsonOutputs []map[string]interface{}
-	out, err := stdout.ReadUntil(']', time.Millisecond)
+	out, err := stdout.ReadUntil(']', time.Second)
 	assert.Nil(t, err, "No error while reading output")
 	assert.Nil(t, json.Unmarshal([]byte(out), &jsonOutputs), "Output is valid json")
 	outputs := make([]string, len(jsonOutputs))
 	for idx, jsonOutput := range jsonOutputs {
 		outputs[idx] = jsonOutput["full_text"].(string)
 	}
-	_, err = stdout.ReadUntil(',', time.Millisecond)
+	_, err = stdout.ReadUntil(',', time.Second)
 	assert.Nil(t, err, "outputs a comma after full bar")
 	return outputs
 }
@@ -74,7 +74,7 @@ func TestSingleModule(t *testing.T) {
 	bar.Add(&module)
 	go bar.Run()
 
-	_, err := mockStdout.ReadUntil('[', time.Millisecond)
+	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
@@ -106,7 +106,7 @@ func TestMultipleModules(t *testing.T) {
 	bar.Add(module1, module2, module3)
 	go bar.Run()
 
-	_, err := mockStdout.ReadUntil('[', time.Millisecond)
+	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
