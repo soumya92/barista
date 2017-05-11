@@ -20,24 +20,25 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
 )
 
-// identifier stores a Name and instance pair used when communicating with i3bar.
+// identifier stores the Name used when communicating with i3bar.
 // This information is never exposed outside the bar.
 type identifier struct {
-	Name     string `json:"name"`
-	Instance string `json:"instance"`
+	Name string `json:"name"`
 }
 
-// i3Output is sent to i3bar. It wraps the bar output and adds name and instance.
-type i3Output struct {
-	*Output
+// i3Segment adds an identifier to bar Segments.
+type i3Segment struct {
+	*Segment
 	identifier
 }
+
+// i3Output is sent to i3bar. It groups together one or more i3Segments.
+type i3Output []i3Segment
 
 // i3Event instances are received from i3bar on stdin.
 type i3Event struct {
@@ -60,19 +61,28 @@ type i3Module struct {
 	LastOutput i3Output
 }
 
-// output converts the module's output to i3output by adding the name and instance.
-func (m i3Module) output(ch chan<- i3Output) {
+// output converts the module's output to i3Output by adding an identifier,
+// sets the module's last output to the converted i3Output and signals the bar
+// to update its output.
+func (m *i3Module) output(ch chan<- interface{}) {
 	for o := range m.Stream() {
-		ch <- i3Output{Output: o, identifier: m.Identifier}
+		var i3out i3Output
+		for _, segment := range o {
+			if segment != nil {
+				i3out = append(i3out, i3Segment{segment, m.Identifier})
+			}
+		}
+		m.LastOutput = i3out
+		ch <- nil
 	}
 }
 
 // I3Bar is a "bar" instance that handles events and streams output.
 type I3Bar struct {
 	// The list of modules that make up this bar.
-	i3Modules []i3Module
-	// The channel that aggregates all the module outputs.
-	outputs chan i3Output
+	i3Modules []*i3Module
+	// The channel that receives a signal on module updates.
+	update chan interface{}
 	// The channel that aggregates all events from i3.
 	events chan i3Event
 	// The Reader to read events from (e.g. stdin)
@@ -102,17 +112,14 @@ func (b *I3Bar) addModule(module Module) {
 	if b.started {
 		panic("Cannot add modules after .Run()")
 	}
-	// Use the type, e.g. "*tztime.module", as the name. This doesn't matter,
-	// but i3 would like to have it.
-	name := reflect.TypeOf(module).String()
-	// Use the position of the module in the list as the "instance", so when i3bar
-	// sends us events, we can use atoi(instance) to get the correct module.
-	instance := strconv.Itoa(len(b.i3Modules))
+	// Use the position of the module in the list as the "name", so when i3bar
+	// sends us events, we can use atoi(name) to get the correct module.
+	name := strconv.Itoa(len(b.i3Modules))
 	i3Module := i3Module{
 		Module:     module,
-		Identifier: identifier{name, instance},
+		Identifier: identifier{name},
 	}
-	b.i3Modules = append(b.i3Modules, i3Module)
+	b.i3Modules = append(b.i3Modules, &i3Module)
 }
 
 // Run sets up all the streams and enters the main loop.
@@ -143,9 +150,8 @@ func (b *I3Bar) Run() error {
 
 	// Read events from the input stream, pipe them to the events channel.
 	go b.readEvents()
-	// Merge all module outputs to the outputs channel.
 	for _, m := range b.i3Modules {
-		go m.output(b.outputs)
+		go m.output(b.update)
 	}
 
 	// Set up signal handlers for USR1/2 to pause/resume supported modules.
@@ -155,19 +161,15 @@ func (b *I3Bar) Run() error {
 	// Infinite arrays on both sides.
 	for {
 		select {
-		case out := <-b.outputs:
-			// Any output from a module updates its "last output",
-			// but the complete bar needs to printed each time.
-			if module, ok := b.get(out.Instance); ok {
-				module.LastOutput = out
-				if err := b.print(); err != nil {
-					return err
-				}
+		case _ = <-b.update:
+			// The complete bar needs to printed on each update.
+			if err := b.print(); err != nil {
+				return err
 			}
 		case event := <-b.events:
-			// Events are stripped of name and instance before being dispatched to the
+			// Events are stripped of the name before being dispatched to the
 			// correct module.
-			if module, ok := b.get(event.Instance); ok {
+			if module, ok := b.get(event.Name); ok {
 				// Check that the module actually supports click events.
 				if clickable, ok := module.Module.(Clickable); ok {
 					// Goroutine to prevent click handlers from blocking the bar.
@@ -203,10 +205,10 @@ func New() *I3Bar {
 // NewOnIo constructs a new bar with an input and output stream, for maximum flexibility.
 func NewOnIo(reader io.Reader, writer io.Writer) *I3Bar {
 	return &I3Bar{
-		outputs: make(chan i3Output),
-		events:  make(chan i3Event),
-		reader:  reader,
-		writer:  writer,
+		update: make(chan interface{}),
+		events: make(chan i3Event),
+		reader: reader,
+		writer: writer,
 	}
 }
 
@@ -216,13 +218,11 @@ func (b *I3Bar) print() error {
 	// last cached value for each module and construct the current bar.
 	// The bar will update any modules before calling this method, so the
 	// LastOutput property of each module will represent the current state.
-	var outputs []i3Output
+	var outputs []*i3Segment
 	for _, m := range b.i3Modules {
-		out := m.LastOutput
-		if out.Output == nil {
-			continue
+		for _, segment := range m.LastOutput {
+			outputs = append(outputs, &segment)
 		}
-		outputs = append(outputs, out)
 	}
 	if err := b.encoder.Encode(outputs); err != nil {
 		return err
@@ -231,16 +231,16 @@ func (b *I3Bar) print() error {
 	return err
 }
 
-// get finds the module that corresponds to the given "instance" from i3.
-func (b *I3Bar) get(instance string) (*i3Module, bool) {
-	index, err := strconv.Atoi(instance)
+// get finds the module that corresponds to the given "name" from i3.
+func (b *I3Bar) get(name string) (*i3Module, bool) {
+	index, err := strconv.Atoi(name)
 	if err != nil {
 		return nil, false
 	}
 	if index < 0 || len(b.i3Modules) <= index {
 		return nil, false
 	}
-	return &b.i3Modules[index], true
+	return b.i3Modules[index], true
 }
 
 // readEvents parses the infinite stream of events received from i3.

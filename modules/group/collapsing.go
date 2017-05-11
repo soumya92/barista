@@ -28,7 +28,7 @@ type Collapsable interface {
 	Collapse()
 	Expand()
 	Toggle()
-	Button(*bar.Output, *bar.Output) Button
+	Button(bar.Output, bar.Output) Button
 }
 
 // Collapsing returns a new collapsable group.
@@ -48,7 +48,7 @@ type collapsable struct {
 func (g *collapsable) Add(original bar.Module) bar.Module {
 	m := &module{
 		Module:  original,
-		channel: make(chan *bar.Output),
+		channel: make(chan bar.Output),
 		visible: !g.collapsed,
 	}
 	g.modules = append(g.modules, m)
@@ -81,8 +81,8 @@ func (g *collapsable) Toggle() {
 // Button returns a button with the given output for the
 // collapsed and expanded states respectively that toggles
 // the group when clicked.
-func (g *collapsable) Button(collapsed, expanded *bar.Output) Button {
-	outputFunc := func() *bar.Output {
+func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
+	outputFunc := func() bar.Output {
 		if g.collapsed {
 			return collapsed
 		}

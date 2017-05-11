@@ -66,15 +66,15 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Info) *bar.Output
+type OutputFunc func(Info) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) *bar.Output) Config {
-	return OutputFunc(func(i Info) *bar.Output {
+func OutputTemplate(template func(interface{}) bar.Output) Config {
+	return OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
@@ -88,7 +88,7 @@ func (i Interface) apply(m *module) {
 
 type module struct {
 	*base.Base
-	outputFunc func(Info) *bar.Output
+	outputFunc func(Info) bar.Output
 	intf       string
 	info       Info
 	lastFlags  uint32
@@ -114,7 +114,7 @@ func New(config ...Config) base.WithClickHandler {
 	return m
 }
 
-func (m *module) Stream() <-chan *bar.Output {
+func (m *module) Stream() <-chan bar.Output {
 	go m.worker()
 	return m.Base.Stream()
 }

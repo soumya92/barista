@@ -61,7 +61,7 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Volume) *bar.Output
+type OutputFunc func(Volume) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
@@ -82,8 +82,8 @@ func (n MixerName) apply(m *module) {
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) *bar.Output) Config {
-	return OutputFunc(func(v Volume) *bar.Output {
+func OutputTemplate(template func(interface{}) bar.Output) Config {
+	return OutputFunc(func(v Volume) bar.Output {
 		return template(v)
 	})
 }
@@ -100,7 +100,7 @@ type module struct {
 	*base.Base
 	cardName   string
 	mixerName  string
-	outputFunc func(Volume) *bar.Output
+	outputFunc func(Volume) bar.Output
 	// To make it easier to change volume using alsa apis,
 	// store the current state and snd_mixer_elem_t pointer.
 	elem          *C.snd_mixer_elem_t
@@ -193,7 +193,7 @@ func defaultClickHandler(v Volume, c Controller, e bar.Event) {
 	}
 }
 
-func (m *module) Stream() <-chan *bar.Output {
+func (m *module) Stream() <-chan bar.Output {
 	// Worker goroutine to update the volume when notified by alsa.
 	go func() { m.Error(m.worker()) }()
 	return m.Base.Stream()

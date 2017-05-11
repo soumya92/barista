@@ -95,15 +95,15 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Weather) *bar.Output
+type OutputFunc func(Weather) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) *bar.Output) Config {
-	return OutputFunc(func(w Weather) *bar.Output {
+func OutputTemplate(template func(interface{}) bar.Output) Config {
+	return OutputFunc(func(w Weather) bar.Output {
 		return template(w)
 	})
 }
@@ -132,7 +132,7 @@ type module struct {
 	*base.Base
 	provider        Provider
 	refreshInterval time.Duration
-	outputFunc      func(Weather) *bar.Output
+	outputFunc      func(Weather) bar.Output
 	// cache last weather info for click handler.
 	lastWeather Weather
 }

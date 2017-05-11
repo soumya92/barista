@@ -138,15 +138,15 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Info) *bar.Output
+type OutputFunc func(Info) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) *bar.Output) Config {
-	return OutputFunc(func(i Info) *bar.Output {
+func OutputTemplate(template func(interface{}) bar.Output) Config {
+	return OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
@@ -179,7 +179,7 @@ type module struct {
 	*base.Base
 	playerName    string
 	trackPosition bool
-	outputFunc    func(Info) *bar.Output
+	outputFunc    func(Info) bar.Output
 	// player state, updated from dbus signals.
 	info Info
 	// To simplify adding/removing matches and querying metadata,
@@ -244,7 +244,7 @@ func defaultClickHandler(i Info, c Controller, e bar.Event) {
 // checking in the update function since we're guaranteed that
 // the update function will only be called if there were no errors
 // during startup.
-func (m *module) Stream() (ch <-chan *bar.Output) {
+func (m *module) Stream() (ch <-chan bar.Output) {
 	ch = m.Base.Stream()
 	// Need a private bus in-case other modules (or other instances of media) are
 	// using dbus as well. Since we rely on (Add|Remove)Match and Signal,

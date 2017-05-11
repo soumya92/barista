@@ -60,7 +60,7 @@ func NewModuleSet() *ModuleSet {
 type Submodule interface {
 	base.WithClickHandler
 	Clear()
-	Output(out *bar.Output)
+	Output(out bar.Output)
 	Error(err error) bool
 }
 

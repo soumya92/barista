@@ -51,15 +51,15 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(LoadAvg) *bar.Output
+type OutputFunc func(LoadAvg) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) *bar.Output) Config {
-	return OutputFunc(func(l LoadAvg) *bar.Output {
+func OutputTemplate(template func(interface{}) bar.Output) Config {
+	return OutputFunc(func(l LoadAvg) bar.Output {
 		// TODO: See if there's a way to avoid this.
 		// Go does not agree with me when I say that a func(interface{})
 		// should be assignable to a func(LoadAvg).
@@ -97,7 +97,7 @@ func (u UrgentWhen) apply(m *module) {
 type module struct {
 	*base.Base
 	refreshInterval time.Duration
-	outputFunc      func(LoadAvg) *bar.Output
+	outputFunc      func(LoadAvg) bar.Output
 	colorFunc       func(LoadAvg) bar.Color
 	urgentFunc      func(LoadAvg) bool
 	loads           LoadAvg
@@ -137,10 +137,10 @@ func (m *module) update() {
 	}
 	out := m.outputFunc(m.loads)
 	if m.urgentFunc != nil {
-		out.Urgent = m.urgentFunc(m.loads)
+		out.Urgent(m.urgentFunc(m.loads))
 	}
 	if m.colorFunc != nil {
-		out.Color = m.colorFunc(m.loads)
+		out.Color(m.colorFunc(m.loads))
 	}
 	m.Output(out)
 }

@@ -91,7 +91,7 @@ func (r RefreshInterval) apply(m *Module) {
 type Module struct {
 	moduleSet       *multi.ModuleSet
 	refreshInterval time.Duration
-	outputs         map[multi.Submodule]func(Info) *bar.Output
+	outputs         map[multi.Submodule]func(Info) bar.Output
 }
 
 // New constructs an instance of the meminfo multi-module
@@ -101,7 +101,7 @@ func New(config ...Config) *Module {
 		moduleSet: multi.NewModuleSet(),
 		// Default is to refresh every 3s, matching the behaviour of top.
 		refreshInterval: 3 * time.Second,
-		outputs:         make(map[multi.Submodule]func(Info) *bar.Output),
+		outputs:         make(map[multi.Submodule]func(Info) bar.Output),
 	}
 	// Apply each configuration.
 	for _, c := range config {
@@ -114,15 +114,15 @@ func New(config ...Config) *Module {
 }
 
 // OutputFunc creates a submodule that displays the output of a user-defined function.
-func (m *Module) OutputFunc(format func(Info) *bar.Output) base.WithClickHandler {
+func (m *Module) OutputFunc(format func(Info) bar.Output) base.WithClickHandler {
 	submodule := m.moduleSet.New()
 	m.outputs[submodule] = format
 	return submodule
 }
 
 // OutputTemplate creates a submodule that displays the output of a template.
-func (m *Module) OutputTemplate(template func(interface{}) *bar.Output) base.WithClickHandler {
-	return m.OutputFunc(func(i Info) *bar.Output { return template(i) })
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) base.WithClickHandler {
+	return m.OutputFunc(func(i Info) bar.Output { return template(i) })
 }
 
 func (m *Module) update() {

@@ -24,13 +24,13 @@ import (
 )
 
 func TestEmpty(t *testing.T) {
-	assert.Nil(t, Empty(), "empty output")
+	assert.Empty(t, Empty(), "empty output")
 }
 
 func TestTextFmt(t *testing.T) {
 	tests := []struct {
 		desc     string
-		output   *bar.Output
+		output   bar.Output
 		expected string
 	}{
 		{"empty string", Text(""), ""},
@@ -41,7 +41,7 @@ func TestTextFmt(t *testing.T) {
 		{"with multiple args", Textf("%s=%0.4f, %d^2=%d", "pi", 3.14159, 2, 4), "pi=3.1416, 2^2=4"},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, tc.output.Text, tc.desc)
+		assert.Equal(t, tc.expected, tc.output[0].Text, tc.desc)
 	}
 }
 
@@ -50,7 +50,7 @@ func TestPango(t *testing.T) {
 	// so we'll just test collapsing here.
 	tests := []struct {
 		desc     string
-		output   *bar.Output
+		output   bar.Output
 		expected string
 	}{
 		{"empty", Pango(), ""},
@@ -60,8 +60,8 @@ func TestPango(t *testing.T) {
 		{"with tag", Pango(pango.Tag("b", "test")), "<b>test</b>"},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, tc.output.Text, tc.desc)
-		assert.Equal(t, bar.MarkupPango, tc.output.Markup, tc.desc)
+		assert.Equal(t, tc.expected, tc.output[0].Text, tc.desc)
+		assert.Equal(t, bar.MarkupPango, tc.output[0].Markup, tc.desc)
 	}
 }
 
@@ -100,7 +100,7 @@ func TestTextTemplate(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, tc.template(testObject).Text, tc.desc)
+		assert.Equal(t, tc.expected, tc.template(testObject)[0].Text, tc.desc)
 	}
 }
 
@@ -129,6 +129,6 @@ func TestPangoTemplate(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, tc.template(testObject).Text, tc.desc)
+		assert.Equal(t, tc.expected, tc.template(testObject)[0].Text, tc.desc)
 	}
 }

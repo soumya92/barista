@@ -26,6 +26,7 @@ import (
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/modules/clock"
 	"github.com/soumya92/barista/modules/cputemp"
+	"github.com/soumya92/barista/modules/group"
 	"github.com/soumya92/barista/modules/media"
 	"github.com/soumya92/barista/modules/meminfo"
 	"github.com/soumya92/barista/modules/netspeed"
@@ -66,7 +67,7 @@ func formatMediaTime(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
-func mediaFormatFunc(m media.Info) *bar.Output {
+func mediaFormatFunc(m media.Info) bar.Output {
 	if m.PlaybackStatus == media.Stopped || m.PlaybackStatus == media.Disconnected {
 		return nil
 	}
@@ -119,7 +120,7 @@ func main() {
 		"dim-icon": "#777",
 	})
 
-	localtime := clock.New(clock.OutputFunc(func(now time.Time) *bar.Output {
+	localtime := clock.New(clock.OutputFunc(func(now time.Time) bar.Output {
 		return outputs.Pango(
 			material.Icon("today", colors.Scheme("dim-icon")),
 			now.Format("Mon Jan 2 "),
@@ -137,7 +138,7 @@ func main() {
 	// https://openweathermap.org/api.
 	wthr := weather.New(
 		openweathermap.New().Zipcode("94043", "US").Build(),
-		weather.OutputFunc(func(w weather.Weather) *bar.Output {
+		weather.OutputFunc(func(w weather.Weather) bar.Output {
 			iconName := ""
 			switch w.Condition {
 			case weather.Thunderstorm,
@@ -186,11 +187,11 @@ func main() {
 	)
 
 	vol := volume.New(
-		volume.OutputFunc(func(v volume.Volume) *bar.Output {
+		volume.OutputFunc(func(v volume.Volume) bar.Output {
 			if v.Mute {
-				out := outputs.Pango(ionicons.Icon("volume-mute"), "MUT")
-				out.Color = colors.Scheme("degraded")
-				return out
+				return outputs.
+					Pango(ionicons.Icon("volume-mute"), "MUT").
+					Color(colors.Scheme("degraded"))
 			}
 			iconName := "low"
 			pct := v.Pct()
@@ -207,7 +208,7 @@ func main() {
 		}),
 	)
 
-	loadAvg := sysinfo.New().OutputFunc(func(s sysinfo.Info) *bar.Output {
+	loadAvg := sysinfo.New().OutputFunc(func(s sysinfo.Info) bar.Output {
 		out := outputs.Textf("%0.2f %0.2f", s.Loads[0], s.Loads[2])
 		// Load averages are unusually high for a few minutes after boot.
 		if s.Uptime < 10*time.Minute {
@@ -216,28 +217,28 @@ func main() {
 		}
 		switch {
 		case s.Loads[0] > 128, s.Loads[2] > 64:
-			out.Urgent = true
+			out.Urgent(true)
 		case s.Loads[0] > 64, s.Loads[2] > 32:
-			out.Color = colors.Scheme("bad")
+			out.Color(colors.Scheme("bad"))
 		case s.Loads[0] > 32, s.Loads[2] > 16:
-			out.Color = colors.Scheme("degraded")
+			out.Color(colors.Scheme("degraded"))
 		}
 		return out
 	})
 	loadAvg.OnClick(startTaskManager)
 
-	freeMem := meminfo.New().OutputFunc(func(m meminfo.Info) *bar.Output {
+	freeMem := meminfo.New().OutputFunc(func(m meminfo.Info) bar.Output {
 		out := outputs.Pango(material.Icon("memory"), m.Available().IEC())
 		freeGigs := m.Available().In("GiB")
 		switch {
 		case freeGigs < 0.5:
-			out.Urgent = true
+			out.Urgent(true)
 		case freeGigs < 1:
-			out.Color = colors.Scheme("bad")
+			out.Color(colors.Scheme("bad"))
 		case freeGigs < 2:
-			out.Color = colors.Scheme("degraded")
+			out.Color(colors.Scheme("degraded"))
 		case freeGigs > 12:
-			out.Color = colors.Scheme("good")
+			out.Color(colors.Scheme("good"))
 		}
 		return out
 	})
@@ -258,7 +259,7 @@ func main() {
 				return colors.Empty()
 			}
 		}),
-		cputemp.OutputFunc(func(temp cputemp.Temperature) *bar.Output {
+		cputemp.OutputFunc(func(temp cputemp.Temperature) bar.Output {
 			return outputs.Pango(
 				materialCommunity.Icon("fan"), spacer,
 				pango.Textf("%2d℃", temp.C()),
@@ -269,7 +270,7 @@ func main() {
 	net := netspeed.New(
 		netspeed.Interface("eno1"),
 		netspeed.RefreshInterval(2*time.Second),
-		netspeed.OutputFunc(func(s netspeed.Speeds) *bar.Output {
+		netspeed.OutputFunc(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
 				fontawesome.Icon("upload"), spacer, pango.Textf("%5s", s.Tx.SI()),
 				pango.Span(" ", pango.Small),
@@ -284,12 +285,15 @@ func main() {
 		media.OutputFunc(mediaFormatFunc),
 	)
 
+	g := group.Collapsing()
+
 	panic(bar.Run(
 		rhythmbox,
-		net,
-		temp,
-		freeMem,
-		loadAvg,
+		g.Add(net),
+		g.Add(temp),
+		g.Add(freeMem),
+		g.Add(loadAvg),
+		g.Button(outputs.Text("+"), outputs.Text("-")),
 		vol,
 		wthr,
 		localtime,

@@ -70,15 +70,15 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Info) *bar.Output
+type OutputFunc func(Info) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) *bar.Output) Config {
-	return OutputFunc(func(i Info) *bar.Output {
+func OutputTemplate(template func(interface{}) bar.Output) Config {
+	return OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
@@ -119,7 +119,7 @@ type module struct {
 	*base.Base
 	batteryName     string
 	refreshInterval time.Duration
-	outputFunc      func(Info) *bar.Output
+	outputFunc      func(Info) bar.Output
 	colorFunc       func(Info) bar.Color
 	urgentFunc      func(Info) bool
 }
@@ -156,10 +156,10 @@ func (m *module) update() {
 	}
 	out := m.outputFunc(info)
 	if m.urgentFunc != nil {
-		out.Urgent = m.urgentFunc(info)
+		out.Urgent(m.urgentFunc(info))
 	}
 	if m.colorFunc != nil {
-		out.Color = m.colorFunc(info)
+		out.Color(m.colorFunc(info))
 	}
 	m.Output(out)
 }

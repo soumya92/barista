@@ -51,15 +51,15 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Temperature) *bar.Output
+type OutputFunc func(Temperature) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) *bar.Output) Config {
-	return OutputFunc(func(t Temperature) *bar.Output {
+func OutputTemplate(template func(interface{}) bar.Output) Config {
+	return OutputFunc(func(t Temperature) bar.Output {
 		return template(t)
 	})
 }
@@ -101,7 +101,7 @@ type module struct {
 	*base.Base
 	thermalFile     string
 	refreshInterval time.Duration
-	outputFunc      func(Temperature) *bar.Output
+	outputFunc      func(Temperature) bar.Output
 	colorFunc       func(Temperature) bar.Color
 	urgentFunc      func(Temperature) bool
 	// Store last cpu temp to skip updates when unchanged.
@@ -154,10 +154,10 @@ func (m *module) update() {
 	temp := Temperature(float64(milliC) / 1000.0)
 	out := m.outputFunc(temp)
 	if m.urgentFunc != nil {
-		out.Urgent = m.urgentFunc(temp)
+		out.Urgent(m.urgentFunc(temp))
 	}
 	if m.colorFunc != nil {
-		out.Color = m.colorFunc(temp)
+		out.Color(m.colorFunc(temp))
 	}
 	m.Output(out)
 	m.lastTempMilliC = milliC

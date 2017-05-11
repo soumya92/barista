@@ -24,7 +24,7 @@ import (
 
 // Module is an interface that allows functions to display their module output.
 type Module interface {
-	Output(*bar.Output)
+	Output(bar.Output)
 	Clear()
 	Error(error) bool
 }

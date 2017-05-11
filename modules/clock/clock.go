@@ -29,7 +29,7 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(time.Time) *bar.Output
+type OutputFunc func(time.Time) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
@@ -37,7 +37,7 @@ func (o OutputFunc) apply(m *module) {
 
 // OutputFormat configures a module to display the time in a given format.
 func OutputFormat(format string) Config {
-	return OutputFunc(func(now time.Time) *bar.Output {
+	return OutputFunc(func(now time.Time) bar.Output {
 		return outputs.Text(now.Format(format))
 	})
 }
@@ -64,7 +64,7 @@ func (g Granularity) apply(m *module) {
 type module struct {
 	*base.Base
 	granularity time.Duration
-	outputFunc  func(time.Time) *bar.Output
+	outputFunc  func(time.Time) bar.Output
 	timezone    *time.Location
 }
 

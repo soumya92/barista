@@ -29,7 +29,7 @@ type Cyclic interface {
 	Next()
 	Show(int)
 	Count() int
-	Button(*bar.Output) Button
+	Button(bar.Output) Button
 }
 
 // Cycling returns a new cyclic group.
@@ -50,7 +50,7 @@ func (g *cyclic) Add(original bar.Module) bar.Module {
 	index := len(g.modules)
 	m := &module{
 		Module:  original,
-		channel: make(chan *bar.Output),
+		channel: make(chan bar.Output),
 		visible: g.current == index,
 	}
 	g.modules = append(g.modules, m)
@@ -89,7 +89,7 @@ func (g *cyclic) Count() int {
 
 // Button returns a button with the given output that switches
 // to the next module in the group when clicked.
-func (g *cyclic) Button(output *bar.Output) Button {
+func (g *cyclic) Button(output bar.Output) Button {
 	b := base.New()
 	b.Output(output)
 	b.OnClick(func(e bar.Event) {

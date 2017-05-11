@@ -20,7 +20,7 @@ For example, a time module might use strftime-style format strings,
 which don't allow for colours or borders. You can add those using reformat:
 
 t := localtime.New(...)
-r := reformat.New(t, func(o *bar.Output) *bar.Output {
+r := reformat.New(t, func(o bar.Output) bar.Output {
 	o.Background = "red"
 	o.SeparatorWidth = 20
 	return o
@@ -33,7 +33,7 @@ import (
 )
 
 // FormatFunc takes the module's output and returns a modified version.
-type FormatFunc func(*bar.Output) *bar.Output
+type FormatFunc func(bar.Output) bar.Output
 
 // module stores the original module and the re-formatting function.
 type module struct {
@@ -47,8 +47,8 @@ func New(original bar.Module, formatFunc FormatFunc) bar.Module {
 }
 
 // Stream sets up the formatting pipeline and returns a channel for the bar.
-func (m *module) Stream() <-chan *bar.Output {
-	reformatted := make(chan *bar.Output)
+func (m *module) Stream() <-chan bar.Output {
+	reformatted := make(chan bar.Output)
 	go format(m.Module.Stream(), m.Formatter, reformatted)
 	return reformatted
 }
@@ -76,7 +76,7 @@ func (m *module) Resume() {
 
 // format takes input from a channel, formats it using the format function,
 // and outputs it to a different channel.
-func format(input <-chan *bar.Output, f FormatFunc, output chan<- *bar.Output) {
+func format(input <-chan bar.Output, f FormatFunc, output chan<- bar.Output) {
 	for out := range input {
 		output <- f(out)
 	}

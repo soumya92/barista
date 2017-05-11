@@ -67,15 +67,15 @@ type Config interface {
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Speeds) *bar.Output
+type OutputFunc func(Speeds) bar.Output
 
 func (o OutputFunc) apply(m *module) {
 	m.outputFunc = o
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) *bar.Output) Config {
-	return OutputFunc(func(s Speeds) *bar.Output {
+func OutputTemplate(template func(interface{}) bar.Output) Config {
+	return OutputFunc(func(s Speeds) bar.Output {
 		return template(s)
 	})
 }
@@ -120,7 +120,7 @@ type module struct {
 	*base.Base
 	rxFile, txFile  string
 	refreshInterval time.Duration
-	outputFunc      func(Speeds) *bar.Output
+	outputFunc      func(Speeds) bar.Output
 	// To get network speed, we need to know delta-rx/tx,
 	// so we need to store the previous rx/tx.
 	lastRead info

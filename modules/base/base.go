@@ -26,12 +26,12 @@ import (
 // Base is a simple module that satisfies the bar.Module interface, while adding
 // some useful functions to make building modules on top somewhat simpler.
 type Base struct {
-	channel        chan *bar.Output
+	channel        chan bar.Output
 	clickHandler   func(bar.Event)
 	updateFunc     func()
 	paused         bool
 	updateOnResume bool
-	outputOnResume *bar.Output
+	outputOnResume bar.Output
 	lastError      error
 }
 
@@ -53,7 +53,7 @@ type WithClickHandler interface {
 }
 
 // Stream starts up the worker goroutine, and channels its output to the bar.
-func (b *Base) Stream() <-chan *bar.Output {
+func (b *Base) Stream() <-chan bar.Output {
 	b.Resume()
 	// Constructed when New is called, but is not directly exposed to extending
 	// modules. Use Output or Clear to control the bar output.
@@ -127,7 +127,7 @@ func (b *Base) OnClick(handler func(bar.Event)) {
 // New constructs a new base module.
 func New() *Base {
 	return &Base{
-		channel:    make(chan *bar.Output),
+		channel:    make(chan bar.Output),
 		updateFunc: func() {},
 		// Modules start paused so that any modifications prior to Stream()
 		// are not applied before the module has started.
@@ -153,7 +153,7 @@ func (b *Base) Clear() {
 }
 
 // Output updates the module's output.
-func (b *Base) Output(out *bar.Output) {
+func (b *Base) Output(out bar.Output) {
 	if b.paused {
 		b.outputOnResume = out
 		return

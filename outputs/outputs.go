@@ -27,43 +27,43 @@ import (
 
 // TemplateFunc is a function that takes in a single argument constructs a
 // bar output from it.
-type TemplateFunc func(interface{}) *bar.Output
+type TemplateFunc func(interface{}) bar.Output
 
 // Empty constructs an empty output, which will hide a module from the bar.
-func Empty() *bar.Output {
-	return nil
+func Empty() bar.Output {
+	return bar.Output{}
 }
 
 // Error constructs a bar output that indicates an error.
-func Error(e error) *bar.Output {
-	return &bar.Output{
+func Error(e error) bar.Output {
+	return bar.Output{&bar.Segment{
 		Text:      e.Error(),
 		ShortText: "Error",
 		Urgent:    true,
-	}
+	}}
 }
 
 // Textf constructs simple text output from a format string and arguments.
-func Textf(format string, args ...interface{}) *bar.Output {
+func Textf(format string, args ...interface{}) bar.Output {
 	return Text(fmt.Sprintf(format, args...))
 }
 
 //Text constructs a simple text output from the given string.
-func Text(text string) *bar.Output {
-	return &bar.Output{Text: text}
+func Text(text string) bar.Output {
+	return bar.Output{&bar.Segment{Text: text}}
 }
 
 // PangoUnsafe constructs a bar output from existing pango markup.
 // This function does not perform any escaping.
-func PangoUnsafe(markup string) *bar.Output {
-	return &bar.Output{
+func PangoUnsafe(markup string) bar.Output {
+	return bar.Output{&bar.Segment{
 		Text:   markup,
 		Markup: bar.MarkupPango,
-	}
+	}}
 }
 
 // Pango constructs a bar output from a list of things.
-func Pango(things ...interface{}) *bar.Output {
+func Pango(things ...interface{}) bar.Output {
 	// The extra span tag will be collapsed if no attributes were added.
 	return PangoUnsafe(pango.Span(things...).Pango())
 }
@@ -71,7 +71,7 @@ func Pango(things ...interface{}) *bar.Output {
 // TextTemplate creates a TemplateFunc from the given text template.
 func TextTemplate(tpl string) TemplateFunc {
 	t := textTemplate.Must(textTemplate.New("text").Parse(tpl))
-	return func(arg interface{}) *bar.Output {
+	return func(arg interface{}) bar.Output {
 		var out bytes.Buffer
 		if err := t.Execute(&out, arg); err != nil {
 			return Error(err)
@@ -84,7 +84,7 @@ func TextTemplate(tpl string) TemplateFunc {
 // It uses go's html/template to escape input properly.
 func PangoTemplate(tpl string) TemplateFunc {
 	t := htmlTemplate.Must(htmlTemplate.New("pango").Parse(tpl))
-	return func(arg interface{}) *bar.Output {
+	return func(arg interface{}) bar.Output {
 		var out bytes.Buffer
 		if err := t.Execute(&out, arg); err != nil {
 			return Error(err)

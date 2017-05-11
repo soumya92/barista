@@ -44,14 +44,15 @@ const (
 type Color string
 
 /*
-Output is a single "block" of output that conforms to the i3bar protocol.
+Segment is a single "block" of output that conforms to the i3bar protocol.
 See https://i3wm.org/docs/i3bar-protocol.html#_blocks_in_detail for details.
 
-Note: Name and instance are not included because only the bar needs to know
-about them in order to dispatch click events and maintain the output cache.
-Individual modules do not need to know what instance they are.
+Note: Name is not included because only the bar needs to know the name in
+order to dispatch click events and maintain the output cache. Multiple outputs
+can still use the instance key (which the bar does not modify) to map click
+events to output segments.
 */
-type Output struct {
+type Segment struct {
 	Text           string        `json:"full_text"`
 	ShortText      string        `json:"short_text,omitempty"`
 	Color          Color         `json:"color,omitempty"`
@@ -63,7 +64,11 @@ type Output struct {
 	Separator      bool          `json:"separator,omitempty"`
 	SeparatorWidth int           `json:"separator_block_width,omitempty"`
 	Markup         Markup        `json:"markup,omitempty"`
+	Instance       string        `json:"instance"`
 }
+
+// Output groups together one or more segments to display on the bar.
+type Output []*Segment
 
 // Button represents an X11 mouse button.
 type Button int
@@ -93,14 +98,18 @@ const (
 /*
 Event represents a mouse event meant for a single module.
 
-Note: As before, name and instance are not included because they're only required
-to determine which module will handle an event from i3. Once the bar receives the
-event, it provides only the information in this struct to individual modules.
+Note: As before, name is not included because it's only required to determine
+which module will handle an event from i3. Once the bar receives the event,
+it provides only the information in this struct to individual modules.
+
+The Instance is passed through unchanged from the output segments, so
+it can be used to filter events for a module with multiple output segments.
 */
 type Event struct {
-	Button Button `json:"button"`
-	X      int    `json:"x,omitempty"`
-	Y      int    `json:"y,omitempty"`
+	Button   Button `json:"button"`
+	X        int    `json:"x,omitempty"`
+	Y        int    `json:"y,omitempty"`
+	Instance string `json:"instance"`
 }
 
 // Module represents a single bar module. A bar is just a list of modules.
@@ -109,7 +118,7 @@ type Module interface {
 	// output channel to update the module output, and use the last received output to
 	// refresh the display when needed. Each new item on this channel will immediately
 	// update the module output.
-	Stream() <-chan *Output
+	Stream() <-chan Output
 }
 
 // Clickable is an additional interface modules may implement if they handle click events.

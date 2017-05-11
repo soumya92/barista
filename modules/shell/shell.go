@@ -49,7 +49,7 @@ func Tail(cmd string, args ...string) base.WithClickHandler {
 	}
 }
 
-func (m *tailModule) Stream() <-chan *bar.Output {
+func (m *tailModule) Stream() <-chan bar.Output {
 	go m.worker()
 	return m.Base.Stream()
 }

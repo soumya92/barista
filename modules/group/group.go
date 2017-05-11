@@ -54,13 +54,13 @@ type Button interface {
 // sends output when it's visible. Otherwise it outputs nothing.
 type module struct {
 	bar.Module
-	channel    chan *bar.Output
-	lastOutput *bar.Output
+	channel    chan bar.Output
+	lastOutput bar.Output
 	visible    bool
 }
 
 // Stream sets up the output pipeline to filter outputs when hidden.
-func (m *module) Stream() <-chan *bar.Output {
+func (m *module) Stream() <-chan bar.Output {
 	go m.pipeWhenVisible(m.Module.Stream(), m.channel)
 	return m.channel
 }
@@ -96,7 +96,7 @@ func (m *module) SetVisible(visible bool) {
 	}
 }
 
-func (m *module) pipeWhenVisible(input <-chan *bar.Output, output chan<- *bar.Output) {
+func (m *module) pipeWhenVisible(input <-chan bar.Output, output chan<- bar.Output) {
 	for out := range input {
 		m.lastOutput = out
 		if m.visible {
