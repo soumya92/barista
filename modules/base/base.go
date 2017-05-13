@@ -211,7 +211,7 @@ func (b *Base) UpdateAfter(delay time.Duration) Scheduler {
 func (b *Base) UpdateEvery(interval time.Duration) Scheduler {
 	ticker := time.NewTicker(interval)
 	go func() {
-		for _ = range ticker.C {
+		for range ticker.C {
 			b.Update()
 		}
 	}()

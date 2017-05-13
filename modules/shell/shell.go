@@ -38,7 +38,7 @@ type tailModule struct {
 	args []string
 }
 
-// Tail constructs a module that displays the last line of ouput from
+// Tail constructs a module that displays the last line of output from
 // a long running command. Use the reformat module to adjust the output
 // if necessary.
 func Tail(cmd string, args ...string) base.WithClickHandler {

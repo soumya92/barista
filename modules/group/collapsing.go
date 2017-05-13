@@ -60,7 +60,7 @@ func (g *collapsable) Collapsed() bool {
 	return g.collapsed
 }
 
-// Collapse collapes the group and hides all modules.
+// Collapse collapses the group and hides all modules.
 func (g *collapsable) Collapse() {
 	g.collapsed = true
 	g.syncState()
