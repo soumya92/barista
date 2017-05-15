@@ -111,70 +111,59 @@ func TestStdin(t *testing.T) {
 		}
 	})(stdin, result)
 
-	request <- 1
-	select {
-	case <-result:
-		assert.Fail(t, "read should not return when nothing has been written")
-	case <-time.After(1 * time.Millisecond):
+	resultOrTimeout := func(timeout time.Duration) (readResult, bool) {
+		select {
+		case r := <-result:
+			return r, true
+		case <-time.After(timeout):
+			return readResult{}, false
+		}
 	}
 
+	request <- 1
+	r, ok := resultOrTimeout(time.Millisecond)
+	assert.False(t, ok, "read should not return when nothing has been written")
+
 	stdin.WriteString("")
-	r := <-result
+	r, ok = resultOrTimeout(time.Second)
+	assert.True(t, ok, "read returns empty string if written")
 	assert.Equal(t, readResult{"", nil}, r, "read returns empty string if written")
 
 	stdin.WriteString("test")
 	request <- 2
-	select {
-	case r := <-result:
-		assert.Equal(t, readResult{"te", nil}, r, "read returns only requested content when more is available")
-	case <-time.After(1 * time.Millisecond):
-		assert.Fail(t, "read should not time out when content is available")
-	}
+	r, ok = resultOrTimeout(time.Second)
+	assert.True(t, ok, "read should not time out when content is available")
+	assert.Equal(t, readResult{"te", nil}, r, "read returns only requested content when more is available")
 
 	request <- 2
-	select {
-	case r := <-result:
-		assert.Equal(t, readResult{"st", nil}, r, "read returns leftover on subsequent call")
-	case <-time.After(1 * time.Millisecond):
-		assert.Fail(t, "read should not time out when content is available")
-	}
+	r, ok = resultOrTimeout(time.Second)
+	assert.True(t, ok, "read should not time out when content is available")
+	assert.Equal(t, readResult{"st", nil}, r, "read returns leftover on subsequent call")
 
 	stdin.WriteString("abcd")
 	request <- 10
-	select {
-	case r := <-result:
-		assert.Equal(t, readResult{"abcd", nil}, r, "read returns partial content if available")
-	case <-time.After(1 * time.Millisecond):
-		assert.Fail(t, "read should not time out when returning partial content")
-	}
+	r, ok = resultOrTimeout(time.Second)
+	assert.True(t, ok, "read should not time out when returning partial content")
+	assert.Equal(t, readResult{"abcd", nil}, r, "read returns partial content if available")
 
 	stdin.WriteString("12")
 	stdin.WriteString("34")
 	stdin.WriteString("56")
 	stdin.WriteString("78")
 	request <- 8
-	select {
-	case r := <-result:
-		assert.Equal(t, readResult{"12345678", nil}, r, "read returns concatenation of multiple writes")
-	case <-time.After(1 * time.Millisecond):
-		assert.Fail(t, "read should not time out when concatenating")
-	}
+	r, ok = resultOrTimeout(time.Second)
+	assert.True(t, ok, "read should not time out when concatenating")
+	assert.Equal(t, readResult{"12345678", nil}, r, "read returns concatenation of multiple writes")
 
 	request <- 4
-	select {
-	case <-result:
-		assert.Fail(t, "read should wait for a write when buffer has been emptied")
-	case <-time.After(1 * time.Millisecond):
-	}
+	r, ok = resultOrTimeout(time.Millisecond)
+	assert.False(t, ok, "read should wait for a write when buffer has been emptied")
 
-	stdin.WriteString("xyz")
-	stdin.WriteString("abc")
-	select {
-	case r := <-result:
-		assert.Equal(t, readResult{"xyz", nil}, r, "read returns contents of first write (does not wait)")
-	case <-time.After(1 * time.Millisecond):
-		assert.Fail(t, "read does not time out when returning partial content")
-	}
+	stdin.Write([]byte("xyz"))
+	stdin.Write([]byte("abc"))
+	r, ok = resultOrTimeout(time.Second)
+	assert.True(t, ok, "read does not time out when returning partial content")
+	assert.Equal(t, readResult{"xyz", nil}, r, "read returns contents of first write (does not wait)")
 
 	request <- 1
 	r = <-result
