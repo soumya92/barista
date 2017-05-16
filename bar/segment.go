@@ -14,15 +14,9 @@
 
 package bar
 
-// NewSegment creates a new output segment.
-func NewSegment() Segment {
-	return Segment{}
-}
-
-// Text sets the default text output for the segment.
-func (s Segment) Text(text string) Segment {
-	s["full_text"] = text
-	return s
+// NewSegment creates a new output segment with text content.
+func NewSegment(text string) Segment {
+	return Segment{"full_text": text}
 }
 
 // ShortText sets the shortened text, used if the default text

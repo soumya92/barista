@@ -63,7 +63,7 @@ func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {
 func textOutput(text ...string) Output {
 	var out Output
 	for _, t := range text {
-		out = append(out, NewSegment().Text(t))
+		out = append(out, NewSegment(t))
 	}
 	return out
 }

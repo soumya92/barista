@@ -36,8 +36,7 @@ func Empty() bar.Output {
 
 // Error constructs a bar output that indicates an error.
 func Error(e error) bar.Output {
-	return bar.Output{bar.NewSegment().
-		Text(e.Error()).
+	return bar.Output{bar.NewSegment(e.Error()).
 		ShortText("Error").
 		Urgent(true),
 	}
@@ -50,16 +49,13 @@ func Textf(format string, args ...interface{}) bar.Output {
 
 //Text constructs a simple text output from the given string.
 func Text(text string) bar.Output {
-	return bar.Output{bar.NewSegment().Text(text)}
+	return bar.Output{bar.NewSegment(text)}
 }
 
 // PangoUnsafe constructs a bar output from existing pango markup.
 // This function does not perform any escaping.
 func PangoUnsafe(markup string) bar.Output {
-	return bar.Output{bar.NewSegment().
-		Text(markup).
-		Markup(bar.MarkupPango),
-	}
+	return bar.Output{bar.NewSegment(markup).Markup(bar.MarkupPango)}
 }
 
 // Pango constructs a bar output from a list of things.

@@ -183,7 +183,7 @@ func TestComposite(t *testing.T) {
 			Multi().
 				KeepSeparators(true).
 				AddText("name1", "1").
-				Add("name2", bar.Output{bar.NewSegment().Separator(false).Text("2")}).
+				Add("name2", bar.Output{bar.NewSegment("2").Separator(false)}).
 				AddTextf("name3", "%d", 3).
 				Build(),
 			"1|23|",
@@ -193,7 +193,7 @@ func TestComposite(t *testing.T) {
 			"with explicitly added separators",
 			Multi().
 				AddText("name1", "1").
-				Add("name2", bar.Output{bar.NewSegment().Separator(true).Text("2")}).
+				Add("name2", bar.Output{bar.NewSegment("2").Separator(true)}).
 				AddTextf("name3", "%d", 3).
 				Build(),
 			"12|3|",
@@ -204,10 +204,10 @@ func TestComposite(t *testing.T) {
 			Multi().
 				AddText("name1", "1").
 				Add("name2", bar.Output{
-					bar.NewSegment().Separator(true).Text("2"),
-					bar.NewSegment().Separator(false).Text("3"),
-					bar.NewSegment().Text("4"),
-					bar.NewSegment().Separator(true).Text("5"),
+					bar.NewSegment("2").Separator(true),
+					bar.NewSegment("3").Separator(false),
+					bar.NewSegment("4"),
+					bar.NewSegment("5").Separator(true),
 				}).
 				AddTextf("name3", "%d", 6).
 				Build(),
