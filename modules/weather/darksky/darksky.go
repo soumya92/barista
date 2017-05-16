@@ -36,21 +36,15 @@ type Config struct {
 	apiKey string
 }
 
-// New creates an empty configuration.
-func New() *Config {
-	return &Config{}
+// Coords creates a dark sky configuration for the given
+// geographical co-ordinates.
+func Coords(lat, lon float64) *Config {
+	return &Config{lat: lat, lon: lon}
 }
 
 // APIKey sets the API key.
 func (c *Config) APIKey(apiKey string) *Config {
 	c.apiKey = apiKey
-	return c
-}
-
-// Coords sets the lat/lon co-ordinates.
-func (c *Config) Coords(lat, lon float64) *Config {
-	c.lat = lat
-	c.lon = lon
 	return c
 }
 

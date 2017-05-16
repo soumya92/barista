@@ -45,21 +45,27 @@ func (l LoadAvg) Min15() float64 {
 	return l[2]
 }
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
+// Module represents a cpuload bar module. It supports setting the output
+// format, click handler, update frequency, and urgency/colour functions.
+type Module interface {
+	base.WithClickHandler
+	RefreshInterval(time.Duration) Module
+	OutputFunc(func(LoadAvg) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
+	OutputColor(func(LoadAvg) bar.Color) Module
+	UrgentWhen(func(LoadAvg) bool) Module
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(LoadAvg) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
+func (m *module) OutputFunc(outputFunc func(LoadAvg) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(l LoadAvg) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(l LoadAvg) bar.Output {
 		// TODO: See if there's a way to avoid this.
 		// Go does not agree with me when I say that a func(interface{})
 		// should be assignable to a func(LoadAvg).
@@ -68,61 +74,47 @@ func OutputTemplate(template func(interface{}) bar.Output) Config {
 }
 
 // RefreshInterval configures the polling frequency for getloadavg.
-type RefreshInterval time.Duration
-
-func (r RefreshInterval) apply(m *module) {
-	m.refreshInterval = time.Duration(r)
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
+	return m
 }
 
 // OutputColor configures a module to change the colour of its output based on a
 // user-defined function. This allows you to set up color thresholds, or even
 // blend between two colours based on the current load average.
-type OutputColor func(LoadAvg) bar.Color
-
-func (o OutputColor) apply(m *module) {
-	m.colorFunc = o
+func (m *module) OutputColor(colorFunc func(LoadAvg) bar.Color) Module {
+	m.colorFunc = colorFunc
+	m.Update()
+	return m
 }
 
 // UrgentWhen configures a module to mark its output as urgent based on a
 // user-defined function.
-type UrgentWhen func(LoadAvg) bool
-
-func (u UrgentWhen) apply(m *module) {
-	m.urgentFunc = u
+func (m *module) UrgentWhen(urgentFunc func(LoadAvg) bool) Module {
+	m.urgentFunc = urgentFunc
+	m.Update()
+	return m
 }
 
-// module is the type of the i3bar module. It is unexported because it's an
-// implementation detail. It should never be used directly, only as something
-// that satisfies the bar.Module interface.
 type module struct {
 	*base.Base
-	refreshInterval time.Duration
-	outputFunc      func(LoadAvg) bar.Output
-	colorFunc       func(LoadAvg) bar.Color
-	urgentFunc      func(LoadAvg) bool
-	loads           LoadAvg
+	scheduler  base.Scheduler
+	outputFunc func(LoadAvg) bar.Output
+	colorFunc  func(LoadAvg) bar.Color
+	urgentFunc func(LoadAvg) bool
+	loads      LoadAvg
 }
 
-// New constructs an instance of the cpuload module with the provided configuration.
-func New(config ...Config) base.WithClickHandler {
-	m := &module{
-		Base: base.New(),
-		// Default is to refresh every 3s, matching the behaviour of top.
-		refreshInterval: 3 * time.Second,
-	}
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just 2 decimals of the 1-minute load average.
-		defTpl := outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`)
-		OutputTemplate(defTpl).apply(m)
-	}
-	// Worker goroutine to update load average at a fixed interval.
+// New constructs an instance of the cpuload module.
+func New() Module {
+	m := &module{Base: base.New()}
+	// Default is to refresh every 3s, matching the behaviour of top.
+	m.RefreshInterval(3 * time.Second)
+	// Construct a simple template that's just 2 decimals of the 1-minute load average.
+	m.OutputTemplate(outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`))
+	// Update load average when asked.
 	m.OnUpdate(m.update)
-	m.UpdateEvery(m.refreshInterval)
 	return m
 }
 

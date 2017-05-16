@@ -45,7 +45,7 @@ import (
 type ModuleSet struct {
 	submodules []*base.Base
 	updateFunc func()
-	scheduler  *scheduler
+	scheduler  scheduler
 	primaryIdx int
 }
 
@@ -106,6 +106,7 @@ func (m *ModuleSet) Update() {
 // it to the first submodule that becomes active. onDemandUpdate
 // takes care of propagating the updates to other submodules.
 type scheduler struct {
+	base.Scheduler
 	when     time.Time
 	delay    time.Duration
 	interval time.Duration
@@ -114,27 +115,37 @@ type scheduler struct {
 func (s *scheduler) applyTo(b *base.Base) {
 	switch {
 	case !s.when.IsZero():
-		b.UpdateAt(s.when)
+		s.Scheduler = b.UpdateAt(s.when)
 	case s.delay > 0:
-		b.UpdateAfter(s.delay)
+		s.Scheduler = b.UpdateAfter(s.delay)
 	case s.interval > 0:
-		b.UpdateEvery(s.interval)
+		s.Scheduler = b.UpdateEvery(s.interval)
 	}
 }
 
 // UpdateAt schedules submodules for updating at a specific time.
 func (m *ModuleSet) UpdateAt(when time.Time) {
-	m.scheduler = &scheduler{when: when}
+	m.replaceScheduler(scheduler{when: when})
 }
 
 // UpdateAfter schedules submodules for updating after a delay.
 func (m *ModuleSet) UpdateAfter(delay time.Duration) {
-	m.scheduler = &scheduler{delay: delay}
+	m.replaceScheduler(scheduler{delay: delay})
 }
 
 // UpdateEvery schedules submodules for repeated updating at an interval.
 func (m *ModuleSet) UpdateEvery(interval time.Duration) {
-	m.scheduler = &scheduler{interval: interval}
+	m.replaceScheduler(scheduler{interval: interval})
+}
+
+// replaceScheduler stops the current scheduler (if any), replaces it
+// with the given scheduler, and applies it to the primary submodule (if any).
+func (m *ModuleSet) replaceScheduler(newScheduler scheduler) {
+	m.scheduler.Stop()
+	m.scheduler = newScheduler
+	if m.primaryIdx >= 0 {
+		m.scheduler.applyTo(m.submodules[m.primaryIdx])
+	}
 }
 
 // OnUpdate sets the function that will be run on each update.
@@ -154,10 +165,7 @@ func (m *ModuleSet) onDemandUpdate(key int) func() {
 		// and all update scheduling is performed on the primary submodule as well.
 		if m.primaryIdx < 0 {
 			m.primaryIdx = key
-			if m.scheduler != nil {
-				m.scheduler.applyTo(m.submodules[key])
-				m.scheduler = nil
-			}
+			m.scheduler.applyTo(m.submodules[key])
 		}
 		if m.updateFunc != nil {
 			m.updateFunc()

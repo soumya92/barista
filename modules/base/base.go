@@ -49,7 +49,7 @@ type Module interface {
 // with their own OnClick method that provides module-specific information.
 type WithClickHandler interface {
 	Module
-	OnClick(func(bar.Event))
+	OnClick(func(bar.Event)) Module
 }
 
 // Stream starts up the worker goroutine, and channels its output to the bar.
@@ -120,8 +120,10 @@ func (b *Base) Update() {
 // OnClick sets the click handler.
 // This is a minimal default implementation; derived modules should implement an
 // alternative OnClick method that exposes module-specific data to the handler function.
-func (b *Base) OnClick(handler func(bar.Event)) {
+// Returns Module to allow bar.Add/bar.Run on the result.
+func (b *Base) OnClick(handler func(bar.Event)) Module {
 	b.clickHandler = handler
+	return b
 }
 
 // New constructs a new base module.

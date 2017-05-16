@@ -37,58 +37,46 @@ type Config struct {
 	apiKey string
 }
 
-// New creates an empty configuration.
-func New() *Config {
-	return &Config{}
-}
-
-// APIKey sets the API key.
-func (c *Config) APIKey(apiKey string) *Config {
-	c.apiKey = apiKey
-	return c
-}
-
 // USCity queries by a US City and State.
 func (c *Config) USCity(city, state string) *Config {
-	c.query = fmt.Sprintf("%s/%s", state, city)
-	return c
+	return &Config{query: fmt.Sprintf("%s/%s", state, city)}
 }
 
 // USZipCode queries by a US Zip Code.
 func (c *Config) USZipCode(zipcode string) *Config {
-	c.query = zipcode
-	return c
+	return &Config{query: zipcode}
 }
 
 // City queries by a city and country
 func (c *Config) City(city, country string) *Config {
-	c.query = fmt.Sprintf("%s/%s", country, city)
-	return c
+	return &Config{query: fmt.Sprintf("%s/%s", country, city)}
 }
 
 // Coords queries by lat/lon co-ordinates.
 func (c *Config) Coords(lat, lon float64) *Config {
-	c.query = fmt.Sprintf("%f,%f", lat, lon)
-	return c
+	return &Config{query: fmt.Sprintf("%f,%f", lat, lon)}
 }
 
 // Airport queries by airport code (e.g. KSEA).
 func (c *Config) Airport(code string) *Config {
-	c.query = code
-	return c
+	return &Config{query: code}
 }
 
 // PWS queries by personal weather station id (e.g. KCASANFR70).
 func (c *Config) PWS(id string) *Config {
-	c.query = fmt.Sprintf("pwd:%s", id)
-	return c
+	return &Config{query: fmt.Sprintf("pwd:%s", id)}
 }
 
 // ZMW queries by the disambiguation link if multiple locations
 // match a city name. The zmw number needs to be looked up manually
 // by making a request and observing the 'results' array.
 func (c *Config) ZMW(zmw string) *Config {
-	c.query = fmt.Sprintf("zmw:%s", zmw)
+	return &Config{query: fmt.Sprintf("zmw:%s", zmw)}
+}
+
+// APIKey sets the API key.
+func (c *Config) APIKey(apiKey string) *Config {
+	c.apiKey = apiKey
 	return c
 }
 

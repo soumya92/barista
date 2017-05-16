@@ -89,30 +89,25 @@ type Speed float64
 // Direction represents a compass direction stored as degrees.
 type Direction int
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
-}
-
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Weather) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
+func (m *module) OutputFunc(outputFunc func(Weather) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(w Weather) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(w Weather) bar.Output {
 		return template(w)
 	})
 }
 
 // RefreshInterval configures the polling frequency.
-type RefreshInterval time.Duration
-
-func (r RefreshInterval) apply(m *module) {
-	m.refreshInterval = time.Duration(r)
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
+	return m
 }
 
 // Provider is an interface for weather providers,
@@ -125,60 +120,56 @@ type Provider interface {
 // which allows click handlers to get the current weather.
 type Module interface {
 	base.Module
-	OnClick(func(Weather, bar.Event))
+	RefreshInterval(time.Duration) Module
+	OutputFunc(func(Weather) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
+	OnClick(func(Weather, bar.Event)) Module
 }
 
 type module struct {
 	*base.Base
-	provider        Provider
-	refreshInterval time.Duration
-	outputFunc      func(Weather) bar.Output
+	provider   Provider
+	scheduler  base.Scheduler
+	outputFunc func(Weather) bar.Output
 	// cache last weather info for click handler.
 	lastWeather Weather
 }
 
 // New constructs an instance of the weather module with the provided configuration.
-func New(provider Provider, config ...Config) Module {
+func New(provider Provider) Module {
 	m := &module{
-		Base: base.New(),
-		// Provider is required, so it's a param instead of being an optional Config.
+		Base:     base.New(),
 		provider: provider,
-		// Default is to refresh every 10 minutes
-		refreshInterval: 10 * time.Minute,
 	}
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just the temperature and conditions.
-		defTpl := outputs.TextTemplate(`{{.Temperature.C}}℃ {{.Description}}`)
-		OutputTemplate(defTpl).apply(m)
-	}
-	// Worker goroutine to update weather at an interval.
+	// Default is to refresh every 10 minutes
+	m.RefreshInterval(10 * time.Minute)
+	// Default output template is just the temperature and conditions.
+	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C}}℃ {{.Description}}`))
+	// Update weather when asked.
 	m.OnUpdate(m.update)
-	m.UpdateEvery(m.refreshInterval)
 	return m
 }
 
 // OnClick sets a click handler for the module.
-func (m *module) OnClick(f func(Weather, bar.Event)) {
+func (m *module) OnClick(f func(Weather, bar.Event)) Module {
 	if f == nil {
 		m.Base.OnClick(nil)
-		return
+		return m
 	}
 	m.Base.OnClick(func(e bar.Event) {
 		f(m.lastWeather, e)
 	})
+	return m
 }
 
 func (m *module) update() {
 	weather, err := m.provider.GetWeather()
-	if m.Error(err) || weather == nil {
-		// nil weather means unchanged.
+	if m.Error(err) {
 		return
 	}
-	m.lastWeather = *weather
+	if weather != nil {
+		// nil weather means unchanged.
+		m.lastWeather = *weather
+	}
 	m.Output(m.outputFunc(m.lastWeather))
 }

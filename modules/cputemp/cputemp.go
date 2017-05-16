@@ -45,97 +45,89 @@ func (t Temperature) F() int {
 	return int(float64(t)*1.8 + 32)
 }
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
+// Module represents a cputemp bar module. It supports setting the output
+// format, click handler, update frequency, and urgency/colour functions.
+type Module interface {
+	base.WithClickHandler
+	RefreshInterval(time.Duration) Module
+	OutputFunc(func(Temperature) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
+	OutputColor(func(Temperature) bar.Color) Module
+	UrgentWhen(func(Temperature) bool) Module
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Temperature) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
+func (m *module) OutputFunc(outputFunc func(Temperature) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(t Temperature) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(t Temperature) bar.Output {
 		return template(t)
 	})
 }
 
-// ThermalZone sets the thermal zone to read cpu temperature from.
-// The file /sys/class/thermal/<zone>/temp should return cpu temp in 1/1000 deg C.
-type ThermalZone string
-
-func (t ThermalZone) apply(m *module) {
-	m.thermalFile = fmt.Sprintf("/sys/class/thermal/%s/temp", string(t))
-}
-
 // RefreshInterval configures the polling frequency for cpu temperatures.
 // Note: updates might still be less frequent if the temperature does not change.
-type RefreshInterval time.Duration
-
-func (r RefreshInterval) apply(m *module) {
-	m.refreshInterval = time.Duration(r)
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
+	return m
 }
 
 // OutputColor configures a module to change the colour of its output based on a
 // user-defined function. This allows you to set up color thresholds, or even
 // blend between two colours based on the current temperature.
-type OutputColor func(Temperature) bar.Color
-
-func (o OutputColor) apply(m *module) {
-	m.colorFunc = o
+func (m *module) OutputColor(colorFunc func(Temperature) bar.Color) Module {
+	m.colorFunc = colorFunc
+	m.Update()
+	return m
 }
 
 // UrgentWhen configures a module to mark its output as urgent based on a
 // user-defined function.
-type UrgentWhen func(Temperature) bool
-
-func (u UrgentWhen) apply(m *module) {
-	m.urgentFunc = u
+func (m *module) UrgentWhen(urgentFunc func(Temperature) bool) Module {
+	m.urgentFunc = urgentFunc
+	m.Update()
+	return m
 }
 
 type module struct {
 	*base.Base
-	thermalFile     string
-	refreshInterval time.Duration
-	outputFunc      func(Temperature) bar.Output
-	colorFunc       func(Temperature) bar.Color
-	urgentFunc      func(Temperature) bool
+	thermalFile string
+	scheduler   base.Scheduler
+	outputFunc  func(Temperature) bar.Output
+	colorFunc   func(Temperature) bar.Color
+	urgentFunc  func(Temperature) bool
 	// Store last cpu temp to skip updates when unchanged.
 	lastTempMilliC int
 }
 
-// New constructs an instance of the cputemp module with the provided configuration.
-func New(config ...Config) base.WithClickHandler {
+// Zone constructs an instance of the cputemp module for the specified zone.
+// The file /sys/class/thermal/<zone>/temp should return cpu temp in 1/1000 deg C.
+func Zone(thermalZone string) Module {
 	m := &module{
-		Base: base.New(),
-		// Default is to refresh every 3s, matching the behaviour of top.
-		refreshInterval: 3 * time.Second,
+		Base:        base.New(),
+		thermalFile: fmt.Sprintf("/sys/class/thermal/%s/temp", thermalZone),
 	}
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
+	// Default is to refresh every 3s, matching the behaviour of top.
+	m.RefreshInterval(3 * time.Second)
 	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just the temperature in deg C.
-		defTpl := outputs.TextTemplate(`{{.C}}℃`)
-		OutputTemplate(defTpl).apply(m)
-	}
-	// Default thermal file, if not specified.
-	if m.thermalFile == "" {
-		ThermalZone("thermal_zone0").apply(m)
-	}
-	// Worker goroutine to update load average at a fixed interval.
+	m.OutputTemplate(outputs.TextTemplate(`{{.C}}℃`))
+	// Update temperature when asked.
 	// Ideally fsnotify would work for sensors as well, but it doesn't, so we'll
 	// compromise by polling here but only updating the bar when the temperature
 	// actually changes.
 	m.OnUpdate(m.update)
-	m.UpdateEvery(m.refreshInterval)
 	return m
+}
+
+// DefaultZone constructs an instance of the cputemp module for the default zone.
+func DefaultZone() Module {
+	return Zone("thermal_zone0")
 }
 
 func (m *module) update() {

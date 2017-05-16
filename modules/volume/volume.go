@@ -55,45 +55,29 @@ type Controller interface {
 	SetVolume(int64)
 }
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
+// Module is the public interface for the volume module.
+// In addition to bar.Module, it also provides an expanded OnClick,
+// which allows click handlers to control the system volume, and the
+// usual output formatting options.
+type Module interface {
+	base.Module
+	OutputFunc(func(Volume) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
+	OnClick(func(Volume, Controller, bar.Event))
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Volume) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
-}
-
-// CardName sets the card for reading and controlling audio volume.
-type CardName string
-
-func (c CardName) apply(m *module) {
-	m.cardName = string(c)
-}
-
-// MixerName sets the name of the mixer on the card.
-type MixerName string
-
-func (n MixerName) apply(m *module) {
-	m.mixerName = string(n)
+func (m *module) OutputFunc(outputFunc func(Volume) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(v Volume) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(v Volume) bar.Output {
 		return template(v)
 	})
-}
-
-// Module is the public interface for the volume module.
-// In addition to bar.Module, it also provides an expanded OnClick,
-// which allows click handlers to control the system volume.
-type Module interface {
-	base.Module
-	OnClick(func(Volume, Controller, bar.Event))
 }
 
 type module struct {
@@ -108,25 +92,23 @@ type module struct {
 	mute          C.int
 }
 
-// New constructs an instance of the netspeed module with the provided configuration.
-func New(config ...Config) Module {
+// Mixer constructs an instance of the volume module for a
+// specific card and mixer on that card.
+func Mixer(card, mixer string) Module {
 	m := &module{
 		Base:      base.New(),
-		cardName:  "default",
-		mixerName: "Master",
+		cardName:  card,
+		mixerName: mixer,
 	}
 	m.OnClick(defaultClickHandler)
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just the volume %, "MUT" when muted.
-		defTpl := outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`)
-		OutputTemplate(defTpl).apply(m)
-	}
+	// Default output template, that's just the volume %, "MUT" when muted.
+	m.OutputTemplate(outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`))
 	return m
+}
+
+// DefaultMixer constructs an instance of the volume module for the default mixer.
+func DefaultMixer() Module {
+	return Mixer("default", "Master")
 }
 
 // SetVolume sets the system volume.

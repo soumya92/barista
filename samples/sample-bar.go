@@ -120,15 +120,14 @@ func main() {
 		"dim-icon": "#777",
 	})
 
-	localtime := clock.New(clock.OutputFunc(func(now time.Time) bar.Output {
+	localtime := clock.New().OutputFunc(func(now time.Time) bar.Output {
 		return outputs.Pango(
 			material.Icon("today", colors.Scheme("dim-icon")),
 			now.Format("Mon Jan 2 "),
 			material.Icon("access-time", colors.Scheme("dim-icon")),
 			now.Format("15:04:05"),
 		)
-	}))
-	localtime.OnClick(func(e bar.Event) {
+	}).OnClick(func(e bar.Event) {
 		if e.Button == bar.ButtonLeft {
 			exec.Command("gsimplecal").Run()
 		}
@@ -137,76 +136,73 @@ func main() {
 	// Weather information comes from OpenWeatherMap.
 	// https://openweathermap.org/api.
 	wthr := weather.New(
-		openweathermap.New().Zipcode("94043", "US").Build(),
-		weather.OutputFunc(func(w weather.Weather) bar.Output {
-			iconName := ""
-			switch w.Condition {
-			case weather.Thunderstorm,
-				weather.TropicalStorm,
-				weather.Hurricane:
-				iconName = "stormy"
-			case weather.Drizzle,
-				weather.Hail:
-				iconName = "shower"
-			case weather.Rain:
-				iconName = "downpour"
-			case weather.Snow,
-				weather.Sleet:
-				iconName = "snow"
-			case weather.Mist,
-				weather.Smoke,
-				weather.Whirls,
-				weather.Haze,
-				weather.Fog:
-				iconName = "windy-cloudy"
-			case weather.Clear:
-				if !w.Sunset.IsZero() && time.Now().After(w.Sunset) {
-					iconName = "night"
-				} else {
-					iconName = "sunny"
-				}
-			case weather.PartlyCloudy:
-				iconName = "partly-sunny"
-			case weather.Cloudy, weather.Overcast:
-				iconName = "cloudy"
-			case weather.Tornado,
-				weather.Windy:
-				iconName = "windy"
-			}
-			if iconName == "" {
-				iconName = "warning-outline"
+		openweathermap.Zipcode("94043", "US").Build(),
+	).OutputFunc(func(w weather.Weather) bar.Output {
+		iconName := ""
+		switch w.Condition {
+		case weather.Thunderstorm,
+			weather.TropicalStorm,
+			weather.Hurricane:
+			iconName = "stormy"
+		case weather.Drizzle,
+			weather.Hail:
+			iconName = "shower"
+		case weather.Rain:
+			iconName = "downpour"
+		case weather.Snow,
+			weather.Sleet:
+			iconName = "snow"
+		case weather.Mist,
+			weather.Smoke,
+			weather.Whirls,
+			weather.Haze,
+			weather.Fog:
+			iconName = "windy-cloudy"
+		case weather.Clear:
+			if !w.Sunset.IsZero() && time.Now().After(w.Sunset) {
+				iconName = "night"
 			} else {
-				iconName = "weather-" + iconName
+				iconName = "sunny"
 			}
-			return outputs.Pango(
-				typicons.Icon(iconName), spacer,
-				pango.Textf("%d℃", w.Temperature.C()),
-				pango.Span(" (provided by ", w.Attribution, ")", pango.XSmall),
-			)
-		}),
-	)
+		case weather.PartlyCloudy:
+			iconName = "partly-sunny"
+		case weather.Cloudy, weather.Overcast:
+			iconName = "cloudy"
+		case weather.Tornado,
+			weather.Windy:
+			iconName = "windy"
+		}
+		if iconName == "" {
+			iconName = "warning-outline"
+		} else {
+			iconName = "weather-" + iconName
+		}
+		return outputs.Pango(
+			typicons.Icon(iconName), spacer,
+			pango.Textf("%d℃", w.Temperature.C()),
+			pango.Span(" (provided by ", w.Attribution, ")", pango.XSmall),
+		)
+	})
 
-	vol := volume.New(
-		volume.OutputFunc(func(v volume.Volume) bar.Output {
-			if v.Mute {
-				return outputs.
-					Pango(ionicons.Icon("volume-mute"), "MUT").
-					Color(colors.Scheme("degraded"))
-			}
-			iconName := "low"
-			pct := v.Pct()
-			if pct > 66 {
-				iconName = "high"
-			} else if pct > 33 {
-				iconName = "medium"
-			}
-			return outputs.Pango(
-				ionicons.Icon("volume-"+iconName),
-				spacer,
-				pango.Textf("%2d%%", pct),
-			)
-		}),
-	)
+	vol := volume.DefaultMixer().OutputFunc(func(v volume.Volume) bar.Output {
+		if v.Mute {
+			return outputs.
+				Pango(ionicons.Icon("volume-mute"), "MUT").
+				Color(colors.Scheme("degraded"))
+		}
+		iconName := "low"
+		pct := v.Pct()
+		if pct > 66 {
+			iconName = "high"
+		} else if pct > 33 {
+			iconName = "medium"
+		}
+		return outputs.Pango(
+			ionicons.Icon("volume-"+iconName),
+			spacer,
+			pango.Textf("%2d%%", pct),
+		)
+	})
 
 	loadAvg := sysinfo.New().OutputFunc(func(s sysinfo.Info) bar.Output {
 		out := outputs.Textf("%0.2f %0.2f", s.Loads[0], s.Loads[2])
@@ -224,8 +220,7 @@ func main() {
 			out.Color(colors.Scheme("degraded"))
 		}
 		return out
-	})
-	loadAvg.OnClick(startTaskManager)
+	}).OnClick(startTaskManager)
 
 	freeMem := meminfo.New().OutputFunc(func(m meminfo.Info) bar.Output {
 		out := outputs.Pango(material.Icon("memory"), m.Available().IEC())
@@ -241,15 +236,14 @@ func main() {
 			out.Color(colors.Scheme("good"))
 		}
 		return out
-	})
-	freeMem.OnClick(startTaskManager)
+	}).OnClick(startTaskManager)
 
-	temp := cputemp.New(
-		cputemp.RefreshInterval(2*time.Second),
-		cputemp.UrgentWhen(func(temp cputemp.Temperature) bool {
+	temp := cputemp.DefaultZone().
+		RefreshInterval(2 * time.Second).
+		UrgentWhen(func(temp cputemp.Temperature) bool {
 			return temp.C() > 90
-		}),
-		cputemp.OutputColor(func(temp cputemp.Temperature) bar.Color {
+		}).
+		OutputColor(func(temp cputemp.Temperature) bar.Color {
 			switch {
 			case temp.C() > 70:
 				return colors.Scheme("bad")
@@ -258,32 +252,25 @@ func main() {
 			default:
 				return colors.Empty()
 			}
-		}),
-		cputemp.OutputFunc(func(temp cputemp.Temperature) bar.Output {
+		}).
+		OutputFunc(func(temp cputemp.Temperature) bar.Output {
 			return outputs.Pango(
 				materialCommunity.Icon("fan"), spacer,
 				pango.Textf("%2d℃", temp.C()),
 			)
-		}),
-	)
+		})
 
-	net := netspeed.New(
-		netspeed.Interface("eno1"),
-		netspeed.RefreshInterval(2*time.Second),
-		netspeed.OutputFunc(func(s netspeed.Speeds) bar.Output {
+	net := netspeed.New("eno1").
+		RefreshInterval(2 * time.Second).
+		OutputFunc(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
 				fontawesome.Icon("upload"), spacer, pango.Textf("%5s", s.Tx.SI()),
 				pango.Span(" ", pango.Small),
 				fontawesome.Icon("download"), spacer, pango.Textf("%5s", s.Rx.SI()),
 			)
-		}),
-	)
+		})
 
-	rhythmbox := media.New(
-		"rhythmbox",
-		media.TrackPosition,
-		media.OutputFunc(mediaFormatFunc),
-	)
+	rhythmbox := media.New("rhythmbox").OutputFunc(mediaFormatFunc)
 
 	g := group.Collapsing()
 

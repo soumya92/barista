@@ -40,15 +40,9 @@ type Config struct {
 	includeFlightCat bool
 }
 
-// New creates an empty configuration.
-func New() *Config {
-	return &Config{}
-}
-
-// Station sets the airport code (e.g. KSEA) to query.
-func (c *Config) Station(station string) *Config {
-	c.station = station
-	return c
+// Station creates a configuration for the given airport code (e.g. KSEA).
+func Station(station string) *Config {
+	return &Config{station: station}
 }
 
 // StripRemarks strips remarks from the description.
@@ -73,10 +67,6 @@ type Provider struct {
 
 // Build builds a weather provider from the configuration.
 func (c *Config) Build() weather.Provider {
-	if len(c.station) == 0 {
-		panic("Must provide a station ID before calling Build()")
-	}
-
 	u := url.URL{
 		Scheme: "https",
 		Host:   "aviationweather.gov",

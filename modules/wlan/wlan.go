@@ -60,30 +60,25 @@ const (
 	Disabled
 )
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
+// Module represents a wlan bar module.
+type Module interface {
+	base.WithClickHandler
+	OutputFunc(func(Info) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Info) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
+func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(i Info) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
-}
-
-// Interface sets the name of the interface to display the status for.
-type Interface string
-
-func (i Interface) apply(m *module) {
-	m.intf = string(i)
 }
 
 type module struct {
@@ -94,23 +89,15 @@ type module struct {
 	lastFlags  uint32
 }
 
-// New constructs an instance of the wlan module with the provided configuration.
-func New(config ...Config) base.WithClickHandler {
+// New constructs an instance of the wlan module for the specified interface.
+func New(iface string) Module {
 	m := &module{
 		Base: base.New(),
-		// Default interface for goobuntu laptops. Override using Interface(...)
-		intf: "wlan0",
+		intf: iface,
 	}
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just the SSID when connected.
-		defTpl := outputs.TextTemplate("{{if .Connected}}{{.SSID}}{{end}}")
-		OutputTemplate(defTpl).apply(m)
-	}
+	// Default output template is just the SSID when connected.
+	m.OutputTemplate(outputs.TextTemplate("{{if .Connected}}{{.SSID}}{{end}}"))
+	m.OnUpdate(m.update)
 	return m
 }
 
@@ -134,7 +121,7 @@ func (m *module) worker() {
 			m.info.State = Disconnected
 		}
 	}
-	m.Output(m.outputFunc(m.info))
+	m.Update()
 
 	// Watch for changes.
 	ch := make(chan netlink.LinkUpdate)
@@ -165,7 +152,7 @@ func (m *module) worker() {
 					return
 				}
 			}
-			m.Output(m.outputFunc(m.info))
+			m.Update()
 		}
 	}
 }
@@ -193,4 +180,8 @@ func (m *module) getWifiInfo() error {
 func (m *module) iwgetid(flag string) (string, error) {
 	out, err := exec.Command("/sbin/iwgetid", m.intf, "-r", flag).Output()
 	return strings.TrimSpace(string(out)), err
+}
+
+func (m *module) update() {
+	m.Output(m.outputFunc(m.info))
 }

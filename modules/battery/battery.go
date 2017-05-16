@@ -64,89 +64,82 @@ func (i Info) PluggedIn() bool {
 	return i.Status == "Charging" || i.Status == "Full"
 }
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
+// Module represents a battery bar module. It supports setting the output
+// format, click handler, update frequency, and urgency/colour functions.
+type Module interface {
+	base.WithClickHandler
+	RefreshInterval(time.Duration) Module
+	OutputFunc(func(Info) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
+	OutputColor(func(Info) bar.Color) Module
+	UrgentWhen(func(Info) bool) Module
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Info) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
+func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(i Info) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
 
-// Name sets the name of the battery, which controls the directory used
-// for reading battery information from /sys/class/power_supply/.
-type Name string
-
-func (n Name) apply(m *module) {
-	m.batteryName = string(n)
-}
-
 // RefreshInterval configures the polling frequency for battery info.
-type RefreshInterval time.Duration
-
-func (r RefreshInterval) apply(m *module) {
-	m.refreshInterval = time.Duration(r)
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
+	return m
 }
 
 // OutputColor configures a module to change the colour of its output based on a
 // user-defined function. This allows you to set up color thresholds, or even
 // blend between two colours based on the current battery state.
-type OutputColor func(Info) bar.Color
-
-func (o OutputColor) apply(m *module) {
-	m.colorFunc = o
+func (m *module) OutputColor(colorFunc func(Info) bar.Color) Module {
+	m.colorFunc = colorFunc
+	m.Update()
+	return m
 }
 
 // UrgentWhen configures a module to mark its output as urgent based on a
 // user-defined function.
-type UrgentWhen func(Info) bool
-
-func (u UrgentWhen) apply(m *module) {
-	m.urgentFunc = u
+func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
+	m.urgentFunc = urgentFunc
+	m.Update()
+	return m
 }
 
 type module struct {
 	*base.Base
-	batteryName     string
-	refreshInterval time.Duration
-	outputFunc      func(Info) bar.Output
-	colorFunc       func(Info) bar.Color
-	urgentFunc      func(Info) bool
+	batteryName string
+	scheduler   base.Scheduler
+	outputFunc  func(Info) bar.Output
+	colorFunc   func(Info) bar.Color
+	urgentFunc  func(Info) bool
 }
 
-// New constructs an instance of the cputemp module with the provided configuration.
-func New(config ...Config) base.WithClickHandler {
+// New constructs an instance of the battery module for the given battery name.
+func New(name string) Module {
 	m := &module{
-		Base: base.New(),
-		// Default battery for goobuntu laptops. Override using BatteryName(...)
-		batteryName: "BAT0",
-		// Default is to refresh every 3s, matching the behaviour of top.
-		refreshInterval: 3 * time.Second,
+		Base:        base.New(),
+		batteryName: name,
 	}
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just the available battery percent.
-		defTpl := outputs.TextTemplate(`BATT {{.RemainingPct}}%`)
-		OutputTemplate(defTpl).apply(m)
-	}
-	// Worker goroutine to update load average at a fixed interval.
+	// Default is to refresh every 3s, matching the behaviour of top.
+	m.scheduler = m.UpdateEvery(3 * time.Second)
+	// Construct a simple template that's just the available battery percent.
+	m.OutputTemplate(outputs.TextTemplate(`BATT {{.RemainingPct}}%`))
+	// Update battery stats whenever an update is requested.
 	m.OnUpdate(m.update)
-	m.UpdateEvery(m.refreshInterval)
 	return m
+}
+
+// Default constructs an instance of the battery module with BAT0.
+func Default() Module {
+	return New("BAT0")
 }
 
 func (m *module) update() {

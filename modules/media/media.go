@@ -132,54 +132,34 @@ type Controller interface {
 	Seek(offset time.Duration)
 }
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
-}
-
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Info) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
+func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(i Info) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
-
-// shouldTrackPosition sets whether or not to keep track of the current position.
-// Setting this will incur the overhead of also listening to "seeked" signals and
-// keeping track of the now playing "rate", but without this calling Position()
-// on Info will return garbage.
-type shouldTrackPosition bool
-
-func (t shouldTrackPosition) apply(m *module) {
-	m.trackPosition = bool(t)
-}
-
-// Constant values for whether or not to track the current playback position.
-const (
-	TrackPosition     = shouldTrackPosition(true)
-	DontTrackPosition = shouldTrackPosition(false)
-)
 
 // Module is the public interface for a media module.
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to control the media player.
 type Module interface {
 	base.Module
-	OnClick(func(Info, Controller, bar.Event))
+	OutputFunc(func(Info) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
+	OnClick(func(Info, Controller, bar.Event)) Module
 }
 
 type module struct {
 	*base.Base
-	playerName    string
-	trackPosition bool
-	outputFunc    func(Info) bar.Output
+	playerName string
+	outputFunc func(Info) bar.Output
 	// player state, updated from dbus signals.
 	info Info
 	// To simplify adding/removing matches and querying metadata,
@@ -190,36 +170,29 @@ type module struct {
 	positionScheduler base.Scheduler
 }
 
-// New constructs an instance of the media module with the provided configuration.
-func New(player string, config ...Config) Module {
+// New constructs an instance of the media module for the given player.
+func New(player string) Module {
 	m := &module{
 		Base:       base.New(),
 		playerName: player,
 	}
 	// Set default click handler in New(), can be overridden later.
 	m.OnClick(defaultClickHandler)
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just the currently playing track.
-		defTpl := outputs.TextTemplate(`{{if .Connected}}{{.Title}}{{end}}`)
-		OutputTemplate(defTpl).apply(m)
-	}
+	// Default output template that's just the currently playing track.
+	m.OutputTemplate(outputs.TextTemplate(`{{if .Connected}}{{.Title}}{{end}}`))
 	return m
 }
 
 // OnClick sets a click handler for the module.
-func (m *module) OnClick(f func(Info, Controller, bar.Event)) {
+func (m *module) OnClick(f func(Info, Controller, bar.Event)) Module {
 	if f == nil {
 		m.Base.OnClick(nil)
-		return
+		return m
 	}
 	m.Base.OnClick(func(e bar.Event) {
 		f(m.info, m.player, e)
 	})
+	return m
 }
 
 // defaultClickHandler provides useful behaviour out of the box,
@@ -366,11 +339,10 @@ var (
 // mprisPlayer stores the dbus, player object, and an error together,
 // to simplify checking for errors after each call.
 type mprisPlayer struct {
-	bus           dbus.BusObject
-	player        dbus.BusObject
-	info          *Info
-	trackPosition bool
-	err           error
+	bus    dbus.BusObject
+	player dbus.BusObject
+	info   *Info
+	err    error
 }
 
 func (m *module) newMprisPlayer(sessionBus *dbus.Conn) *mprisPlayer {
@@ -378,10 +350,9 @@ func (m *module) newMprisPlayer(sessionBus *dbus.Conn) *mprisPlayer {
 	dest := fmt.Sprintf("org.mpris.MediaPlayer2.%s", m.playerName)
 	// Get the dbus objects for the session bus and the player.
 	player := &mprisPlayer{
-		player:        sessionBus.Object(dest, "/org/mpris/MediaPlayer2"),
-		bus:           sessionBus.BusObject(),
-		trackPosition: m.trackPosition,
-		info:          &m.info,
+		player: sessionBus.Object(dest, "/org/mpris/MediaPlayer2"),
+		bus:    sessionBus.BusObject(),
+		info:   &m.info,
 	}
 	// Check if the player is already running.
 	res, ok := player.Call(methodNameHasOwner, dest)
@@ -485,18 +456,12 @@ func (m *mprisPlayer) getInitialInfo() {
 }
 
 func (m *mprisPlayer) addMatches(sender string) {
-	// Only listen for seek events if the user has indicated that they care about
-	// tracking position position.
-	if m.trackPosition {
-		m.Call(methodAddMatch, signalSeeked.buildMatchString(sender))
-	}
+	m.Call(methodAddMatch, signalSeeked.buildMatchString(sender))
 	m.Call(methodAddMatch, signalPropChanged.buildMatchString(sender, mprisInterface))
 }
 
 func (m *mprisPlayer) removeMatches(sender string) {
-	if m.trackPosition {
-		m.Call(methodRemoveMatch, signalSeeked.buildMatchString(sender))
-	}
+	m.Call(methodRemoveMatch, signalSeeked.buildMatchString(sender))
 	m.Call(methodRemoveMatch, signalPropChanged.buildMatchString(sender, mprisInterface))
 }
 
@@ -540,9 +505,8 @@ func (m *mprisPlayer) handleDbusSignal(v *dbus.Signal) (bool, error) {
 
 func (m *mprisPlayer) infoReader(getter dbusGetter) dbusInfoReader {
 	return dbusInfoReader{
-		Info:          m.info,
-		trackPosition: m.trackPosition,
-		getter:        getter,
+		Info:   m.info,
+		getter: getter,
 	}
 }
 
@@ -577,9 +541,8 @@ func (d dbusPositionGetter) Get(n name) (interface{}, bool) {
 // from dbus signals or properties.
 type dbusInfoReader struct {
 	*Info
-	getter        dbusGetter
-	trackPosition bool
-	updated       bool
+	getter  dbusGetter
+	updated bool
 }
 
 func (d *dbusInfoReader) updatePlaybackStatus() {
@@ -587,10 +550,6 @@ func (d *dbusInfoReader) updatePlaybackStatus() {
 		oldState := d.PlaybackStatus
 		d.PlaybackStatus = PlaybackStatus(status.(string))
 		d.updated = true
-		if !d.trackPosition {
-			// If we're not tracking position, none of the following matters.
-			return
-		}
 		switch d.PlaybackStatus {
 		case Playing:
 			if oldState == Paused {
@@ -619,9 +578,6 @@ func (d *dbusInfoReader) updateShuffle() {
 }
 
 func (d *dbusInfoReader) updatePosition() {
-	if !d.trackPosition {
-		return
-	}
 	if !d.Playing() && !d.Paused() {
 		// Some players throw errors when asked for position while stopped.
 		return
@@ -634,9 +590,6 @@ func (d *dbusInfoReader) updatePosition() {
 }
 
 func (d *dbusInfoReader) updateRate() {
-	if !d.trackPosition {
-		return
-	}
 	if rate, ok := d.getter.Get(mprisRate); ok {
 		// Position computed based on new rate will not be valid earlier,
 		// so snapshot it now for correct values later.
@@ -681,10 +634,6 @@ func (d *dbusInfoReader) updateMetadata() {
 	if ArtURL, ok := metadata["mpris:ArtURL"]; ok {
 		d.ArtURL = ArtURL.Value().(string)
 		d.updated = true
-	}
-	if !d.trackPosition {
-		// Don't bother setting track id if position doesn't matter.
-		return
 	}
 	if id, ok := metadata["mpris:trackid"]; ok {
 		trackID := id.Value().(string)

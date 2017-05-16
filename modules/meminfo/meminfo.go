@@ -73,43 +73,30 @@ func (b Bytes) SI() string {
 	return humanize.Bytes(uint64(b))
 }
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*Module)
-}
-
-// RefreshInterval configures the polling frequency for meminfo.
-type RefreshInterval time.Duration
-
-func (r RefreshInterval) apply(m *Module) {
-	m.refreshInterval = time.Duration(r)
-}
-
 // Module represents a meminfo multi-module, and provides an interface
 // for creating bar.Modules with various output functions/templates
 // that share the same data source, cutting down on updates required.
 type Module struct {
-	moduleSet       *multi.ModuleSet
-	refreshInterval time.Duration
-	outputs         map[multi.Submodule]func(Info) bar.Output
+	moduleSet *multi.ModuleSet
+	outputs   map[multi.Submodule]func(Info) bar.Output
 }
 
 // New constructs an instance of the meminfo multi-module
-// with the provided configuration.
-func New(config ...Config) *Module {
+func New() *Module {
 	m := &Module{
 		moduleSet: multi.NewModuleSet(),
-		// Default is to refresh every 3s, matching the behaviour of top.
-		refreshInterval: 3 * time.Second,
-		outputs:         make(map[multi.Submodule]func(Info) bar.Output),
+		outputs:   make(map[multi.Submodule]func(Info) bar.Output),
 	}
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Worker goroutine to update meminfo.
+	// Update meminfo when asked.
 	m.moduleSet.OnUpdate(m.update)
-	m.moduleSet.UpdateEvery(m.refreshInterval)
+	// Default is to refresh every 3s, matching the behaviour of top.
+	m.RefreshInterval(3 * time.Second)
+	return m
+}
+
+// RefreshInterval configures the polling frequency for meminfo.
+func (m *Module) RefreshInterval(interval time.Duration) *Module {
+	m.moduleSet.UpdateEvery(interval)
 	return m
 }
 

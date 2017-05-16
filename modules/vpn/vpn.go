@@ -46,57 +46,51 @@ const (
 	Disconnected
 )
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
+// Module represents a VPN bar module.
+type Module interface {
+	base.WithClickHandler
+	OutputFunc(func(State) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(State) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
+func (m *module) OutputFunc(outputFunc func(State) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(s State) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(s State) bar.Output {
 		return template(s)
 	})
-}
-
-// Interface sets the name of the interface to use for checking vpn state.
-type Interface string
-
-func (i Interface) apply(m *module) {
-	m.intf = string(i)
 }
 
 type module struct {
 	*base.Base
 	outputFunc func(State) bar.Output
 	intf       string
+	state      State
 	lastFlags  uint32
 }
 
-// New constructs an instance of the wlan module with the provided configuration.
-func New(config ...Config) base.WithClickHandler {
+// New constructs an instance of the VPN module for the specified interface.
+func New(iface string) Module {
 	m := &module{
 		Base: base.New(),
-		// Default interface for openvpn. Override using Interface(...)
-		intf: "tun0",
+		intf: iface,
 	}
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just 'VPN' when connected.
-		defTpl := outputs.TextTemplate("{{if .Connected}}VPN{{end}}")
-		OutputTemplate(defTpl).apply(m)
-	}
+	// Default output template that's just 'VPN' when connected.
+	m.OutputTemplate(outputs.TextTemplate("{{if .Connected}}VPN{{end}}"))
+	m.OnUpdate(m.update)
 	return m
+}
+
+// DefaultInterface constructs an instance of the VPN module for "tun0",
+// the usual interface for VPNs.
+func DefaultInterface() Module {
+	return New("tun0")
 }
 
 func (m *module) Stream() <-chan bar.Output {
@@ -106,15 +100,15 @@ func (m *module) Stream() <-chan bar.Output {
 
 func (m *module) worker() {
 	// Initial state.
-	state := Disconnected
+	m.state = Disconnected
 	if link, err := netlink.LinkByName(m.intf); err == nil {
 		if link.Attrs().Flags&net.FlagUp == net.FlagUp {
-			state = Connected
+			m.state = Connected
 		} else {
-			state = Waiting
+			m.state = Waiting
 		}
 	}
-	m.Output(m.outputFunc(state))
+	m.Update()
 
 	// Watch for changes.
 	ch := make(chan netlink.LinkUpdate)
@@ -135,13 +129,17 @@ func (m *module) worker() {
 		}
 		if shouldUpdate {
 			m.lastFlags = newFlags
-			state := Disconnected
+			m.state = Disconnected
 			if newFlags&syscall.IFF_RUNNING == syscall.IFF_RUNNING {
-				state = Connected
+				m.state = Connected
 			} else if newFlags&syscall.IFF_UP == syscall.IFF_UP {
-				state = Waiting
+				m.state = Waiting
 			}
-			m.Output(m.outputFunc(state))
+			m.Update()
 		}
 	}
+}
+
+func (m *module) update() {
+	m.Output(m.outputFunc(m.state))
 }

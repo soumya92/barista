@@ -61,40 +61,36 @@ func (s Speeds) Total() Speed {
 	return Speed(uint64(s.Rx) + uint64(s.Tx))
 }
 
-// Config represents a configuration that can be applied to a module instance.
-type Config interface {
-	apply(*module)
+// Module represents a netspeed bar module. It supports setting the output
+// format, click handler, and update frequency.
+type Module interface {
+	base.WithClickHandler
+	RefreshInterval(time.Duration) Module
+	OutputFunc(func(Speeds) bar.Output) Module
+	OutputTemplate(func(interface{}) bar.Output) Module
 }
 
 // OutputFunc configures a module to display the output of a user-defined function.
-type OutputFunc func(Speeds) bar.Output
-
-func (o OutputFunc) apply(m *module) {
-	m.outputFunc = o
+func (m *module) OutputFunc(outputFunc func(Speeds) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func OutputTemplate(template func(interface{}) bar.Output) Config {
-	return OutputFunc(func(s Speeds) bar.Output {
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(s Speeds) bar.Output {
 		return template(s)
 	})
-}
-
-// Interface sets the name of the interface to display speeds for.
-type Interface string
-
-func (i Interface) apply(m *module) {
-	m.rxFile = fmt.Sprintf("/sys/class/net/%s/statistics/rx_bytes", string(i))
-	m.txFile = fmt.Sprintf("/sys/class/net/%s/statistics/tx_bytes", string(i))
 }
 
 // RefreshInterval configures the polling frequency for network speed.
 // Since there is no concept of an instantaneous network speed, the speeds will
 // be averaged over this interval before being displayed.
-type RefreshInterval time.Duration
-
-func (r RefreshInterval) apply(m *module) {
-	m.refreshInterval = time.Duration(r)
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
+	return m
 }
 
 // info represents that last read network information,
@@ -118,38 +114,27 @@ func (i *info) Refresh(rx, tx uint64) (dRx, dTx uint64) {
 
 type module struct {
 	*base.Base
-	rxFile, txFile  string
-	refreshInterval time.Duration
-	outputFunc      func(Speeds) bar.Output
+	rxFile, txFile string
+	scheduler      base.Scheduler
+	outputFunc     func(Speeds) bar.Output
 	// To get network speed, we need to know delta-rx/tx,
 	// so we need to store the previous rx/tx.
 	lastRead info
 }
 
-// New constructs an instance of the netspeed module with the provided configuration.
-func New(config ...Config) base.WithClickHandler {
+// New constructs an instance of the netspeed module for the given interface.
+func New(iface string) Module {
 	m := &module{
-		Base: base.New(),
-		// Default is to refresh every 3s, similar to top.
-		refreshInterval: 3 * time.Second,
+		Base:   base.New(),
+		rxFile: fmt.Sprintf("/sys/class/net/%s/statistics/rx_bytes", iface),
+		txFile: fmt.Sprintf("/sys/class/net/%s/statistics/tx_bytes", iface),
 	}
-	// Apply each configuration.
-	for _, c := range config {
-		c.apply(m)
-	}
-	// Default output template, if no template/function was specified.
-	if m.outputFunc == nil {
-		// Construct a simple template that's just the up and down speeds in SI.
-		defTpl := outputs.TextTemplate("{{.Tx.SI}}/s up | {{.Rx.SI}}/s down")
-		OutputTemplate(defTpl).apply(m)
-	}
-	// Default interface for goobuntu workstations, if not specified.
-	if m.rxFile == "" {
-		Interface("em1").apply(m)
-	}
+	// Default is to refresh every 3s, similar to top.
+	m.RefreshInterval(3 * time.Second)
+	// Default output template that's just the up and down speeds in SI.
+	m.OutputTemplate(outputs.TextTemplate("{{.Tx.SI}}/s up | {{.Rx.SI}}/s down"))
 	// Worker goroutine to recalculate speeds.
 	m.OnUpdate(m.update)
-	m.UpdateEvery(m.refreshInterval)
 	return m
 }
 
