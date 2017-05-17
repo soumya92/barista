@@ -57,7 +57,7 @@ their types, Segment is just a map[string]interface{} with typed methods
 for setting values to allow distinguishing between unset values and values
 that happen to match go's defaults. (e.g. separator = false, MinWidth = 0).
 
-See segment.go for supported methods.
+See output.go for supported methods.
 */
 type Segment map[string]interface{}
 
