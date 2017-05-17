@@ -15,6 +15,8 @@
 package outputs
 
 import (
+	"fmt"
+	"io"
 	"testing"
 
 	"github.com/stretchrcom/testify/assert"
@@ -213,8 +215,46 @@ func TestComposite(t *testing.T) {
 				Build(),
 			"12|345|6|",
 		},
+
+		{
+			"with a pango segment",
+			Multi().AddPango("name1", pango.Span("test")).Build(),
+			"test|",
+		},
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.expected, textWithSeparators(tc.output), tc.desc)
+	}
+}
+
+func TestErrors(t *testing.T) {
+	tests := []struct {
+		desc     string
+		output   bar.Output
+		expected string
+	}{
+		{"well known error", Error(io.EOF), io.EOF.Error()},
+
+		{
+			"manually constructed error",
+			Error(fmt.Errorf("error string")),
+			"error string",
+		},
+
+		{
+			"error in pango template",
+			PangoTemplate(`<b>{{.NoSuchField}}</b>`)(testObject),
+			"can't evaluate field NoSuchField",
+		},
+
+		{
+			"error in text template",
+			TextTemplate(`{{.Number.Nested}}`)(testObject),
+			"can't evaluate field Nested in type int",
+		},
+	}
+	for _, tc := range tests {
+		assert.Contains(t, textOf(tc.output), tc.expected, tc.desc)
+		assert.True(t, tc.output[0]["urgent"].(bool), "error is marked urgent")
 	}
 }

@@ -173,6 +173,7 @@ general {
 	color_1='#00f'
 	color_2  =    #abcdef
 	colorignored = '#100'
+	color_no_value
 }
 `), 0644)
 
