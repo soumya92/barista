@@ -62,22 +62,6 @@ func (o Output) Urgent(urgent bool) Output {
 	return o
 }
 
-// Separator sets the separator for each segment in the output.
-func (o Output) Separator(separator bool) Output {
-	for _, s := range o {
-		s.Separator(separator)
-	}
-	return o
-}
-
-// SeparatorWidth sets the separator width for each segment in the output.
-func (o Output) SeparatorWidth(separatorWidth int) Output {
-	for _, s := range o {
-		s.SeparatorWidth(separatorWidth)
-	}
-	return o
-}
-
 // Markup sets the markup type for all segments in the output.
 func (o Output) Markup(markup Markup) Output {
 	for _, s := range o {
