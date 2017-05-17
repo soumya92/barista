@@ -14,6 +14,8 @@
 
 package bar
 
+import "math"
+
 // Color sets the color for all segments in the output.
 func (o Output) Color(color Color) Output {
 	for _, s := range o {
@@ -38,14 +40,6 @@ func (o Output) Border(border Color) Output {
 	return o
 }
 
-// MinWidth sets the minimum width for each segment in the output.
-func (o Output) MinWidth(minWidth int) Output {
-	for _, s := range o {
-		s.MinWidth(minWidth)
-	}
-	return o
-}
-
 // Align sets the text alignment for all segments in the output.
 func (o Output) Align(align TextAlignment) Output {
 	for _, s := range o {
@@ -66,6 +60,67 @@ func (o Output) Urgent(urgent bool) Output {
 func (o Output) Markup(markup Markup) Output {
 	for _, s := range o {
 		s.Markup(markup)
+	}
+	return o
+}
+
+/*
+Width and separator(width) are treated specially such that the methods
+make sense when called on a single-segment output (such as the result
+of outputs.Textf(...)) as well as when called on a multi-segment output.
+
+To that end, min-width distributes the minimum width equally amongst
+all segments, and separator(width) only operate on the last segment.
+
+Additional methods for "inner" separator(width) operate on all but the
+last segment.
+*/
+
+// MinWidth sets the minimum width for the output, by (mostly) equally
+// distributing the given minWidth amongst all segments in the output.
+func (o Output) MinWidth(minWidth int) Output {
+	remainingWidth := float64(minWidth)
+	for idx, s := range o {
+		remainingSegments := float64(len(o) - idx)
+		myWidth := math.Floor(remainingWidth/remainingSegments + 0.5)
+		s.MinWidth(int(myWidth))
+		remainingWidth = remainingWidth - myWidth
+	}
+	return o
+}
+
+// Separator sets the separator visibility of the last segment in the output.
+func (o Output) Separator(separator bool) Output {
+	if len(o) > 0 {
+		o[len(o)-1].Separator(separator)
+	}
+	return o
+}
+
+// SeparatorWidth sets the separator width of the last segment in the output.
+func (o Output) SeparatorWidth(separatorWidth int) Output {
+	if len(o) > 0 {
+		o[len(o)-1].SeparatorWidth(separatorWidth)
+	}
+	return o
+}
+
+// InnerSeparator sets the separator visibility between segments of this output.
+func (o Output) InnerSeparator(separator bool) Output {
+	for idx, s := range o {
+		if idx+1 < len(o) {
+			s.Separator(separator)
+		}
+	}
+	return o
+}
+
+// InnerSeparatorWidth sets the separator width between segments of this output.
+func (o Output) InnerSeparatorWidth(separatorWidth int) Output {
+	for idx, s := range o {
+		if idx+1 < len(o) {
+			s.SeparatorWidth(separatorWidth)
+		}
 	}
 	return o
 }
