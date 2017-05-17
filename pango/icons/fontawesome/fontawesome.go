@@ -29,7 +29,7 @@ import (
 	"github.com/soumya92/barista/pango/icons"
 )
 
-var provider icons.Provider
+var provider *icons.Provider
 
 // Icon returns a pango node for the given icon name and styles.
 func Icon(name string, style ...pango.Attribute) pango.Node {

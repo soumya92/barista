@@ -53,12 +53,7 @@ import (
 )
 
 // Provider provides pango nodes for icons
-type Provider interface {
-	Icon(name string, style ...pango.Attribute) pango.Node
-}
-
-// provider is the concrete implementation of Provider.
-type provider struct {
+type Provider struct {
 	symbols map[string]string
 	attrs   []pango.Attribute
 }
@@ -67,7 +62,7 @@ type provider struct {
 // It looks up the name in the loaded mapping, and if found,
 // merges the default styles with the user provided styles (if any)
 // to produce a <span> that will render the requested icon.
-func (p *provider) Icon(name string, style ...pango.Attribute) pango.Node {
+func (p *Provider) Icon(name string, style ...pango.Attribute) pango.Node {
 	if p == nil {
 		return pango.Span()
 	}
@@ -112,13 +107,13 @@ var fs = afero.NewOsFs()
 // LoadFromFile creates an IconProvider by passing to the parse
 // function an io.Reader for the source file, and a function to add
 // icons to the provider's map.
-func (c *Config) LoadFromFile(parseFile func(io.Reader, func(string, string)) error) (Provider, error) {
+func (c *Config) LoadFromFile(parseFile func(io.Reader, func(string, string)) error) (*Provider, error) {
 	f, err := fs.Open(filepath.Join(c.RepoPath, c.FilePath))
 	if err != nil {
-		return &provider{}, err
+		return nil, err
 	}
 	defer f.Close()
-	i := provider{
+	i := Provider{
 		symbols: make(map[string]string),
 		attrs:   append(c.attrs, pango.Font(c.Font)),
 	}
@@ -131,7 +126,7 @@ func (c *Config) LoadFromFile(parseFile func(io.Reader, func(string, string)) er
 // LoadByLines creates an IconProvider by passing to the parse
 // function each line of the source file, and a function to add
 // icons to the provider's map.
-func (c *Config) LoadByLines(parseLine func(string, func(string, string)) error) (Provider, error) {
+func (c *Config) LoadByLines(parseLine func(string, func(string, string)) error) (*Provider, error) {
 	return c.LoadFromFile(func(f io.Reader, add func(string, string)) error {
 		s := bufio.NewScanner(f)
 		s.Split(bufio.ScanLines)

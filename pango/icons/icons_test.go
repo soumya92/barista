@@ -15,8 +15,11 @@
 package icons
 
 import (
+	"fmt"
+	"io"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/colors"
@@ -44,7 +47,7 @@ func TestSymbolFromHex(t *testing.T) {
 }
 
 func TestIconProvider(t *testing.T) {
-	testIcons := provider{
+	testIcons := Provider{
 		symbols: map[string]string{
 			"test":          "a",
 			"lgtm":          "👍",
@@ -81,5 +84,82 @@ func TestIconProvider(t *testing.T) {
 		"<span weight='bold' face='testfont'>a</span>",
 		testIcons.Icon("test", pango.Bold).Pango(),
 		"Override default attributes when named the same",
+	)
+}
+
+func TestLoadingProviders(t *testing.T) {
+	fs = afero.NewMemMapFs()
+	afero.WriteFile(fs, "empty", []byte{}, 0644)
+	afero.WriteFile(fs, "twoline", []byte(`
+icon1
+icon2
+
+`), 0644)
+
+	c := &Config{Font: "test"}
+
+	c.FilePath = "non-existent"
+	provider, err := c.LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
+		assert.Fail(t, "parseFunc is not called when file can't be opened")
+		return nil
+	})
+
+	assert.Error(t, err, "error from reading file is propagated")
+	assert.Empty(t,
+		provider.Icon("icon1").Pango(),
+		"empty pango markup returned for icon when file can't be opened",
+	)
+
+	c.FilePath = "empty"
+	provider, err = c.LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
+		addFunc("icon1", "random1")
+		addFunc("icon2", "random2")
+		return nil
+	})
+
+	assert.Nil(t, err, "no error when file is read and parse doesn't return one")
+	assert.Equal(t,
+		"<span face='test'>random1</span>",
+		provider.Icon("icon1").Pango(),
+		"icon added in parseFile is correctly returned",
+	)
+
+	provider, err = c.LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
+		return fmt.Errorf("some error")
+	})
+	assert.Error(t, err, "error from parse is propagated")
+
+	var lines []string
+	c.FilePath = "twoline"
+	provider, err = c.LoadByLines(func(line string, addFunc func(string, string)) error {
+		lines = append(lines, line)
+		addFunc(line, "filler")
+		return nil
+	})
+
+	assert.Nil(t, err, "no error when file is read and parse doesn't return one")
+	assert.Equal(t,
+		"<span face='test'>filler</span>",
+		provider.Icon("icon2").Pango(),
+		"icon added in parseLine is correctly returned",
+	)
+	assert.Contains(t, lines, "icon1", "all lines are parsed")
+	assert.Contains(t, lines, "icon2", "all lines are parsed")
+	assert.Equal(t, 2, len(lines), "Blank lines are ignored")
+
+	provider, err = c.LoadByLines(func(line string, addFunc func(string, string)) error {
+		return fmt.Errorf("some error")
+	})
+	assert.Error(t, err, "error from parse is propagated")
+
+	c.Styles(pango.Bold, pango.Small)
+	provider, _ = c.LoadByLines(func(line string, addFunc func(string, string)) error {
+		addFunc(line, "filler")
+		return nil
+	})
+	assert.Equal(t,
+		"<span weight='bold' size='small' face='test'>filler</span>",
+		provider.Icon("icon1").Pango(),
+		"additional attributes in Config are added to provider's output",
 	)
 }
