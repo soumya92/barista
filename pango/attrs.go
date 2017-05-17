@@ -179,6 +179,11 @@ func (b Background) AttrName() string {
 	return "background"
 }
 
+// AttrValue delegates to bar.Color to return the pango color value.
+func (b Background) AttrValue() string {
+	return bar.Color(b).AttrValue()
+}
+
 // Alpha sets the foreground opacity on a scale of 0 to 1.
 type Alpha float64
 
@@ -237,6 +242,11 @@ func (u UnderlineColor) AttrName() string {
 	return "underline_color"
 }
 
+// AttrValue delegates to bar.Color to return the pango color value.
+func (u UnderlineColor) AttrValue() string {
+	return bar.Color(u).AttrValue()
+}
+
 // Rise sets the font "rise" in pango units.
 // Negative for subscript, positive for superscript.
 type Rise int
@@ -276,6 +286,11 @@ type StrikethroughColor bar.Color
 // AttrName returns the name of the pango 'strikethrough_color' attribute.
 func (s StrikethroughColor) AttrName() string {
 	return "strikethrough_color"
+}
+
+// AttrValue delegates to bar.Color to return the pango color value.
+func (s StrikethroughColor) AttrValue() string {
+	return bar.Color(s).AttrValue()
 }
 
 // LetterSpacing sets the letter spacing, in points.
