@@ -154,7 +154,7 @@ func (d Direction) Deg() int {
 func (d Direction) Cardinal() string {
 	cardinal := ""
 	deg := d.Deg()
-	m := 34
+	m := 34 // rounded from (90/4 + 90/8)
 	// primary cardinal direction first. N, E, S, W.
 	switch {
 	case deg < m || deg > 360-m:
