@@ -40,7 +40,7 @@ type Collapsable interface {
 	// Button returns a button with the given output for the
 	// collapsed and expanded states respectively that toggles
 	// the group when clicked.
-	Button(bar.Output, bar.Output) Button
+	Button(collapsed, expanded bar.Output) Button
 }
 
 // Collapsing returns a new collapsable group.
@@ -57,10 +57,9 @@ type collapsable struct {
 
 // Add adds a module to the collapsable group. The returned module
 // will not output anything when the group is collapsed.
-func (g *collapsable) Add(original bar.Module) bar.Module {
+func (g *collapsable) Add(original bar.Module) WrappedModule {
 	m := &module{
 		Module:  original,
-		channel: make(chan bar.Output),
 		visible: !g.collapsed,
 	}
 	g.modules = append(g.modules, m)
@@ -106,6 +105,6 @@ func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
 
 func (g *collapsable) syncState() {
 	for _, m := range g.modules {
-		m.SetVisible(!g.collapsed)
+		go m.SetVisible(!g.collapsed)
 	}
 }

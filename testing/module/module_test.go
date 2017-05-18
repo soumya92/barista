@@ -39,7 +39,7 @@ func finishedWithin(f func(), timeout time.Duration) bool {
 
 func TestSimple(t *testing.T) {
 	m := New(t)
-	assert.False(t, m.started, "Initially not started")
+	m.AssertNotStarted("Initially not started")
 	initialOutput := bar.Output{bar.NewSegment("hello")}
 	assert.True(t,
 		finishedWithin(func() { m.Output(initialOutput) }, time.Second),

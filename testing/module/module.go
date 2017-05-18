@@ -81,6 +81,11 @@ func (t *TestModule) AssertStarted(message string) {
 	t.assert.True(t.started, message)
 }
 
+// AssertNotStarted asserts that the module was not started.
+func (t *TestModule) AssertNotStarted(message string) {
+	t.assert.False(t.started, message)
+}
+
 // AssertPaused asserts that the module was paused,
 // and consumes the pause invocation.
 func (t *TestModule) AssertPaused(message string) {

@@ -40,7 +40,7 @@ import (
 // It supports adding a module and returning a wrapped module that
 // behaves according to the group's rules.
 type Group interface {
-	Add(bar.Module) bar.Module
+	Add(bar.Module) WrappedModule
 }
 
 // Button is a bar module that supports being clicked.
@@ -58,8 +58,17 @@ type module struct {
 	visible    bool
 }
 
+// WrappedModule implements bar.Module, Clickable, and Pausable.
+// It forwards calls to the wrapped module only when supported.
+type WrappedModule interface {
+	bar.Module
+	bar.Clickable
+	bar.Pausable
+}
+
 // Stream sets up the output pipeline to filter outputs when hidden.
 func (m *module) Stream() <-chan bar.Output {
+	m.channel = make(chan bar.Output)
 	go m.pipeWhenVisible(m.Module.Stream(), m.channel)
 	return m.channel
 }
@@ -87,6 +96,9 @@ func (m *module) Resume() {
 
 // SetVisible sets the module visibility and updates the output accordingly.
 func (m *module) SetVisible(visible bool) {
+	if m.visible == visible {
+		return
+	}
 	m.visible = visible
 	if visible {
 		m.channel <- m.lastOutput

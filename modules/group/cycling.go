@@ -59,11 +59,10 @@ type cyclic struct {
 
 // Add adds a module to the cyclic group. The returned module
 // will not output anything unless it's currently active.
-func (g *cyclic) Add(original bar.Module) bar.Module {
+func (g *cyclic) Add(original bar.Module) WrappedModule {
 	index := len(g.modules)
 	m := &module{
 		Module:  original,
-		channel: make(chan bar.Output),
 		visible: g.current == index,
 	}
 	g.modules = append(g.modules, m)
@@ -83,10 +82,14 @@ func (g *cyclic) Next() {
 }
 
 func (g *cyclic) Show(index int) {
-	// Handle wrap around on either side.
-	index = (index + len(g.modules)) % len(g.modules)
+	if len(g.modules) == 0 {
+		index = 0
+	} else {
+		// Handle wrap around on either side.
+		index = (index + len(g.modules)) % len(g.modules)
+	}
 	for idx, m := range g.modules {
-		m.SetVisible(idx == index)
+		go m.SetVisible(idx == index)
 	}
 	g.current = index
 }
@@ -100,10 +103,10 @@ func (g *cyclic) Button(output bar.Output) Button {
 	b.Output(output)
 	b.OnClick(func(e bar.Event) {
 		switch e.Button {
-		case bar.ButtonLeft, bar.ScrollDown, bar.ScrollLeft, bar.ButtonBack:
-			g.Previous()
-		case bar.ButtonRight, bar.ScrollUp, bar.ScrollRight, bar.ButtonForward:
+		case bar.ButtonLeft, bar.ScrollDown, bar.ScrollRight, bar.ButtonForward:
 			g.Next()
+		case bar.ButtonRight, bar.ScrollUp, bar.ScrollLeft, bar.ButtonBack:
+			g.Previous()
 		}
 	})
 	return b
