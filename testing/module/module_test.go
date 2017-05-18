@@ -62,6 +62,23 @@ func TestSimple(t *testing.T) {
 		"Read from channel blocks when no output")
 }
 
+func TestOutputBuffer(t *testing.T) {
+	m := New(t)
+	out1 := bar.Output{bar.NewSegment("1")}
+	out2 := bar.Output{bar.NewSegment("2")}
+	out3 := bar.Output{bar.NewSegment("3")}
+	ch := m.Stream()
+	m.Output(out1)
+	m.Output(out2)
+	actual1 := <-ch
+	actual2 := <-ch
+	assert.Equal(t, out1, actual1, "buffered write")
+	assert.Equal(t, out2, actual2, "buffered write")
+	m.Output(out3)
+	actual3 := <-ch
+	assert.Equal(t, out3, actual3, "buffered write")
+}
+
 func TestClick(t *testing.T) {
 	m := New(t)
 	evt1 := bar.Event{X: 2}

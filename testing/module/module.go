@@ -128,8 +128,9 @@ func (t *TestModule) Reset() {
 
 func (t *TestModule) looper() {
 	for range t.sigChan {
-		for _, out := range t.outputs {
-			t.outChan <- out
+		for len(t.outputs) > 0 {
+			t.outChan <- t.outputs[0]
+			t.outputs = t.outputs[1:]
 		}
 	}
 }
