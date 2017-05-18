@@ -38,39 +38,39 @@ type Config struct {
 }
 
 // USCity queries by a US City and State.
-func (c *Config) USCity(city, state string) *Config {
+func USCity(city, state string) *Config {
 	return &Config{query: fmt.Sprintf("%s/%s", state, city)}
 }
 
 // USZipCode queries by a US Zip Code.
-func (c *Config) USZipCode(zipcode string) *Config {
+func USZipCode(zipcode string) *Config {
 	return &Config{query: zipcode}
 }
 
 // City queries by a city and country
-func (c *Config) City(city, country string) *Config {
+func City(city, country string) *Config {
 	return &Config{query: fmt.Sprintf("%s/%s", country, city)}
 }
 
 // Coords queries by lat/lon co-ordinates.
-func (c *Config) Coords(lat, lon float64) *Config {
+func Coords(lat, lon float64) *Config {
 	return &Config{query: fmt.Sprintf("%f,%f", lat, lon)}
 }
 
 // Airport queries by airport code (e.g. KSEA).
-func (c *Config) Airport(code string) *Config {
+func Airport(code string) *Config {
 	return &Config{query: code}
 }
 
 // PWS queries by personal weather station id (e.g. KCASANFR70).
-func (c *Config) PWS(id string) *Config {
+func PWS(id string) *Config {
 	return &Config{query: fmt.Sprintf("pwd:%s", id)}
 }
 
 // ZMW queries by the disambiguation link if multiple locations
 // match a city name. The zmw number needs to be looked up manually
 // by making a request and observing the 'results' array.
-func (c *Config) ZMW(zmw string) *Config {
+func ZMW(zmw string) *Config {
 	return &Config{query: fmt.Sprintf("zmw:%s", zmw)}
 }
 

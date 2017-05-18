@@ -25,12 +25,12 @@ It's up to extending modules to decide how to expose the submodule creation,
 but one simple way to do so is to have OutputFunc/OutputTemplate return new
 submodules with that output template. This would allow for code like:
 
-multi := multimodule.New(... config ...)
-bar.Run(
-	multi.OutputTemplate(`{{.Prop1}}`),
-	othermodule,
-	multi.OutputTemplate(``{{.Prop2}}`),
-)
+ multi := multimodule.New(... config ...)
+ bar.Run(
+   multi.OutputTemplate(`{{.Prop1}}`),
+   othermodule,
+   multi.OutputTemplate(`{{.Prop2}}`),
+ )
 */
 package multi
 

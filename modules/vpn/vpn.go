@@ -49,22 +49,12 @@ const (
 // Module represents a VPN bar module.
 type Module interface {
 	base.WithClickHandler
+
+	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(State) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
 	OutputTemplate(func(interface{}) bar.Output) Module
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *module) OutputFunc(outputFunc func(State) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
-	return m
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
-	return m.OutputFunc(func(s State) bar.Output {
-		return template(s)
-	})
 }
 
 type module struct {
@@ -91,6 +81,18 @@ func New(iface string) Module {
 // the usual interface for VPNs.
 func DefaultInterface() Module {
 	return New("tun0")
+}
+
+func (m *module) OutputFunc(outputFunc func(State) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(s State) bar.Output {
+		return template(s)
+	})
 }
 
 func (m *module) Stream() <-chan bar.Output {

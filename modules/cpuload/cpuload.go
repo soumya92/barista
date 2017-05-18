@@ -49,52 +49,24 @@ func (l LoadAvg) Min15() float64 {
 // format, click handler, update frequency, and urgency/colour functions.
 type Module interface {
 	base.WithClickHandler
+
+	// RefreshInterval configures the polling frequency for getloadavg.
 	RefreshInterval(time.Duration) Module
+
+	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(LoadAvg) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
 	OutputTemplate(func(interface{}) bar.Output) Module
+
+	// OutputColor configures a module to change the colour of its output based on a
+	// user-defined function. This allows you to set up color thresholds, or even
+	// blend between two colours based on the current load average.
 	OutputColor(func(LoadAvg) bar.Color) Module
+
+	// UrgentWhen configures a module to mark its output as urgent based on a
+	// user-defined function.
 	UrgentWhen(func(LoadAvg) bool) Module
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *module) OutputFunc(outputFunc func(LoadAvg) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
-	return m
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
-	return m.OutputFunc(func(l LoadAvg) bar.Output {
-		// TODO: See if there's a way to avoid this.
-		// Go does not agree with me when I say that a func(interface{})
-		// should be assignable to a func(LoadAvg).
-		return template(l)
-	})
-}
-
-// RefreshInterval configures the polling frequency for getloadavg.
-func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Stop()
-	m.scheduler = m.UpdateEvery(interval)
-	return m
-}
-
-// OutputColor configures a module to change the colour of its output based on a
-// user-defined function. This allows you to set up color thresholds, or even
-// blend between two colours based on the current load average.
-func (m *module) OutputColor(colorFunc func(LoadAvg) bar.Color) Module {
-	m.colorFunc = colorFunc
-	m.Update()
-	return m
-}
-
-// UrgentWhen configures a module to mark its output as urgent based on a
-// user-defined function.
-func (m *module) UrgentWhen(urgentFunc func(LoadAvg) bool) Module {
-	m.urgentFunc = urgentFunc
-	m.Update()
-	return m
 }
 
 type module struct {
@@ -115,6 +87,39 @@ func New() Module {
 	m.OutputTemplate(outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`))
 	// Update load average when asked.
 	m.OnUpdate(m.update)
+	return m
+}
+
+func (m *module) OutputFunc(outputFunc func(LoadAvg) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(l LoadAvg) bar.Output {
+		// TODO: See if there's a way to avoid this.
+		// Go does not agree with me when I say that a func(interface{})
+		// should be assignable to a func(LoadAvg).
+		return template(l)
+	})
+}
+
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
+	return m
+}
+
+func (m *module) OutputColor(colorFunc func(LoadAvg) bar.Color) Module {
+	m.colorFunc = colorFunc
+	m.Update()
+	return m
+}
+
+func (m *module) UrgentWhen(urgentFunc func(LoadAvg) bool) Module {
+	m.urgentFunc = urgentFunc
+	m.Update()
 	return m
 }
 

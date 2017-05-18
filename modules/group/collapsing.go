@@ -24,10 +24,22 @@ import (
 // when collapsed, no modules are visible.
 type Collapsable interface {
 	Group
+
+	// Collapsed returns true if the group is collapsed.
 	Collapsed() bool
+
+	// Collapse collapses the group and hides all modules.
 	Collapse()
+
+	// Expand expands the group and shows all modules.
 	Expand()
+
+	// Toggle toggles the visibility of all modules.
 	Toggle()
+
+	// Button returns a button with the given output for the
+	// collapsed and expanded states respectively that toggles
+	// the group when clicked.
 	Button(bar.Output, bar.Output) Button
 }
 
@@ -55,32 +67,25 @@ func (g *collapsable) Add(original bar.Module) bar.Module {
 	return m
 }
 
-// Collapsed returns true if the group is collapsed.
 func (g *collapsable) Collapsed() bool {
 	return g.collapsed
 }
 
-// Collapse collapses the group and hides all modules.
 func (g *collapsable) Collapse() {
 	g.collapsed = true
 	g.syncState()
 }
 
-// Expand expands the group and shows all modules.
 func (g *collapsable) Expand() {
 	g.collapsed = false
 	g.syncState()
 }
 
-// Toggle toggles the visibility of all modules.
 func (g *collapsable) Toggle() {
 	g.collapsed = !g.collapsed
 	g.syncState()
 }
 
-// Button returns a button with the given output for the
-// collapsed and expanded states respectively that toggles
-// the group when clicked.
 func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
 	outputFunc := func() bar.Output {
 		if g.collapsed {
@@ -99,7 +104,6 @@ func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
 	return b
 }
 
-// syncState syncs the visible state of all modules.
 func (g *collapsable) syncState() {
 	for _, m := range g.modules {
 		m.SetVisible(!g.collapsed)

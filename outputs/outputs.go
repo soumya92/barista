@@ -93,11 +93,29 @@ func PangoTemplate(tpl string) TemplateFunc {
 // outputs and assigns each output a different "instance" name so that
 // click handlers can know what part of the output was clicked.
 type Composite interface {
+	// Add appends a named output segment to the composite bar output
+	// and returns it for chaining.
 	Add(string, bar.Output) Composite
-	AddPango(string, ...interface{}) Composite
-	AddTextf(string, string, ...interface{}) Composite
-	AddText(string, string) Composite
+
+	// AddPango appends a named pango output segment to the composite
+	// bar output and returns it for chaining.
+	AddPango(instance string, things ...interface{}) Composite
+
+	// AddTextf appends a named text output segment with formatting
+	// to the composite bar output and returns it for chaining.
+	AddTextf(instance string, format string, args ...interface{}) Composite
+
+	// AddText appends a named text output segment to the composite
+	// bar output and returns it for chaining.
+	AddText(instance string, text string) Composite
+
+	// KeepSeparators sets whether inter-segment separators are removed.
+	// By default, inter-segment separators are removed when Build is called,
+	// but that behaviour can be overridden by calling KeepSeparators(true).
 	KeepSeparators(bool) Composite
+
+	// Build returns the built bar.Output with each segment's instance set
+	// to the appropriate value.
 	Build() bar.Output
 }
 
@@ -106,8 +124,6 @@ type composite struct {
 	separators bool
 }
 
-// Add appends a named output segment to the composite bar output
-// and returns it for chaining.
 func (c *composite) Add(instance string, output bar.Output) Composite {
 	for _, segment := range output {
 		segment.Instance(instance)
@@ -116,43 +132,23 @@ func (c *composite) Add(instance string, output bar.Output) Composite {
 	return c
 }
 
-// addOne adds the first (and only) element of the bar.Output after
-// setting its instance and returns the composite output for chaining.
-func (c *composite) addOne(instance string, output bar.Output) Composite {
-	segment := output[0]
-	segment.Instance(instance)
-	c.out = append(c.out, segment)
-	return c
-}
-
-// AddPango appends a named pango output segment to the composite
-// bar output and returns it for chaining.
 func (c *composite) AddPango(instance string, things ...interface{}) Composite {
 	return c.addOne(instance, Pango(things...))
 }
 
-// AddTextf appends a named text output segment with formatting
-// to the composite bar output and returns it for chaining.
 func (c *composite) AddTextf(instance string, format string, things ...interface{}) Composite {
 	return c.addOne(instance, Textf(format, things...))
 }
 
-// AddText appends a named text output segment  to the composite
-// bar output and returns it for chaining.
 func (c *composite) AddText(instance string, text string) Composite {
 	return c.addOne(instance, Text(text))
 }
 
-// KeepSeparators sets whether inter-segment separators are removed.
-// By default, inter-segment separators are removed when Build is called,
-// but that behaviour can be overridden by calling KeepSeparators(true).
 func (c *composite) KeepSeparators(separators bool) Composite {
 	c.separators = separators
 	return c
 }
 
-// Build returns the built bar.Output with each segment's instance set
-// to the appropriate value.
 func (c *composite) Build() bar.Output {
 	if c.separators {
 		return c.out
@@ -168,6 +164,15 @@ func (c *composite) Build() bar.Output {
 		segment.Separator(false)
 	}
 	return c.out
+}
+
+// addOne adds the first (and only) element of the bar.Output after
+// setting its instance and returns the composite output for chaining.
+func (c *composite) addOne(instance string, output bar.Output) Composite {
+	segment := output[0]
+	segment.Instance(instance)
+	c.out = append(c.out, segment)
+	return c
 }
 
 // Multi creates an empty composite output, to which named segments

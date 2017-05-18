@@ -14,8 +14,7 @@
 
 /*
 Package group provides a module that "groups" existing modules, and allows
-- expanding/collapsing the group as a whole, or
-- cycling through grouped module.
+expanding/collapsing the group as a whole, or cycling through grouped module.
 
 To group modules, construct a new group instance, and wrap each module
 when adding it to the bar. Then add the Button() to add the default button,
@@ -23,12 +22,12 @@ which is toggle for collapsing, and next for cycling. Or add a static text
 module and use the click handler to get more fined grain control over the
 group.
 
-g := group.Collapsing()
-bar.Run(
-	g.Add(localtime.New(...)),
-	g.Add(shell.Every(...)),
-	g.Button(outputs.Text("+"), outputs.Text("-")),
-)
+ g := group.Collapsing()
+ bar.Run(
+   g.Add(localtime.New(...)),
+   g.Add(shell.Every(...)),
+   g.Button(outputs.Text("+"), outputs.Text("-")),
+ )
 */
 package group
 

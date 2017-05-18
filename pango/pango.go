@@ -18,17 +18,17 @@ Using nested Span and Text nodes, pango formatted output can be easily construct
 with compile-time validation of nesting and automatic escaping.
 
 For example, to construct pango markup for:
-	<span color="#ff0000">Red <span weight="bold">Bold Text</span></span>
+ <span color="#ff0000">Red <span weight="bold">Bold Text</span></span>
 
 the go code would be:
-	pango.Span(
-		colors.Hex("#ff0000"),
-		"Red ",
-		pango.Span(
-			pango.Weight("bold"),
-			"Bold Text",
-		),
-	)
+ pango.Span(
+   colors.Hex("#ff0000"),
+   "Red ",
+   pango.Span(
+     pango.Weight("bold"),
+     "Bold Text",
+   ),
+ )
 */
 package pango
 
@@ -41,6 +41,7 @@ import (
 
 // Node represents nodes in a pango "document".
 type Node interface {
+	// Pango returns a pango-formatted version of the element.
 	Pango() string
 }
 
@@ -62,7 +63,6 @@ func (e *element) collapse() bool {
 	return strings.EqualFold(e.tagName, "span") && len(e.attributes) == 0
 }
 
-// Pango returns a pango-formatted version of the element.
 func (e *element) Pango() string {
 	printTag := !e.collapse()
 	var out bytes.Buffer
@@ -100,16 +100,18 @@ func (t Text) Pango() string {
 // Textf constructs a text node by interpolating arguments.
 // Note that it will escape both the format string and arguments,
 // so you should use pango constructs to add formatting.
-// i.e., Textf("<span color='%s'>%s</span>", "red", "text") won't give you red text.
+// i.e.,
+//  Textf("<span color='%s'>%s</span>", "red", "text")
+// won't give you red text.
 func Textf(format string, args ...interface{}) Node {
 	return Text(fmt.Sprintf(format, args...))
 }
 
 // Tag constructs a pango element with the given name, with any children and/or attributes.
 // The interface varargs are used as below:
-// - A pango.Attribute is added to the tag directly
-// - A pango.Element is added as a child node
-// - Any other object is added as a text node using the %v format.
+//  - A pango.Attribute is added to the tag directly
+//  - A pango.Element is added as a child node
+//  - Any other object is added as a text node using the %v format.
 func Tag(tagName string, things ...interface{}) Node {
 	e := &element{tagName: tagName}
 	for _, thing := range things {

@@ -51,7 +51,12 @@ func (v Volume) Pct() int {
 
 // Controller provides an interface to change the system volume from the click handler.
 type Controller interface {
+
+	// SetMuted controls whether the system volume is muted.
 	SetMuted(bool)
+
+	// SetVolume sets the system volume.
+	// It does not change the mute status.
 	SetVolume(int64)
 }
 
@@ -61,23 +66,15 @@ type Controller interface {
 // usual output formatting options.
 type Module interface {
 	base.Module
+
+	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(Volume) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
 	OutputTemplate(func(interface{}) bar.Output) Module
+
+	// OnClick sets the click handler for a module.
 	OnClick(func(Volume, Controller, bar.Event))
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *module) OutputFunc(outputFunc func(Volume) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
-	return m
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
-	return m.OutputFunc(func(v Volume) bar.Output {
-		return template(v)
-	})
 }
 
 type module struct {
@@ -100,8 +97,8 @@ func Mixer(card, mixer string) Module {
 		cardName:  card,
 		mixerName: mixer,
 	}
-	m.OnClick(defaultClickHandler)
-	// Default output template, that's just the volume %, "MUT" when muted.
+	m.OnClick(DefaultClickHandler)
+	// Default output template is just the volume %, "MUT" when muted.
 	m.OutputTemplate(outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`))
 	return m
 }
@@ -111,8 +108,6 @@ func DefaultMixer() Module {
 	return Mixer("default", "Master")
 }
 
-// SetVolume sets the system volume.
-// It does not change the mute status.
 func (m *module) SetVolume(newVol int64) {
 	if max := int64(m.max); newVol > max {
 		newVol = max
@@ -125,7 +120,6 @@ func (m *module) SetVolume(newVol int64) {
 	m.Update()
 }
 
-// SetMuted controls whether the system volume is muted.
 func (m *module) SetMuted(muted bool) {
 	if muted {
 		m.mute = C.int(0)
@@ -136,7 +130,18 @@ func (m *module) SetMuted(muted bool) {
 	m.Update()
 }
 
-// OnClick sets the click handler for a module.
+func (m *module) OutputFunc(outputFunc func(Volume) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(v Volume) bar.Output {
+		return template(v)
+	})
+}
+
 func (m *module) OnClick(f func(Volume, Controller, bar.Event)) {
 	if f == nil {
 		m.Base.OnClick(nil)
@@ -150,9 +155,9 @@ func (m *module) OnClick(f func(Volume, Controller, bar.Event)) {
 // Throttle volume updates to a ~20ms to prevent alsa breakage.
 var lastVolumeChangeTime time.Time
 
-// defaultClickHandler provides a simple example of the click handler capabilities.
+// DefaultClickHandler provides a simple example of the click handler capabilities.
 // It toggles mute on left click, and raises/lowers the volume on scroll.
-func defaultClickHandler(v Volume, c Controller, e bar.Event) {
+func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
 	now := time.Now()
 	if lastVolumeChangeTime.Add(20 * time.Millisecond).After(now) {
 		// Don't update the volume if it was updated <20ms ago.

@@ -19,12 +19,10 @@ This can be useful for adding extra formatting simple bar modules.
 For example, a time module might use strftime-style format strings,
 which don't allow for colours or borders. You can add those using reformat:
 
-t := localtime.New(...)
-r := reformat.New(t, func(o bar.Output) bar.Output {
-	o.Background = "red"
-	o.SeparatorWidth = 20
-	return o
-})
+ t := localtime.New(...)
+ r := reformat.New(t, func(o bar.Output) bar.Output {
+   return o.Background("red").SeparatorWidth(20)
+ })
 */
 package reformat
 

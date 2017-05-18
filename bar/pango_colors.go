@@ -16,10 +16,10 @@ package bar
 
 // Makes bar.Color conform to the pango Attribute specification.
 // This enables code like:
-// pango.Span(
+//  pango.Span(
 //    "bad-thing",
 //    colors.Scheme("bad"),
-// )
+//  )
 // to produce: <span color="red">bad-thing</span>
 // assuming that the current scheme's 'bad' color is 'red'.
 

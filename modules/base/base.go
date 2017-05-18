@@ -63,9 +63,8 @@ func (b *Base) Stream() <-chan bar.Output {
 // Click handles click events from the bar.
 // A middle click will always force an update, but if the module
 // is currently in an error state, the configured click handler
-// will be replaced by one that:
-// - shows the error message in i3-nagbar on left click
-// - updates the module on right click
+// will be replaced by one that shows the error message using
+// i3-nagbar on left click and updates the module on right click
 func (b *Base) Click(e bar.Event) {
 	if b.lastError == nil {
 		if e.Button == bar.ButtonMiddle {

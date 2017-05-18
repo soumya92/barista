@@ -49,50 +49,25 @@ func (t Temperature) F() int {
 // format, click handler, update frequency, and urgency/colour functions.
 type Module interface {
 	base.WithClickHandler
+
+	// RefreshInterval configures the polling frequency for cpu temperatures.
+	// Note: updates might still be less frequent if the temperature does not change.
 	RefreshInterval(time.Duration) Module
+
+	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(Temperature) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
 	OutputTemplate(func(interface{}) bar.Output) Module
+
+	// OutputColor configures a module to change the colour of its output based on a
+	// user-defined function. This allows you to set up color thresholds, or even
+	// blend between two colours based on the current temperature.
 	OutputColor(func(Temperature) bar.Color) Module
+
+	// UrgentWhen configures a module to mark its output as urgent based on a
+	// user-defined function.
 	UrgentWhen(func(Temperature) bool) Module
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *module) OutputFunc(outputFunc func(Temperature) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
-	return m
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
-	return m.OutputFunc(func(t Temperature) bar.Output {
-		return template(t)
-	})
-}
-
-// RefreshInterval configures the polling frequency for cpu temperatures.
-// Note: updates might still be less frequent if the temperature does not change.
-func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Stop()
-	m.scheduler = m.UpdateEvery(interval)
-	return m
-}
-
-// OutputColor configures a module to change the colour of its output based on a
-// user-defined function. This allows you to set up color thresholds, or even
-// blend between two colours based on the current temperature.
-func (m *module) OutputColor(colorFunc func(Temperature) bar.Color) Module {
-	m.colorFunc = colorFunc
-	m.Update()
-	return m
-}
-
-// UrgentWhen configures a module to mark its output as urgent based on a
-// user-defined function.
-func (m *module) UrgentWhen(urgentFunc func(Temperature) bool) Module {
-	m.urgentFunc = urgentFunc
-	m.Update()
-	return m
 }
 
 type module struct {
@@ -128,6 +103,36 @@ func Zone(thermalZone string) Module {
 // DefaultZone constructs an instance of the cputemp module for the default zone.
 func DefaultZone() Module {
 	return Zone("thermal_zone0")
+}
+
+func (m *module) OutputFunc(outputFunc func(Temperature) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(t Temperature) bar.Output {
+		return template(t)
+	})
+}
+
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
+	return m
+}
+
+func (m *module) OutputColor(colorFunc func(Temperature) bar.Color) Module {
+	m.colorFunc = colorFunc
+	m.Update()
+	return m
+}
+
+func (m *module) UrgentWhen(urgentFunc func(Temperature) bool) Module {
+	m.urgentFunc = urgentFunc
+	m.Update()
+	return m
 }
 
 func (m *module) update() {

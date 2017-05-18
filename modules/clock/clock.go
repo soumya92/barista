@@ -27,44 +27,21 @@ import (
 // timezone, output format, and granularity.
 type Module interface {
 	base.WithClickHandler
+
+	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(time.Time) bar.Output) Module
+
+	// OutputFormat configures a module to display the time in a given format.
 	OutputFormat(string) Module
+
+	// Timezone configures the timezone for this clock.
 	Timezone(string) Module
+
+	// Granularity configures the granularity at which the module should refresh.
+	// For example, if your format does not have seconds, you can set it to time.Minute.
+	// The module will always update at the next second, minute, hour, etc.,
+	// so you don't need to be concerned about update delays with a large granularity.
 	Granularity(time.Duration) Module
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *module) OutputFunc(outputFunc func(time.Time) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
-	return m
-}
-
-// OutputFormat configures a module to display the time in a given format.
-func (m *module) OutputFormat(format string) Module {
-	return m.OutputFunc(func(now time.Time) bar.Output {
-		return outputs.Text(now.Format(format))
-	})
-}
-
-// Timezone configures the timezone for this clock.
-func (m *module) Timezone(timezone string) Module {
-	var err error
-	m.timezone, err = time.LoadLocation(timezone)
-	if !m.Error(err) {
-		m.Update()
-	}
-	return m
-}
-
-// Granularity configures the granularity at which the module should refresh.
-// For example, if your format does not have seconds, you can set it to time.Minute.
-// The module will always update at the next second, minute, hour, etc.,
-// so you don't need to be concerned about update delays with a large granularity.
-func (m *module) Granularity(granularity time.Duration) Module {
-	m.granularity = granularity
-	m.Update()
-	return m
 }
 
 type module struct {
@@ -86,6 +63,33 @@ func New() Module {
 	// Default output template
 	m.OutputFormat("15:04")
 	m.OnUpdate(m.update)
+	return m
+}
+
+func (m *module) OutputFunc(outputFunc func(time.Time) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
+}
+
+func (m *module) OutputFormat(format string) Module {
+	return m.OutputFunc(func(now time.Time) bar.Output {
+		return outputs.Text(now.Format(format))
+	})
+}
+
+func (m *module) Timezone(timezone string) Module {
+	var err error
+	m.timezone, err = time.LoadLocation(timezone)
+	if !m.Error(err) {
+		m.Update()
+	}
+	return m
+}
+
+func (m *module) Granularity(granularity time.Duration) Module {
+	m.granularity = granularity
+	m.Update()
 	return m
 }
 

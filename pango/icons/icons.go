@@ -15,27 +15,23 @@
 /*
 Package icons provides an interface for using icon fonts in a bar.
 To use an icon font:
-- Clone a supported repository
-- Link the ttf into ~/.fonts
-- Load the icon by passing it the path to the repo
-- Use icons as pango constructs in your bar
+ - Clone a supported repository
+ - Link the ttf into ~/.fonts
+ - Load the icon by passing it the path to the repo
+ - Use icons as pango constructs in your bar
 
 Compatible icon fonts:
-- Material Design Icons (+community fork)
-- FontAwesome
-- Ionicons
-- Typicons
-
-Incompatible icon fonts:
-- Octicons: no TTF
-- StackIcons: overlapping characters
+ - Material Design Icons (+community fork)
+ - FontAwesome
+ - Ionicons
+ - Typicons
 
 Example usage:
   material.Load("/Users/me/Github/google/material-design-icons")
   ...
   return pango.Span(
-  	material.Icon("today", colors.Hex("#ddd")),
-  	now.Sprintf("%H:%M"),
+    material.Icon("today", colors.Hex("#ddd")),
+    now.Sprintf("%H:%M"),
   )
 */
 package icons

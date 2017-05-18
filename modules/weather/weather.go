@@ -89,28 +89,8 @@ type Speed float64
 // Direction represents a compass direction stored as degrees.
 type Direction int
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *module) OutputFunc(outputFunc func(Weather) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
-	return m
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
-	return m.OutputFunc(func(w Weather) bar.Output {
-		return template(w)
-	})
-}
-
-// RefreshInterval configures the polling frequency.
-func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Stop()
-	m.scheduler = m.UpdateEvery(interval)
-	return m
-}
-
 // Provider is an interface for weather providers,
+// implemented by the various provider packages.
 type Provider interface {
 	GetWeather() (*Weather, error)
 }
@@ -120,9 +100,17 @@ type Provider interface {
 // which allows click handlers to get the current weather.
 type Module interface {
 	base.Module
+
+	// RefreshInterval configures the polling frequency.
 	RefreshInterval(time.Duration) Module
+
+	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(Weather) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
 	OutputTemplate(func(interface{}) bar.Output) Module
+
+	// OnClick sets a click handler for the module.
 	OnClick(func(Weather, bar.Event)) Module
 }
 
@@ -150,7 +138,24 @@ func New(provider Provider) Module {
 	return m
 }
 
-// OnClick sets a click handler for the module.
+func (m *module) OutputFunc(outputFunc func(Weather) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(w Weather) bar.Output {
+		return template(w)
+	})
+}
+
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
+	return m
+}
+
 func (m *module) OnClick(f func(Weather, bar.Event)) Module {
 	if f == nil {
 		m.Base.OnClick(nil)

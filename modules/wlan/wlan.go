@@ -63,22 +63,12 @@ const (
 // Module represents a wlan bar module.
 type Module interface {
 	base.WithClickHandler
+
+	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(Info) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
 	OutputTemplate(func(interface{}) bar.Output) Module
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
-	return m
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
-	return m.OutputFunc(func(i Info) bar.Output {
-		return template(i)
-	})
 }
 
 type module struct {
@@ -104,6 +94,18 @@ func New(iface string) Module {
 func (m *module) Stream() <-chan bar.Output {
 	go m.worker()
 	return m.Base.Stream()
+}
+
+func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(i Info) bar.Output {
+		return template(i)
+	})
 }
 
 func (m *module) worker() {

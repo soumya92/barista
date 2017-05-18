@@ -24,11 +24,24 @@ import (
 // directly indexed module.
 type Cyclic interface {
 	Group
+
+	// Visible returns the index of the currently active module.
 	Visible() int
+
+	// Previous switches to the previous module.
 	Previous()
+
+	// Next switches to the next module.
 	Next()
+
+	// Show sets the currently active module.
 	Show(int)
+
+	// Count returns the number of modules in this group
 	Count() int
+
+	// Button returns a button with the given output that switches
+	// to the next module in the group when clicked.
 	Button(bar.Output) Button
 }
 
@@ -57,22 +70,18 @@ func (g *cyclic) Add(original bar.Module) bar.Module {
 	return m
 }
 
-// Visible returns the index of the currently active module.
 func (g *cyclic) Visible() int {
 	return g.current
 }
 
-// Previous switches to the previous module.
 func (g *cyclic) Previous() {
 	g.Show(g.Visible() - 1)
 }
 
-// Next switches to the next module.
 func (g *cyclic) Next() {
 	g.Show(g.Visible() + 1)
 }
 
-// Show sets the currently active module.
 func (g *cyclic) Show(index int) {
 	// Handle wrap around on either side.
 	index = (index + len(g.modules)) % len(g.modules)
@@ -82,13 +91,10 @@ func (g *cyclic) Show(index int) {
 	g.current = index
 }
 
-// Count returns the number of modules in this group
 func (g *cyclic) Count() int {
 	return len(g.modules)
 }
 
-// Button returns a button with the given output that switches
-// to the next module in the group when clicked.
 func (g *cyclic) Button(output bar.Output) Button {
 	b := base.New()
 	b.Output(output)

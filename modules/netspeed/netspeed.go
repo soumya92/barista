@@ -65,51 +65,17 @@ func (s Speeds) Total() Speed {
 // format, click handler, and update frequency.
 type Module interface {
 	base.WithClickHandler
+
+	// RefreshInterval configures the polling frequency for network speed.
+	// Since there is no concept of an instantaneous network speed, the speeds will
+	// be averaged over this interval before being displayed.
 	RefreshInterval(time.Duration) Module
+
+	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(Speeds) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
 	OutputTemplate(func(interface{}) bar.Output) Module
-}
-
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *module) OutputFunc(outputFunc func(Speeds) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
-	return m
-}
-
-// OutputTemplate configures a module to display the output of a template.
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
-	return m.OutputFunc(func(s Speeds) bar.Output {
-		return template(s)
-	})
-}
-
-// RefreshInterval configures the polling frequency for network speed.
-// Since there is no concept of an instantaneous network speed, the speeds will
-// be averaged over this interval before being displayed.
-func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Stop()
-	m.scheduler = m.UpdateEvery(interval)
-	return m
-}
-
-// info represents that last read network information,
-// and is used to compute the delta-rx and tx.
-type info struct {
-	Rx, Tx uint64
-	Time   time.Time
-}
-
-// Refresh updates the last read information, and returns
-// the delta-rx and tx since the last update in bytes/sec.
-func (i *info) Refresh(rx, tx uint64) (dRx, dTx uint64) {
-	duration := time.Since(i.Time).Seconds()
-	dRx = uint64(float64(rx-i.Rx) / duration)
-	dTx = uint64(float64(tx-i.Tx) / duration)
-	i.Rx = rx
-	i.Tx = tx
-	i.Time = time.Now()
-	return // dRx, dTx
 }
 
 type module struct {
@@ -135,6 +101,43 @@ func New(iface string) Module {
 	m.OutputTemplate(outputs.TextTemplate("{{.Tx.SI}}/s up | {{.Rx.SI}}/s down"))
 	// Worker goroutine to recalculate speeds.
 	m.OnUpdate(m.update)
+	return m
+}
+
+// info represents that last read network information,
+// and is used to compute the delta-rx and tx.
+type info struct {
+	Rx, Tx uint64
+	Time   time.Time
+}
+
+// Refresh updates the last read information, and returns
+// the delta-rx and tx since the last update in bytes/sec.
+func (i *info) Refresh(rx, tx uint64) (dRx, dTx uint64) {
+	duration := time.Since(i.Time).Seconds()
+	dRx = uint64(float64(rx-i.Rx) / duration)
+	dTx = uint64(float64(tx-i.Tx) / duration)
+	i.Rx = rx
+	i.Tx = tx
+	i.Time = time.Now()
+	return // dRx, dTx
+}
+
+func (m *module) OutputFunc(outputFunc func(Speeds) bar.Output) Module {
+	m.outputFunc = outputFunc
+	m.Update()
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(s Speeds) bar.Output {
+		return template(s)
+	})
+}
+
+func (m *module) RefreshInterval(interval time.Duration) Module {
+	m.scheduler.Stop()
+	m.scheduler = m.UpdateEvery(interval)
 	return m
 }
 
