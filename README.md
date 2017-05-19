@@ -1,9 +1,10 @@
-# Bar-i-sta
+# Barista
 
 [![Build Status](https://travis-ci.org/soumya92/barista.svg?branch=master)](https://travis-ci.org/soumya92/barista)
 [![GoDoc](https://godoc.org/github.com/soumya92/barista?status.svg)](https://godoc.org/github.com/soumya92/barista)
+[![Go Report Card](https://goreportcard.com/badge/github.com/soumya92/barista)](https://goreportcard.com/report/github.com/soumya92/barista)
 
-Bar-i-sta is an i3 status bar written in golang.
+Barista is an i3 status bar written in golang.
 
 **This is not an official Google product**
 
@@ -38,5 +39,8 @@ to be the newly built bar binary, e.g.
 bar {
   position top
   status_command ~/bin/mybar
+  font pango:DejaVu Sans Mono 10
 }
 ```
+
+See the [wiki](https://github.com/soumya92/barista/wiki) for more details
