@@ -130,6 +130,11 @@ func NewSegment(text string) Segment {
 	return Segment{"full_text": text}
 }
 
+// Text returns the text content of this segment.
+func (s Segment) Text() string {
+	return s["full_text"].(string)
+}
+
 // ShortText sets the shortened text, used if the default text
 // for all segments does not fit in the bar.
 func (s Segment) ShortText(shortText string) Segment {

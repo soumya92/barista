@@ -52,6 +52,9 @@ func TestSegment(t *testing.T) {
 	a2.Expected["short_text"] = "t"
 	a2.AssertEqual("sets short_text, does not lose full_text")
 
+	assert.Equal(t, "test", segment.Text(), "text getter")
+	assert.Equal(t, "test", segment2.Text(), "text getter")
+
 	a.Expected["short_text"] = "t"
 	a.AssertEqual("mutates in place")
 
