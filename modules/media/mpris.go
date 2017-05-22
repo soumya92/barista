@@ -147,7 +147,7 @@ func (m *mprisPlayer) handleDbusSignal(signal *dbus.Signal) (bool, error) {
 
 	case signalSeeked.String():
 		i := m.infoReader(dbusMap{
-			mprisPosition.member: signal.Body[0].(dbus.Variant),
+			mprisPosition.member: dbus.MakeVariant(signal.Body[0]),
 		})
 		i.updatePosition()
 		return i.updated, m.err
