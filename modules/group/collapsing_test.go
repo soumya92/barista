@@ -55,7 +55,7 @@ func TestCollapsingWithModule(t *testing.T) {
 	assert.Equal(t, out, wOut, "output is unchanged")
 
 	group.Collapse()
-	assert.Empty(t, tester.AssertOutput("on collapse"), "clears output")
+	tester.AssertEmpty("on collapse")
 
 	group.Expand()
 	wOut = tester.AssertOutput("on expand")
@@ -63,8 +63,7 @@ func TestCollapsingWithModule(t *testing.T) {
 
 	group.Toggle()
 	assert.True(t, group.Collapsed(), "state check")
-	out = tester.AssertOutput("on collapse")
-	assert.Empty(t, out, "clears on collapse")
+	tester.AssertEmpty("on collapse")
 	out2 := bar.Output{bar.NewSegment("world")}
 	module.Output(out2)
 	tester.AssertNoOutput("while collapsed")

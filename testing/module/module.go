@@ -174,3 +174,9 @@ func (o *OutputTester) AssertOutput(message string) bar.Output {
 		return bar.Output{}
 	}
 }
+
+// AssertEmpty asserts that the output channel was updated with empty output.
+func (o *OutputTester) AssertEmpty(message string) {
+	out := o.AssertOutput(message)
+	assert.Empty(o, out, message)
+}

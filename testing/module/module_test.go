@@ -158,6 +158,8 @@ func TestOutputTester(t *testing.T) {
 	m.Output(testOut)
 	actualOut := o.AssertOutput("has output")
 	assert.Equal(t, testOut, actualOut, "output passed through")
+	m.Output(bar.Output{})
+	o.AssertEmpty("on empty output")
 
 	fakeT := &testing.T{}
 	m = New(fakeT)
@@ -173,4 +175,12 @@ func TestOutputTester(t *testing.T) {
 	assert.False(t, fakeT.Failed(), "before failing assertion")
 	o.AssertNoOutput("with output")
 	assert.True(t, fakeT.Failed(), "AssertNoOutput with output")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	o = NewOutputTester(fakeT, m)
+	m.Output(testOut)
+	assert.False(t, fakeT.Failed(), "before failing assertion")
+	o.AssertEmpty("with non-empty output")
+	assert.True(t, fakeT.Failed(), "AssertEmpty with non-empty output")
 }
