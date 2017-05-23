@@ -148,3 +148,29 @@ func TestReset(t *testing.T) {
 		finishedWithin(func() { <-ch }, 10*time.Millisecond),
 		"No previous output sent over channel")
 }
+
+func TestOutputTester(t *testing.T) {
+	m := New(t)
+	o := NewOutputTester(t, m)
+	m.AssertStarted("by output tester")
+	o.AssertNoOutput("no output")
+	testOut := bar.Output{bar.NewSegment("test")}
+	m.Output(testOut)
+	actualOut := o.AssertOutput("has output")
+	assert.Equal(t, testOut, actualOut, "output passed through")
+
+	fakeT := &testing.T{}
+	m = New(fakeT)
+	o = NewOutputTester(fakeT, m)
+	assert.False(t, fakeT.Failed(), "before failing assertion")
+	o.AssertOutput("no output")
+	assert.True(t, fakeT.Failed(), "AssertOutput without output")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	o = NewOutputTester(fakeT, m)
+	m.Output(testOut)
+	assert.False(t, fakeT.Failed(), "before failing assertion")
+	o.AssertNoOutput("with output")
+	assert.True(t, fakeT.Failed(), "AssertNoOutput with output")
+}

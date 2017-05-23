@@ -39,55 +39,55 @@ func TestCyclingWithModules(t *testing.T) {
 
 	module1 := testModule.New(t)
 	out1 := bar.Output{bar.NewSegment("1")}
-	wrappedModule1 := group.Add(module1)
+	wrapped1 := group.Add(module1)
 	module1.AssertNotStarted("when wrapped")
-	// tester starts the module to obtain the output channel.
-	wrapped1 := tester(wrappedModule1, t)
+
+	tester1 := testModule.NewOutputTester(t, wrapped1)
 	module1.AssertStarted("when wrapping module is started")
 	module1.Output(out1)
-	wrapped1.assertOutput("first module starts visible")
+	tester1.AssertOutput("first module starts visible")
 
 	module2 := testModule.New(t)
 	out2 := bar.Output{bar.NewSegment("2")}
-	wrapped2 := tester(group.Add(module2), t)
+	tester2 := testModule.NewOutputTester(t, group.Add(module2))
 	module2.Output(out2)
-	wrapped2.assertNoOutput("other modules start hidden")
+	tester2.AssertNoOutput("other modules start hidden")
 
 	module3 := testModule.New(t)
 	out3 := bar.Output{bar.NewSegment("3")}
-	wrapped3 := tester(group.Add(module3), t)
+	tester3 := testModule.NewOutputTester(t, group.Add(module3))
 	module3.Output(out3)
-	wrapped3.assertNoOutput("other modules start hidden")
+	tester3.AssertNoOutput("other modules start hidden")
 
 	group.Next()
 	assert.Equal(t, 1, group.Visible(), "updates visible index")
-	wrapped1.assertEmpty("clears previous module on switch")
-	wOut := wrapped2.assertOutput("shows next module on switch")
+	assert.Empty(t, tester1.AssertOutput("on switch"), "clears previous output")
+	wOut := tester2.AssertOutput("shows next module on switch")
 	assert.Equal(t, out2, wOut, "updates with previous output")
-	wrapped3.assertNoOutput("only two modules updated at a time")
+	tester3.AssertNoOutput("only two modules updated at a time")
 
 	group.Previous()
 	assert.Equal(t, 0, group.Visible(), "updates visible index")
-	wrapped2.assertEmpty("clears previous module on switch")
-	wOut = wrapped1.assertOutput("shows next module on switch")
+	assert.Empty(t, tester2.AssertOutput("on switch"), "clears previous output")
+	wOut = tester1.AssertOutput("shows next module on switch")
 	assert.Equal(t, out1, wOut, "updates with previous output")
-	wrapped3.assertNoOutput("only two modules updated at a time")
+	tester3.AssertNoOutput("only two modules updated at a time")
 
 	group.Show(2)
 	assert.Equal(t, 2, group.Visible(), "updates visible index")
-	wrapped1.assertEmpty("clears previous module on switch")
-	wOut = wrapped3.assertOutput("shows next module on switch")
+	assert.Empty(t, tester1.AssertOutput("on switch"), "clears previous output")
+	wOut = tester3.AssertOutput("shows next module on switch")
 	assert.Equal(t, out3, wOut, "updates with previous output")
-	wrapped2.assertNoOutput("only two modules updated at a time")
+	tester2.AssertNoOutput("only two modules updated at a time")
 
 	out4 := bar.Output{bar.NewSegment("4")}
 	module2.Output(out4)
-	wrapped2.assertNoOutput("while hidden")
+	tester2.AssertNoOutput("while hidden")
 	out5 := bar.Output{bar.NewSegment("5")}
 	module2.Output(out5)
-	wrapped2.assertNoOutput("while hidden")
+	tester2.AssertNoOutput("while hidden")
 	group.Show(1)
-	wOut = wrapped2.assertOutput("when visible")
+	wOut = tester2.AssertOutput("when visible")
 	assert.Equal(t, out5, wOut, "updates while hidden coalesced")
 }
 

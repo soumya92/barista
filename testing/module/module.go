@@ -16,6 +16,9 @@
 package module
 
 import (
+	"testing"
+	"time"
+
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
@@ -137,5 +140,37 @@ func (t *TestModule) looper() {
 			t.outChan <- t.outputs[0]
 			t.outputs = t.outputs[1:]
 		}
+	}
+}
+
+// OutputTester groups an output channel and testing.T to simplify
+// testing of a bar module.
+type OutputTester struct {
+	*testing.T
+	outs <-chan bar.Output
+}
+
+// NewOutputTester creates a started outputTester from the given Module and testing.T.
+func NewOutputTester(t *testing.T, m bar.Module) *OutputTester {
+	return &OutputTester{t, m.Stream()}
+}
+
+// AssertNoOutput asserts that no updates occur on the output channel.
+func (o *OutputTester) AssertNoOutput(message string) {
+	select {
+	case <-o.outs:
+		assert.Fail(o, "expected no update", message)
+	case <-time.After(10 * time.Millisecond):
+	}
+}
+
+// AssertOutput asserts that the output channel was updated and returns the output.
+func (o *OutputTester) AssertOutput(message string) bar.Output {
+	select {
+	case out := <-o.outs:
+		return out
+	case <-time.After(time.Second):
+		assert.Fail(o, "expected an update", message)
+		return bar.Output{}
 	}
 }

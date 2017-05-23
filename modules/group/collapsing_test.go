@@ -33,9 +33,9 @@ func TestCollapsingEmpty(t *testing.T) {
 	assert.True(t, group.Collapsed(), "state check for empty group")
 
 	module := testModule.New(t)
-	wrapped := tester(group.Add(module), t)
+	tester := testModule.NewOutputTester(t, group.Add(module))
 	module.Output(bar.Output{bar.NewSegment("test")})
-	wrapped.assertNoOutput("adding to collapsed group")
+	tester.AssertNoOutput("adding to collapsed group")
 }
 
 func TestCollapsingWithModule(t *testing.T) {
@@ -43,48 +43,49 @@ func TestCollapsingWithModule(t *testing.T) {
 	assert.False(t, group.Collapsed(), "group expanded at start")
 
 	module := testModule.New(t)
-	wrappedModule := group.Add(module)
+	wrapped := group.Add(module)
 	module.AssertNotStarted("when wrapped")
-	// tester starts the module to obtain the output channel.
-	wrapped := tester(wrappedModule, t)
+
+	tester := testModule.NewOutputTester(t, wrapped)
 	module.AssertStarted("when wrapping module is started")
 
 	out := bar.Output{bar.NewSegment("hello")}
 	module.Output(out)
-	wOut := wrapped.assertOutput("passes thru when expanded")
+	wOut := tester.AssertOutput("passes thru when expanded")
 	assert.Equal(t, out, wOut, "output is unchanged")
 
 	group.Collapse()
-	wrapped.assertEmpty("clears on collapse")
+	assert.Empty(t, tester.AssertOutput("on collapse"), "clears output")
 
 	group.Expand()
-	wOut = wrapped.assertOutput("on expand")
+	wOut = tester.AssertOutput("on expand")
 	assert.Equal(t, out, wOut, "original output re-sent")
 
 	group.Toggle()
 	assert.True(t, group.Collapsed(), "state check")
-	wrapped.assertEmpty("clear on collapse")
+	out = tester.AssertOutput("on collapse")
+	assert.Empty(t, out, "clears on collapse")
 	out2 := bar.Output{bar.NewSegment("world")}
 	module.Output(out2)
-	wrapped.assertNoOutput("while collapsed")
+	tester.AssertNoOutput("while collapsed")
 
 	group.Toggle()
 	assert.False(t, group.Collapsed(), "state check")
-	wOut = wrapped.assertOutput("on expand")
+	wOut = tester.AssertOutput("on expand")
 	assert.Equal(t, out2, wOut, "output while collapsed is not discarded")
 
 	out3 := bar.Output{bar.NewSegment("foo")}
 	module.Output(out3)
-	wOut = wrapped.assertOutput("passes thru when expanded")
+	wOut = tester.AssertOutput("passes thru when expanded")
 	assert.Equal(t, out3, wOut, "works normally when expanded")
 
-	wrappedModule.(bar.Pausable).Pause()
+	wrapped.(bar.Pausable).Pause()
 	module.AssertPaused("when wrapper is paused")
-	wrappedModule.(bar.Pausable).Resume()
+	wrapped.(bar.Pausable).Resume()
 	module.AssertResumed("when wrapper is resumed")
 
 	evt := bar.Event{X: 1, Y: 1}
-	wrappedModule.(bar.Clickable).Click(evt)
+	wrapped.(bar.Clickable).Click(evt)
 	module.AssertClicked(evt, "when wrapper is clicked")
 }
 
@@ -95,20 +96,20 @@ func TestCollapsingButton(t *testing.T) {
 	exp := bar.Output{bar.NewSegment("exp")}
 
 	button := group.Button(col, exp)
-	buttonTester := tester(button, t)
+	buttonTester := testModule.NewOutputTester(t, button)
 
-	out := buttonTester.assertOutput("initial output")
+	out := buttonTester.AssertOutput("initial output")
 	assert.Equal(t, exp, out, "starts expanded")
 
 	button.Click(leftClick)
-	out = buttonTester.assertOutput("when clicked")
+	out = buttonTester.AssertOutput("when clicked")
 	assert.Equal(t, col, out, "collapsed")
 	assert.True(t, group.Collapsed(), "collapsed")
 
 	button.Click(leftClick)
-	out = buttonTester.assertOutput("when clicked")
+	out = buttonTester.AssertOutput("when clicked")
 	assert.Equal(t, exp, out, "expanded")
 	assert.False(t, group.Collapsed(), "expanded")
 
-	buttonTester.assertNoOutput("no output without interaction")
+	buttonTester.AssertNoOutput("no output without interaction")
 }

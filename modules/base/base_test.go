@@ -22,53 +22,22 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
+	testModule "github.com/soumya92/barista/testing/module"
 )
-
-// outputTester groups the output channel and testing.T to simplify
-// testing of the base module.
-type outputTester struct {
-	*testing.T
-	outs <-chan bar.Output
-}
-
-// tester creates a started outputTester from the given Base and testing.T.
-func tester(b *Base, t *testing.T) *outputTester {
-	return &outputTester{t, b.Stream()}
-}
-
-// assertNoOutput asserts that no updates occur on the output channel.
-func (o *outputTester) assertNoOutput(message string) {
-	select {
-	case <-o.outs:
-		assert.Fail(o, "expected no update", message)
-	case <-time.After(10 * time.Millisecond):
-	}
-}
-
-// assertOutput asserts that the output channel was updated and returns the output.
-func (o *outputTester) assertOutput(message string) bar.Output {
-	select {
-	case out := <-o.outs:
-		return out
-	case <-time.After(time.Second):
-		assert.Fail(o, "expected an update", message)
-		return bar.Output{}
-	}
-}
 
 // TestError tests that base.Error(error) behaves as expected: a nil error
 // returns false and does nothing, a non-nil error returns true and updates
 // the module's output.
 func TestError(t *testing.T) {
 	b := New()
-	o := tester(b, t)
+	o := testModule.NewOutputTester(t, b)
 
 	assert.True(t, b.Error(fmt.Errorf("test error")), "returns true for non-nil error")
-	out := o.assertOutput("on error")
+	out := o.AssertOutput("on error")
 	assert.Equal(t, "test error", out[0]["full_text"], "error message is displayed on the output")
 
 	assert.False(t, b.Error(nil), "returns false for nil error")
-	o.assertNoOutput("on nil error")
+	o.AssertNoOutput("on nil error")
 }
 
 // TestPauseResume tests that pause/resume work as expected, i.e. no
@@ -81,10 +50,10 @@ func TestPauseResume(t *testing.T) {
 		updateCalled = true
 		b.Output(bar.Output{bar.NewSegment("test")})
 	})
-	o := tester(b, t)
+	o := testModule.NewOutputTester(t, b)
 
 	assertUpdate := func(message string) bar.Output {
-		out := o.assertOutput(message)
+		out := o.AssertOutput(message)
 		assert.True(t, updateCalled, message)
 		updateCalled = false
 		return out
@@ -92,7 +61,7 @@ func TestPauseResume(t *testing.T) {
 
 	assertNoUpdate := func(message string) {
 		assert.False(t, updateCalled, message)
-		o.assertNoOutput(message)
+		o.AssertNoOutput(message)
 	}
 
 	assertUpdate("when started")
@@ -119,19 +88,19 @@ func TestPauseResume(t *testing.T) {
 	b.Pause()
 	oldOut := bar.Output{bar.NewSegment("output")}
 	b.Output(oldOut)
-	o.assertNoOutput("while paused")
+	o.AssertNoOutput("while paused")
 
 	b.Clear()
-	o.assertNoOutput("while paused")
+	o.AssertNoOutput("while paused")
 
 	newOut := bar.Output{bar.NewSegment("new")}
 	b.Output(newOut)
-	o.assertNoOutput("while paused")
+	o.AssertNoOutput("while paused")
 
 	b.Resume()
-	out := o.assertOutput("from calling output while paused")
+	out := o.AssertOutput("from calling output while paused")
 	assert.Equal(t, newOut, out, "updates with last output")
-	o.assertNoOutput("only last output emitted on resume")
+	o.AssertNoOutput("only last output emitted on resume")
 }
 
 // TestSchedulers tests that scheduling updates for a base module work as expected.
@@ -144,17 +113,17 @@ func TestSchedulers(t *testing.T) {
 		updateCalled = true
 		b.Output(bar.Output{bar.NewSegment("test")})
 	})
-	o := tester(b, t)
+	o := testModule.NewOutputTester(t, b)
 
 	assertUpdate := func(message string) {
-		o.assertOutput(message)
+		o.AssertOutput(message)
 		assert.True(t, updateCalled, message)
 		updateCalled = false
 	}
 
 	assertNoUpdate := func(message string) {
 		assert.False(t, updateCalled, message)
-		o.assertNoOutput(message)
+		o.AssertNoOutput(message)
 	}
 
 	assertUpdate("when started")
