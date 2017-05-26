@@ -138,6 +138,11 @@ func (m *ModuleSet) UpdateEvery(interval time.Duration) {
 	m.replaceScheduler(scheduler{interval: interval})
 }
 
+// StopUpdates stops any previously scheduled updates.
+func (m *ModuleSet) StopUpdates() {
+	m.replaceScheduler(scheduler{})
+}
+
 // replaceScheduler stops the current scheduler (if any), replaces it
 // with the given scheduler, and applies it to the primary submodule (if any).
 func (m *ModuleSet) replaceScheduler(newScheduler scheduler) {
