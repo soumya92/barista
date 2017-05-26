@@ -102,7 +102,7 @@ func (b *Base) Resume() {
 	}
 	if b.updateOnResume {
 		b.updateOnResume = false
-		b.updateFunc()
+		b.Update()
 	}
 }
 
@@ -113,7 +113,7 @@ func (b *Base) Update() {
 		b.updateOnResume = true
 		return
 	}
-	b.updateFunc()
+	go b.updateFunc()
 }
 
 // OnClick sets the click handler.
@@ -187,9 +187,7 @@ type Scheduler struct {
 // frequency/schedule changes.
 func (s Scheduler) Stop() {
 	if s.timer != nil {
-		if !s.timer.Stop() {
-			<-s.timer.C
-		}
+		s.timer.Stop()
 	}
 	if s.ticker != nil {
 		s.ticker.Stop()

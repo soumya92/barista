@@ -122,8 +122,8 @@ func TestSchedulers(t *testing.T) {
 	}
 
 	assertNoUpdate := func(message string) {
-		assert.False(t, updateCalled, message)
 		o.AssertNoOutput(message)
+		assert.False(t, updateCalled, message)
 	}
 
 	assertUpdate("when started")
