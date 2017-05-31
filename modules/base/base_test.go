@@ -140,19 +140,22 @@ func TestSchedulers(t *testing.T) {
 	b.UpdateAfter(10 * time.Millisecond)
 	assertUpdate("after interval elapses")
 
-	b.UpdateAfter(5 * time.Millisecond)
+	sch := b.UpdateAfter(5 * time.Millisecond)
 	b.Pause()
 	assertNoUpdate("if paused before interval elapses")
 
 	b.Resume()
 	assertUpdate("on resume")
 
+	sch.Stop()
+	assertNoUpdate("when elapsed scheduler is stopped")
+
 	b.UpdateAt(time.Now().Add(15 * time.Millisecond))
 	b.Pause()
 	b.Resume()
 	assertUpdate("pause + resume within interval is no-op")
 
-	sch := b.UpdateEvery(5 * time.Millisecond)
+	sch = b.UpdateEvery(5 * time.Millisecond)
 	assertUpdate("while resumed")
 	b.Pause()
 	assertNoUpdate("while paused")
