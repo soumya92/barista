@@ -128,7 +128,7 @@ func (b *Base) OnClick(handler func(bar.Event)) Module {
 // New constructs a new base module.
 func New() *Base {
 	return &Base{
-		channel:    make(chan bar.Output),
+		channel:    make(chan bar.Output, 10),
 		updateFunc: func() {},
 		// Modules start paused so that any modifications prior to Stream()
 		// are not applied before the module has started.
@@ -159,7 +159,7 @@ func (b *Base) Output(out bar.Output) {
 		b.outputOnResume = out
 		return
 	}
-	go func() { b.channel <- out }()
+	b.channel <- out
 }
 
 // Error shows an error on the bar.
