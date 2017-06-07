@@ -24,7 +24,6 @@ import (
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
-
 func TestReformat(t *testing.T) {
 	original := testModule.New(t)
 	reformatted := New(original, func(o bar.Output) bar.Output {
@@ -46,7 +45,8 @@ func TestReformat(t *testing.T) {
 
 	evt := bar.Event{Y: 1}
 	reformatted.(bar.Clickable).Click(evt)
-	original.AssertClicked(evt, "click events passed through")
+	recvEvt := original.AssertClicked("click events propagated")
+	assert.Equal(t, evt, recvEvt, "click events passed through unchanged")
 
 	tester.AssertNoOutput("when original module is not updated")
 	original.AssertNoPauseResume("when reformatted module is not paused/resumed")

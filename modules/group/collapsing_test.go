@@ -85,7 +85,8 @@ func TestCollapsingWithModule(t *testing.T) {
 
 	evt := bar.Event{X: 1, Y: 1}
 	wrapped.(bar.Clickable).Click(evt)
-	module.AssertClicked(evt, "when wrapper is clicked")
+	recvEvt := module.AssertClicked("when wrapper is clicked")
+	assert.Equal(t, evt, recvEvt, "click event passed through unchanged")
 }
 
 func TestCollapsingButton(t *testing.T) {

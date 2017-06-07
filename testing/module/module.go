@@ -27,22 +27,18 @@ import (
 // TestModule represents a bar.Module used for testing.
 type TestModule struct {
 	assert  *assert.Assertions
-	outChan chan bar.Output
-	sigChan chan interface{}
 	started bool
-	pauses  []bool
-	events  []bar.Event
-	outputs []bar.Output
+	outputs chan bar.Output
+	pauses  chan bool
+	events  chan bar.Event
 }
 
 // New creates a new module with the given testingT that can be used
 // to assert the behaviour of the bar (or related modules).
 func New(t assert.TestingT) *TestModule {
-	return &TestModule{
-		assert:  assert.New(t),
-		outChan: make(chan bar.Output),
-		sigChan: make(chan interface{}, 1),
-	}
+	m := &TestModule{assert: assert.New(t)}
+	m.Reset()
+	return m
 }
 
 // Stream conforms to bar.Module.
@@ -50,33 +46,28 @@ func (t *TestModule) Stream() <-chan bar.Output {
 	if t.started {
 		panic("already streaming!")
 	}
-	go t.looper()
 	t.started = true
-	return t.outChan
+	return t.outputs
 }
 
 // Click conforms to bar.Clickable.
 func (t *TestModule) Click(e bar.Event) {
-	t.events = append(t.events, e)
+	t.events <- e
 }
 
 // Pause conforms to bar.Pausable.
 func (t *TestModule) Pause() {
-	t.pauses = append(t.pauses, true)
+	t.pauses <- true
 }
 
 // Resume conforms to bar.Pausable.
 func (t *TestModule) Resume() {
-	t.pauses = append(t.pauses, false)
+	t.pauses <- false
 }
 
 // Output queues output to be sent over the channel on the next read.
 func (t *TestModule) Output(out bar.Output) {
-	t.outputs = append(t.outputs, out)
-	select {
-	case t.sigChan <- nil:
-	default:
-	}
+	t.outputs <- out
 }
 
 // AssertStarted asserts that the module was started.
@@ -92,55 +83,67 @@ func (t *TestModule) AssertNotStarted(message string) {
 // AssertPaused asserts that the module was paused,
 // and consumes the pause invocation.
 func (t *TestModule) AssertPaused(message string) {
-	t.assert.True(t.pauses[0], message)
-	// clear after assertion so sequential assertions match sequential events.
-	t.pauses = t.pauses[1:]
+	select {
+	case state := <-t.pauses:
+		t.assert.True(state, message)
+	case <-time.After(time.Second):
+		t.assert.Fail("expected pause", message)
+	}
 }
 
 // AssertResumed asserts that the module was resumed,
 // and consumes the resume invocation.
 func (t *TestModule) AssertResumed(message string) {
-	t.assert.False(t.pauses[0], message)
-	t.pauses = t.pauses[1:]
+	select {
+	case state := <-t.pauses:
+		t.assert.False(state, message)
+	case <-time.After(time.Second):
+		t.assert.Fail("expected resume", message)
+	}
 }
 
 // AssertNoPauseResume asserts that this module had no pause/resume interactions.
 func (t *TestModule) AssertNoPauseResume(message string) {
-	t.assert.Empty(t.pauses, message)
+	select {
+	case <-t.pauses:
+		t.assert.Fail("expected no pause/resume", message)
+	case <-time.After(10 * time.Millisecond):
+	}
 }
 
 // AssertClicked asserts that the module was clicked with the given event.
 // Calling this multiple times asserts multiple click events.
-func (t *TestModule) AssertClicked(expected bar.Event, message string) {
-	t.assert.Equal(t.events[0], expected, message)
-	t.events = t.events[1:]
+func (t *TestModule) AssertClicked(message string) bar.Event {
+	select {
+	case evt := <-t.events:
+		return evt
+	case <-time.After(time.Second):
+		t.assert.Fail("expected a click event", message)
+		return bar.Event{}
+	}
 }
 
 // AssertNotClicked asserts that the module received no events.
 func (t *TestModule) AssertNotClicked(message string) {
-	t.assert.Empty(t.events, message)
+	select {
+	case <-t.events:
+		t.assert.Fail("expected no click event", message)
+	case <-time.After(10 * time.Millisecond):
+	}
 }
 
 // Reset clears the history of pause/resume/click/stream invocations,
 // flushes any buffered events and resets the output channel.
 func (t *TestModule) Reset() {
-	close(t.outChan)
-	t.outChan = make(chan bar.Output)
-	close(t.sigChan)
-	t.sigChan = make(chan interface{})
-	t.started = false
-	t.pauses = nil
-	t.events = nil
-	t.outputs = nil
-}
-
-func (t *TestModule) looper() {
-	for range t.sigChan {
-		for len(t.outputs) > 0 {
-			t.outChan <- t.outputs[0]
-			t.outputs = t.outputs[1:]
-		}
+	if t.outputs != nil {
+		close(t.outputs)
+		close(t.events)
+		close(t.pauses)
 	}
+	t.outputs = make(chan bar.Output, 100)
+	t.events = make(chan bar.Event, 100)
+	t.pauses = make(chan bool, 100)
+	t.started = false
 }
 
 // OutputTester groups an output channel and testing.T to simplify

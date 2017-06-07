@@ -88,11 +88,14 @@ func TestClick(t *testing.T) {
 	m.AssertNotClicked("no events initially")
 	m.Click(evt1)
 	m.Click(evt2)
-	m.AssertClicked(evt1, "events are ordered")
-	m.AssertClicked(evt2, "events are buffered")
+	evt := m.AssertClicked("when module is clicked")
+	assert.Equal(t, evt1, evt, "events are ordered")
+	evt = m.AssertClicked("when module is clicked")
+	assert.Equal(t, evt2, evt, "events are buffered")
 	m.AssertNotClicked("events cleared after assertions")
 	m.Click(evt3)
-	m.AssertClicked(evt3, "events resumed after cleared")
+	evt = m.AssertClicked("events resume after being cleared")
+	assert.Equal(t, evt3, evt, "new events received")
 	m.AssertNotClicked("no extra events")
 }
 
