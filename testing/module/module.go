@@ -111,7 +111,7 @@ func (t *TestModule) AssertNoPauseResume(message string) {
 	}
 }
 
-// AssertClicked asserts that the module was clicked with the given event.
+// AssertClicked asserts that the module was clicked and returns the event.
 // Calling this multiple times asserts multiple click events.
 func (t *TestModule) AssertClicked(message string) bar.Event {
 	select {
