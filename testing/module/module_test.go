@@ -80,6 +80,8 @@ func TestOutputBuffer(t *testing.T) {
 }
 
 func TestClick(t *testing.T) {
+	positiveTimeout = 10 * time.Millisecond
+
 	m := New(t)
 	evt1 := bar.Event{X: 2}
 	evt2 := bar.Event{Y: 2}
@@ -97,9 +99,22 @@ func TestClick(t *testing.T) {
 	evt = m.AssertClicked("events resume after being cleared")
 	assert.Equal(t, evt3, evt, "new events received")
 	m.AssertNotClicked("no extra events")
+
+	fakeT := &testing.T{}
+	m = New(fakeT)
+	m.AssertClicked("fails when not clicked")
+	assert.True(t, fakeT.Failed(), "AssertClicked when not clicked")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	m.Click(evt1)
+	m.AssertNotClicked("fails when clicked")
+	assert.True(t, fakeT.Failed(), "AssertNotClicked when clicked")
 }
 
 func TestPause(t *testing.T) {
+	positiveTimeout = 10 * time.Millisecond
+
 	m := New(t)
 	m.Pause()
 	m.AssertPaused("paused")
@@ -129,6 +144,40 @@ func TestPause(t *testing.T) {
 	m.AssertResumed("ordering")
 	m.AssertPaused("ordering")
 	m.AssertNoPauseResume("consumed")
+
+	fakeT := &testing.T{}
+	m = New(fakeT)
+	m.AssertPaused("fails when not paused")
+	assert.True(t, fakeT.Failed(), "AssertPaused when not paused")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	m.Resume()
+	m.AssertPaused("fails when not paused")
+	assert.True(t, fakeT.Failed(), "AssertPaused when not paused")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	m.AssertResumed("fails when not resumed")
+	assert.True(t, fakeT.Failed(), "AssertResumed when not resumed")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	m.Pause()
+	m.AssertResumed("fails when not resumed")
+	assert.True(t, fakeT.Failed(), "AssertResumed when not resumed")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	m.Pause()
+	m.AssertNoPauseResume("fails when paused")
+	assert.True(t, fakeT.Failed(), "AssertNoPauseResume when paused")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	m.Resume()
+	m.AssertNoPauseResume("fails when resumed")
+	assert.True(t, fakeT.Failed(), "AssertNoPauseResume when resumed")
 }
 
 func TestReset(t *testing.T) {
@@ -153,6 +202,8 @@ func TestReset(t *testing.T) {
 }
 
 func TestOutputTester(t *testing.T) {
+	positiveTimeout = 10 * time.Millisecond
+
 	m := New(t)
 	o := NewOutputTester(t, m)
 	m.AssertStarted("by output tester")

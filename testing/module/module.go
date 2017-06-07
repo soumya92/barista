@@ -24,6 +24,9 @@ import (
 	"github.com/soumya92/barista/bar"
 )
 
+// Time to wait for events. Overridden in tests.
+var positiveTimeout = time.Second
+
 // TestModule represents a bar.Module used for testing.
 type TestModule struct {
 	assert  *assert.Assertions
@@ -86,7 +89,7 @@ func (t *TestModule) AssertPaused(message string) {
 	select {
 	case state := <-t.pauses:
 		t.assert.True(state, message)
-	case <-time.After(time.Second):
+	case <-time.After(positiveTimeout):
 		t.assert.Fail("expected pause", message)
 	}
 }
@@ -97,7 +100,7 @@ func (t *TestModule) AssertResumed(message string) {
 	select {
 	case state := <-t.pauses:
 		t.assert.False(state, message)
-	case <-time.After(time.Second):
+	case <-time.After(positiveTimeout):
 		t.assert.Fail("expected resume", message)
 	}
 }
@@ -117,7 +120,7 @@ func (t *TestModule) AssertClicked(message string) bar.Event {
 	select {
 	case evt := <-t.events:
 		return evt
-	case <-time.After(time.Second):
+	case <-time.After(positiveTimeout):
 		t.assert.Fail("expected a click event", message)
 		return bar.Event{}
 	}
@@ -172,7 +175,7 @@ func (o *OutputTester) AssertOutput(message string) bar.Output {
 	select {
 	case out := <-o.outs:
 		return out
-	case <-time.After(time.Second):
+	case <-time.After(positiveTimeout):
 		assert.Fail(o, "expected an update", message)
 		return bar.Output{}
 	}
