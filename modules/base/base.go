@@ -76,8 +76,7 @@ func (b *Base) Click(e bar.Event) {
 		return
 	}
 	switch e.Button {
-	case bar.ButtonRight:
-	case bar.ButtonMiddle:
+	case bar.ButtonRight, bar.ButtonMiddle:
 		b.lastError = nil
 		b.Clear()
 		b.Update()

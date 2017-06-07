@@ -167,3 +167,92 @@ func TestSchedulers(t *testing.T) {
 	sch.Stop()
 	assertNoUpdate("after scheduler is stopped")
 }
+
+// TestClickUpdates tests the update behaviour on click events,
+// for both the normal case and the error case.
+func TestClickUpdates(t *testing.T) {
+	b := New()
+
+	updateCalled := false
+	b.OnUpdate(func() {
+		updateCalled = true
+		b.Output(bar.Output{bar.NewSegment("test")})
+	})
+	var lastClickEvent *bar.Event
+	b.OnClick(func(e bar.Event) {
+		lastClickEvent = &e
+	})
+	o := testModule.NewOutputTester(t, b)
+
+	assertUpdate := func(message string) {
+		o.AssertOutput(message)
+		assert.True(t, updateCalled, message)
+		updateCalled = false
+	}
+
+	assertNoUpdate := func(message string) {
+		o.AssertNoOutput(message)
+		assert.False(t, updateCalled, message)
+	}
+
+	assertClicked := func(button bar.Button, message string) {
+		assert.Equal(t, button, lastClickEvent.Button, message)
+		lastClickEvent = nil
+	}
+
+	assertNotClicked := func(message string) {
+		assert.Nil(t, lastClickEvent, message)
+	}
+
+	clickEvent := func(button bar.Button) bar.Event {
+		return bar.Event{Button: button}
+	}
+
+	assertUpdate("when started")
+
+	b.Click(clickEvent(bar.ButtonMiddle))
+	assertUpdate("on middle click")
+	assertClicked(bar.ButtonMiddle, "click event passed through")
+
+	for _, btn := range []bar.Button{
+		bar.ButtonLeft, bar.ButtonRight, bar.ButtonBack, bar.ButtonForward,
+		bar.ScrollUp, bar.ScrollDown, bar.ScrollLeft, bar.ScrollRight,
+	} {
+		b.Click(clickEvent(btn))
+		assertNoUpdate("no special handling for other buttons")
+		assertClicked(btn, "click event passed through")
+	}
+
+	b.Error(fmt.Errorf("test error"))
+	o.AssertOutput("on error")
+	assertNotClicked("when no click event")
+
+	b.Click(clickEvent(bar.ButtonRight))
+	out := o.AssertOutput("on right click")
+	assert.Empty(t, out, "clears on right click when error'd")
+	assertUpdate("after clearing error")
+	assertNotClicked("when clearing error")
+
+	b.Error(fmt.Errorf("test error"))
+	o.AssertOutput("on error")
+
+	b.Click(clickEvent(bar.ButtonMiddle))
+	out = o.AssertOutput("on middle click")
+	assert.Empty(t, out, "clears on middle click when error'd")
+	assertUpdate("after clearing error")
+	assertNotClicked("when clearing error")
+
+	b.Error(fmt.Errorf("test error"))
+	o.AssertOutput("on error")
+
+	for _, btn := range []bar.Button{
+		bar.ButtonBack, bar.ButtonForward,
+		bar.ScrollUp, bar.ScrollDown, bar.ScrollLeft, bar.ScrollRight,
+	} {
+		b.Click(clickEvent(btn))
+		assertNoUpdate("no special handling for other buttons")
+		assertNotClicked("when in error state")
+	}
+
+	// TODO: Test shelling out to i3-nagbar on left-click.
+}
