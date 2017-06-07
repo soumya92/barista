@@ -111,6 +111,18 @@ func (b *I3Bar) addModule(module Module) {
 
 // Run sets up all the streams and enters the main loop.
 func (b *I3Bar) Run() error {
+	// Set up signal handlers for USR1/2 to pause/resume supported modules.
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
+
+	// Mark the bar as started.
+	b.started = true
+
+	// Read events from the input stream, pipe them to the events channel.
+	go b.readEvents()
+	for _, m := range b.i3Modules {
+		go m.output(b.update)
+	}
 
 	// Write header.
 	header := i3Header{
@@ -131,19 +143,6 @@ func (b *I3Bar) Run() error {
 	if _, err := io.WriteString(b.writer, "["); err != nil {
 		return err
 	}
-
-	// Mark the bar as started.
-	b.started = true
-
-	// Read events from the input stream, pipe them to the events channel.
-	go b.readEvents()
-	for _, m := range b.i3Modules {
-		go m.output(b.update)
-	}
-
-	// Set up signal handlers for USR1/2 to pause/resume supported modules.
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
 
 	// Infinite arrays on both sides.
 	for {
