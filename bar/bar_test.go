@@ -12,16 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bar
+package bar_test
 
 import (
 	"encoding/json"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/testing/mockio"
+	// testing/module depends on bar, hence the '.' import and package name.
+	. "github.com/soumya92/barista/bar"
+	testModule "github.com/soumya92/barista/testing/module"
 )
 
 func TestHeader(t *testing.T) {
@@ -40,11 +44,6 @@ func TestHeader(t *testing.T) {
 	assert.Equal(t, 1, int(header["version"].(float64)), "header version == 1")
 	assert.Equal(t, true, header["click_events"].(bool), "header click_events == true")
 }
-
-type testModule chan Output
-
-func (t testModule) Stream() <-chan Output { return (<-chan Output)(t) }
-func (t testModule) Output(o Output)       { t <- o }
 
 func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {
 	var jsonOutputs []map[string]interface{}
@@ -73,7 +72,7 @@ func TestSingleModule(t *testing.T) {
 	mockStdout := mockio.Stdout()
 	bar := NewOnIo(mockStdin, mockStdout)
 
-	module := make(testModule)
+	module := testModule.New(t)
 
 	bar.Add(module)
 	go bar.Run()
@@ -96,6 +95,10 @@ func TestSingleModule(t *testing.T) {
 	out = readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"other"}, out,
 		"output updates when module sends an update")
+
+	assert.Panics(t,
+		func() { bar.Add(testModule.New(t)) },
+		"adding a module to a running bar")
 }
 
 func TestMultipleModules(t *testing.T) {
@@ -103,9 +106,9 @@ func TestMultipleModules(t *testing.T) {
 	mockStdout := mockio.Stdout()
 	bar := NewOnIo(mockStdin, mockStdout)
 
-	module1 := make(testModule)
-	module2 := make(testModule)
-	module3 := make(testModule)
+	module1 := testModule.New(t)
+	module2 := testModule.New(t)
+	module3 := testModule.New(t)
 
 	bar.Add(module1, module2, module3)
 	go bar.Run()
@@ -151,7 +154,7 @@ func TestMultiSegmentModule(t *testing.T) {
 	mockStdout := mockio.Stdout()
 	bar := NewOnIo(mockStdin, mockStdout)
 
-	module := make(testModule)
+	module := testModule.New(t)
 
 	bar.Add(module)
 	go bar.Run()
@@ -182,4 +185,30 @@ func TestMultiSegmentModule(t *testing.T) {
 	out = readOneBarOutput(t, mockStdout)
 	assert.Equal(t, []string{"2", "3", "4", "5", "6"}, out,
 		"bar handles additional segments correctly")
+}
+
+func TestPauseResume(t *testing.T) {
+	mockStdin := mockio.Stdin()
+	mockStdout := mockio.Stdout()
+	bar := NewOnIo(mockStdin, mockStdout)
+
+	module1 := testModule.New(t)
+	module2 := testModule.New(t)
+
+	bar.Add(module1, module2)
+	go bar.Run()
+
+	// When the infinite array starts, we know the bar is ready.
+	mockStdout.ReadUntil('[', time.Second)
+
+	syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
+	module1.AssertPaused("on sigusr1")
+	module2.AssertPaused("on sigusr1")
+
+	syscall.Kill(syscall.Getpid(), syscall.SIGUSR2)
+	module1.AssertResumed("on sigusr2")
+	module2.AssertResumed("on sigusr2")
+
+	module1.AssertNoPauseResume("when bar receives no signals")
+	module2.AssertNoPauseResume("when bar receives no signals")
 }
