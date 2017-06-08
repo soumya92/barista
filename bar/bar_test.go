@@ -16,12 +16,14 @@ package bar_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchrcom/testify/assert"
 
+	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/testing/mockio"
 	// testing/module depends on bar, hence the '.' import and package name.
 	. "github.com/soumya92/barista/bar"
@@ -45,26 +47,23 @@ func TestHeader(t *testing.T) {
 	assert.Equal(t, true, header["click_events"].(bool), "header click_events == true")
 }
 
-func readOneBarOutput(t *testing.T, stdout *mockio.Writable) []string {
+func readOutput(t *testing.T, stdout *mockio.Writable) []map[string]interface{} {
 	var jsonOutputs []map[string]interface{}
 	out, err := stdout.ReadUntil(']', time.Second)
 	assert.Nil(t, err, "No error while reading output")
 	assert.Nil(t, json.Unmarshal([]byte(out), &jsonOutputs), "Output is valid json")
+	_, err = stdout.ReadUntil(',', time.Second)
+	assert.Nil(t, err, "outputs a comma after full bar")
+	return jsonOutputs
+}
+
+func readOutputTexts(t *testing.T, stdout *mockio.Writable) []string {
+	jsonOutputs := readOutput(t, stdout)
 	outputs := make([]string, len(jsonOutputs))
 	for idx, jsonOutput := range jsonOutputs {
 		outputs[idx] = jsonOutput["full_text"].(string)
 	}
-	_, err = stdout.ReadUntil(',', time.Second)
-	assert.Nil(t, err, "outputs a comma after full bar")
 	return outputs
-}
-
-func textOutput(text ...string) Output {
-	var out Output
-	for _, t := range text {
-		out = append(out, NewSegment(t))
-	}
-	return out
 }
 
 func TestSingleModule(t *testing.T) {
@@ -83,16 +82,16 @@ func TestSingleModule(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module.Output(textOutput("test"))
-	out := readOneBarOutput(t, mockStdout)
+	module.Output(outputs.Text("test"))
+	out := readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test"}, out,
 		"output contains an element for the module")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module.Output(textOutput("other"))
-	out = readOneBarOutput(t, mockStdout)
+	module.Output(outputs.Text("other"))
+	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"other"}, out,
 		"output updates when module sends an update")
 
@@ -104,14 +103,11 @@ func TestSingleModule(t *testing.T) {
 func TestMultipleModules(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
-	bar := NewOnIo(mockStdin, mockStdout)
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
 	module3 := testModule.New(t)
-
-	bar.Add(module1, module2, module3)
-	go bar.Run()
+	go RunOnIo(mockStdin, mockStdout, module1, module2, module3)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -119,45 +115,50 @@ func TestMultipleModules(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module1.Output(textOutput("test"))
+	module1.Output(outputs.Text("test"))
 
-	out := readOneBarOutput(t, mockStdout)
+	out := readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test"}, out,
 		"output contains elements only for modules that have output")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module3.Output(textOutput("module3"))
-	out = readOneBarOutput(t, mockStdout)
+	module3.Output(outputs.Text("module3"))
+	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test", "module3"}, out,
 		"new output repeats previous value for other modules")
 
-	module3.Output(textOutput("new value"))
-	out = readOneBarOutput(t, mockStdout)
+	module3.Output(outputs.Text("new value"))
+	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test", "new value"}, out,
 		"updated output repeats previous value for other modules")
 
-	module2.Output(textOutput("middle"))
-	out = readOneBarOutput(t, mockStdout)
+	module2.Output(outputs.Text("middle"))
+	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test", "middle", "new value"}, out,
 		"newly updated module correctly repositions other modules")
 
 	module1.Output(Output{})
-	out = readOneBarOutput(t, mockStdout)
+	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"middle", "new value"}, out,
 		"nil output correctly repositions other modules")
+}
+
+func multiOutput(texts ...string) Output {
+	m := outputs.Multi()
+	for idx, text := range texts {
+		m.AddText(fmt.Sprintf("instance_%d", idx), text)
+	}
+	return m.Build()
 }
 
 func TestMultiSegmentModule(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
-	bar := NewOnIo(mockStdin, mockStdout)
 
 	module := testModule.New(t)
-
-	bar.Add(module)
-	go bar.Run()
+	go RunOnIo(mockStdin, mockStdout, module)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -165,8 +166,8 @@ func TestMultiSegmentModule(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module.Output(textOutput("1", "2", "3"))
-	out := readOneBarOutput(t, mockStdout)
+	module.Output(multiOutput("1", "2", "3"))
+	out := readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"1", "2", "3"}, out,
 		"output contains an element for each segment")
 
@@ -176,13 +177,13 @@ func TestMultiSegmentModule(t *testing.T) {
 	// with 1,2, then with 1,2,3, which is what would happen if we had
 	// three modules each output 1,2,3 respectively.
 
-	module.Output(textOutput("2", "3"))
-	out = readOneBarOutput(t, mockStdout)
+	module.Output(multiOutput("2", "3"))
+	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"2", "3"}, out,
 		"bar handles a disappearing segment correctly")
 
-	module.Output(textOutput("2", "3", "4", "5", "6"))
-	out = readOneBarOutput(t, mockStdout)
+	module.Output(multiOutput("2", "3", "4", "5", "6"))
+	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"2", "3", "4", "5", "6"}, out,
 		"bar handles additional segments correctly")
 }
@@ -190,16 +191,14 @@ func TestMultiSegmentModule(t *testing.T) {
 func TestPauseResume(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
-	bar := NewOnIo(mockStdin, mockStdout)
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
-
-	bar.Add(module1, module2)
-	go bar.Run()
+	go RunOnIo(mockStdin, mockStdout, module1, module2)
 
 	// When the infinite array starts, we know the bar is ready.
-	mockStdout.ReadUntil('[', time.Second)
+	_, err := mockStdout.ReadUntil('[', time.Second)
+	assert.Nil(t, err, "output array started without any errors")
 
 	syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
 	module1.AssertPaused("on sigusr1")
@@ -211,4 +210,72 @@ func TestPauseResume(t *testing.T) {
 
 	module1.AssertNoPauseResume("when bar receives no signals")
 	module2.AssertNoPauseResume("when bar receives no signals")
+}
+
+func TestClickEvents(t *testing.T) {
+	mockStdin := mockio.Stdin()
+	mockStdout := mockio.Stdout()
+
+	module1 := testModule.New(t)
+	module2 := testModule.New(t)
+	go RunOnIo(mockStdin, mockStdout, module1, module2)
+
+	_, err := mockStdout.ReadUntil('[', time.Second)
+	assert.Nil(t, err, "output array started without any errors")
+	mockStdin.WriteString("[")
+
+	module1.Output(multiOutput("1", "2", "3"))
+	readOutput(t, mockStdout)
+
+	module2.Output(multiOutput("a", "b", "c", "d"))
+	out := readOutput(t, mockStdout)
+
+	assert.Equal(t, 7, len(out), "All segments in output")
+	module1_name := out[0]["name"].(string)
+	module2_name := out[3]["name"].(string)
+
+	module1.AssertNotClicked("when no click event")
+	module2.AssertNotClicked("when no click event")
+
+	mockStdin.WriteString(
+		fmt.Sprintf("{\"name\": \"%s\", \"x\": %d, \"y\": %d, \"button\": %d},",
+			module1_name, 13, 24, 3))
+	evt := module1.AssertClicked("when getting a click event")
+	assert.Equal(t, 13, evt.X, "event value is passed through")
+	assert.Equal(t, 24, evt.Y, "event value is passed through")
+	assert.Equal(t, ButtonRight, evt.Button, "event value is passed through")
+	module2.AssertNotClicked("only target module receives the event")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", ", module2_name))
+	module2.AssertNotClicked("until event is completely written")
+	mockStdin.WriteString("\"X\": 9, \"Y\": 7")
+	module2.AssertNotClicked("until event is completely written")
+	mockStdin.WriteString("},")
+	evt = module2.AssertClicked("when getting a click event")
+	assert.Equal(t, Event{X: 9, Y: 7}, evt, "event values are passed through")
+	module1.AssertNotClicked("only target module receives the event")
+
+	mockStdin.WriteString("{\"name\":\"blah\",\"x\":9},")
+	module1.AssertNotClicked("with weird module name")
+	module2.AssertNotClicked("with weird module name")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module1_name))
+	module1.AssertClicked("events are received after the weird name")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2_name))
+	module2.AssertClicked("events are received after the weird name")
+
+	mockStdin.WriteString("{\"name\":\"8\",\"x\":9},")
+	module1.AssertNotClicked("with weird module name")
+	module2.AssertNotClicked("with weird module name")
+
+	mockStdin.WriteString("{\"name\":\"-45\",\"x\":9},")
+	module1.AssertNotClicked("with weird module name")
+	module2.AssertNotClicked("with weird module name")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module1_name))
+	module1.AssertClicked("events are received after the weird name")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2_name))
+	module2.AssertClicked("events are received after the weird name")
 }

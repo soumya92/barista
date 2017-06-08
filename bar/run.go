@@ -237,7 +237,6 @@ func (b *I3Bar) readEvents() {
 	if rune, _, err := reader.ReadRune(); err != nil || rune != '[' {
 		return
 	}
-	var event i3Event
 	for {
 		// While the 'proper' way to implement this infinite parser would be to keep
 		// a state machine and hook into json parsing and stuff, we'll take a
@@ -248,6 +247,7 @@ func (b *I3Bar) readEvents() {
 			return
 		}
 		// The '}' is consumed by ReadString, but required by json Decoder.
+		event := i3Event{}
 		decoder := json.NewDecoder(strings.NewReader(eventJSON + "}"))
 		err = decoder.Decode(&event)
 		if err != nil {
