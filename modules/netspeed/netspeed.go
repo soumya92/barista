@@ -16,13 +16,10 @@
 package netspeed
 
 import (
-	"fmt"
-	"io/ioutil"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/vishvananda/netlink"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/modules/base"
@@ -80,9 +77,9 @@ type Module interface {
 
 type module struct {
 	*base.Base
-	rxFile, txFile string
-	scheduler      base.Scheduler
-	outputFunc     func(Speeds) bar.Output
+	iface      string
+	scheduler  base.Scheduler
+	outputFunc func(Speeds) bar.Output
 	// To get network speed, we need to know delta-rx/tx,
 	// so we need to store the previous rx/tx.
 	lastRead info
@@ -91,9 +88,8 @@ type module struct {
 // New constructs an instance of the netspeed module for the given interface.
 func New(iface string) Module {
 	m := &module{
-		Base:   base.New(),
-		rxFile: fmt.Sprintf("/sys/class/net/%s/statistics/rx_bytes", iface),
-		txFile: fmt.Sprintf("/sys/class/net/%s/statistics/tx_bytes", iface),
+		Base:  base.New(),
+		iface: iface,
 	}
 	// Default is to refresh every 3s, similar to top.
 	m.RefreshInterval(3 * time.Second)
@@ -107,20 +103,23 @@ func New(iface string) Module {
 // info represents that last read network information,
 // and is used to compute the delta-rx and tx.
 type info struct {
-	Rx, Tx uint64
-	Time   time.Time
+	RxBytes, TxBytes uint64
+	Time             time.Time
 }
 
 // Refresh updates the last read information, and returns
 // the delta-rx and tx since the last update in bytes/sec.
-func (i *info) Refresh(rx, tx uint64) (dRx, dTx uint64) {
+func (i *info) Refresh(linkStats *netlink.LinkStatistics) Speeds {
 	duration := time.Since(i.Time).Seconds()
-	dRx = uint64(float64(rx-i.Rx) / duration)
-	dTx = uint64(float64(tx-i.Tx) / duration)
-	i.Rx = rx
-	i.Tx = tx
+	dRx := uint64(float64(linkStats.RxBytes-i.RxBytes) / duration)
+	dTx := uint64(float64(linkStats.TxBytes-i.TxBytes) / duration)
+	i.RxBytes = linkStats.RxBytes
+	i.TxBytes = linkStats.TxBytes
 	i.Time = time.Now()
-	return // dRx, dTx
+	return Speeds{
+		Rx: Speed(dRx),
+		Tx: Speed(dTx),
+	}
 }
 
 func (m *module) OutputFunc(outputFunc func(Speeds) bar.Output) Module {
@@ -142,26 +141,14 @@ func (m *module) RefreshInterval(interval time.Duration) Module {
 }
 
 func (m *module) update() {
-	rx, erx := readFileAsUInt(m.rxFile)
-	tx, etx := readFileAsUInt(m.txFile)
-	if m.Error(erx) || m.Error(etx) {
+	link, err := netlink.LinkByName(m.iface)
+	if m.Error(err) {
 		return
 	}
 	shouldOutput := !m.lastRead.Time.IsZero()
-	dRx, dTx := m.lastRead.Refresh(rx, tx)
-	if shouldOutput {
-		m.Output(m.outputFunc(Speeds{
-			Rx: Speed(dRx),
-			Tx: Speed(dTx),
-		}))
+	speeds := m.lastRead.Refresh(link.Attrs().Statistics)
+	if !shouldOutput {
+		return
 	}
-}
-
-func readFileAsUInt(file string) (uint64, error) {
-	bytes, err := ioutil.ReadFile(file)
-	if err != nil {
-		return 0, err
-	}
-	value := strings.TrimSpace(string(bytes))
-	return strconv.ParseUint(value, 10, 64)
+	m.Output(m.outputFunc(speeds))
 }
