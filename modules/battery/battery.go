@@ -16,11 +16,13 @@
 package battery
 
 import (
+	"bufio"
 	"fmt"
-	"io/ioutil"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/modules/base"
@@ -29,20 +31,30 @@ import (
 
 // Info represents the current battery information.
 type Info struct {
-	Capacity   int
+	// Capacity in *percents*, from 0 to 100.
+	Capacity int
+	// Energy when the battery is full, in uWh.
 	EnergyFull int
-	EnergyMax  int
-	Energy     int
-	Power      int
-	VoltageMin int
-	Voltage    int
-	Status     string
+	// Max Energy the battery can store, in uWh.
+	EnergyMax int
+	// Energy currently stored in the battery, in uWh.
+	EnergyNow int
+	// Power currently being drawn from the battery, in uW.
+	Power int
+	// Current voltage of the batter, in V.
+	Voltage int
+	// Status of the battery, e.g. "Charging", "Full", "Disconnected".
+	Status string
+	// Technology of the battery, e.g. "Li-Ion", "Li-Poly", "Ni-MH".
 	Technology string
 }
 
 // Remaining returns the fraction of battery capacity remaining.
 func (i Info) Remaining() float64 {
-	return float64(i.Energy) / float64(i.EnergyMax)
+	if i.EnergyFull == 0 {
+		return 0
+	}
+	return float64(i.EnergyNow) / float64(i.EnergyFull)
 }
 
 // RemainingPct returns the percentage of battery capacity remaining.
@@ -54,8 +66,13 @@ func (i Info) RemainingPct() int {
 // This is based on the current power draw and remaining capacity.
 // TODO: Moving average?
 func (i Info) RemainingTime() time.Duration {
+	// Battery does not report current draw,
+	// cannot estimate remaining time.
+	if i.Power == 0 {
+		return time.Duration(0)
+	}
 	// ACPI spec says this must be in hours.
-	hours := float64(i.Energy) / float64(i.Power)
+	hours := float64(i.EnergyNow) / float64(i.Power)
 	return time.Duration(int(hours*3600)) * time.Second
 }
 
@@ -148,10 +165,7 @@ func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
 }
 
 func (m *module) update() {
-	info, err := m.batteryInfo()
-	if m.Error(err) {
-		return
-	}
+	info := batteryInfo(m.batteryName)
 	out := m.outputFunc(info)
 	if m.urgentFunc != nil {
 		out.Urgent(m.urgentFunc(info))
@@ -162,45 +176,89 @@ func (m *module) update() {
 	m.Output(out)
 }
 
-func (m *module) batteryInfo() (i Info, e error) {
-	if i.Technology, e = m.readString("technology"); e != nil {
-		return
-	}
-	if i.Status, e = m.readString("status"); e != nil {
-		return
-	}
-	if i.Capacity, e = m.readInt("capacity"); e != nil {
-		return
-	}
-	if i.EnergyFull, e = m.readInt("energy_full"); e != nil {
-		return
-	}
-	if i.EnergyMax, e = m.readInt("energy_full_design"); e != nil {
-		return
-	}
-	if i.Energy, e = m.readInt("energy_now"); e != nil {
-		return
-	}
-	if i.Power, e = m.readInt("power_now"); e != nil {
-		return
-	}
-	if i.VoltageMin, e = m.readInt("voltage_min_design"); e != nil {
-		return
-	}
-	i.Voltage, e = m.readInt("voltage_now")
-	return
+// electricValue represents a value that is either watts or amperes.
+// ACPI permits several of the properties to be in either unit, so to
+// simplify reading such values, this type can represent either unit
+// and convert as needed.
+type electricValue struct {
+	value   int
+	isWatts bool
 }
 
-func (m *module) readString(prop string) (string, error) {
-	file := fmt.Sprintf("/sys/class/power_supply/%s/%s", m.batteryName, prop)
-	bytes, err := ioutil.ReadFile(file)
-	return strings.TrimSpace(string(bytes)), err
+func (e electricValue) toWatts(voltage int) int {
+	if e.isWatts {
+		return e.value
+	}
+	micros := 1000.0 * 1000.0
+	// since the return value is also micro-watts, we only need to convert one
+	// of voltage and value from its micro version to base.
+	// i.e. micro-volts * amps = micro-watts, or vols * micro-amps = micro-watts.
+	return int(float64(voltage) * float64(e.value) / micros)
 }
 
-func (m *module) readInt(prop string) (int, error) {
-	str, err := m.readString(prop)
+func watts(value string) electricValue {
+	v, _ := strconv.Atoi(value)
+	return electricValue{v, true}
+}
+
+func amps(value string) electricValue {
+	v, _ := strconv.Atoi(value)
+	return electricValue{v, false}
+}
+
+var fs = afero.NewOsFs()
+
+func batteryInfo(name string) Info {
+	filename := fmt.Sprintf("/sys/class/power_supply/%s/uevent", name)
+	f, err := fs.Open(filename)
 	if err != nil {
-		return 0, err
+		return Info{Status: "Disconnected"}
 	}
-	return strconv.Atoi(str)
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	s.Split(bufio.ScanLines)
+
+	info := Info{}
+	var energyNow, powerNow, energyFull, energyMax electricValue
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
+		if !strings.Contains(line, "=") {
+			continue
+		}
+		split := strings.Split(line, "=")
+		if len(split) != 2 {
+			continue
+		}
+		key := strings.TrimPrefix(split[0], "POWER_SUPPLY_")
+		value := split[1]
+		switch key {
+		case "CHARGE_NOW":
+			energyNow = amps(value)
+		case "ENERGY_NOW":
+			energyNow = watts(value)
+		case "CHARGE_FULL":
+			energyFull = amps(value)
+		case "ENERGY_FULL":
+			energyFull = watts(value)
+		case "CHARGE_FULL_DESIGN":
+			energyMax = amps(value)
+		case "ENERGY_FULL_DESIGN":
+			energyMax = watts(value)
+		case "CURRENT_NOW":
+			powerNow = amps(value)
+		case "POWER_NOW":
+			powerNow = watts(value)
+		case "VOLTAGE_NOW":
+			info.Voltage, _ = strconv.Atoi(value)
+		case "STATUS":
+			info.Status = value
+		case "TECHNOLOGY":
+			info.Technology = value
+		}
+	}
+	info.EnergyNow = energyNow.toWatts(info.Voltage)
+	info.EnergyMax = energyMax.toWatts(info.Voltage)
+	info.EnergyFull = energyFull.toWatts(info.Voltage)
+	info.Power = powerNow.toWatts(info.Voltage)
+	return info
 }
