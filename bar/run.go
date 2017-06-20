@@ -81,6 +81,9 @@ type I3Bar struct {
 	// Flipped when Run() is called, to prevent issues with modules
 	// being added after the bar has been started.
 	started bool
+	// Suppress pause/resume signal handling to workaround potential
+	// weirdness with signals.
+	suppressSignals bool
 }
 
 // Add adds a module to a bar, and returns the bar for chaining.
@@ -109,11 +112,24 @@ func (b *I3Bar) addModule(module Module) {
 	b.i3Modules = append(b.i3Modules, &i3Module)
 }
 
+// SuppressSignals instructs the bar to skip the pause/resume signal handling.
+// Must be called before Run.
+func (b *I3Bar) SuppressSignals(suppressSignals bool) *I3Bar {
+	if b.started {
+		panic("Cannot change signal handling after .Run()")
+	}
+	b.suppressSignals = suppressSignals
+	return b
+}
+
 // Run sets up all the streams and enters the main loop.
 func (b *I3Bar) Run() error {
-	// Set up signal handlers for USR1/2 to pause/resume supported modules.
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
+	var signalChan chan os.Signal
+	if !b.suppressSignals {
+		// Set up signal handlers for USR1/2 to pause/resume supported modules.
+		signalChan = make(chan os.Signal, 2)
+		signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
+	}
 
 	// Mark the bar as started.
 	b.started = true
@@ -128,10 +144,13 @@ func (b *I3Bar) Run() error {
 	header := i3Header{
 		Version:     1,
 		ClickEvents: true,
+	}
+
+	if !b.suppressSignals {
 		// Go doesn't allow us to handle the default SIGSTOP,
 		// so we'll use SIGUSR1 and SIGUSR2 for pause/resume.
-		StopSignal: int(syscall.SIGUSR1),
-		ContSignal: int(syscall.SIGUSR2),
+		header.StopSignal = int(syscall.SIGUSR1)
+		header.ContSignal = int(syscall.SIGUSR2)
 	}
 	// Set up the encoder for the output stream,
 	// so that module outputs can be written directly.

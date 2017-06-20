@@ -45,6 +45,8 @@ func TestHeader(t *testing.T) {
 	// JSON deserialises all numbers as float64.
 	assert.Equal(t, 1, int(header["version"].(float64)), "header version == 1")
 	assert.Equal(t, true, header["click_events"].(bool), "header click_events == true")
+	assert.Equal(t, int(syscall.SIGUSR1), int(header["stop_signal"].(float64)), "header stop_signal == USR1")
+	assert.Equal(t, int(syscall.SIGUSR2), int(header["cont_signal"].(float64)), "header cont_signal == USR2")
 }
 
 func readOutput(t *testing.T, stdout *mockio.Writable) []map[string]interface{} {
@@ -278,4 +280,45 @@ func TestClickEvents(t *testing.T) {
 
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2_name))
 	module2.AssertClicked("events are received after the weird name")
+}
+
+func TestSignalHandlingSuppression(t *testing.T) {
+	mockStdin := mockio.Stdin()
+	mockStdout := mockio.Stdout()
+
+	module := testModule.New(t)
+	b := NewOnIo(mockStdin, mockStdout).Add(module)
+	assert.NotPanics(t,
+		func() { b.SuppressSignals(true) },
+		"Can suppress signal handling before Run")
+	go b.Run()
+
+	out, err := mockStdout.ReadUntil('}', time.Second)
+	assert.Nil(t, err, "header was written")
+
+	header := make(map[string]interface{})
+	assert.Nil(t, json.Unmarshal([]byte(out), &header), "header is valid json")
+	// JSON deserialises all numbers as float64.
+	assert.Equal(t, 1, int(header["version"].(float64)), "header version == 1")
+	assert.Equal(t, true, header["click_events"].(bool), "header click_events == true")
+
+	// Ensure no signals are written in header.
+	_, ok := header["stop_signal"]
+	assert.False(t, ok, "No stop_signal in header")
+	_, ok = header["cont_signal"]
+	assert.False(t, ok, "No cont_signal in header")
+
+	// When the infinite array starts, we know the bar is ready.
+	_, err = mockStdout.ReadUntil('[', time.Second)
+	assert.Nil(t, err, "output array started without any errors")
+
+	syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
+	module.AssertNoPauseResume("when signal handling is suppressed")
+
+	syscall.Kill(syscall.Getpid(), syscall.SIGUSR2)
+	module.AssertNoPauseResume("when signal handling is suppressed")
+
+	assert.Panics(t,
+		func() { b.SuppressSignals(false) },
+		"Cannot suppress signal handling after Run")
 }
