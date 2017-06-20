@@ -38,7 +38,7 @@ to be the newly built bar binary, e.g.
 ```
 bar {
   position top
-  status_command ~/bin/mybar
+  status_command exec ~/bin/mybar
   font pango:DejaVu Sans Mono 10
 }
 ```
