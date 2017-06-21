@@ -97,6 +97,7 @@ func Mixer(card, mixer string) Module {
 		cardName:  card,
 		mixerName: mixer,
 	}
+	m.OnUpdate(m.startWorker)
 	m.OnClick(DefaultClickHandler)
 	// Default output template is just the volume %, "MUT" when muted.
 	m.OutputTemplate(outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`))
@@ -180,12 +181,6 @@ func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
 	}
 }
 
-func (m *module) Stream() <-chan bar.Output {
-	// Worker goroutine to update the volume when notified by alsa.
-	go func() { m.Error(m.worker()) }()
-	return m.Base.Stream()
-}
-
 // worker continuously waits for signals from alsa and refreshes
 // the module whenever the volume changes.
 func (m *module) worker() error {
@@ -221,7 +216,6 @@ func (m *module) worker() error {
 		return fmt.Errorf("snd_mixer_find_selem NULL")
 	}
 	C.snd_mixer_selem_get_playback_volume_range(m.elem, &m.min, &m.max)
-	m.OnUpdate(m.update)
 	for {
 		C.snd_mixer_selem_get_playback_volume(m.elem, C.SND_MIXER_SCHN_MONO, &m.vol)
 		C.snd_mixer_selem_get_playback_switch(m.elem, C.SND_MIXER_SCHN_MONO, &m.mute)
@@ -242,6 +236,17 @@ func (m *module) volume() Volume {
 		Vol:  int64(m.vol),
 		Mute: (int(m.mute) == 0),
 	}
+}
+
+func (m *module) startWorker() {
+	// Set the update function to the version that does not
+	// start the worker, and revert it if the worker stops.
+	m.OnUpdate(m.update)
+	go func() {
+		m.Error(m.worker())
+		m.OnUpdate(m.startWorker)
+	}()
+	m.update()
 }
 
 func (m *module) update() {
