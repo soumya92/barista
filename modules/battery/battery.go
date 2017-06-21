@@ -18,6 +18,7 @@ package battery
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -33,16 +34,16 @@ import (
 type Info struct {
 	// Capacity in *percents*, from 0 to 100.
 	Capacity int
-	// Energy when the battery is full, in uWh.
-	EnergyFull int
-	// Max Energy the battery can store, in uWh.
-	EnergyMax int
-	// Energy currently stored in the battery, in uWh.
-	EnergyNow int
-	// Power currently being drawn from the battery, in uW.
-	Power int
+	// Energy when the battery is full, in Wh.
+	EnergyFull float64
+	// Max Energy the battery can store, in Wh.
+	EnergyMax float64
+	// Energy currently stored in the battery, in Wh.
+	EnergyNow float64
+	// Power currently being drawn from the battery, in W.
+	Power float64
 	// Current voltage of the batter, in V.
-	Voltage int
+	Voltage float64
 	// Status of the battery, e.g. "Charging", "Full", "Disconnected".
 	Status string
 	// Technology of the battery, e.g. "Li-Ion", "Li-Poly", "Ni-MH".
@@ -51,7 +52,7 @@ type Info struct {
 
 // Remaining returns the fraction of battery capacity remaining.
 func (i Info) Remaining() float64 {
-	if i.EnergyFull == 0 {
+	if math.Nextafter(i.EnergyFull, 0) == 0 {
 		return 0
 	}
 	return float64(i.EnergyNow) / float64(i.EnergyFull)
@@ -68,7 +69,7 @@ func (i Info) RemainingPct() int {
 func (i Info) RemainingTime() time.Duration {
 	// Battery does not report current draw,
 	// cannot estimate remaining time.
-	if i.Power == 0 {
+	if math.Nextafter(i.Power, 0) == 0 {
 		return time.Duration(0)
 	}
 	// ACPI spec says this must be in hours.
@@ -181,29 +182,30 @@ func (m *module) update() {
 // simplify reading such values, this type can represent either unit
 // and convert as needed.
 type electricValue struct {
-	value   int
+	value   float64
 	isWatts bool
 }
 
-func (e electricValue) toWatts(voltage int) int {
+func (e electricValue) toWatts(voltage float64) float64 {
 	if e.isWatts {
 		return e.value
 	}
-	micros := 1000.0 * 1000.0
-	// since the return value is also micro-watts, we only need to convert one
-	// of voltage and value from its micro version to base.
-	// i.e. micro-volts * amps = micro-watts, or vols * micro-amps = micro-watts.
-	return int(float64(voltage) * float64(e.value) / micros)
+	return e.value * voltage
 }
 
-func watts(value string) electricValue {
-	v, _ := strconv.Atoi(value)
-	return electricValue{v, true}
+// uwatts constructs an electricValue from a string in micro-watts.
+func uwatts(value string) electricValue {
+	return electricValue{fromMicroStr(value), true}
 }
 
-func amps(value string) electricValue {
-	v, _ := strconv.Atoi(value)
-	return electricValue{v, false}
+// uamps constructs an electricValue from a string in micro-amps.
+func uamps(value string) electricValue {
+	return electricValue{fromMicroStr(value), false}
+}
+
+func fromMicroStr(str string) float64 {
+	uValue, _ := strconv.Atoi(str)
+	return float64(uValue) / math.Pow(10, 6 /* micros */)
 }
 
 var fs = afero.NewOsFs()
@@ -233,27 +235,29 @@ func batteryInfo(name string) Info {
 		value := split[1]
 		switch key {
 		case "CHARGE_NOW":
-			energyNow = amps(value)
+			energyNow = uamps(value)
 		case "ENERGY_NOW":
-			energyNow = watts(value)
+			energyNow = uwatts(value)
 		case "CHARGE_FULL":
-			energyFull = amps(value)
+			energyFull = uamps(value)
 		case "ENERGY_FULL":
-			energyFull = watts(value)
+			energyFull = uwatts(value)
 		case "CHARGE_FULL_DESIGN":
-			energyMax = amps(value)
+			energyMax = uamps(value)
 		case "ENERGY_FULL_DESIGN":
-			energyMax = watts(value)
+			energyMax = uwatts(value)
 		case "CURRENT_NOW":
-			powerNow = amps(value)
+			powerNow = uamps(value)
 		case "POWER_NOW":
-			powerNow = watts(value)
+			powerNow = uwatts(value)
 		case "VOLTAGE_NOW":
-			info.Voltage, _ = strconv.Atoi(value)
+			info.Voltage = fromMicroStr(value)
 		case "STATUS":
 			info.Status = value
 		case "TECHNOLOGY":
 			info.Technology = value
+		case "CAPACITY":
+			info.Capacity, _ = strconv.Atoi(value)
 		}
 	}
 	info.EnergyNow = energyNow.toWatts(info.Voltage)
