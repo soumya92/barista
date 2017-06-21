@@ -210,9 +210,12 @@ func fromMicroStr(str string) float64 {
 
 var fs = afero.NewOsFs()
 
+func batteryPath(name string) string {
+	return fmt.Sprintf("/sys/class/power_supply/%s/uevent", name)
+}
+
 func batteryInfo(name string) Info {
-	filename := fmt.Sprintf("/sys/class/power_supply/%s/uevent", name)
-	f, err := fs.Open(filename)
+	f, err := fs.Open(batteryPath(name))
 	if err != nil {
 		return Info{Status: "Disconnected"}
 	}
@@ -220,7 +223,7 @@ func batteryInfo(name string) Info {
 	s := bufio.NewScanner(f)
 	s.Split(bufio.ScanLines)
 
-	info := Info{}
+	info := Info{Status: "Unknown"}
 	var energyNow, powerNow, energyFull, energyMax electricValue
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
