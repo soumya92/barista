@@ -23,6 +23,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -107,7 +108,7 @@ type Module interface {
 type module struct {
 	*base.Base
 	path       string
-	scheduler  base.Scheduler
+	scheduler  scheduler.Scheduler
 	outputFunc func(Info) bar.Output
 	colorFunc  func(Info) bar.Color
 	urgentFunc func(Info) bool
@@ -121,7 +122,7 @@ func New(path string) Module {
 		path: path,
 	}
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.RefreshInterval(3 * time.Second)
+	m.scheduler = scheduler.Do(m.Update).Every(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the used disk space.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Used.In "GB" | printf "%.2f"}} GB`))
 	// Update disk information when asked.
@@ -142,8 +143,7 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Stop()
-	m.scheduler = m.UpdateEvery(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 

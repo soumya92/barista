@@ -130,11 +130,25 @@ func (m *mprisPlayer) getInitialInfo() {
 	i.updateRate()
 }
 
+// updates keeps track of the types of updates caused by a dbus signal.
+type updates struct {
+	// Includes position due to explicit seek and play state.
+	position bool
+	// Includes all metadata, including art.
+	metadata bool
+	// Only when going from playing <-> something else. That is,
+	// stopped -> paused will not mark this true.
+	playingState bool
+}
+
+// any returns true if any updates occurred when handing the dbus signal.
+func (u updates) any() bool {
+	return u.position || u.metadata || u.playingState
+}
+
 // handleDbusSignal handles dbus signals for track changes, seeking, and
 // name owner changes (player appearing on or disappearing from session bus).
-// The return value indicates whether an update is required due to the given
-// dbus signal.
-func (m *mprisPlayer) handleDbusSignal(signal *dbus.Signal) (bool, error) {
+func (m *mprisPlayer) handleDbusSignal(signal *dbus.Signal) (updates, error) {
 	switch signal.Name {
 	case signalPropChanged.String():
 		i := m.infoReader(dbusMap(signal.Body[1].(map[string]dbus.Variant)))
@@ -143,14 +157,14 @@ func (m *mprisPlayer) handleDbusSignal(signal *dbus.Signal) (bool, error) {
 		i.updateShuffle()
 		i.updatePosition()
 		i.updateRate()
-		return i.updated, m.err
+		return i.updates, m.err
 
 	case signalSeeked.String():
 		i := m.infoReader(dbusMap{
 			mprisPosition.member: dbus.MakeVariant(signal.Body[0]),
 		})
 		i.updatePosition()
-		return i.updated, m.err
+		return i.updates, m.err
 
 	case signalNameOwnerChanged.String():
 		oldName := signal.Body[1].(string)
@@ -168,10 +182,10 @@ func (m *mprisPlayer) handleDbusSignal(signal *dbus.Signal) (bool, error) {
 		} else {
 			// Empty newName => player disconnected from dbus.
 			m.info.PlaybackStatus = Disconnected
-			return true, m.err
+			return updates{true, true, true}, m.err
 		}
 	}
-	return false, m.err
+	return updates{}, m.err
 }
 
 func (m *mprisPlayer) infoReader(getter dbusGetter) infoReader {
@@ -215,7 +229,7 @@ func (m *mprisPlayer) Get(prop name) (interface{}, bool) {
 type infoReader struct {
 	*Info
 	dbusGetter
-	updated bool
+	updates updates
 }
 
 func (i *infoReader) updatePlaybackStatus() {
@@ -228,7 +242,14 @@ func (i *infoReader) updatePlaybackStatus() {
 	if i.PlaybackStatus == oldState {
 		return
 	}
-	i.updated = true
+	i.updates.position = true
+	// Mark playing state as changed if we went from playing to something else,
+	// or if we went from anything else to playing.
+	// We use this to determine whether the scheduler for the current position
+	// needs to be updated.
+	if i.PlaybackStatus == Playing || oldState == Playing {
+		i.updates.playingState = true
+	}
 	switch i.PlaybackStatus {
 	case Playing:
 		if oldState == Paused {
@@ -253,7 +274,7 @@ func (i *infoReader) updatePlaybackStatus() {
 func (i *infoReader) updateShuffle() {
 	if shuffle, ok := i.Get(mprisShuffle); ok {
 		i.Shuffle = shuffle.(bool)
-		i.updated = true
+		i.updates.metadata = true
 	}
 }
 
@@ -265,7 +286,7 @@ func (i *infoReader) updatePosition() {
 	if position, ok := i.Get(mprisPosition); ok {
 		i.lastUpdated = time.Now()
 		i.lastPosition = time.Duration(getLong(position)) * time.Microsecond
-		i.updated = true
+		i.updates.position = true
 	}
 }
 
@@ -287,33 +308,33 @@ func (i *infoReader) updateMetadata() {
 	metadata := metadataMap.(map[string]dbus.Variant)
 	if length, ok := metadata["mpris:length"]; ok {
 		i.Length = time.Duration(getLong(length)) * time.Microsecond
-		i.updated = true
+		i.updates.metadata = true
 	}
 	if artist, ok := metadata["xesam:artist"]; ok {
 		artists := artist.Value().([]string)
 		if len(artists) > 0 {
 			i.Artist = artists[0]
-			i.updated = true
+			i.updates.metadata = true
 		}
 	}
 	if aArtist, ok := metadata["xesam:albumArtist"]; ok {
 		artists := aArtist.Value().([]string)
 		if len(artists) > 0 {
 			i.AlbumArtist = artists[0]
-			i.updated = true
+			i.updates.metadata = true
 		}
 	}
 	if album, ok := metadata["xesam:album"]; ok {
 		i.Album = album.Value().(string)
-		i.updated = true
+		i.updates.metadata = true
 	}
 	if title, ok := metadata["xesam:title"]; ok {
 		i.Title = title.Value().(string)
-		i.updated = true
+		i.updates.metadata = true
 	}
 	if ArtURL, ok := metadata["mpris:ArtURL"]; ok {
 		i.ArtURL = ArtURL.Value().(string)
-		i.updated = true
+		i.updates.metadata = true
 	}
 	if id, ok := metadata["mpris:trackid"]; ok {
 		trackID := id.Value().(string)
@@ -323,5 +344,6 @@ func (i *infoReader) updateMetadata() {
 			i.lastUpdated = time.Now()
 			i.trackID = trackID
 		}
+		i.updates.metadata = true
 	}
 }

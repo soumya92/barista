@@ -27,6 +27,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/base/multi"
+	"github.com/soumya92/barista/base/scheduler"
 )
 
 // Info wraps meminfo output.
@@ -79,6 +80,7 @@ func (b Bytes) SI() string {
 type Module struct {
 	moduleSet *multi.ModuleSet
 	outputs   map[multi.Submodule]func(Info) bar.Output
+	scheduler scheduler.Scheduler
 }
 
 // New constructs an instance of the meminfo multi-module
@@ -90,13 +92,13 @@ func New() *Module {
 	// Update meminfo when asked.
 	m.moduleSet.OnUpdate(m.update)
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.RefreshInterval(3 * time.Second)
+	m.scheduler = scheduler.Do(m.moduleSet.Update).Every(3 * time.Second)
 	return m
 }
 
 // RefreshInterval configures the polling frequency for meminfo.
 func (m *Module) RefreshInterval(interval time.Duration) *Module {
-	m.moduleSet.UpdateEvery(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 

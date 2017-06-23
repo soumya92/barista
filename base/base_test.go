@@ -17,7 +17,6 @@ package base
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchrcom/testify/assert"
 
@@ -101,71 +100,6 @@ func TestPauseResume(t *testing.T) {
 	out := o.AssertOutput("from calling output while paused")
 	assert.Equal(t, newOut, out, "updates with last output")
 	o.AssertNoOutput("only last output emitted on resume")
-}
-
-// TestSchedulers tests that scheduling updates for a base module work as expected.
-// It tests that schedulers returned from Update* can be cancelled, and that no updates
-// occur while the module is paused.
-func TestSchedulers(t *testing.T) {
-	b := New()
-	updateCalled := false
-	b.OnUpdate(func() {
-		updateCalled = true
-		b.Output(bar.Output{bar.NewSegment("test")})
-	})
-	o := testModule.NewOutputTester(t, b)
-
-	assertUpdate := func(message string) {
-		o.AssertOutput(message)
-		assert.True(t, updateCalled, message)
-		updateCalled = false
-	}
-
-	assertNoUpdate := func(message string) {
-		o.AssertNoOutput(message)
-		assert.False(t, updateCalled, message)
-	}
-
-	assertUpdate("when started")
-
-	b.UpdateAfter(5 * time.Millisecond).Stop()
-	assertNoUpdate("if scheduler was cancelled")
-
-	b.UpdateEvery(5 * time.Millisecond).Stop()
-	assertNoUpdate("if scheduler was cancelled")
-
-	b.UpdateAt(time.Now().Add(5 * time.Millisecond)).Stop()
-	assertNoUpdate("if scheduler was cancelled")
-
-	b.UpdateAfter(10 * time.Millisecond)
-	assertUpdate("after interval elapses")
-
-	sch := b.UpdateAfter(5 * time.Millisecond)
-	b.Pause()
-	assertNoUpdate("if paused before interval elapses")
-
-	b.Resume()
-	assertUpdate("on resume")
-
-	sch.Stop()
-	assertNoUpdate("when elapsed scheduler is stopped")
-
-	b.UpdateAt(time.Now().Add(15 * time.Millisecond))
-	b.Pause()
-	b.Resume()
-	assertUpdate("pause + resume within interval is no-op")
-
-	sch = b.UpdateEvery(5 * time.Millisecond)
-	assertUpdate("while resumed")
-	b.Pause()
-	assertNoUpdate("while paused")
-	assertNoUpdate("no repeats while paused")
-	b.Resume()
-	assertUpdate("when resumed")
-	assertUpdate("repeat after resume")
-	assertUpdate("repeating while resumed")
-	sch.Stop()
-	assertNoUpdate("after scheduler is stopped")
 }
 
 // TestClickUpdates tests the update behaviour on click events,

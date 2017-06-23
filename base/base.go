@@ -17,7 +17,6 @@ package base
 
 import (
 	"os/exec"
-	"time"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
@@ -171,47 +170,4 @@ func (b *Base) Error(err error) bool {
 	b.lastError = err
 	b.Output(outputs.Error(err))
 	return true
-}
-
-// Scheduler holds either a timer or a ticker that schedules
-// the next update of the module. Since many modules need to
-// schedule updates, adding support into base simplifies module
-// code and works well with pause/resume.
-type Scheduler struct {
-	timer  *time.Timer
-	ticker *time.Ticker
-}
-
-// Stop cancels the next scheduled update, used when the update
-// frequency/schedule changes.
-func (s Scheduler) Stop() {
-	if s.timer != nil {
-		s.timer.Stop()
-	}
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-}
-
-// UpdateAt schedules the module for updating at a specific time.
-func (b *Base) UpdateAt(when time.Time) Scheduler {
-	return b.UpdateAfter(time.Until(when))
-}
-
-// UpdateAfter schedules the module for updating after a delay.
-func (b *Base) UpdateAfter(delay time.Duration) Scheduler {
-	return Scheduler{
-		timer: time.AfterFunc(delay, b.Update),
-	}
-}
-
-// UpdateEvery schedules the module for repeated updating at an interval.
-func (b *Base) UpdateEvery(interval time.Duration) Scheduler {
-	ticker := time.NewTicker(interval)
-	go func() {
-		for range ticker.C {
-			b.Update()
-		}
-	}()
-	return Scheduler{ticker: ticker}
 }

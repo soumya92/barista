@@ -35,8 +35,6 @@ submodules with that output template. This would allow for code like:
 package multi
 
 import (
-	"time"
-
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 )
@@ -45,7 +43,6 @@ import (
 type ModuleSet struct {
 	submodules []*base.Base
 	updateFunc func()
-	scheduler  scheduler
 	primaryIdx int
 }
 
@@ -102,57 +99,6 @@ func (m *ModuleSet) Update() {
 	}
 }
 
-// scheduler stores scheduled update information and applies
-// it to the first submodule that becomes active. onDemandUpdate
-// takes care of propagating the updates to other submodules.
-type scheduler struct {
-	base.Scheduler
-	when     time.Time
-	delay    time.Duration
-	interval time.Duration
-}
-
-func (s *scheduler) applyTo(b *base.Base) {
-	switch {
-	case !s.when.IsZero():
-		s.Scheduler = b.UpdateAt(s.when)
-	case s.delay > 0:
-		s.Scheduler = b.UpdateAfter(s.delay)
-	case s.interval > 0:
-		s.Scheduler = b.UpdateEvery(s.interval)
-	}
-}
-
-// UpdateAt schedules submodules for updating at a specific time.
-func (m *ModuleSet) UpdateAt(when time.Time) {
-	m.replaceScheduler(scheduler{when: when})
-}
-
-// UpdateAfter schedules submodules for updating after a delay.
-func (m *ModuleSet) UpdateAfter(delay time.Duration) {
-	m.replaceScheduler(scheduler{delay: delay})
-}
-
-// UpdateEvery schedules submodules for repeated updating at an interval.
-func (m *ModuleSet) UpdateEvery(interval time.Duration) {
-	m.replaceScheduler(scheduler{interval: interval})
-}
-
-// StopUpdates stops any previously scheduled updates.
-func (m *ModuleSet) StopUpdates() {
-	m.replaceScheduler(scheduler{})
-}
-
-// replaceScheduler stops the current scheduler (if any), replaces it
-// with the given scheduler, and applies it to the primary submodule (if any).
-func (m *ModuleSet) replaceScheduler(newScheduler scheduler) {
-	m.scheduler.Stop()
-	m.scheduler = newScheduler
-	if m.primaryIdx >= 0 {
-		m.scheduler.applyTo(m.submodules[m.primaryIdx])
-	}
-}
-
 // OnUpdate sets the function that will be run on each update.
 // An initial update will occur when the first module begins streaming,
 // and subsequent updates may be scheduled using timer.AfterFunc,
@@ -170,7 +116,6 @@ func (m *ModuleSet) onDemandUpdate(key int) func() {
 		// and all update scheduling is performed on the primary submodule as well.
 		if m.primaryIdx < 0 {
 			m.primaryIdx = key
-			m.scheduler.applyTo(m.submodules[key])
 		}
 		if m.updateFunc != nil {
 			m.updateFunc()

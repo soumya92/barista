@@ -23,6 +23,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -78,7 +79,7 @@ type Module interface {
 type module struct {
 	*base.Base
 	iface      string
-	scheduler  base.Scheduler
+	scheduler  scheduler.Scheduler
 	outputFunc func(Speeds) bar.Output
 	// To get network speed, we need to know delta-rx/tx,
 	// so we need to store the previous rx/tx.
@@ -92,7 +93,7 @@ func New(iface string) Module {
 		iface: iface,
 	}
 	// Default is to refresh every 3s, similar to top.
-	m.RefreshInterval(3 * time.Second)
+	m.scheduler = scheduler.Do(m.Update).Every(3 * time.Second)
 	// Default output template that's just the up and down speeds in SI.
 	m.OutputTemplate(outputs.TextTemplate("{{.Tx.SI}}/s up | {{.Rx.SI}}/s down"))
 	// Worker goroutine to recalculate speeds.
@@ -135,8 +136,7 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Stop()
-	m.scheduler = m.UpdateEvery(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 

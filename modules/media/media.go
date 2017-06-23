@@ -23,6 +23,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -173,7 +174,7 @@ type module struct {
 	player *mprisPlayer
 	// An additional update every second while music is playing
 	// to keep the position up to date.
-	positionScheduler base.Scheduler
+	positionScheduler scheduler.Scheduler
 }
 
 // New constructs an instance of the media module for the given player.
@@ -186,6 +187,8 @@ func New(player string) Module {
 	m.OnClick(DefaultClickHandler)
 	// Default output template that's just the currently playing track.
 	m.OutputTemplate(outputs.TextTemplate(`{{if .Connected}}{{.Title}}{{end}}`))
+	// Set the position scheduler to call update when triggered.
+	m.positionScheduler = scheduler.Do(m.Update)
 	return m
 }
 
@@ -273,20 +276,23 @@ func (m *module) Stream() (ch <-chan bar.Output) {
 // the module output when necessary.
 func (m *module) listen(c <-chan *dbus.Signal) {
 	for v := range c {
-		updated, err := m.player.handleDbusSignal(v)
+		updates, err := m.player.handleDbusSignal(v)
 		if m.Error(err) {
 			continue
 		}
-		if updated {
+		if updates.any() {
 			m.Update()
+		}
+		if updates.playingState {
+			if m.info.Playing() {
+				m.positionScheduler.Every(time.Second)
+			} else {
+				m.positionScheduler.Stop()
+			}
 		}
 	}
 }
 
 func (m *module) update() {
 	m.Output(m.outputFunc(m.info))
-	m.positionScheduler.Stop()
-	if m.info.PlaybackStatus == Playing {
-		m.positionScheduler = m.UpdateEvery(time.Second)
-	}
 }

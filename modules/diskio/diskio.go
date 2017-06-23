@@ -27,6 +27,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/base/multi"
+	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -68,6 +69,7 @@ func (i IO) Total() Rate {
 type Module struct {
 	moduleSet  *multi.ModuleSet
 	submodules map[string]*submodule
+	scheduler  scheduler.Scheduler
 }
 
 // New constructs an instance of the diskio multi-module
@@ -79,13 +81,13 @@ func New() *Module {
 	// Update disk io rates when asked.
 	m.moduleSet.OnUpdate(m.update)
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.RefreshInterval(3 * time.Second)
+	m.scheduler = scheduler.Do(m.moduleSet.Update).Every(3 * time.Second)
 	return m
 }
 
 // RefreshInterval configures the polling frequency.
 func (m *Module) RefreshInterval(interval time.Duration) *Module {
-	m.moduleSet.UpdateEvery(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 

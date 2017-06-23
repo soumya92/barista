@@ -20,6 +20,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -99,5 +100,5 @@ func (m *module) update() {
 	}
 	now := time.Now()
 	m.Output(m.outputFunc(now.In(m.timezone)))
-	m.UpdateAt(now.Add(m.granularity).Truncate(m.granularity))
+	scheduler.Do(m.Update).At(now.Add(m.granularity).Truncate(m.granularity))
 }

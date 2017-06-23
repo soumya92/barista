@@ -20,6 +20,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -117,7 +118,7 @@ type Module interface {
 type module struct {
 	*base.Base
 	provider   Provider
-	scheduler  base.Scheduler
+	scheduler  scheduler.Scheduler
 	outputFunc func(Weather) bar.Output
 	// cache last weather info for click handler.
 	lastWeather Weather
@@ -130,7 +131,7 @@ func New(provider Provider) Module {
 		provider: provider,
 	}
 	// Default is to refresh every 10 minutes
-	m.RefreshInterval(10 * time.Minute)
+	m.scheduler = scheduler.Do(m.Update).Every(10 * time.Minute)
 	// Default output template is just the temperature and conditions.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C}}℃ {{.Description}}`))
 	// Update weather when asked.
@@ -151,8 +152,7 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Stop()
-	m.scheduler = m.UpdateEvery(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 
