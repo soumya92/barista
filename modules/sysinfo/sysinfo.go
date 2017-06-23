@@ -22,8 +22,8 @@ import (
 	"github.com/dustin/go-humanize"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/modules/base"
-	"github.com/soumya92/barista/modules/multi"
+	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/multi"
 )
 
 // Info wraps the result of sysinfo and makes it more useful.

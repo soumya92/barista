@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/base"
 )
 
 // Module is an interface that allows functions to display their module output.

@@ -16,7 +16,7 @@ package group
 
 import (
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/base"
 )
 
 // Cyclic is a group that supports cyclic between its modules.

@@ -19,7 +19,7 @@ package counter
 
 import (
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
 )
 

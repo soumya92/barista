@@ -38,7 +38,7 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/modules/base"
+	"github.com/soumya92/barista/base"
 )
 
 // ModuleSet represents a multi-module consisting of many individual modules.
