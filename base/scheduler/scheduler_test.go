@@ -21,59 +21,147 @@ import (
 	"github.com/stretchrcom/testify/assert"
 )
 
+type doFunc struct {
+	ch chan interface{}
+	t  *testing.T
+}
+
+func (d doFunc) Func() {
+	d.ch <- nil
+}
+
+func (d doFunc) assertCalled(message string) {
+	select {
+	case <-d.ch:
+	case <-time.After(time.Second):
+		assert.Fail(d.t, "doFunc was not called", message)
+	}
+}
+
+func (d doFunc) assertNotCalled(message string) {
+	select {
+	case <-d.ch:
+		assert.Fail(d.t, "doFunc was called", message)
+	case <-time.After(10 * time.Millisecond):
+	}
+}
+
+func newDoFunc(t *testing.T) doFunc {
+	return doFunc{make(chan interface{}, 5), t}
+}
+
 func TestSchedulers(t *testing.T) {
-	ch := make(chan interface{})
-	doFunc := func() {
-		ch <- nil
-	}
+	d := newDoFunc(t)
 
-	assertCalled := func(message string) {
-		select {
-		case <-ch:
-		case <-time.After(time.Second):
-			assert.Fail(t, "doFunc was not called", message)
-		}
-	}
-
-	assertNotCalled := func(message string) {
-		select {
-		case <-ch:
-			assert.Fail(t, "doFunc was called", message)
-		case <-time.After(10 * time.Millisecond):
-		}
-	}
-
-	sch := Do(doFunc)
-	assertNotCalled("when not scheduled")
+	sch := Do(d.Func)
+	d.assertNotCalled("when not scheduled")
 
 	sch.After(5 * time.Millisecond).Stop()
-	assertNotCalled("when stopped")
+	d.assertNotCalled("when stopped")
 
 	sch.Every(5 * time.Millisecond).Stop()
-	assertNotCalled("when stopped")
+	d.assertNotCalled("when stopped")
 
 	sch.At(Now().Add(5 * time.Millisecond)).Stop()
-	assertNotCalled("when stopped")
+	d.assertNotCalled("when stopped")
 
 	sch.After(10 * time.Millisecond)
-	assertCalled("after interval elapses")
+	d.assertCalled("after interval elapses")
 
 	sch.Stop()
-	assertNotCalled("when elapsed scheduler is stopped")
+	d.assertNotCalled("when elapsed scheduler is stopped")
 
 	sch.Stop()
-	assertNotCalled("when elapsed scheduler is stopped again")
+	d.assertNotCalled("when elapsed scheduler is stopped again")
 
-	sch = Do(doFunc).Every(5 * time.Millisecond)
-	assertCalled("after interval elapses")
-	assertCalled("after interval elapses")
-	assertCalled("after interval elapses")
+	d2 := newDoFunc(t)
+	sch = Do(d2.Func).Every(5 * time.Millisecond)
+	d2.assertCalled("after interval elapses")
+	d2.assertCalled("after interval elapses")
+	d2.assertCalled("after interval elapses")
 
 	sch.Stop()
-	assertNotCalled("when stopped")
+	d2.assertNotCalled("when stopped")
 
 	sch.After(5 * time.Millisecond)
-	assertCalled("after delay elapses")
-	assertNotCalled("after first trigger")
+	d2.assertCalled("after delay elapses")
+	d2.assertNotCalled("after first trigger")
+}
 
+func TestTestMode(t *testing.T) {
+	d1 := newDoFunc(t)
+	d2 := newDoFunc(t)
+	d3 := newDoFunc(t)
+
+	TestMode(true)
+	assert.Equal(t, time.Time{}, Now(),
+		"zero time when test mode starts")
+
+	sch1 := Do(d1.Func)
+	sch2 := Do(d2.Func)
+	sch3 := Do(d3.Func)
+
+	zero := Now()
+	assert.Equal(t, zero, NextTick(),
+		"next tick doesn't change time when nothing is scheduled")
+	d1.assertNotCalled("when not scheduled")
+	d2.assertNotCalled("when not scheduled")
+	d3.assertNotCalled("when not scheduled")
+
+	sch1.After(time.Hour)
+	sch2.After(time.Second)
+	sch3.After(time.Minute)
+
+	assert.Equal(t, zero.Add(time.Second), NextTick(),
+		"triggers earliest scheduler")
+	d2.assertCalled("triggers earliest scheduler")
+	d1.assertNotCalled("only earliest scheduler triggers")
+	d3.assertNotCalled("only earliest scheduler triggers")
+
+	assert.Equal(t, zero.Add(time.Minute), NextTick(),
+		"triggers next scheduler")
+	d2.assertNotCalled("already elapsed")
+	d3.assertCalled("earliest scheduler triggers")
+	d1.assertNotCalled("not yet elapsed")
+
+	AdvanceBy(20 * time.Minute)
+	d2.assertNotCalled("already elapsed")
+	d3.assertNotCalled("already elapsed")
+	d1.assertNotCalled("did not advance far enough")
+
+	AdvanceBy(2 * time.Hour)
+	d2.assertNotCalled("already elapsed")
+	d3.assertNotCalled("already elapsed")
+	d1.assertCalled("when advancing beyond trigger duration")
+
+	sch1.Every(time.Minute)
+	sch2.Every(10 * time.Minute)
+	now := Now()
+	for i := 1; i < 10; i++ {
+		assert.Equal(t,
+			now.Add(time.Duration(i)*time.Minute),
+			NextTick(),
+			"repeated scheduler")
+		d1.assertCalled("repeated scheduler")
+	}
+	assert.Equal(t,
+		now.Add(time.Duration(10)*time.Minute),
+		NextTick(), "at overlap")
+	d1.assertCalled("at overlap")
+	d2.assertCalled("at overlap")
+
+	now = Now()
+	sch1.Every(time.Minute)
+	sch2.After(time.Minute)
+	sch3.At(Now().Add(time.Minute))
+	assert.Equal(t, now.Add(time.Minute), NextTick(), "multiple triggers")
+	d1.assertCalled("multiple triggers")
+	d2.assertCalled("multiple triggers")
+	d3.assertCalled("multiple triggers")
+
+	AdvanceBy(59*time.Second + 999*time.Millisecond)
+	d1.assertNotCalled("before interval elapses")
+
+	AdvanceBy(10 * time.Millisecond)
+	d1.assertCalled("after interval elapses")
 }

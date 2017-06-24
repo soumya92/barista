@@ -29,15 +29,26 @@ or keeping track of the scheduler to update it later:
 package scheduler
 
 import (
+	"sort"
 	"time"
 )
 
 // Scheduler represents a function triggered on a schedule.
 // It provides an interface to stop or modify the trigger schedule.
 type Scheduler interface {
+	// At sets the scheduler to trigger a specific time.
+	// This will replace any pending triggers.
 	At(time.Time) Scheduler
+
+	// After sets the scheduler to trigger after a delay.
+	// This will replace any pending triggers.
 	After(time.Duration) Scheduler
+
+	// Every sets the scheduler to trigger at an interval.
+	// This will replace any pending triggers.
 	Every(time.Duration) Scheduler
+
+	// Stop cancels all further triggers for the scheduler.
 	Stop()
 }
 
@@ -47,31 +58,41 @@ type scheduler struct {
 	timer  *time.Timer
 	ticker *time.Ticker
 	do     func()
+	// For test mode, keep track of the next triggers.
+	nextTrigger time.Time
+	interval    time.Duration
 }
 
 // Do creates a scheduler that calls the given function when triggered.
 func Do(f func()) Scheduler {
-	return &scheduler{do: f}
+	s := &scheduler{do: f}
+	if testMode {
+		testSchedulers = append(testSchedulers, s)
+	}
+	return s
 }
 
-// At sets the scheduler to trigger a specific time.
-// This will replace any pending triggers.
 func (s *scheduler) At(when time.Time) Scheduler {
 	return s.After(when.Sub(Now()))
 }
 
-// After sets the scheduler to trigger after a delay.
-// This will replace any pending triggers.
 func (s *scheduler) After(delay time.Duration) Scheduler {
 	s.Stop()
+	if testMode {
+		s.nextTrigger = Now().Add(delay)
+		return s
+	}
 	s.timer = time.AfterFunc(delay, s.do)
 	return s
 }
 
-// Every sets the scheduler to trigger at an interval.
-// This will replace any pending triggers.
 func (s *scheduler) Every(interval time.Duration) Scheduler {
 	s.Stop()
+	if testMode {
+		s.nextTrigger = Now()
+		s.interval = interval
+		return s
+	}
 	s.ticker = time.NewTicker(interval)
 	go func() {
 		ticker := s.ticker
@@ -86,8 +107,12 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 	return s
 }
 
-// Stop cancels all further triggers for the scheduler.
 func (s *scheduler) Stop() {
+	if testMode {
+		s.nextTrigger = time.Time{}
+		s.interval = time.Duration(0)
+		return
+	}
 	if s.timer != nil {
 		s.timer.Stop()
 		s.timer = nil
@@ -98,5 +123,85 @@ func (s *scheduler) Stop() {
 	}
 }
 
+// tickAfter returns the next trigger time for the scheduler.
+// This is used in test mode to determine the next firing scheduler
+// and advance time to it.
+func (s *scheduler) tickAfter(now time.Time) time.Time {
+	if s.interval == time.Duration(0) {
+		return s.nextTrigger
+	}
+	elapsedIntervals := now.Sub(s.nextTrigger) / s.interval
+	return s.nextTrigger.Add(s.interval * (elapsedIntervals + 1))
+}
+
 // Now returns the current time. Used for testing.
-var Now = time.Now
+func Now() time.Time {
+	if testMode {
+		return nowInTest
+	}
+	return time.Now()
+}
+
+// TestMode sets test mode for all schedulers.
+// In test mode schedulers do not fire automatically, and time
+// does not pass at all, until NextTick() or Advance* is called.
+func TestMode(enabled bool) {
+	testMode = enabled
+	nowInTest = time.Time{}
+}
+
+// testMode tracks whether all schedulers are in test mode.
+var testMode = false
+
+// nowInTest tracks the current time in test mode.
+var nowInTest time.Time
+
+// schedulerList implements sort.Interface for schedulers based
+// on their next trigger time.
+type schedulerList []*scheduler
+
+func (l schedulerList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
+func (l schedulerList) Len() int      { return len(l) }
+func (l schedulerList) Less(i, j int) bool {
+	now := Now()
+	return l[i].tickAfter(now).Before(l[j].tickAfter(now))
+}
+
+// testSchedulers tracks all schedulers created in test mode.
+var testSchedulers schedulerList
+
+// NextTick triggers the next scheduler and returns the trigger time.
+// It also advances test time to match.
+func NextTick() time.Time {
+	sort.Sort(testSchedulers)
+	now := Now()
+	for _, s := range testSchedulers {
+		nextTick := s.tickAfter(now)
+		if nextTick.After(now) {
+			AdvanceTo(nextTick)
+			return nextTick
+		}
+	}
+	return now
+}
+
+// AdvanceBy increments the test time by the given duration,
+// and triggers any schedulers that were scheduled in the meantime.
+func AdvanceBy(duration time.Duration) {
+	AdvanceTo(Now().Add(duration))
+}
+
+// AdvanceTo increments the test time to the given time,
+// and triggers any schedulers that were scheduled in the meantime.
+func AdvanceTo(newTime time.Time) {
+	sort.Sort(testSchedulers)
+	now := Now()
+	for _, s := range testSchedulers {
+		nextTick := s.tickAfter(now)
+		if nextTick.After(now) && !nextTick.After(newTime) {
+			nowInTest = nextTick
+			go s.do()
+		}
+	}
+	nowInTest = newTime
+}
