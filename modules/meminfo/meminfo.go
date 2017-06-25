@@ -43,6 +43,11 @@ func (i Info) FreeFrac(k string) float64 {
 // Available returns the "available" system memory, including
 // currently cached memory that can be freed up if needed.
 func (i Info) Available() Bytes {
+	// MemAvailable, if present, is a more accurate indication of
+	// available memory.
+	if avail, ok := i["MemAvailable"]; ok {
+		return avail
+	}
 	return Bytes(uint64(i["MemFree"]) + uint64(i["Cached"]) + uint64(i["Buffers"]))
 }
 
