@@ -17,6 +17,7 @@ package base
 
 import (
 	"os/exec"
+	"sync"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base/scheduler"
@@ -34,6 +35,7 @@ type Base struct {
 	outputOnResume bar.Output
 	lastError      error
 	scheduler      scheduler.Scheduler
+	mutex          sync.Mutex
 }
 
 // Module implements bar's Module, Clickable, and Pausable,
@@ -71,37 +73,59 @@ func (b *Base) Click(e bar.Event) {
 		if e.Button == bar.ButtonMiddle {
 			b.Update()
 		}
-		if b.clickHandler != nil {
-			b.clickHandler(e)
+		b.mutex.Lock()
+		handler := b.clickHandler
+		b.mutex.Unlock()
+		if handler != nil {
+			handler(e)
 		}
 		return
 	}
 	switch e.Button {
 	case bar.ButtonRight, bar.ButtonMiddle:
+		b.mutex.Lock()
 		b.lastError = nil
+		b.mutex.Unlock()
 		b.Clear()
 		b.Update()
 	case bar.ButtonLeft:
-		go exec.Command("i3-nagbar", "-m", b.lastError.Error()).Run()
+		b.mutex.Lock()
+		err := b.lastError
+		b.mutex.Unlock()
+		go exec.Command("i3-nagbar", "-m", err.Error()).Run()
 	}
 }
 
 // Pause marks the module as paused, which suspends updates
 // and outputs to the bar.
 func (b *Base) Pause() {
+	b.mutex.Lock()
 	b.paused = true
+	b.mutex.Unlock()
 }
 
 // Resume continues normal updating of the module, and performs an
 // immediate update if any updates occurred while the module was paused.
 func (b *Base) Resume() {
+	var doOutput bar.Output
+	var doUpdate bool
+
+	b.mutex.Lock()
 	b.paused = false
 	if b.outputOnResume != nil {
-		b.Output(b.outputOnResume)
+		doOutput = b.outputOnResume
 		b.outputOnResume = nil
 	}
 	if b.updateOnResume {
+		doUpdate = true
 		b.updateOnResume = false
+	}
+	b.mutex.Unlock()
+
+	if doOutput != nil {
+		b.Output(doOutput)
+	}
+	if doUpdate {
 		b.Update()
 	}
 }
@@ -109,6 +133,8 @@ func (b *Base) Resume() {
 // Update marks the module as ready for an update.
 // The actual update may not happen immediately, e.g. if the bar is hidden.
 func (b *Base) Update() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if b.updateFunc == nil {
 		return
 	}
@@ -124,6 +150,8 @@ func (b *Base) Update() {
 // alternative OnClick method that exposes module-specific data to the handler function.
 // Returns Module to allow bar.Add/bar.Run on the result.
 func (b *Base) OnClick(handler func(bar.Event)) Module {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.clickHandler = handler
 	return b
 }
@@ -149,6 +177,8 @@ func New() *Base {
 // when possible. For this reason, it is recommended that heavy update work,
 // e.g. http requests, should happen here and not in an independent timer.
 func (b *Base) OnUpdate(updateFunc func()) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.updateFunc = updateFunc
 }
 
@@ -159,6 +189,8 @@ func (b *Base) Clear() {
 
 // Output updates the module's output.
 func (b *Base) Output(out bar.Output) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if b.paused {
 		b.outputOnResume = out
 		return
@@ -173,7 +205,9 @@ func (b *Base) Error(err error) bool {
 	if err == nil {
 		return false
 	}
+	b.mutex.Lock()
 	b.lastError = err
+	b.mutex.Unlock()
 	b.Output(outputs.Error(err))
 	return true
 }

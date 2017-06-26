@@ -30,6 +30,7 @@ package scheduler
 
 import (
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -58,6 +59,7 @@ type scheduler struct {
 	timer  *time.Timer
 	ticker *time.Ticker
 	do     func()
+	mutex  sync.Mutex
 	// For test mode, keep track of the next triggers.
 	nextTrigger time.Time
 	interval    time.Duration
@@ -78,6 +80,8 @@ func (s *scheduler) At(when time.Time) Scheduler {
 
 func (s *scheduler) After(delay time.Duration) Scheduler {
 	s.Stop()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	if testMode {
 		s.nextTrigger = Now().Add(delay)
 		return s
@@ -88,6 +92,8 @@ func (s *scheduler) After(delay time.Duration) Scheduler {
 
 func (s *scheduler) Every(interval time.Duration) Scheduler {
 	s.Stop()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	if testMode {
 		s.nextTrigger = Now()
 		s.interval = interval
@@ -95,7 +101,9 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 	}
 	s.ticker = time.NewTicker(interval)
 	go func() {
+		s.mutex.Lock()
 		ticker := s.ticker
+		s.mutex.Unlock()
 		if ticker == nil {
 			// Scheduler stopped before goroutine was started.
 			return
@@ -108,6 +116,8 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 }
 
 func (s *scheduler) Stop() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	if testMode {
 		s.nextTrigger = time.Time{}
 		s.interval = time.Duration(0)
@@ -127,6 +137,8 @@ func (s *scheduler) Stop() {
 // This is used in test mode to determine the next firing scheduler
 // and advance time to it.
 func (s *scheduler) tickAfter(now time.Time) time.Time {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	if s.interval == time.Duration(0) {
 		return s.nextTrigger
 	}
@@ -137,6 +149,8 @@ func (s *scheduler) tickAfter(now time.Time) time.Time {
 // Now returns the current time. Used for testing.
 func Now() time.Time {
 	if testMode {
+		nowMutex.Lock()
+		defer nowMutex.Unlock()
 		return nowInTest
 	}
 	return time.Now()
@@ -146,6 +160,8 @@ func Now() time.Time {
 // In test mode schedulers do not fire automatically, and time
 // does not pass at all, until NextTick() or Advance* is called.
 func TestMode(enabled bool) {
+	nowMutex.Lock()
+	defer nowMutex.Unlock()
 	testMode = enabled
 	nowInTest = time.Time{}
 }
@@ -155,6 +171,7 @@ var testMode = false
 
 // nowInTest tracks the current time in test mode.
 var nowInTest time.Time
+var nowMutex sync.Mutex
 
 // schedulerList implements sort.Interface for schedulers based
 // on their next trigger time.
@@ -199,9 +216,17 @@ func AdvanceTo(newTime time.Time) {
 	for _, s := range testSchedulers {
 		nextTick := s.tickAfter(now)
 		if nextTick.After(now) && !nextTick.After(newTime) {
-			nowInTest = nextTick
+			setNowTo(nextTick)
 			go s.do()
 		}
 	}
-	nowInTest = newTime
+	setNowTo(newTime)
+}
+
+// setNowTo sets nowInTest but ensures that data access is guarded
+// by the mutex.
+func setNowTo(now time.Time) {
+	nowMutex.Lock()
+	defer nowMutex.Unlock()
+	nowInTest = now
 }

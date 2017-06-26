@@ -18,6 +18,7 @@ package mockio
 import (
 	"bytes"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -28,11 +29,15 @@ type Writable struct {
 	buffer bytes.Buffer
 	// A channel that signals any time new output is available.
 	signal chan *interface{}
+	// Mutex to prevent data races in buffer.
+	mutex sync.Mutex
 }
 
 // Write satisfies the io.Writer interface.
 func (w *Writable) Write(out []byte) (n int, e error) {
+	w.mutex.Lock()
 	n, e = w.buffer.Write(out)
+	w.mutex.Unlock()
 	nonBlockingSignal(w.signal)
 	return
 }
@@ -41,7 +46,9 @@ var _ io.Writer = (*Writable)(nil)
 
 // ReadNow clears the buffer and returns its previous contents.
 func (w *Writable) ReadNow() string {
+	w.mutex.Lock()
 	val := w.buffer.String()
+	w.mutex.Unlock()
 	w.buffer = bytes.Buffer{}
 	return val
 }
@@ -49,7 +56,9 @@ func (w *Writable) ReadNow() string {
 // ReadUntil reads up to the first occurrence of the given character,
 // or until the timeout expires, whichever comes first.
 func (w *Writable) ReadUntil(delim byte, timeout time.Duration) (string, error) {
+	w.mutex.Lock()
 	val, err := w.buffer.ReadString(delim)
+	w.mutex.Unlock()
 	if err == nil {
 		return val, nil
 	}
@@ -61,7 +70,9 @@ func (w *Writable) ReadUntil(delim byte, timeout time.Duration) (string, error) 
 			return val, err
 		case <-w.signal:
 			var v string
+			w.mutex.Lock()
 			v, err = w.buffer.ReadString(delim)
+			w.mutex.Unlock()
 			val += v
 		}
 	}
@@ -86,14 +97,21 @@ type Readable struct {
 	available chan *interface{}
 	// A channel that signals any time output is consumed.
 	consumed chan *interface{}
+	// Mutex to prevent data races in buffer.
+	mutex sync.Mutex
 }
 
 // Read satisfies the io.Reader interface.
 func (r *Readable) Read(out []byte) (n int, e error) {
-	if r.buffer.Len() == 0 {
+	r.mutex.Lock()
+	len := r.buffer.Len()
+	r.mutex.Unlock()
+	if len == 0 {
 		<-r.available
 	}
+	r.mutex.Lock()
 	n, e = r.buffer.Read(out)
+	r.mutex.Unlock()
 	nonBlockingSignal(r.consumed)
 	if e == io.EOF {
 		e = nil
@@ -103,7 +121,9 @@ func (r *Readable) Read(out []byte) (n int, e error) {
 
 // Write satisfies the io.Writer interface.
 func (r *Readable) Write(out []byte) (n int, e error) {
+	r.mutex.Lock()
 	n, e = r.buffer.Write(out)
+	r.mutex.Unlock()
 	r.signalWrite()
 	return
 }
@@ -113,7 +133,9 @@ var _ io.Writer = (*Readable)(nil)
 
 // WriteString proxies directly to the byte buffer but adds a signal.
 func (r *Readable) WriteString(s string) (n int, e error) {
+	r.mutex.Lock()
 	n, e = r.buffer.WriteString(s)
+	r.mutex.Unlock()
 	r.signalWrite()
 	return
 }
