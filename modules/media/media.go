@@ -261,6 +261,10 @@ func (m *module) Stream() (ch <-chan bar.Output) {
 	m.OnUpdate(m.update)
 	// Initial output.
 	m.Update()
+	// If currently playing, also start the position scheduler.
+	if m.info.Playing() {
+		m.positionScheduler.Every(time.Second)
+	}
 
 	// Since the channel is shared with method call responses,
 	// we need a buffer to prevent deadlocks.
