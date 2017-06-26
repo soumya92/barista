@@ -17,10 +17,12 @@ package base
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/scheduler"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
@@ -37,6 +39,51 @@ func TestError(t *testing.T) {
 
 	assert.False(t, b.Error(nil), "returns false for nil error")
 	o.AssertNoOutput("on nil error")
+}
+
+// TestUpdateAndScheduler tests that update functions (including nil)
+// are correctly handled, and that the returned scheduler works
+// as intended.
+func TestUpdateAndScheduler(t *testing.T) {
+	scheduler.TestMode(true)
+	b := New()
+	o := testModule.NewOutputTester(t, b)
+
+	assert.NotPanics(t, b.Update, "Calling update without setting OnUpdate")
+	b.OnUpdate(nil)
+	assert.NotPanics(t, b.Update, "Calling update with nil OnUpdate")
+
+	updateCalled := false
+	b.OnUpdate(func() {
+		updateCalled = true
+		b.Output(bar.Output{bar.NewSegment("test")})
+	})
+
+	assertUpdate := func(message string) bar.Output {
+		out := o.AssertOutput(message)
+		assert.True(t, updateCalled, message)
+		updateCalled = false
+		return out
+	}
+
+	assertNoUpdate := func(message string) {
+		assert.False(t, updateCalled, message)
+		o.AssertNoOutput(message)
+	}
+
+	assertNoUpdate("on setting OnUpdate")
+	b.Update()
+	assertUpdate("on calling Update")
+
+	b.Schedule().Every(time.Minute)
+	assertNoUpdate("when scheduling")
+	scheduler.NextTick()
+	assertUpdate("On next tick")
+	scheduler.NextTick()
+	assertUpdate("On next tick")
+	b.Schedule().Stop()
+	scheduler.NextTick()
+	assertNoUpdate("when stopped")
 }
 
 // TestPauseResume tests that pause/resume work as expected, i.e. no

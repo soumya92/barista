@@ -19,6 +19,7 @@ import (
 	"os/exec"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -32,6 +33,7 @@ type Base struct {
 	updateOnResume bool
 	outputOnResume bar.Output
 	lastError      error
+	scheduler      scheduler.Scheduler
 }
 
 // Module implements bar's Module, Clickable, and Pausable,
@@ -107,6 +109,9 @@ func (b *Base) Resume() {
 // Update marks the module as ready for an update.
 // The actual update may not happen immediately, e.g. if the bar is hidden.
 func (b *Base) Update() {
+	if b.updateFunc == nil {
+		return
+	}
 	if b.paused {
 		b.updateOnResume = true
 		return
@@ -125,15 +130,16 @@ func (b *Base) OnClick(handler func(bar.Event)) Module {
 
 // New constructs a new base module.
 func New() *Base {
-	return &Base{
-		channel:    make(chan bar.Output, 10),
-		updateFunc: func() {},
+	b := &Base{
+		channel: make(chan bar.Output, 10),
 		// Modules start paused so that any modifications prior to Stream()
 		// are not applied before the module has started.
 		paused: true,
 		// Trigger an initial update when Stream is first called.
 		updateOnResume: true,
 	}
+	b.scheduler = scheduler.Do(b.Update)
+	return b
 }
 
 // OnUpdate sets the function that will be called when the module needs
@@ -170,4 +176,12 @@ func (b *Base) Error(err error) bool {
 	b.lastError = err
 	b.Output(outputs.Error(err))
 	return true
+}
+
+// Schedule returns the scheduler for the module's update function.
+// This allows derived modules to change the update frequency, or
+// even enable and disable scheduled updates, without needing to
+// worry about inadvertently scheduling multiple concurrent updates.
+func (b *Base) Schedule() scheduler.Scheduler {
+	return b.scheduler
 }

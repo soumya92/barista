@@ -20,7 +20,6 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/scheduler"
 )
 
 // Module is an interface that allows functions to display their module output.
@@ -45,7 +44,7 @@ func Once(f Func) base.WithClickHandler {
 // Useful if the function needs to poll a resource for output.
 func Every(d time.Duration, f Func) base.WithClickHandler {
 	b := base.New()
-	scheduler.Do(b.Update).Every(d)
 	b.OnUpdate(func() { f(b) })
+	b.Schedule().Every(d)
 	return b
 }

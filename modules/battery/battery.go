@@ -27,7 +27,6 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -110,7 +109,6 @@ type Module interface {
 type module struct {
 	*base.Base
 	batteryName string
-	scheduler   scheduler.Scheduler
 	outputFunc  func(Info) bar.Output
 	colorFunc   func(Info) bar.Color
 	urgentFunc  func(Info) bool
@@ -123,7 +121,7 @@ func New(name string) Module {
 		batteryName: name,
 	}
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.scheduler = scheduler.Do(m.Update).Every(3 * time.Second)
+	m.Schedule().Every(3 * time.Second)
 	// Construct a simple template that's just the available battery percent.
 	m.OutputTemplate(outputs.TextTemplate(`BATT {{.RemainingPct}}%`))
 	// Update battery stats whenever an update is requested.
@@ -149,7 +147,7 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Every(interval)
+	m.Schedule().Every(interval)
 	return m
 }
 

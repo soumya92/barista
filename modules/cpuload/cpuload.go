@@ -24,7 +24,6 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -72,7 +71,6 @@ type Module interface {
 
 type module struct {
 	*base.Base
-	scheduler  scheduler.Scheduler
 	outputFunc func(LoadAvg) bar.Output
 	colorFunc  func(LoadAvg) bar.Color
 	urgentFunc func(LoadAvg) bool
@@ -83,7 +81,7 @@ type module struct {
 func New() Module {
 	m := &module{Base: base.New()}
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.scheduler = scheduler.Do(m.Update).Every(3 * time.Second)
+	m.Schedule().Every(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the 1-minute load average.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`))
 	// Update load average when asked.
@@ -107,7 +105,7 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Every(interval)
+	m.Schedule().Every(interval)
 	return m
 }
 

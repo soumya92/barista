@@ -24,7 +24,6 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -74,7 +73,6 @@ type Module interface {
 type module struct {
 	*base.Base
 	thermalFile string
-	scheduler   scheduler.Scheduler
 	outputFunc  func(Temperature) bar.Output
 	colorFunc   func(Temperature) bar.Color
 	urgentFunc  func(Temperature) bool
@@ -90,7 +88,7 @@ func Zone(thermalZone string) Module {
 		thermalFile: fmt.Sprintf("/sys/class/thermal/%s/temp", thermalZone),
 	}
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.scheduler = scheduler.Do(m.Update).Every(3 * time.Second)
+	m.Schedule().Every(3 * time.Second)
 	// Default output template, if no template/function was specified.
 	m.OutputTemplate(outputs.TextTemplate(`{{.C}}℃`))
 	// Update temperature when asked.
@@ -119,7 +117,7 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.scheduler.Every(interval)
+	m.Schedule().Every(interval)
 	return m
 }
 

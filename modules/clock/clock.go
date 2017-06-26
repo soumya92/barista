@@ -80,9 +80,8 @@ func (m *module) OutputFormat(format string) Module {
 }
 
 func (m *module) Timezone(timezone string) Module {
-	var err error
-	m.timezone, err = time.LoadLocation(timezone)
-	if !m.Error(err) {
+	if tz, err := time.LoadLocation(timezone); !m.Error(err) {
+		m.timezone = tz
 		m.Update()
 	}
 	return m
@@ -95,10 +94,7 @@ func (m *module) Granularity(granularity time.Duration) Module {
 }
 
 func (m *module) update() {
-	if m.timezone == nil {
-		return
-	}
-	now := time.Now()
+	now := scheduler.Now()
 	m.Output(m.outputFunc(now.In(m.timezone)))
-	scheduler.Do(m.Update).At(now.Add(m.granularity).Truncate(m.granularity))
+	m.Schedule().At(now.Add(m.granularity).Truncate(m.granularity))
 }

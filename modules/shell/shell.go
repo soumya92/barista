@@ -29,7 +29,6 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -89,7 +88,7 @@ func Every(interval time.Duration, cmd string, args ...string) base.WithClickHan
 	m.OnUpdate(func() {
 		commandOutputToModule(m, cmd, args...)
 	})
-	scheduler.Do(m.Update).Every(interval)
+	m.Schedule().Every(interval)
 	return m
 }
 
