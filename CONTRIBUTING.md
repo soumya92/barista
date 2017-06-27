@@ -21,10 +21,16 @@ All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult [GitHub Help] for more
 information on using pull requests.
 
-[GitHub Help]: https://help.github.com/articles/about-pull-requests/
-
 ## Formatting, Linting, and Testing
 
 All code must be properly formatted. The easiest way to do that is `go fmt`.
 Make sure all affected tests continue to pass after your changes,
 and no new `go vet` or `golint` warnings are introduced by your pull request.
+
+When possible, add tests for any new functionality, and run `go test -race`
+to detect any data races. Because of the highly concurrent nature of this
+project, the [Go Race Detector] is particularly useful in early detection of
+edge case bugs.
+
+[GitHub Help]: https://help.github.com/articles/about-pull-requests/
+[Go Race Detector]: https://blog.golang.org/race-detector
