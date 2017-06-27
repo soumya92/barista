@@ -55,7 +55,7 @@ func (i Info) Remaining() float64 {
 	if math.Nextafter(i.EnergyFull, 0) == 0 {
 		return 0
 	}
-	return float64(i.EnergyNow) / float64(i.EnergyFull)
+	return i.EnergyNow / i.EnergyFull
 }
 
 // RemainingPct returns the percentage of battery capacity remaining.
@@ -73,7 +73,7 @@ func (i Info) RemainingTime() time.Duration {
 		return time.Duration(0)
 	}
 	// ACPI spec says this must be in hours.
-	hours := float64(i.EnergyNow) / float64(i.Power)
+	hours := i.EnergyNow / i.Power
 	return time.Duration(int(hours*3600)) * time.Second
 }
 
