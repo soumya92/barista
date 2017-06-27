@@ -121,7 +121,7 @@ func New(name string) Module {
 		batteryName: name,
 	}
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.Schedule().Every(3 * time.Second)
+	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just the available battery percent.
 	m.OutputTemplate(outputs.TextTemplate(`BATT {{.RemainingPct}}%`))
 	// Update battery stats whenever an update is requested.
@@ -135,7 +135,7 @@ func Default() Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
-	m.outputFunc = outputFunc
+	m.DoSync(func() { m.outputFunc = outputFunc })
 	m.Update()
 	return m
 }
@@ -152,26 +152,29 @@ func (m *module) RefreshInterval(interval time.Duration) Module {
 }
 
 func (m *module) OutputColor(colorFunc func(Info) bar.Color) Module {
-	m.colorFunc = colorFunc
+	m.DoSync(func() { m.colorFunc = colorFunc })
 	m.Update()
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
-	m.urgentFunc = urgentFunc
+	m.DoSync(func() { m.urgentFunc = urgentFunc })
 	m.Update()
 	return m
 }
 
 func (m *module) update() {
 	info := batteryInfo(m.batteryName)
-	out := m.outputFunc(info)
-	if m.urgentFunc != nil {
-		out.Urgent(m.urgentFunc(info))
-	}
-	if m.colorFunc != nil {
-		out.Color(m.colorFunc(info))
-	}
+	var out bar.Output
+	m.DoSync(func() {
+		out = m.outputFunc(info)
+		if m.urgentFunc != nil {
+			out.Urgent(m.urgentFunc(info))
+		}
+		if m.colorFunc != nil {
+			out.Color(m.colorFunc(info))
+		}
+	})
 	m.Output(out)
 }
 

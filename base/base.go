@@ -69,13 +69,14 @@ func (b *Base) Stream() <-chan bar.Output {
 // will be replaced by one that shows the error message using
 // i3-nagbar on left click and updates the module on right click
 func (b *Base) Click(e bar.Event) {
-	if b.lastError == nil {
+	var err error
+	b.DoSync(func() { err = b.lastError })
+	if err == nil {
 		if e.Button == bar.ButtonMiddle {
 			b.Update()
 		}
-		b.mutex.Lock()
-		handler := b.clickHandler
-		b.mutex.Unlock()
+		var handler func(bar.Event)
+		b.DoSync(func() { handler = b.clickHandler })
 		if handler != nil {
 			handler(e)
 		}
@@ -83,15 +84,10 @@ func (b *Base) Click(e bar.Event) {
 	}
 	switch e.Button {
 	case bar.ButtonRight, bar.ButtonMiddle:
-		b.mutex.Lock()
-		b.lastError = nil
-		b.mutex.Unlock()
+		b.DoSync(func() { b.lastError = nil })
 		b.Clear()
 		b.Update()
 	case bar.ButtonLeft:
-		b.mutex.Lock()
-		err := b.lastError
-		b.mutex.Unlock()
 		go exec.Command("i3-nagbar", "-m", err.Error()).Run()
 	}
 }
@@ -99,9 +95,7 @@ func (b *Base) Click(e bar.Event) {
 // Pause marks the module as paused, which suspends updates
 // and outputs to the bar.
 func (b *Base) Pause() {
-	b.mutex.Lock()
-	b.paused = true
-	b.mutex.Unlock()
+	b.DoSync(func() { b.paused = true })
 }
 
 // Resume continues normal updating of the module, and performs an
@@ -150,9 +144,7 @@ func (b *Base) Update() {
 // alternative OnClick method that exposes module-specific data to the handler function.
 // Returns Module to allow bar.Add/bar.Run on the result.
 func (b *Base) OnClick(handler func(bar.Event)) Module {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	b.clickHandler = handler
+	b.DoSync(func() { b.clickHandler = handler })
 	return b
 }
 
@@ -177,9 +169,7 @@ func New() *Base {
 // when possible. For this reason, it is recommended that heavy update work,
 // e.g. http requests, should happen here and not in an independent timer.
 func (b *Base) OnUpdate(updateFunc func()) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	b.updateFunc = updateFunc
+	b.DoSync(func() { b.updateFunc = updateFunc })
 }
 
 // Clear hides the module from the bar.
@@ -205,9 +195,7 @@ func (b *Base) Error(err error) bool {
 	if err == nil {
 		return false
 	}
-	b.mutex.Lock()
-	b.lastError = err
-	b.mutex.Unlock()
+	b.DoSync(func() { b.lastError = err })
 	b.Output(outputs.Error(err))
 	return true
 }
@@ -218,4 +206,13 @@ func (b *Base) Error(err error) bool {
 // worry about inadvertently scheduling multiple concurrent updates.
 func (b *Base) Schedule() scheduler.Scheduler {
 	return b.scheduler
+}
+
+// DoSync calls the function with the mutex locked to avoid data races.
+// f *must not* call DoSync itself, and should endeavour to return as
+// soon as feasible.
+func (b *Base) DoSync(f func()) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	f()
 }
