@@ -68,23 +68,32 @@ func TestStdout(t *testing.T) {
 	wait <- nil
 	<-wait
 	assert.Equal(t, "cd", stdout.ReadNow(), "continues normally after timeout")
+}
+
+func TestTiming(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping timing test in short mode.")
+	}
+
+	stdout := Stdout()
+	wait := make(chan *interface{})
 
 	go (func(w io.Writer) {
 		<-wait
 		io.WriteString(w, "ab")
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(4 * time.Second)
 		io.WriteString(w, "cd")
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(4 * time.Second)
 		io.WriteString(w, "ef")
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(4 * time.Second)
 		io.WriteString(w, "gh")
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(4 * time.Second)
 		io.WriteString(w, "ij")
 		wait <- nil
 	})(stdout)
 
 	wait <- nil
-	val, err = stdout.ReadUntil('i', 50*time.Millisecond)
+	val, err := stdout.ReadUntil('i', 10*time.Second)
 	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
 	assert.Equal(t, "abcdef", val, "returns content written before timeout")
 
