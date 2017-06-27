@@ -15,7 +15,6 @@
 package clock
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -23,7 +22,6 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base/scheduler"
-	"github.com/soumya92/barista/outputs"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
@@ -98,7 +96,8 @@ func TestZones(t *testing.T) {
 	assert.Equal(bar.NewSegment("22:15:00"), out[0])
 
 	out = tUnknown.AssertOutput("on start with error")
-	assert.Equal(outputs.Error(fmt.Errorf("unknown time zone Global/Unknown")), out)
+	assert.Contains(out[0].Text(), "Global/Unknown")
+	assert.True(out[0]["urgent"].(bool))
 
 	scheduler.NextTick()
 
