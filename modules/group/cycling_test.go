@@ -96,7 +96,7 @@ func TestCyclingButton(t *testing.T) {
 	leftClick := bar.Event{Button: bar.ButtonLeft}
 	scrollUp := bar.Event{Button: bar.ScrollUp}
 	for i := 0; i <= 3; i++ {
-		group.Add(testModule.New(t))
+		group.Add(testModule.New(t)).Stream()
 	}
 	button := group.Button(bar.Output{})
 	assert.Equal(t, 0, group.Visible(), "starts with first module")

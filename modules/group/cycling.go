@@ -15,6 +15,8 @@
 package group
 
 import (
+	"sync"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 )
@@ -53,6 +55,7 @@ func Cycling() Cyclic {
 // cyclic implements the Cyclic group. It stores a list
 // of modules and the index of the currently visible one.
 type cyclic struct {
+	sync.Mutex
 	modules []*module
 	current int
 }
@@ -60,6 +63,8 @@ type cyclic struct {
 // Add adds a module to the cyclic group. The returned module
 // will not output anything unless it's currently active.
 func (g *cyclic) Add(original bar.Module) WrappedModule {
+	g.Lock()
+	defer g.Unlock()
 	index := len(g.modules)
 	m := &module{
 		Module:  original,
@@ -70,6 +75,8 @@ func (g *cyclic) Add(original bar.Module) WrappedModule {
 }
 
 func (g *cyclic) Visible() int {
+	g.Lock()
+	defer g.Unlock()
 	return g.current
 }
 
@@ -82,19 +89,24 @@ func (g *cyclic) Next() {
 }
 
 func (g *cyclic) Show(index int) {
-	if len(g.modules) == 0 {
+	count := g.Count()
+	if count == 0 {
 		index = 0
 	} else {
 		// Handle wrap around on either side.
-		index = (index + len(g.modules)) % len(g.modules)
+		index = (index + count) % count
 	}
+	g.Lock()
+	defer g.Unlock()
 	for idx, m := range g.modules {
-		go m.SetVisible(idx == index)
+		m.SetVisible(idx == index)
 	}
 	g.current = index
 }
 
 func (g *cyclic) Count() int {
+	g.Lock()
+	defer g.Unlock()
 	return len(g.modules)
 }
 

@@ -15,6 +15,8 @@
 package group
 
 import (
+	"sync"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 )
@@ -51,6 +53,7 @@ func Collapsing() Collapsable {
 // collapsable implements the Collapsable group. It stores a list
 // of modules and whether it's expanded or collapsed.
 type collapsable struct {
+	sync.Mutex
 	modules   []*module
 	collapsed bool
 }
@@ -58,6 +61,8 @@ type collapsable struct {
 // Add adds a module to the collapsable group. The returned module
 // will not output anything when the group is collapsed.
 func (g *collapsable) Add(original bar.Module) WrappedModule {
+	g.Lock()
+	defer g.Unlock()
 	m := &module{
 		Module:  original,
 		visible: !g.collapsed,
@@ -67,27 +72,26 @@ func (g *collapsable) Add(original bar.Module) WrappedModule {
 }
 
 func (g *collapsable) Collapsed() bool {
+	g.Lock()
+	defer g.Unlock()
 	return g.collapsed
 }
 
 func (g *collapsable) Collapse() {
-	g.collapsed = true
-	g.syncState()
+	g.setCollapsed(true)
 }
 
 func (g *collapsable) Expand() {
-	g.collapsed = false
-	g.syncState()
+	g.setCollapsed(false)
 }
 
 func (g *collapsable) Toggle() {
-	g.collapsed = !g.collapsed
-	g.syncState()
+	g.setCollapsed(!g.Collapsed())
 }
 
 func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
 	outputFunc := func() bar.Output {
-		if g.collapsed {
+		if g.Collapsed() {
 			return collapsed
 		}
 		return expanded
@@ -103,8 +107,11 @@ func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
 	return b
 }
 
-func (g *collapsable) syncState() {
+func (g *collapsable) setCollapsed(collapsed bool) {
+	g.Lock()
+	defer g.Unlock()
+	g.collapsed = collapsed
 	for _, m := range g.modules {
-		go m.SetVisible(!g.collapsed)
+		m.SetVisible(!g.collapsed)
 	}
 }

@@ -32,6 +32,8 @@ group.
 package group
 
 import (
+	"sync"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 )
@@ -53,6 +55,7 @@ type Button interface {
 // sends output when it's visible. Otherwise it outputs nothing.
 type module struct {
 	bar.Module
+	sync.Mutex
 	channel    chan bar.Output
 	lastOutput bar.Output
 	visible    bool
@@ -68,7 +71,7 @@ type WrappedModule interface {
 
 // Stream sets up the output pipeline to filter outputs when hidden.
 func (m *module) Stream() <-chan bar.Output {
-	m.channel = make(chan bar.Output)
+	m.channel = make(chan bar.Output, 10)
 	go m.pipeWhenVisible(m.Module.Stream(), m.channel)
 	return m.channel
 }
@@ -96,6 +99,8 @@ func (m *module) Resume() {
 
 // SetVisible sets the module visibility and updates the output accordingly.
 func (m *module) SetVisible(visible bool) {
+	m.Lock()
+	defer m.Unlock()
 	if m.visible == visible {
 		return
 	}
@@ -109,8 +114,11 @@ func (m *module) SetVisible(visible bool) {
 
 func (m *module) pipeWhenVisible(input <-chan bar.Output, output chan<- bar.Output) {
 	for out := range input {
+		m.Lock()
 		m.lastOutput = out
-		if m.visible {
+		visible := m.visible
+		m.Unlock()
+		if visible {
 			output <- out
 		}
 	}
