@@ -76,8 +76,7 @@ func TestZones(t *testing.T) {
 	fixedTime := time.Date(2017, time.March, 1, 13, 15, 0, 0, time.UTC)
 	scheduler.AdvanceTo(fixedTime)
 
-	pst := New().
-	Timezone("America/Los_Angeles").OutputFormat("15:04:05")
+	pst := New().Timezone("America/Los_Angeles").OutputFormat("15:04:05")
 	tPst := testModule.NewOutputTester(t, pst)
 
 	berlin := New().Timezone("Europe/Berlin").OutputFormat("15:04:05")

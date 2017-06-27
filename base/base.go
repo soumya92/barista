@@ -27,6 +27,7 @@ import (
 // Base is a simple module that satisfies the bar.Module interface, while adding
 // some useful functions to make building modules on top somewhat simpler.
 type Base struct {
+	sync.Mutex
 	channel        chan bar.Output
 	clickHandler   func(bar.Event)
 	updateFunc     func()
@@ -35,7 +36,6 @@ type Base struct {
 	outputOnResume bar.Output
 	lastError      error
 	scheduler      scheduler.Scheduler
-	mutex          sync.Mutex
 }
 
 // Module implements bar's Module, Clickable, and Pausable,
@@ -69,14 +69,16 @@ func (b *Base) Stream() <-chan bar.Output {
 // will be replaced by one that shows the error message using
 // i3-nagbar on left click and updates the module on right click
 func (b *Base) Click(e bar.Event) {
-	var err error
-	b.DoSync(func() { err = b.lastError })
+	b.Lock()
+	err := b.lastError
+	b.Unlock()
 	if err == nil {
 		if e.Button == bar.ButtonMiddle {
 			b.Update()
 		}
-		var handler func(bar.Event)
-		b.DoSync(func() { handler = b.clickHandler })
+		b.Lock()
+		handler := b.clickHandler
+		b.Unlock()
 		if handler != nil {
 			handler(e)
 		}
@@ -84,7 +86,9 @@ func (b *Base) Click(e bar.Event) {
 	}
 	switch e.Button {
 	case bar.ButtonRight, bar.ButtonMiddle:
-		b.DoSync(func() { b.lastError = nil })
+		b.Lock()
+		b.lastError = nil
+		b.Unlock()
 		b.Clear()
 		b.Update()
 	case bar.ButtonLeft:
@@ -95,7 +99,9 @@ func (b *Base) Click(e bar.Event) {
 // Pause marks the module as paused, which suspends updates
 // and outputs to the bar.
 func (b *Base) Pause() {
-	b.DoSync(func() { b.paused = true })
+	b.Lock()
+	defer b.Unlock()
+	b.paused = true
 }
 
 // Resume continues normal updating of the module, and performs an
@@ -104,7 +110,7 @@ func (b *Base) Resume() {
 	var doOutput bar.Output
 	var doUpdate bool
 
-	b.mutex.Lock()
+	b.Lock()
 	b.paused = false
 	if b.outputOnResume != nil {
 		doOutput = b.outputOnResume
@@ -114,7 +120,7 @@ func (b *Base) Resume() {
 		doUpdate = true
 		b.updateOnResume = false
 	}
-	b.mutex.Unlock()
+	b.Unlock()
 
 	if doOutput != nil {
 		b.Output(doOutput)
@@ -127,8 +133,8 @@ func (b *Base) Resume() {
 // Update marks the module as ready for an update.
 // The actual update may not happen immediately, e.g. if the bar is hidden.
 func (b *Base) Update() {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.Lock()
+	defer b.Unlock()
 	if b.updateFunc == nil {
 		return
 	}
@@ -144,7 +150,9 @@ func (b *Base) Update() {
 // alternative OnClick method that exposes module-specific data to the handler function.
 // Returns Module to allow bar.Add/bar.Run on the result.
 func (b *Base) OnClick(handler func(bar.Event)) Module {
-	b.DoSync(func() { b.clickHandler = handler })
+	b.Lock()
+	defer b.Unlock()
+	b.clickHandler = handler
 	return b
 }
 
@@ -169,7 +177,9 @@ func New() *Base {
 // when possible. For this reason, it is recommended that heavy update work,
 // e.g. http requests, should happen here and not in an independent timer.
 func (b *Base) OnUpdate(updateFunc func()) {
-	b.DoSync(func() { b.updateFunc = updateFunc })
+	b.Lock()
+	defer b.Unlock()
+	b.updateFunc = updateFunc
 }
 
 // Clear hides the module from the bar.
@@ -179,8 +189,8 @@ func (b *Base) Clear() {
 
 // Output updates the module's output.
 func (b *Base) Output(out bar.Output) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.Lock()
+	defer b.Unlock()
 	if b.paused {
 		b.outputOnResume = out
 		return
@@ -195,7 +205,9 @@ func (b *Base) Error(err error) bool {
 	if err == nil {
 		return false
 	}
-	b.DoSync(func() { b.lastError = err })
+	b.Lock()
+	b.lastError = err
+	b.Unlock()
 	b.Output(outputs.Error(err))
 	return true
 }
@@ -206,13 +218,4 @@ func (b *Base) Error(err error) bool {
 // worry about inadvertently scheduling multiple concurrent updates.
 func (b *Base) Schedule() scheduler.Scheduler {
 	return b.scheduler
-}
-
-// DoSync calls the function with the mutex locked to avoid data races.
-// f *must not* call DoSync itself, and should endeavour to return as
-// soon as feasible.
-func (b *Base) DoSync(f func()) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	f()
 }

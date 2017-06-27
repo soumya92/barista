@@ -135,7 +135,9 @@ func Default() Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
-	m.DoSync(func() { m.outputFunc = outputFunc })
+	m.Lock()
+	m.outputFunc = outputFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
@@ -152,29 +154,32 @@ func (m *module) RefreshInterval(interval time.Duration) Module {
 }
 
 func (m *module) OutputColor(colorFunc func(Info) bar.Color) Module {
-	m.DoSync(func() { m.colorFunc = colorFunc })
+	m.Lock()
+	m.colorFunc = colorFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
-	m.DoSync(func() { m.urgentFunc = urgentFunc })
+	m.Lock()
+	m.urgentFunc = urgentFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
 
 func (m *module) update() {
 	info := batteryInfo(m.batteryName)
-	var out bar.Output
-	m.DoSync(func() {
-		out = m.outputFunc(info)
-		if m.urgentFunc != nil {
-			out.Urgent(m.urgentFunc(info))
-		}
-		if m.colorFunc != nil {
-			out.Color(m.colorFunc(info))
-		}
-	})
+	m.Lock()
+	out := m.outputFunc(info)
+	if m.urgentFunc != nil {
+		out.Urgent(m.urgentFunc(info))
+	}
+	if m.colorFunc != nil {
+		out.Color(m.colorFunc(info))
+	}
+	m.Unlock()
 	m.Output(out)
 }
 

@@ -68,7 +68,9 @@ func New() Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(time.Time) bar.Output) Module {
-	m.DoSync(func() { m.outputFunc = outputFunc })
+	m.Lock()
+	m.outputFunc = outputFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
@@ -81,7 +83,9 @@ func (m *module) OutputFormat(format string) Module {
 
 func (m *module) Timezone(timezone string) Module {
 	tz, err := time.LoadLocation(timezone)
-	m.DoSync(func() { m.timezone = tz })
+	m.Lock()
+	m.timezone = tz
+	m.Unlock()
 	if !m.Error(err) {
 		m.Update()
 	}
@@ -89,24 +93,25 @@ func (m *module) Timezone(timezone string) Module {
 }
 
 func (m *module) Granularity(granularity time.Duration) Module {
-	m.DoSync(func() { m.granularity = granularity })
+	m.Lock()
+	m.granularity = granularity
+	m.Unlock()
 	m.Update()
 	return m
 }
 
 func (m *module) update() {
-	now := scheduler.Now()
-	var out bar.Output
-	var next time.Time
-	m.DoSync(func() {
-		if m.timezone == nil {
-			return
-		}
-		out = m.outputFunc(now.In(m.timezone))
-		next = now.Add(m.granularity).Truncate(m.granularity)
-	})
-	if out != nil {
-		m.Output(out)
-		m.Schedule().At(next)
+	m.Lock()
+	tz := m.timezone
+	m.Unlock()
+	if tz == nil {
+		return
 	}
+	now := scheduler.Now()
+	m.Lock()
+	out := m.outputFunc(now.In(m.timezone))
+	next := now.Add(m.granularity).Truncate(m.granularity)
+	m.Unlock()
+	m.Output(out)
+	m.Schedule().At(next)
 }
