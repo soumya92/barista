@@ -337,7 +337,7 @@ func (i *infoReader) updateMetadata() {
 		i.updates.metadata = true
 	}
 	if id, ok := metadata["mpris:trackid"]; ok {
-		trackID := id.Value().(string)
+		trackID := id.String()
 		if trackID != i.trackID {
 			// mpris suggests that position should be reset on track change.
 			i.lastPosition = 0
