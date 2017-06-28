@@ -81,7 +81,7 @@ type module struct {
 func New() Module {
 	m := &module{Base: base.New()}
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.Schedule().Every(3 * time.Second)
+	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the 1-minute load average.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`))
 	// Update load average when asked.
@@ -90,7 +90,9 @@ func New() Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(LoadAvg) bar.Output) Module {
+	m.Lock()
 	m.outputFunc = outputFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
@@ -110,26 +112,33 @@ func (m *module) RefreshInterval(interval time.Duration) Module {
 }
 
 func (m *module) OutputColor(colorFunc func(LoadAvg) bar.Color) Module {
+	m.Lock()
 	m.colorFunc = colorFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(LoadAvg) bool) Module {
+	m.Lock()
 	m.urgentFunc = urgentFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
 
 func (m *module) update() {
-	count, err := C.getloadavg((*C.double)(&m.loads[0]), 3)
+	m.Lock()
+	count, err := getloadavg(&m.loads, 3)
+	m.Unlock()
+	if m.Error(err) {
+		return
+	}
 	if count != 3 {
 		m.Error(fmt.Errorf("getloadavg: %d", count))
 		return
 	}
-	if m.Error(err) {
-		return
-	}
+	m.Lock()
 	out := m.outputFunc(m.loads)
 	if m.urgentFunc != nil {
 		out.Urgent(m.urgentFunc(m.loads))
@@ -137,5 +146,12 @@ func (m *module) update() {
 	if m.colorFunc != nil {
 		out.Color(m.colorFunc(m.loads))
 	}
+	m.Unlock()
 	m.Output(out)
+}
+
+// To allow tests to mock out getloadavg.
+var getloadavg = func(out *LoadAvg, count int) (int, error) {
+	read, err := C.getloadavg((*C.double)(&out[0]), (C.int)(count))
+	return int(read), err
 }
