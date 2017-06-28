@@ -17,10 +17,12 @@ package cputemp
 
 import (
 	"fmt"
-	"io/ioutil"
+	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
@@ -32,17 +34,17 @@ type Temperature float64
 
 // C returns the temperature in degrees celcius.
 func (t Temperature) C() int {
-	return int(t)
+	return int(math.Floor(float64(t) + .5))
 }
 
 // K returns the temperature in kelvin.
 func (t Temperature) K() int {
-	return int(float64(t) + 273.15)
+	return int(math.Floor(float64(t) + 273.15 + .5))
 }
 
 // F returns the temperature in degrees fahrenheit.
 func (t Temperature) F() int {
-	return int(float64(t)*1.8 + 32)
+	return int(math.Floor(float64(t)*1.8 + 32 + .5))
 }
 
 // Module represents a cputemp bar module. It supports setting the output
@@ -76,8 +78,6 @@ type module struct {
 	outputFunc  func(Temperature) bar.Output
 	colorFunc   func(Temperature) bar.Color
 	urgentFunc  func(Temperature) bool
-	// Store last cpu temp to skip updates when unchanged.
-	lastTempMilliC int
 }
 
 // Zone constructs an instance of the cputemp module for the specified zone.
@@ -88,13 +88,10 @@ func Zone(thermalZone string) Module {
 		thermalFile: fmt.Sprintf("/sys/class/thermal/%s/temp", thermalZone),
 	}
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.Schedule().Every(3 * time.Second)
+	m.RefreshInterval(3 * time.Second)
 	// Default output template, if no template/function was specified.
 	m.OutputTemplate(outputs.TextTemplate(`{{.C}}℃`))
 	// Update temperature when asked.
-	// Ideally fsnotify would work for sensors as well, but it doesn't, so we'll
-	// compromise by polling here but only updating the bar when the temperature
-	// actually changes.
 	m.OnUpdate(m.update)
 	return m
 }
@@ -105,7 +102,9 @@ func DefaultZone() Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(Temperature) bar.Output) Module {
+	m.Lock()
 	m.outputFunc = outputFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
@@ -122,19 +121,25 @@ func (m *module) RefreshInterval(interval time.Duration) Module {
 }
 
 func (m *module) OutputColor(colorFunc func(Temperature) bar.Color) Module {
+	m.Lock()
 	m.colorFunc = colorFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(Temperature) bool) Module {
+	m.Lock()
 	m.urgentFunc = urgentFunc
+	m.Unlock()
 	m.Update()
 	return m
 }
 
+var fs = afero.NewOsFs()
+
 func (m *module) update() {
-	bytes, err := ioutil.ReadFile(m.thermalFile)
+	bytes, err := afero.ReadFile(fs, m.thermalFile)
 	if m.Error(err) {
 		return
 	}
@@ -143,10 +148,8 @@ func (m *module) update() {
 	if m.Error(err) {
 		return
 	}
-	if milliC == m.lastTempMilliC {
-		return
-	}
 	temp := Temperature(float64(milliC) / 1000.0)
+	m.Lock()
 	out := m.outputFunc(temp)
 	if m.urgentFunc != nil {
 		out.Urgent(m.urgentFunc(temp))
@@ -154,6 +157,6 @@ func (m *module) update() {
 	if m.colorFunc != nil {
 		out.Color(m.colorFunc(temp))
 	}
+	m.Unlock()
 	m.Output(out)
-	m.lastTempMilliC = milliC
 }
