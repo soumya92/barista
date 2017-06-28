@@ -69,9 +69,8 @@ func New() Module {
 
 func (m *module) OutputFunc(outputFunc func(time.Time) bar.Output) Module {
 	m.Lock()
+	defer m.UnlockAndUpdate()
 	m.outputFunc = outputFunc
-	m.Unlock()
-	m.Update()
 	return m
 }
 
@@ -94,9 +93,8 @@ func (m *module) Timezone(timezone string) Module {
 
 func (m *module) Granularity(granularity time.Duration) Module {
 	m.Lock()
+	defer m.UnlockAndUpdate()
 	m.granularity = granularity
-	m.Unlock()
-	m.Update()
 	return m
 }
 

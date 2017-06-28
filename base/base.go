@@ -145,6 +145,15 @@ func (b *Base) Update() {
 	go b.updateFunc()
 }
 
+// UnlockAndUpdate unlocks the base mutex and marks the module as
+// ready for an update. The primary use case for this method is to allow
+// defer base.UnlockAndUpdate(), since otherwise implementing modules
+// must unlock the mutex before updating, preventing the use of defer.
+func (b *Base) UnlockAndUpdate() {
+	b.Unlock()
+	b.Update()
+}
+
 // OnClick sets the click handler.
 // This is a minimal default implementation; derived modules should implement an
 // alternative OnClick method that exposes module-specific data to the handler function.

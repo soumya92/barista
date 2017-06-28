@@ -91,9 +91,8 @@ func New() Module {
 
 func (m *module) OutputFunc(outputFunc func(LoadAvg) bar.Output) Module {
 	m.Lock()
+	defer m.UnlockAndUpdate()
 	m.outputFunc = outputFunc
-	m.Unlock()
-	m.Update()
 	return m
 }
 
@@ -113,17 +112,15 @@ func (m *module) RefreshInterval(interval time.Duration) Module {
 
 func (m *module) OutputColor(colorFunc func(LoadAvg) bar.Color) Module {
 	m.Lock()
+	defer m.UnlockAndUpdate()
 	m.colorFunc = colorFunc
-	m.Unlock()
-	m.Update()
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(LoadAvg) bool) Module {
 	m.Lock()
+	defer m.UnlockAndUpdate()
 	m.urgentFunc = urgentFunc
-	m.Unlock()
-	m.Update()
 	return m
 }
 

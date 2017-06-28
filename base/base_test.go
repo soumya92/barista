@@ -16,6 +16,9 @@ package base
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,6 +26,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base/scheduler"
+	"github.com/soumya92/barista/outputs"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
@@ -34,8 +38,8 @@ func TestError(t *testing.T) {
 	o := testModule.NewOutputTester(t, b)
 
 	assert.True(t, b.Error(fmt.Errorf("test error")), "returns true for non-nil error")
-	out := o.AssertOutput("on error")
-	assert.Equal(t, "test error", out[0]["full_text"], "error message is displayed on the output")
+	err := o.AssertError("on error")
+	assert.Equal(t, "test error", err, "error message is displayed on the output")
 
 	assert.False(t, b.Error(nil), "returns false for nil error")
 	o.AssertNoOutput("on nil error")
@@ -94,7 +98,7 @@ func TestPauseResume(t *testing.T) {
 	updateCalled := false
 	b.OnUpdate(func() {
 		updateCalled = true
-		b.Output(bar.Output{bar.NewSegment("test")})
+		b.Output(outputs.Text("test"))
 	})
 	o := testModule.NewOutputTester(t, b)
 
@@ -132,14 +136,14 @@ func TestPauseResume(t *testing.T) {
 	assertNoUpdate("on resume if update not called while paused")
 
 	b.Pause()
-	oldOut := bar.Output{bar.NewSegment("output")}
+	oldOut := outputs.Text("output")
 	b.Output(oldOut)
 	o.AssertNoOutput("while paused")
 
 	b.Clear()
 	o.AssertNoOutput("while paused")
 
-	newOut := bar.Output{bar.NewSegment("new")}
+	newOut := outputs.Text("new")
 	b.Output(newOut)
 	o.AssertNoOutput("while paused")
 
@@ -157,7 +161,7 @@ func TestClickUpdates(t *testing.T) {
 	updateCalled := false
 	b.OnUpdate(func() {
 		updateCalled = true
-		b.Output(bar.Output{bar.NewSegment("test")})
+		b.Output(outputs.Text("test"))
 	})
 	var lastClickEvent *bar.Event
 	b.OnClick(func(e bar.Event) {
@@ -236,4 +240,91 @@ func TestClickUpdates(t *testing.T) {
 	}
 
 	// TODO: Test shelling out to i3-nagbar on left-click.
+}
+
+func hammerOnBase(b *Base, done chan<- interface{}) {
+	for i := 0; i < 10; i++ {
+		b.OnUpdate(func() {
+			b.Output(outputs.Text("update"))
+		})
+		b.Output(outputs.Text("test"))
+		b.Update()
+		b.OnClick(func(e bar.Event) {})
+		b.Clear()
+		b.Error(fmt.Errorf("test error"))
+	}
+	done <- nil
+}
+
+func devNull(b *Base) {
+	for range b.Stream() {
+	}
+}
+
+// Simple tests to ensure that base is locked appropriately.
+// This test is primarily meant to run under the race detector.
+func TestLocking(t *testing.T) {
+	b := New()
+	// Prevent output channel from filling up.
+	go devNull(b)
+	doneChan := make(chan interface{})
+	// Detect any data races.
+	for i := 0; i < 5; i++ {
+		go hammerOnBase(b, doneChan)
+	}
+	for i := 0; i < 5; i++ {
+		<-doneChan
+	}
+	// Track updates
+	updateCalled := false
+	b.OnUpdate(func() {
+		updateCalled = true
+		doneChan <- nil
+	})
+	// Ensure locking works correctly.
+	b.Lock()
+	go func() {
+		b.Lock()
+		doneChan <- nil
+	}()
+	select {
+	case <-doneChan:
+		assert.Fail(t, "lock did not wait for unlock!")
+	default:
+	}
+	b.Unlock()
+	select {
+	case <-doneChan:
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "lock did not return after unlock!")
+	}
+	assert.False(t, updateCalled, "on simple unlocking")
+
+	b.UnlockAndUpdate()
+	<-doneChan
+	assert.True(t, updateCalled, "UnlockAndUpdate")
+
+	testFatalUnlockError(t, "unlock")
+	testFatalUnlockError(t, "unlockAndUpdate")
+}
+
+func testFatalUnlockError(t *testing.T, testName string) {
+	out, err := exec.Command(os.Args[0], "FatalUnlockError", testName).CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "unlocked") {
+		t.Errorf("%s: did not find failure with message about unlocked lock: %s\n%s\n", testName, err, out)
+	}
+}
+
+func init() {
+	if len(os.Args) == 3 && os.Args[1] == "FatalUnlockError" {
+		switch os.Args[2] {
+		case "unlock":
+			b := New()
+			b.Unlock()
+		case "unlockAndUpdate":
+			b := New()
+			b.UnlockAndUpdate()
+		}
+		os.Exit(0)
+	}
 }
