@@ -95,9 +95,8 @@ func TestZones(t *testing.T) {
 	out = tTokyo.AssertOutput("on start")
 	assert.Equal(bar.NewSegment("22:15:00"), out[0])
 
-	out = tUnknown.AssertOutput("on start with error")
-	assert.Contains(out[0].Text(), "Global/Unknown")
-	assert.True(out[0]["urgent"].(bool))
+	errStr := tUnknown.AssertError("on start with error")
+	assert.Contains(errStr, "Global/Unknown", "error mentions time zone")
 
 	scheduler.NextTick()
 

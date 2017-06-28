@@ -21,6 +21,7 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
 )
 
 func finishedWithin(f func(), timeout time.Duration) bool {
@@ -40,7 +41,7 @@ func finishedWithin(f func(), timeout time.Duration) bool {
 func TestSimple(t *testing.T) {
 	m := New(t)
 	m.AssertNotStarted("Initially not started")
-	initialOutput := bar.Output{bar.NewSegment("hello")}
+	initialOutput := outputs.Text("hello")
 	assert.True(t,
 		finishedWithin(func() { m.Output(initialOutput) }, time.Second),
 		"Output does not block before start")
@@ -48,7 +49,7 @@ func TestSimple(t *testing.T) {
 	m.AssertStarted("Started when streaming starts")
 	assert.Panics(t, func() { m.Stream() }, "Panics when streamed again")
 
-	secondOutput := bar.Output{bar.NewSegment("world")}
+	secondOutput := outputs.Text("world")
 	m.Output(secondOutput)
 	var out bar.Output
 	assert.True(t,
@@ -64,9 +65,9 @@ func TestSimple(t *testing.T) {
 
 func TestOutputBuffer(t *testing.T) {
 	m := New(t)
-	out1 := bar.Output{bar.NewSegment("1")}
-	out2 := bar.Output{bar.NewSegment("2")}
-	out3 := bar.Output{bar.NewSegment("3")}
+	out1 := outputs.Text("1")
+	out2 := outputs.Text("2")
+	out3 := outputs.Text("3")
 	ch := m.Stream()
 	m.Output(out1)
 	m.Output(out2)
@@ -185,8 +186,8 @@ func TestReset(t *testing.T) {
 	m.Pause()
 	m.Resume()
 	m.Pause()
-	m.Output(bar.Output{})
-	m.Output(bar.Output{bar.NewSegment("test")})
+	m.Output(outputs.Empty())
+	m.Output(outputs.Text("test"))
 	m.Click(bar.Event{})
 	m.Stream()
 	m.AssertStarted("some assertions before reset")
@@ -208,12 +209,16 @@ func TestOutputTester(t *testing.T) {
 	o := NewOutputTester(t, m)
 	m.AssertStarted("by output tester")
 	o.AssertNoOutput("no output")
-	testOut := bar.Output{bar.NewSegment("test")}
+	testOut := outputs.Text("test")
 	m.Output(testOut)
 	actualOut := o.AssertOutput("has output")
 	assert.Equal(t, testOut, actualOut, "output passed through")
-	m.Output(bar.Output{})
+	m.Output(outputs.Empty())
 	o.AssertEmpty("on empty output")
+
+	m.Output(outputs.Errorf("error"))
+	errStr := o.AssertError("on error output")
+	assert.Equal(t, "error", errStr, "error string passed through")
 
 	fakeT := &testing.T{}
 	m = New(fakeT)
@@ -237,4 +242,27 @@ func TestOutputTester(t *testing.T) {
 	assert.False(t, fakeT.Failed(), "before failing assertion")
 	o.AssertEmpty("with non-empty output")
 	assert.True(t, fakeT.Failed(), "AssertEmpty with non-empty output")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	o = NewOutputTester(fakeT, m)
+	m.Output(testOut)
+	assert.False(t, fakeT.Failed(), "before failing assertion")
+	o.AssertError("with non-error output")
+	assert.True(t, fakeT.Failed(), "AssertError with non-error output")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	o = NewOutputTester(fakeT, m)
+	m.Output(outputs.Empty())
+	assert.False(t, fakeT.Failed(), "before failing assertion")
+	o.AssertError("with empty output")
+	assert.True(t, fakeT.Failed(), "AssertError with empty output")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	o = NewOutputTester(fakeT, m)
+	assert.False(t, fakeT.Failed(), "before failing assertion")
+	o.AssertError("with no output")
+	assert.True(t, fakeT.Failed(), "AssertError with empty output")
 }

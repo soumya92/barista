@@ -34,6 +34,12 @@ func Empty() bar.Output {
 	return bar.Output{}
 }
 
+// Errorf constructs a bar output that indicates an error,
+// using the given format string and arguments.
+func Errorf(format string, args ...interface{}) bar.Output {
+	return Error(fmt.Errorf(format, args...))
+}
+
 // Error constructs a bar output that indicates an error.
 func Error(e error) bar.Output {
 	return bar.Output{bar.NewSegment(e.Error()).

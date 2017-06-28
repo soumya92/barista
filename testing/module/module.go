@@ -186,3 +186,21 @@ func (o *OutputTester) AssertEmpty(message string) {
 	out := o.AssertOutput(message)
 	assert.Empty(o, out, message)
 }
+
+// AssertError asserts that the output channel was updated with an error,
+// and returns the error string.
+func (o *OutputTester) AssertError(message string) string {
+	out := o.AssertOutput(message)
+	if len(out) != 1 {
+		assert.Fail(o, "Expected an error output", message)
+		return ""
+	}
+	urgent, ok := out[0]["urgent"]
+	if !ok {
+		assert.Fail(o, "Expected an error output", message)
+		return ""
+	}
+	assert.True(o, urgent.(bool), message)
+	assert.Equal(o, out[0]["short_text"], "Error", message)
+	return out[0].Text()
+}

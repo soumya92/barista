@@ -242,6 +242,12 @@ func TestErrors(t *testing.T) {
 		},
 
 		{
+			"errorf with arguments",
+			Errorf("cannot add %d and %s", 1, "a"),
+			"cannot add 1 and a",
+		},
+
+		{
 			"error in pango template",
 			PangoTemplate(`<b>{{.NoSuchField}}</b>`)(testObject),
 			"can't evaluate field NoSuchField",
@@ -255,6 +261,8 @@ func TestErrors(t *testing.T) {
 	}
 	for _, tc := range tests {
 		assert.Contains(t, textOf(tc.output), tc.expected, tc.desc)
+		assert.Equal(t, tc.output[0]["short_text"], "Error",
+			"Short text is set to 'Error'")
 		assert.True(t, tc.output[0]["urgent"].(bool), "error is marked urgent")
 	}
 }
