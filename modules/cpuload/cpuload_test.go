@@ -64,7 +64,7 @@ var mockloadavg = func(out *LoadAvg, count int) (int, error) {
 	return simulatedCount, simulatedErr
 }
 
-func TestCounter(t *testing.T) {
+func TestCpuload(t *testing.T) {
 	assert := assert.New(t)
 	getloadavg = mockloadavg
 	scheduler.TestMode(true)
