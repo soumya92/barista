@@ -198,8 +198,8 @@ func (owm Provider) GetWeather() (*weather.Weather, error) {
 		Sunset:      time.Unix(o.Sys.Sunset, 0),
 		Updated:     time.Unix(o.Dt, 0),
 		Wind: weather.Wind{
-			weather.SpeedFromMs(o.Wind.Speed),
-			weather.Direction(int(o.Wind.Deg)),
+			Speed:     weather.SpeedFromMs(o.Wind.Speed),
+			Direction: weather.Direction(int(o.Wind.Deg)),
 		},
 		Attribution: "OpenWeatherMap",
 	}, nil

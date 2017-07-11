@@ -175,8 +175,8 @@ func (wu Provider) GetWeather() (*weather.Weather, error) {
 		Pressure:    parsePressure(w.CurrentObservation.PressureMb),
 		Updated:     parseUnixTime(w.CurrentObservation.ObservationEpoch),
 		Wind: weather.Wind{
-			weather.SpeedFromKmh(w.CurrentObservation.WindKph),
-			weather.Direction(w.CurrentObservation.WindDegrees),
+			Speed:     weather.SpeedFromKmh(w.CurrentObservation.WindKph),
+			Direction: weather.Direction(w.CurrentObservation.WindDegrees),
 		},
 		Attribution: "Weather Underground",
 	}, nil

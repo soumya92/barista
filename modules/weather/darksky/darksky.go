@@ -140,8 +140,8 @@ func (ds Provider) GetWeather() (*weather.Weather, error) {
 		CloudCover:  d.Currently.CloudCover,
 		Updated:     time.Unix(d.Currently.Time, 0),
 		Wind: weather.Wind{
-			weather.SpeedFromMph(d.Currently.WindSpeed),
-			weather.Direction(d.Currently.WindBearing),
+			Speed:     weather.SpeedFromMph(d.Currently.WindSpeed),
+			Direction: weather.Direction(d.Currently.WindBearing),
 		},
 		Attribution: "Dark Sky",
 	}

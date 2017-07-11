@@ -335,8 +335,8 @@ func (p Provider) GetWeather() (*weather.Weather, error) {
 		Humidity:    relativeHumidity(m.Temperature, m.Dewpoint),
 		Pressure:    m.getBarometricPressure(),
 		Wind: weather.Wind{
-			weather.SpeedFromKnots(float64(m.WindSpeed)),
-			weather.Direction(m.WindDirection),
+			Speed:     weather.SpeedFromKnots(float64(m.WindSpeed)),
+			Direction: weather.Direction(m.WindDirection),
 		},
 		CloudCover:  m.getCloudCover(),
 		Updated:     updated,
