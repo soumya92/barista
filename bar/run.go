@@ -143,7 +143,7 @@ func (b *I3Bar) addModule(module Module) {
 		Name:   name,
 	}
 	if pauseable, ok := module.(Pausable); ok {
-		i3Module.paused = make(chan bool)
+		i3Module.paused = make(chan bool, 10)
 		i3Module.pausable = pauseable
 		go i3Module.loopPauseResume()
 	}
