@@ -43,6 +43,22 @@ func TestError(t *testing.T) {
 
 	assert.False(t, b.Error(nil), "returns false for nil error")
 	o.AssertNoOutput("on nil error")
+
+	b.Error(fmt.Errorf("something"))
+	o.AssertError("on error")
+	assert.NotNil(t, b.lastError, "last error is set")
+
+	b.Output(outputs.Text("test"))
+	o.AssertOutput("on regular output, in error state")
+	assert.Nil(t, b.lastError, "last error is cleared on non-error output")
+
+	b.Error(fmt.Errorf("something"))
+	o.AssertError("on error")
+	assert.NotNil(t, b.lastError, "last error is set")
+
+	b.Clear()
+	o.AssertOutput("on clear, in error state")
+	assert.Nil(t, b.lastError, "last error is also cleared")
 }
 
 // TestUpdateAndScheduler tests that update functions (including nil)
