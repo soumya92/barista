@@ -47,6 +47,11 @@ type i3Module struct {
 	Module
 	Name       string
 	LastOutput i3Output
+	// Keep track of the paused/resumed state of the module.
+	// Using a channel here allows concurrent pause/resume across
+	// modules while guaranteeing ordering.
+	paused   chan bool
+	pausable Pausable
 }
 
 // output converts the module's output to i3Output by adding the name (position),
@@ -61,6 +66,34 @@ func (m *i3Module) output(ch chan<- interface{}) {
 		}
 		m.LastOutput = i3out
 		ch <- nil
+	}
+}
+
+// loopPauseResume loops over values on the resumed channel and calls
+// pause or resume on the wrapped module as appropriate.
+func (m *i3Module) loopPauseResume() {
+	for paused := range m.paused {
+		if paused {
+			m.pausable.Pause()
+		} else {
+			m.pausable.Resume()
+		}
+	}
+}
+
+// pause enqueues a pause call on the wrapped module
+// if the wrapped module supports being paused.
+func (m *i3Module) pause() {
+	if m.paused != nil {
+		m.paused <- true
+	}
+}
+
+// resume enqueues a resume call on the wrapped module
+// if the wrapped module supports being paused.
+func (m *i3Module) resume() {
+	if m.paused != nil {
+		m.paused <- false
 	}
 }
 
@@ -108,6 +141,11 @@ func (b *I3Bar) addModule(module Module) {
 	i3Module := i3Module{
 		Module: module,
 		Name:   name,
+	}
+	if pauseable, ok := module.(Pausable); ok {
+		i3Module.paused = make(chan bool)
+		i3Module.pausable = pauseable
+		go i3Module.loopPauseResume()
 	}
 	b.i3Modules = append(b.i3Modules, &i3Module)
 }
@@ -283,17 +321,13 @@ func (b *I3Bar) readEvents() {
 // pause instructs all pausable modules to suspend processing.
 func (b *I3Bar) pause() {
 	for _, m := range b.i3Modules {
-		if pausable, ok := m.Module.(Pausable); ok {
-			go pausable.Pause()
-		}
+		m.pause()
 	}
 }
 
 // resume instructs all pausable modules to continue processing.
 func (b *I3Bar) resume() {
 	for _, m := range b.i3Modules {
-		if pausable, ok := m.Module.(Pausable); ok {
-			go pausable.Resume()
-		}
+		m.resume()
 	}
 }
