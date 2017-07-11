@@ -212,7 +212,7 @@ func (m metar) getCloudCover() float64 {
 	return float64(m.getCloudiness()) / 8.0
 }
 
-var thunderstormPattern = regexp.MustCompile(`\b[+-]?TS(..)\b`) // +TSRA, -TSSN
+var thunderstormPattern = regexp.MustCompile(`\b[+-]?TS(..)?\b`) // +TSRA, -TSSN, TS
 var precipPattern = regexp.MustCompile(`\b([+-]?)(..)?(..)\b`)
 
 // see http://weather.cod.edu/notes/metar.html
