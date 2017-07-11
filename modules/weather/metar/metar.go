@@ -299,6 +299,16 @@ func (p Provider) GetWeather() (*weather.Weather, error) {
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode >= 500 {
+		// The METAR server occasionally times out and throws 5xx
+		// errors. Don't treat these as an error - just keep using
+		// the last weather report, and try again later.
+		return nil, nil
+	} else if response.StatusCode != 200 {
+		err = fmt.Errorf("Could not fetch METAR: %s", response.Status)
+		return nil, err
+	}
+
 	var resp addsResponse
 	err = xml.NewDecoder(response.Body).Decode(&resp)
 	if err != nil {
