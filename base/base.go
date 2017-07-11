@@ -199,12 +199,9 @@ func (b *Base) Clear() {
 // Output updates the module's output.
 func (b *Base) Output(out bar.Output) {
 	b.Lock()
-	defer b.Unlock()
-	if b.paused {
-		b.outputOnResume = out
-		return
-	}
-	b.channel <- out
+	b.lastError = nil
+	b.Unlock()
+	b.internalOutput(out)
 }
 
 // Error shows an error on the bar.
@@ -217,8 +214,20 @@ func (b *Base) Error(err error) bool {
 	b.Lock()
 	b.lastError = err
 	b.Unlock()
-	b.Output(outputs.Error(err))
+	b.internalOutput(outputs.Error(err))
 	return true
+}
+
+// internalOutput updates the module's output,
+// while accounting for the module's paused state.
+func (b *Base) internalOutput(out bar.Output) {
+	b.Lock()
+	defer b.Unlock()
+	if b.paused {
+		b.outputOnResume = out
+		return
+	}
+	b.channel <- out
 }
 
 // Schedule returns the scheduler for the module's update function.
