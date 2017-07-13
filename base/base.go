@@ -86,9 +86,6 @@ func (b *Base) Click(e bar.Event) {
 	}
 	switch e.Button {
 	case bar.ButtonRight, bar.ButtonMiddle:
-		b.Lock()
-		b.lastError = nil
-		b.Unlock()
 		b.Clear()
 		b.Update()
 	case bar.ButtonLeft:
@@ -199,8 +196,8 @@ func (b *Base) Clear() {
 // Output updates the module's output.
 func (b *Base) Output(out bar.Output) {
 	b.Lock()
+	defer b.Unlock()
 	b.lastError = nil
-	b.Unlock()
 	b.internalOutput(out)
 }
 
@@ -212,8 +209,8 @@ func (b *Base) Error(err error) bool {
 		return false
 	}
 	b.Lock()
+	defer b.Unlock()
 	b.lastError = err
-	b.Unlock()
 	b.internalOutput(outputs.Error(err))
 	return true
 }
@@ -221,8 +218,6 @@ func (b *Base) Error(err error) bool {
 // internalOutput updates the module's output,
 // while accounting for the module's paused state.
 func (b *Base) internalOutput(out bar.Output) {
-	b.Lock()
-	defer b.Unlock()
 	if b.paused {
 		b.outputOnResume = out
 		return
