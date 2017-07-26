@@ -35,6 +35,8 @@ submodules with that output template. This would allow for code like:
 package multi
 
 import (
+	"sync"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 )
@@ -44,6 +46,7 @@ type ModuleSet struct {
 	submodules []*base.Base
 	updateFunc func()
 	primaryIdx int
+	mutex      sync.Mutex
 }
 
 // NewModuleSet constructs a new multi-module.
@@ -63,6 +66,8 @@ type Submodule interface {
 
 // New creates a submodule
 func (m *ModuleSet) New() Submodule {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	module := base.New()
 	key := len(m.submodules)
 	module.OnUpdate(m.onDemandUpdate(key))
@@ -72,6 +77,8 @@ func (m *ModuleSet) New() Submodule {
 
 // Clear hides all modules from the bar.
 func (m *ModuleSet) Clear() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	for _, module := range m.submodules {
 		module.Clear()
 	}
@@ -79,6 +86,8 @@ func (m *ModuleSet) Clear() {
 
 // Error sets all modules to an error state.
 func (m *ModuleSet) Error(err error) bool {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	if err == nil {
 		return false
 	}
@@ -90,6 +99,8 @@ func (m *ModuleSet) Error(err error) bool {
 
 // Update marks submodules as ready for an update.
 func (m *ModuleSet) Update() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	if m.primaryIdx >= 0 {
 		m.submodules[m.primaryIdx].Update()
 		return
@@ -104,6 +115,8 @@ func (m *ModuleSet) Update() {
 // and subsequent updates may be scheduled using timer.AfterFunc,
 // a goroutine, or an asynchronous mechanism.
 func (m *ModuleSet) OnUpdate(updateFunc func()) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	m.updateFunc = updateFunc
 }
 
@@ -111,6 +124,8 @@ func (m *ModuleSet) OnUpdate(updateFunc func()) {
 // ensure that it's only called once between updates for all submodules.
 func (m *ModuleSet) onDemandUpdate(key int) func() {
 	return func() {
+		m.mutex.Lock()
+		defer m.mutex.Unlock()
 		// The first submodule to update is marked "primary".
 		// Any calls to update actually end up calling update on the primary submodule,
 		// and all update scheduling is performed on the primary submodule as well.

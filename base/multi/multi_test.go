@@ -103,3 +103,30 @@ func TestUpdates(t *testing.T) {
 	sub2.Resume()
 	assertNotUpdated(t, "when resumed if not updated while paused")
 }
+
+func TestMultipleSubmodules(t *testing.T) {
+	m := NewModuleSet()
+	m.OnUpdate(updateFunc)
+
+	m.Update()
+	assertNotUpdated(t, "when no submodules exist")
+
+	sub1 := m.New()
+	sub2 := m.New()
+	sub3 := m.New()
+
+	m.Update()
+	assertNotUpdated(t, "when submodule hasn't started")
+
+	sub1.Stream()
+	sub2.Stream()
+	sub3.Stream()
+	for i := 0; i < 3; i++ {
+		assertUpdated(t, "when submodule is first started")
+	}
+	assertNotUpdated(t, "when no submodule is updated")
+
+	sub2.Update()
+	assertUpdated(t, "when a submodule is updated")
+	assertNotUpdated(t, "when no submodule is updated")
+}
