@@ -100,12 +100,16 @@ func (m *ModuleSet) Error(err error) bool {
 // Update marks submodules as ready for an update.
 func (m *ModuleSet) Update() {
 	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	if m.primaryIdx >= 0 {
-		m.submodules[m.primaryIdx].Update()
+	primaryIdx := m.primaryIdx
+	m.mutex.Unlock()
+	if primaryIdx >= 0 {
+		m.submodules[primaryIdx].Update()
 		return
 	}
-	for _, module := range m.submodules {
+	m.mutex.Lock()
+	submodules := m.submodules
+	m.mutex.Unlock()
+	for _, module := range submodules {
 		module.Update()
 	}
 }
@@ -125,15 +129,16 @@ func (m *ModuleSet) OnUpdate(updateFunc func()) {
 func (m *ModuleSet) onDemandUpdate(key int) func() {
 	return func() {
 		m.mutex.Lock()
-		defer m.mutex.Unlock()
 		// The first submodule to update is marked "primary".
 		// Any calls to update actually end up calling update on the primary submodule,
 		// and all update scheduling is performed on the primary submodule as well.
 		if m.primaryIdx < 0 {
 			m.primaryIdx = key
 		}
-		if m.updateFunc != nil {
-			m.updateFunc()
+		updateFunc := m.updateFunc
+		m.mutex.Unlock()
+		if updateFunc != nil {
+			updateFunc()
 		}
 	}
 }
