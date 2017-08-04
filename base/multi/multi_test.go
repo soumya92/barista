@@ -126,7 +126,11 @@ func TestMultipleSubmodules(t *testing.T) {
 	}
 	assertNotUpdated(t, "when no submodule is updated")
 
+	sub1.Update()
 	sub2.Update()
-	assertUpdated(t, "when a submodule is updated")
+	sub3.Update()
+	for i := 0; i < 3; i++ {
+		assertUpdated(t, "when a submodule is updated")
+	}
 	assertNotUpdated(t, "when no submodule is updated")
 }
