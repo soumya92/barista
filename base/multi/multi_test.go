@@ -118,19 +118,26 @@ func TestMultipleSubmodules(t *testing.T) {
 	m.Update()
 	assertNotUpdated(t, "when submodule hasn't started")
 
-	sub1.Stream()
-	sub2.Stream()
-	sub3.Stream()
+	go sub1.Stream()
+	go sub2.Stream()
+	go sub3.Stream()
 	for i := 0; i < 3; i++ {
 		assertUpdated(t, "when submodule is first started")
 	}
 	assertNotUpdated(t, "when no submodule is updated")
 
-	sub1.Update()
-	sub2.Update()
-	sub3.Update()
+	go sub1.Update()
+	go sub2.Update()
+	go sub3.Update()
 	for i := 0; i < 3; i++ {
 		assertUpdated(t, "when a submodule is updated")
 	}
 	assertNotUpdated(t, "when no submodule is updated")
+
+	for i := 0; i < 3; i++ {
+		go m.Update()
+	}
+	for i := 0; i < 3; i++ {
+		assertUpdated(t, "when multi module is updated")
+	}
 }
