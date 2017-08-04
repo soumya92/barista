@@ -163,3 +163,31 @@ func TestTestMode(t *testing.T) {
 	AdvanceBy(10 * time.Millisecond)
 	d1.assertCalled("after interval elapses")
 }
+
+func TestTestModeReset(t *testing.T) {
+
+	TestMode(true)
+
+	d1 := newDoFunc(t)
+	Do(d1.Func).Every(time.Second)
+
+	startTime := Now()
+	assert.Equal(t, startTime.Add(time.Second), NextTick())
+	d1.assertCalled("triggers every second")
+
+	assert.Equal(t, startTime.Add(2*time.Second), NextTick())
+	d1.assertCalled("triggers every second")
+
+	TestMode(true)
+	d2 := newDoFunc(t)
+	Do(d2.Func).Every(time.Minute)
+
+	startTime = Now()
+	assert.Equal(t, startTime.Add(time.Minute), NextTick())
+	d1.assertNotCalled("previous scheduler is not triggered")
+	d2.assertCalled("new scheduler is triggered")
+
+	assert.Equal(t, startTime.Add(2*time.Minute), NextTick())
+	d1.assertNotCalled("previous scheduler is not triggered")
+	d2.assertCalled("new scheduler is repeatedly triggered")
+}

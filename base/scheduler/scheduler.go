@@ -166,6 +166,7 @@ func TestMode(enabled bool) {
 	// Set to non-zero time when entering test mode so that any IsZero
 	// checks don't unexpectedly pass.
 	nowInTest = time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC)
+	testSchedulers = make(schedulerList, 0)
 }
 
 // testMode tracks whether all schedulers are in test mode.
