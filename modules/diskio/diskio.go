@@ -17,12 +17,13 @@ package diskio
 
 import (
 	"bufio"
-	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
@@ -67,9 +68,13 @@ func (i IO) Total() Rate {
 // for creating bar.Modules for each disk that can display different output
 // but fetch data from /proc/diskstats in one go.
 type Module struct {
+	sync.Mutex
 	moduleSet  *multi.ModuleSet
 	submodules map[string]*submodule
 	scheduler  scheduler.Scheduler
+	// Needed to prevent data race in tests.
+	// Signals after the module is done reading /proc/diskstats.
+	signalChan chan bool
 }
 
 // New constructs an instance of the diskio multi-module
@@ -87,12 +92,15 @@ func New() *Module {
 
 // RefreshInterval configures the polling frequency.
 func (m *Module) RefreshInterval(interval time.Duration) *Module {
+	// Scheduler is goroutine safe, don't need to lock here.
 	m.scheduler.Every(interval)
 	return m
 }
 
 // Disk creates a submodule that displays disk io rates for the given disk.
 func (m *Module) Disk(disk string) Submodule {
+	m.Lock()
+	defer m.Unlock()
 	s := &submodule{
 		Submodule: m.moduleSet.New(),
 		parent:    m.moduleSet,
@@ -123,7 +131,7 @@ type submodule struct {
 
 func (s *submodule) OutputFunc(outputFunc func(IO) bar.Output) Submodule {
 	s.outputFunc = outputFunc
-	s.parent.Update()
+	s.Update()
 	return s
 }
 
@@ -143,18 +151,22 @@ type io struct {
 // Update updates the last read information, and returns
 // the delta read and written since the last update in bytes/sec.
 func (i *io) Update(in, out uint64) (inRate, outRate int) {
-	duration := time.Since(i.Time).Seconds()
+	duration := scheduler.Now().Sub(i.Time).Seconds()
 	inRate = int(float64(in-i.In) / duration)
 	outRate = int(float64(out-i.Out) / duration)
 	i.In = in
 	i.Out = out
-	i.Time = time.Now()
+	i.Time = scheduler.Now()
 	return // inRate, outRate
 }
 
+var fs = afero.NewOsFs()
+
 func (m *Module) update() {
+	m.Lock()
+	defer m.Unlock()
 	var err error
-	f, err := os.Open("/proc/diskstats")
+	f, err := fs.Open("/proc/diskstats")
 	if m.moduleSet.Error(err) {
 		return
 	}
@@ -171,8 +183,8 @@ func (m *Module) update() {
 		}
 		// See https://www.kernel.org/doc/Documentation/iostats.txt
 		disk := info[2]
-		submodule, ok := m.submodules[disk]
-		if !ok {
+		submodule, found := m.submodules[disk]
+		if !found {
 			// Don't care about this disk
 			continue
 		}
@@ -199,7 +211,13 @@ func (m *Module) update() {
 	}
 	for disk, submodule := range m.submodules {
 		if !updated[disk] {
-			submodule.Clear()
+			if !submodule.io.Time.IsZero() {
+				submodule.Clear()
+				submodule.io = io{}
+			}
 		}
+	}
+	if m.signalChan != nil {
+		m.signalChan <- true
 	}
 }
