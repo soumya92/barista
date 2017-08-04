@@ -163,7 +163,9 @@ func TestMode(enabled bool) {
 	nowMutex.Lock()
 	defer nowMutex.Unlock()
 	testMode = enabled
-	nowInTest = time.Time{}
+	// Set to non-zero time when entering test mode so that any IsZero
+	// checks don't unexpectedly pass.
+	nowInTest = time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC)
 }
 
 // testMode tracks whether all schedulers are in test mode.

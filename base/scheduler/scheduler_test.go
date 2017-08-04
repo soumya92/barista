@@ -94,8 +94,7 @@ func TestTestMode(t *testing.T) {
 	d3 := newDoFunc(t)
 
 	TestMode(true)
-	assert.Equal(t, time.Time{}, Now(),
-		"zero time when test mode starts")
+	setNowTo(time.Time{})
 
 	sch1 := Do(d1.Func)
 	sch2 := Do(d2.Func)
