@@ -94,14 +94,13 @@ func TestTestMode(t *testing.T) {
 	d3 := newDoFunc(t)
 
 	TestMode(true)
-	setNowTo(time.Time{})
 
 	sch1 := Do(d1.Func)
 	sch2 := Do(d2.Func)
 	sch3 := Do(d3.Func)
 
-	zero := Now()
-	assert.Equal(t, zero, NextTick(),
+	startTime := Now()
+	assert.Equal(t, startTime, NextTick(),
 		"next tick doesn't change time when nothing is scheduled")
 	d1.assertNotCalled("when not scheduled")
 	d2.assertNotCalled("when not scheduled")
@@ -111,13 +110,13 @@ func TestTestMode(t *testing.T) {
 	sch2.After(time.Second)
 	sch3.After(time.Minute)
 
-	assert.Equal(t, zero.Add(time.Second), NextTick(),
+	assert.Equal(t, startTime.Add(time.Second), NextTick(),
 		"triggers earliest scheduler")
 	d2.assertCalled("triggers earliest scheduler")
 	d1.assertNotCalled("only earliest scheduler triggers")
 	d3.assertNotCalled("only earliest scheduler triggers")
 
-	assert.Equal(t, zero.Add(time.Minute), NextTick(),
+	assert.Equal(t, startTime.Add(time.Minute), NextTick(),
 		"triggers next scheduler")
 	d2.assertNotCalled("already elapsed")
 	d3.assertCalled("earliest scheduler triggers")
