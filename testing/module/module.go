@@ -24,8 +24,11 @@ import (
 	"github.com/soumya92/barista/bar"
 )
 
-// Time to wait for events. Overridden in tests.
+// Time to wait for events that are expected. Overridden in tests.
 var positiveTimeout = time.Second
+
+// Time to wait for events that are not expected.
+var negativeTimeout = 10 * time.Millisecond
 
 // TestModule represents a bar.Module used for testing.
 type TestModule struct {
@@ -110,7 +113,7 @@ func (t *TestModule) AssertNoPauseResume(message string) {
 	select {
 	case <-t.pauses:
 		t.assert.Fail("expected no pause/resume", message)
-	case <-time.After(10 * time.Millisecond):
+	case <-time.After(negativeTimeout):
 	}
 }
 
@@ -131,7 +134,7 @@ func (t *TestModule) AssertNotClicked(message string) {
 	select {
 	case <-t.events:
 		t.assert.Fail("expected no click event", message)
-	case <-time.After(10 * time.Millisecond):
+	case <-time.After(negativeTimeout):
 	}
 }
 
@@ -166,7 +169,7 @@ func (o *OutputTester) AssertNoOutput(message string) {
 	select {
 	case <-o.outs:
 		assert.Fail(o, "expected no update", message)
-	case <-time.After(10 * time.Millisecond):
+	case <-time.After(negativeTimeout):
 	}
 }
 
@@ -203,4 +206,16 @@ func (o *OutputTester) AssertError(message string) string {
 	assert.True(o, urgent.(bool), message)
 	assert.Equal(o, out[0]["short_text"], "Error", message)
 	return out[0].Text()
+}
+
+// Drain empties the output channel when the exact number of outputs
+// doesn't matter, to allow further testing to start with a clean slate.
+func (o *OutputTester) Drain() {
+	for {
+		select {
+		case <-o.outs:
+		case <-time.After(negativeTimeout):
+			return
+		}
+	}
 }

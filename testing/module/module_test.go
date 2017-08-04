@@ -220,6 +220,15 @@ func TestOutputTester(t *testing.T) {
 	errStr := o.AssertError("on error output")
 	assert.Equal(t, "error", errStr, "error string passed through")
 
+	m.Output(outputs.Text("1"))
+	m.Output(outputs.Text("2"))
+	m.Output(outputs.Text("3"))
+	o.Drain()
+	testOut = outputs.Text("4")
+	m.Output(testOut)
+	actualOut = o.AssertOutput("has output")
+	assert.Equal(t, testOut, actualOut, "drain removes previous outputs")
+
 	fakeT := &testing.T{}
 	m = New(fakeT)
 	o = NewOutputTester(fakeT, m)
