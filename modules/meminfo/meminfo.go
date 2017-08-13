@@ -17,12 +17,13 @@ package meminfo
 
 import (
 	"bufio"
-	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
@@ -83,6 +84,7 @@ func (b Bytes) SI() string {
 // for creating bar.Modules with various output functions/templates
 // that share the same data source, cutting down on updates required.
 type Module struct {
+	sync.Mutex
 	moduleSet *multi.ModuleSet
 	outputs   map[multi.Submodule]func(Info) bar.Output
 	scheduler scheduler.Scheduler
@@ -103,12 +105,16 @@ func New() *Module {
 
 // RefreshInterval configures the polling frequency for meminfo.
 func (m *Module) RefreshInterval(interval time.Duration) *Module {
+	m.Lock()
+	defer m.Unlock()
 	m.scheduler.Every(interval)
 	return m
 }
 
 // OutputFunc creates a submodule that displays the output of a user-defined function.
 func (m *Module) OutputFunc(format func(Info) bar.Output) base.WithClickHandler {
+	m.Lock()
+	defer m.Unlock()
 	submodule := m.moduleSet.New()
 	m.outputs[submodule] = format
 	return submodule
@@ -119,9 +125,11 @@ func (m *Module) OutputTemplate(template func(interface{}) bar.Output) base.With
 	return m.OutputFunc(func(i Info) bar.Output { return template(i) })
 }
 
+var fs = afero.NewOsFs()
+
 func (m *Module) update() {
 	i := make(Info)
-	f, err := os.Open("/proc/meminfo")
+	f, err := fs.Open("/proc/meminfo")
 	if m.moduleSet.Error(err) {
 		return
 	}
@@ -149,6 +157,8 @@ func (m *Module) update() {
 		}
 		i[name] = Bytes(intval << shift)
 	}
+	m.Lock()
+	defer m.Unlock()
 	for submodule, outputFunc := range m.outputs {
 		submodule.Output(outputFunc(i))
 	}
