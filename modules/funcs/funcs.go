@@ -36,7 +36,10 @@ type Func func(Module)
 // Useful if the function loops internally.
 func Once(f Func) base.WithClickHandler {
 	b := base.New()
-	f(b)
+	b.OnUpdate(func() {
+		f(b)
+		b.OnUpdate(nil)
+	})
 	return b
 }
 
