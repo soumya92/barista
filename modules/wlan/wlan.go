@@ -22,7 +22,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/vishvananda/netlink"
 
@@ -136,18 +137,18 @@ func (m *module) worker() {
 		}
 		newFlags := update.IfInfomsg.Flags
 		shouldUpdate := false
-		if m.lastFlags&syscall.IFF_UP != newFlags&syscall.IFF_UP {
+		if m.lastFlags&unix.IFF_UP != newFlags&unix.IFF_UP {
 			shouldUpdate = true
 		}
-		if m.lastFlags&syscall.IFF_RUNNING != newFlags&syscall.IFF_RUNNING {
+		if m.lastFlags&unix.IFF_RUNNING != newFlags&unix.IFF_RUNNING {
 			shouldUpdate = true
 		}
 		if shouldUpdate {
 			m.lastFlags = newFlags
 			m.info = Info{}
-			if newFlags&syscall.IFF_UP != syscall.IFF_UP {
+			if newFlags&unix.IFF_UP != unix.IFF_UP {
 				m.info.State = Disabled
-			} else if newFlags&syscall.IFF_RUNNING != syscall.IFF_RUNNING {
+			} else if newFlags&unix.IFF_RUNNING != unix.IFF_RUNNING {
 				m.info.State = Disconnected
 			} else {
 				if m.Error(m.getWifiInfo()) {

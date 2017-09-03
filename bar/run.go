@@ -22,7 +22,8 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // i3Output is sent to i3bar. It groups together one or more Segments.
@@ -166,7 +167,7 @@ func (b *I3Bar) Run() error {
 	if !b.suppressSignals {
 		// Set up signal handlers for USR1/2 to pause/resume supported modules.
 		signalChan = make(chan os.Signal, 2)
-		signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
+		signal.Notify(signalChan, unix.SIGUSR1, unix.SIGUSR2)
 	}
 
 	// Mark the bar as started.
@@ -187,8 +188,8 @@ func (b *I3Bar) Run() error {
 	if !b.suppressSignals {
 		// Go doesn't allow us to handle the default SIGSTOP,
 		// so we'll use SIGUSR1 and SIGUSR2 for pause/resume.
-		header.StopSignal = int(syscall.SIGUSR1)
-		header.ContSignal = int(syscall.SIGUSR2)
+		header.StopSignal = int(unix.SIGUSR1)
+		header.ContSignal = int(unix.SIGUSR2)
 	}
 	// Set up the encoder for the output stream,
 	// so that module outputs can be written directly.
@@ -221,9 +222,9 @@ func (b *I3Bar) Run() error {
 			}
 		case sig := <-signalChan:
 			switch sig {
-			case syscall.SIGUSR1:
+			case unix.SIGUSR1:
 				b.pause()
-			case syscall.SIGUSR2:
+			case unix.SIGUSR2:
 				b.resume()
 			}
 		}

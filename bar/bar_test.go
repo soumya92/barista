@@ -17,9 +17,10 @@ package bar_test
 import (
 	"encoding/json"
 	"fmt"
-	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/stretchrcom/testify/assert"
 
@@ -45,8 +46,8 @@ func TestHeader(t *testing.T) {
 	// JSON deserialises all numbers as float64.
 	assert.Equal(t, 1, int(header["version"].(float64)), "header version == 1")
 	assert.Equal(t, true, header["click_events"].(bool), "header click_events == true")
-	assert.Equal(t, int(syscall.SIGUSR1), int(header["stop_signal"].(float64)), "header stop_signal == USR1")
-	assert.Equal(t, int(syscall.SIGUSR2), int(header["cont_signal"].(float64)), "header cont_signal == USR2")
+	assert.Equal(t, int(unix.SIGUSR1), int(header["stop_signal"].(float64)), "header stop_signal == USR1")
+	assert.Equal(t, int(unix.SIGUSR2), int(header["cont_signal"].(float64)), "header cont_signal == USR2")
 }
 
 func readOutput(t *testing.T, stdout *mockio.Writable) []map[string]interface{} {
@@ -202,11 +203,11 @@ func TestPauseResume(t *testing.T) {
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
 
-	syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
+	unix.Kill(unix.Getpid(), unix.SIGUSR1)
 	module1.AssertPaused("on sigusr1")
 	module2.AssertPaused("on sigusr1")
 
-	syscall.Kill(syscall.Getpid(), syscall.SIGUSR2)
+	unix.Kill(unix.Getpid(), unix.SIGUSR2)
 	module1.AssertResumed("on sigusr2")
 	module2.AssertResumed("on sigusr2")
 
@@ -312,10 +313,10 @@ func TestSignalHandlingSuppression(t *testing.T) {
 	_, err = mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
 
-	syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
+	unix.Kill(unix.Getpid(), unix.SIGUSR1)
 	module.AssertNoPauseResume("when signal handling is suppressed")
 
-	syscall.Kill(syscall.Getpid(), syscall.SIGUSR2)
+	unix.Kill(unix.Getpid(), unix.SIGUSR2)
 	module.AssertNoPauseResume("when signal handling is suppressed")
 
 	assert.Panics(t,

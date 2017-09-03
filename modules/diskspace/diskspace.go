@@ -16,8 +16,9 @@
 package diskspace
 
 import (
-	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/dustin/go-humanize"
 
@@ -110,7 +111,7 @@ type module struct {
 	outputFunc func(Info) bar.Output
 	colorFunc  func(Info) bar.Color
 	urgentFunc func(Info) bool
-	statResult syscall.Statfs_t
+	statResult unix.Statfs_t
 }
 
 // New constructs an instance of the diskusage module for the given disk path.
@@ -158,7 +159,7 @@ func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
 }
 
 func (m *module) update() {
-	if m.Error(syscall.Statfs(m.path, &m.statResult)) {
+	if m.Error(unix.Statfs(m.path, &m.statResult)) {
 		return
 	}
 	mult := uint64(m.statResult.Bsize)

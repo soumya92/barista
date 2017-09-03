@@ -16,8 +16,9 @@
 package sysinfo
 
 import (
-	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/dustin/go-humanize"
 
@@ -106,9 +107,9 @@ func (m *Module) OutputTemplate(template func(interface{}) bar.Output) base.With
 }
 
 func (m *Module) update() {
-	var sysinfoT syscall.Sysinfo_t
+	var sysinfoT unix.Sysinfo_t
 	const loadScale = 65536.0 // LINUX_SYSINFO_LOADS_SCALE
-	if m.moduleSet.Error(syscall.Sysinfo(&sysinfoT)) {
+	if m.moduleSet.Error(unix.Sysinfo(&sysinfoT)) {
 		return
 	}
 	unit := uint64(sysinfoT.Unit)
