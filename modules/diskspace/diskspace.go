@@ -16,6 +16,7 @@
 package diskspace
 
 import (
+	"sync"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -46,7 +47,7 @@ func (i Info) UsedFrac() float64 {
 
 // UsedPct returns the percentage of disk space currently in use.
 func (i Info) UsedPct() int {
-	return int(i.UsedFrac() * 100)
+	return int(i.UsedFrac()*100 + 0.5)
 }
 
 // AvailFrac returns the fraction of disk space available for use.
@@ -56,7 +57,7 @@ func (i Info) AvailFrac() float64 {
 
 // AvailPct returns the percentage of disk space available for use.
 func (i Info) AvailPct() int {
-	return int(i.AvailFrac() * 100)
+	return int(i.AvailFrac()*100 + 0.5)
 }
 
 // Bytes represents a size in bytes.
@@ -112,6 +113,7 @@ type module struct {
 	colorFunc  func(Info) bar.Color
 	urgentFunc func(Info) bool
 	statResult unix.Statfs_t
+	sync.Mutex
 }
 
 // New constructs an instance of the diskusage module for the given disk path.
@@ -130,6 +132,8 @@ func New(path string) Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+	m.Lock()
+	defer m.Unlock()
 	m.outputFunc = outputFunc
 	m.Update()
 	return m
@@ -147,19 +151,25 @@ func (m *module) RefreshInterval(interval time.Duration) Module {
 }
 
 func (m *module) OutputColor(colorFunc func(Info) bar.Color) Module {
+	m.Lock()
+	defer m.Unlock()
 	m.colorFunc = colorFunc
 	m.Update()
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
+	m.Lock()
+	defer m.Unlock()
 	m.urgentFunc = urgentFunc
 	m.Update()
 	return m
 }
 
 func (m *module) update() {
-	if m.Error(unix.Statfs(m.path, &m.statResult)) {
+	m.Lock()
+	defer m.Unlock()
+	if m.Error(statfs(m.path, &m.statResult)) {
 		return
 	}
 	mult := uint64(m.statResult.Bsize)
@@ -177,3 +187,6 @@ func (m *module) update() {
 	}
 	m.Output(out)
 }
+
+// To allow tests to mock out statfs.
+var statfs = unix.Statfs
