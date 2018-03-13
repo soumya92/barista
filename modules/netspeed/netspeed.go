@@ -16,6 +16,7 @@
 package netspeed
 
 import (
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -82,6 +84,9 @@ type module struct {
 	// To get network speed, we need to know delta-rx/tx,
 	// so we need to store the previous rx/tx.
 	lastRead info
+	// To handle outputFunc changes without waiting for next
+	// refresh interval, also store the previous speeds.
+	lastSpeeds *Speeds
 }
 
 // New constructs an instance of the netspeed module for the given interface.
@@ -102,6 +107,7 @@ func New(iface string) Module {
 // info represents that last read network information,
 // and is used to compute the delta-rx and tx.
 type info struct {
+	sync.Mutex
 	RxBytes, TxBytes uint64
 	Time             time.Time
 }
@@ -109,12 +115,13 @@ type info struct {
 // Refresh updates the last read information, and returns
 // the delta-rx and tx since the last update in bytes/sec.
 func (i *info) Refresh(linkStats *netlink.LinkStatistics) Speeds {
-	duration := time.Since(i.Time).Seconds()
+	now := scheduler.Now()
+	duration := now.Sub(i.Time).Seconds()
 	dRx := uint64(float64(linkStats.RxBytes-i.RxBytes) / duration)
 	dTx := uint64(float64(linkStats.TxBytes-i.TxBytes) / duration)
 	i.RxBytes = linkStats.RxBytes
 	i.TxBytes = linkStats.TxBytes
-	i.Time = time.Now()
+	i.Time = now
 	return Speeds{
 		Rx: Speed(dRx),
 		Tx: Speed(dTx),
@@ -122,8 +129,10 @@ func (i *info) Refresh(linkStats *netlink.LinkStatistics) Speeds {
 }
 
 func (m *module) OutputFunc(outputFunc func(Speeds) bar.Output) Module {
+	m.Lock()
 	m.outputFunc = outputFunc
-	m.Update()
+	m.Unlock()
+	m.output()
 	return m
 }
 
@@ -138,15 +147,32 @@ func (m *module) RefreshInterval(interval time.Duration) Module {
 	return m
 }
 
+// For tests.
+var linkByName = netlink.LinkByName
+
 func (m *module) update() {
-	link, err := netlink.LinkByName(m.iface)
+	link, err := linkByName(m.iface)
 	if m.Error(err) {
 		return
 	}
+	m.lastRead.Lock()
 	shouldOutput := !m.lastRead.Time.IsZero()
 	speeds := m.lastRead.Refresh(link.Attrs().Statistics)
+	m.lastRead.Unlock()
 	if !shouldOutput {
 		return
 	}
-	m.Output(m.outputFunc(speeds))
+	m.Lock()
+	m.lastSpeeds = &speeds
+	m.Unlock()
+	m.output()
+}
+
+func (m *module) output() {
+	m.Lock()
+	lastSpeeds := m.lastSpeeds
+	m.Unlock()
+	if lastSpeeds != nil {
+		m.Output(m.outputFunc(*lastSpeeds))
+	}
 }
