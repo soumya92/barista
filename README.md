@@ -4,6 +4,7 @@
 [![GoDoc](https://godoc.org/github.com/soumya92/barista?status.svg)](https://godoc.org/github.com/soumya92/barista)
 [![Go Report Card](https://goreportcard.com/badge/github.com/soumya92/barista)](https://goreportcard.com/report/github.com/soumya92/barista)
 [![codecov](https://codecov.io/gh/soumya92/barista/branch/master/graph/badge.svg)](https://codecov.io/gh/soumya92/barista)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fsoumya92%2Fbarista.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fsoumya92%2Fbarista?ref=badge_shield)
 
 Barista is an i3 status bar written in golang.
 
@@ -45,3 +46,7 @@ bar {
 ```
 
 See the [wiki](https://github.com/soumya92/barista/wiki) for more details
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fsoumya92%2Fbarista.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fsoumya92%2Fbarista?ref=badge_large)
