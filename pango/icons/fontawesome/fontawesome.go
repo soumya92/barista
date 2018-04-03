@@ -40,8 +40,8 @@ func Icon(name string, style ...pango.Attribute) pango.Node {
 func Load(repoPath string) error {
 	c := icons.Config{
 		RepoPath: repoPath,
-		FilePath: "scss/_variables.scss",
-		Font:     "FontAwesome",
+		FilePath: "web-fonts-with-css/scss/_variables.scss",
+		Font:     "Font Awesome 5 Free",
 	}
 	var err error
 	provider, err = c.LoadByLines(func(line string, add func(string, string)) error {
