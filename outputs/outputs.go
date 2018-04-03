@@ -16,10 +16,7 @@
 package outputs
 
 import (
-	"bytes"
 	"fmt"
-	htmlTemplate "html/template"
-	textTemplate "text/template"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/pango"
@@ -68,31 +65,6 @@ func PangoUnsafe(markup string) bar.Output {
 func Pango(things ...interface{}) bar.Output {
 	// The extra span tag will be collapsed if no attributes were added.
 	return PangoUnsafe(pango.Span(things...).Pango())
-}
-
-// TextTemplate creates a TemplateFunc from the given text template.
-func TextTemplate(tpl string) TemplateFunc {
-	t := textTemplate.Must(textTemplate.New("text").Parse(tpl))
-	return func(arg interface{}) bar.Output {
-		var out bytes.Buffer
-		if err := t.Execute(&out, arg); err != nil {
-			return Error(err)
-		}
-		return Text(out.String())
-	}
-}
-
-// PangoTemplate creates a TemplateFunc from the given pango template.
-// It uses go's html/template to escape input properly.
-func PangoTemplate(tpl string) TemplateFunc {
-	t := htmlTemplate.Must(htmlTemplate.New("pango").Parse(tpl))
-	return func(arg interface{}) bar.Output {
-		var out bytes.Buffer
-		if err := t.Execute(&out, arg); err != nil {
-			return Error(err)
-		}
-		return PangoUnsafe(out.String())
-	}
 }
 
 // Composite represents a "composite" bar output that collects compositeple
