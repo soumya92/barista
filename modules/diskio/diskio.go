@@ -64,49 +64,42 @@ func (i IO) Total() Rate {
 	return Rate(uint64(i.Input) + uint64(i.Output))
 }
 
-// Module represents a diskio multi-module, and provides an interface
-// for creating bar.Modules for each disk that can display different output
-// but fetch data from /proc/diskstats in one go.
-type Module struct {
-	sync.Mutex
-	moduleSet  *multi.ModuleSet
-	submodules map[string]*submodule
-	scheduler  scheduler.Scheduler
-	// Needed to prevent data race in tests.
-	// Signals after the module is done reading /proc/diskstats.
-	signalChan chan bool
-}
+var lock sync.Mutex
+var moduleSet *multi.ModuleSet
+var submodules map[string]*submodule
+var updater scheduler.Scheduler
 
-// New constructs an instance of the diskio multi-module
-func New() *Module {
-	m := &Module{
-		moduleSet:  multi.NewModuleSet(),
-		submodules: make(map[string]*submodule),
-	}
+// Needed to prevent data race in tests.
+// Signals after the module is done reading /proc/diskstats.
+var signalChan chan bool
+
+// init initialises the diskio multi-module, which is used to create
+// diskio modules that are all updated together.
+// (with just one read of /proc/diskstats)
+func init() {
+	moduleSet = multi.NewModuleSet()
+	submodules = make(map[string]*submodule)
 	// Update disk io rates when asked.
-	m.moduleSet.OnUpdate(m.update)
+	moduleSet.OnUpdate(update)
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.scheduler = scheduler.Do(m.moduleSet.Update).Every(3 * time.Second)
-	return m
+	updater = scheduler.Do(moduleSet.Update).Every(3 * time.Second)
 }
 
 // RefreshInterval configures the polling frequency.
-func (m *Module) RefreshInterval(interval time.Duration) *Module {
+func RefreshInterval(interval time.Duration) {
 	// Scheduler is goroutine safe, don't need to lock here.
-	m.scheduler.Every(interval)
-	return m
+	updater.Every(interval)
 }
 
 // Disk creates a submodule that displays disk io rates for the given disk.
-func (m *Module) Disk(disk string) Submodule {
-	m.Lock()
-	defer m.Unlock()
+func Disk(disk string) Submodule {
+	lock.Lock()
+	defer lock.Unlock()
 	s := &submodule{
-		Submodule: m.moduleSet.New(),
-		parent:    m.moduleSet,
+		Submodule: moduleSet.New(),
 	}
 	s.OutputTemplate(outputs.TextTemplate(`Disk: {{.Total.IEC}}/s`))
-	m.submodules[disk] = s
+	submodules[disk] = s
 	return s
 }
 
@@ -124,7 +117,6 @@ type Submodule interface {
 // submodule wraps multi.Submodules and provides output formatting controls.
 type submodule struct {
 	multi.Submodule
-	parent     *multi.ModuleSet
 	outputFunc func(IO) bar.Output
 	io         io
 }
@@ -162,12 +154,12 @@ func (i *io) Update(in, out uint64) (inRate, outRate int) {
 
 var fs = afero.NewOsFs()
 
-func (m *Module) update() {
-	m.Lock()
-	defer m.Unlock()
+func update() {
+	lock.Lock()
+	defer lock.Unlock()
 	var err error
 	f, err := fs.Open("/proc/diskstats")
-	if m.moduleSet.Error(err) {
+	if moduleSet.Error(err) {
 		return
 	}
 	defer f.Close()
@@ -183,7 +175,7 @@ func (m *Module) update() {
 		}
 		// See https://www.kernel.org/doc/Documentation/iostats.txt
 		disk := info[2]
-		submodule, found := m.submodules[disk]
+		submodule, found := submodules[disk]
 		if !found {
 			// Don't care about this disk
 			continue
@@ -209,7 +201,7 @@ func (m *Module) update() {
 			}))
 		}
 	}
-	for disk, submodule := range m.submodules {
+	for disk, submodule := range submodules {
 		if !updated[disk] {
 			if !submodule.io.Time.IsZero() {
 				submodule.Clear()
@@ -217,7 +209,7 @@ func (m *Module) update() {
 			}
 		}
 	}
-	if m.signalChan != nil {
-		m.signalChan <- true
+	if signalChan != nil {
+		signalChan <- true
 	}
 }

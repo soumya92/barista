@@ -47,18 +47,20 @@ func TestDiskIo(t *testing.T) {
 	assert := assert.New(t)
 	fs = afero.NewMemMapFs()
 	scheduler.TestMode(true)
+	// Because updater was set in init, it's not a test-mode scheduler.
+	// TODO: See if setting test mode can convert existing schedulers.
+	updater = scheduler.Do(moduleSet.Update).Every(3 * time.Second)
 
 	shouldReturn(diskstats{
 		"sda":  []int{0, 0},
 		"sda1": []int{0, 0},
 	})
 
-	d := New()
-	d.signalChan = make(chan bool)
-	sda1 := d.Disk("sda1").OutputTemplate(outputs.TextTemplate(`{{.Total.In "b"}}`))
+	signalChan = make(chan bool)
+	sda1 := Disk("sda1").OutputTemplate(outputs.TextTemplate(`{{.Total.In "b"}}`))
 
 	tester1 := testModule.NewOutputTester(t, sda1)
-	<-d.signalChan
+	<-signalChan
 
 	tester1.AssertNoOutput("on start")
 
@@ -67,30 +69,30 @@ func TestDiskIo(t *testing.T) {
 		"sda1": []int{9, 9},
 	})
 	scheduler.NextTick()
-	<-d.signalChan
+	<-signalChan
 
 	out := tester1.AssertOutput("on tick")
 	// 9+9 sectors / 3 seconds = 6 sectors / second * 512 bytes / sector = 3027 bytes.
 	assert.Equal(outputs.Text("3072"), out)
 
 	// Simpler math.
-	d.RefreshInterval(time.Second)
+	RefreshInterval(time.Second)
 
-	sdb1 := d.Disk("sdb1").OutputTemplate(outputs.TextTemplate(`{{.Total.IEC}}`))
+	sdb1 := Disk("sdb1").OutputTemplate(outputs.TextTemplate(`{{.Total.IEC}}`))
 	tester2 := testModule.NewOutputTester(t, sdb1)
 	tester2.AssertNoOutput("on start")
 
 	// Adding a new submodule causes updates to all other submodules.
 	// TODO: See if this behaviour can be adjusted.
 	tester1.Drain()
-	drainChan(d.signalChan)
+	drainChan(signalChan)
 
 	shouldReturn(diskstats{
 		"sda":  []int{0, 0},
 		"sda1": []int{9, 10},
 	})
 	scheduler.NextTick()
-	<-d.signalChan
+	<-signalChan
 
 	out = tester1.AssertOutput("on tick")
 	assert.Equal(outputs.Text("512"), out)
@@ -102,7 +104,7 @@ func TestDiskIo(t *testing.T) {
 		"sda1": []int{9, 10},
 	})
 	scheduler.NextTick()
-	<-d.signalChan
+	<-signalChan
 
 	out = tester1.AssertOutput("on tick")
 	assert.Equal(outputs.Text("0"), out)
@@ -110,7 +112,7 @@ func TestDiskIo(t *testing.T) {
 	sda1.OutputFunc(func(i IO) bar.Output {
 		return outputs.Textf("%s", i.Total().SI())
 	})
-	<-d.signalChan
+	<-signalChan
 
 	out = tester1.AssertOutput("on output func change")
 	assert.Equal(outputs.Text("0 B"), out)
@@ -122,7 +124,7 @@ func TestDiskIo(t *testing.T) {
 		"sdb1": []int{300, 0},
 	})
 	scheduler.NextTick()
-	<-d.signalChan
+	<-signalChan
 
 	out = tester1.AssertOutput("first tick after disk is removed")
 	assert.Empty(out, "output is cleared when disk is removed")
@@ -134,7 +136,7 @@ func TestDiskIo(t *testing.T) {
 		"sdb1": []int{300, 100},
 	})
 	scheduler.NextTick()
-	<-d.signalChan
+	<-signalChan
 
 	tester1.AssertNoOutput("for missing disk")
 
@@ -145,13 +147,13 @@ func TestDiskIo(t *testing.T) {
 func TestErrors(t *testing.T) {
 	fs = afero.NewMemMapFs()
 	scheduler.TestMode(true)
+	updater = scheduler.Do(moduleSet.Update).Every(3 * time.Second)
 
-	d := New()
-	d.signalChan = make(chan bool)
+	signalChan = make(chan bool)
 
-	sda := d.Disk("sda")
-	sda1 := d.Disk("sda1")
-	sda2 := d.Disk("sda2")
+	sda := Disk("sda")
+	sda1 := Disk("sda1")
+	sda2 := Disk("sda2")
 
 	tester := testModule.NewOutputTester(t, sda)
 	tester1 := testModule.NewOutputTester(t, sda1)
@@ -165,7 +167,7 @@ func TestErrors(t *testing.T) {
 	tester.Drain()
 	tester1.Drain()
 	tester2.Drain()
-	drainChan(d.signalChan)
+	drainChan(signalChan)
 
 	afero.WriteFile(fs, "/proc/diskstats", []byte(`
 -- Lines in weird formats --
@@ -182,7 +184,7 @@ a b sda2 0 0 100 0 0 0 b 0 0 0 0
 `), 0644)
 
 	scheduler.NextTick()
-	<-d.signalChan
+	<-signalChan
 	tester1.AssertError("invalid read count")
 	tester2.AssertError("invalid write count")
 	// First tick initialises the stats,
@@ -194,7 +196,7 @@ a b sda2 0 0 100 0 0 0 b 0 0 0 0
 `), 0644)
 
 	scheduler.NextTick()
-	<-d.signalChan
+	<-signalChan
 
 	out := tester.AssertOutput("on second tick")
 	assert.Equal(t, outputs.Textf("Disk: 100 KiB/s"), out,
