@@ -174,13 +174,13 @@ func (o *OutputTester) AssertNoOutput(message string) {
 }
 
 // AssertOutput asserts that the output channel was updated and returns the output.
-func (o *OutputTester) AssertOutput(message string) bar.Output {
+func (o *OutputTester) AssertOutput(message string) []bar.Segment {
 	select {
 	case out := <-o.outs:
-		return out
+		return out.Segments()
 	case <-time.After(positiveTimeout):
 		assert.Fail(o, "expected an update", message)
-		return bar.Output{}
+		return nil
 	}
 }
 

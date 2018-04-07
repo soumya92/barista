@@ -27,7 +27,7 @@ import (
 func TestReformat(t *testing.T) {
 	original := testModule.New(t)
 	reformatted := New(original, func(o bar.Output) bar.Output {
-		return outputs.Textf("+%s+", o[0].Text())
+		return outputs.Textf("+%s+", o.Segments()[0].Text())
 	})
 	original.AssertNotStarted("on construction of reformatted module")
 	tester := testModule.NewOutputTester(t, reformatted)

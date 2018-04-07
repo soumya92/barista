@@ -31,7 +31,7 @@ func TestTail(t *testing.T) {
 
 	for _, i := range []string{"1", "2", "3", "4", "5"} {
 		out := tester.AssertOutput(i)
-		assert.Equal(t, out, outputs.Text(i))
+		assert.Equal(t, outputs.Text(i).Segments(), out)
 	}
 
 	tester.AssertNoOutput("when command terminates normally")
@@ -40,7 +40,7 @@ func TestTail(t *testing.T) {
 	tester = testModule.NewOutputTester(t, tail)
 	for _, i := range []string{"1", "2", "3"} {
 		out := tester.AssertOutput(i)
-		assert.Equal(t, outputs.Text(i), out)
+		assert.Equal(t, outputs.Text(i).Segments(), out)
 	}
 
 	tester.AssertError("when command terminates with an error")
@@ -57,11 +57,12 @@ func TestEvery(t *testing.T) {
 	tester := testModule.NewOutputTester(t, rep)
 
 	out := tester.AssertOutput("on start")
-	assert.Equal(t, outputs.Text("foo"), out)
+	assert.Equal(t, outputs.Text("foo").Segments(), out)
 
 	then := scheduler.Now()
 	now := scheduler.NextTick()
-	assert.InDelta(t, time.Second, now.Sub(then), float64(time.Millisecond))
+	assert.InDelta(t, float64(time.Second), float64(now.Sub(then)),
+		float64(time.Millisecond))
 
 	tester.AssertOutput("on tick")
 	tester.AssertNoOutput("until tick")
@@ -79,7 +80,7 @@ func TestEvery(t *testing.T) {
 func TestOnce(t *testing.T) {
 	tester := testModule.NewOutputTester(t, Once("echo", "bar"))
 	out := tester.AssertOutput("on start")
-	assert.Equal(t, outputs.Text("bar"), out)
+	assert.Equal(t, outputs.Text("bar").Segments(), out)
 	tester.AssertNoOutput("after the first output")
 
 	tester = testModule.NewOutputTester(t, Once("this-is-not-a-valid-command", "foo"))

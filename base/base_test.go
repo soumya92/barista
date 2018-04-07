@@ -76,10 +76,10 @@ func TestUpdateAndScheduler(t *testing.T) {
 	updateCalled := false
 	b.OnUpdate(func() {
 		updateCalled = true
-		b.Output(bar.Output{bar.NewSegment("test")})
+		b.Output(bar.NewSegment("test"))
 	})
 
-	assertUpdate := func(message string) bar.Output {
+	assertUpdate := func(message string) []bar.Segment {
 		out := o.AssertOutput(message)
 		assert.True(t, updateCalled, message)
 		updateCalled = false
@@ -118,7 +118,7 @@ func TestPauseResume(t *testing.T) {
 	})
 	o := testModule.NewOutputTester(t, b)
 
-	assertUpdate := func(message string) bar.Output {
+	assertUpdate := func(message string) []bar.Segment {
 		out := o.AssertOutput(message)
 		assert.True(t, updateCalled, message)
 		updateCalled = false
@@ -165,7 +165,7 @@ func TestPauseResume(t *testing.T) {
 
 	b.Resume()
 	out := o.AssertOutput("from calling output while paused")
-	assert.Equal(t, newOut, out, "updates with last output")
+	assert.Equal(t, newOut.Segments(), out, "updates with last output")
 	o.AssertNoOutput("only last output emitted on resume")
 }
 

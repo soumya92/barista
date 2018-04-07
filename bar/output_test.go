@@ -91,8 +91,8 @@ func TestSegment(t *testing.T) {
 	a.AssertEqual("opaque instance")
 }
 
-func TestOutput(t *testing.T) {
-	out := Output{
+func TestGroup(t *testing.T) {
+	out := SegmentGroup{
 		NewSegment("1"),
 		NewSegment("2"),
 		NewSegment("3"),
@@ -177,7 +177,7 @@ func TestOutput(t *testing.T) {
 	mid.Expected["separator"] = "false"
 	assertAllEqual("inner separator only affects inner segments")
 
-	single := Output{NewSegment("only")}
+	single := SegmentGroup{NewSegment("only")}
 	a := segmentAssertions(t, single[0])
 	a.Expected["full_text"] = "only"
 	single.Background(Color("yellow"))
@@ -195,7 +195,7 @@ func TestOutput(t *testing.T) {
 	a.AssertEqual("setting properties on a single segment output work")
 
 	// Sanity check properties where the number of segments matters.
-	empty := Output{}
+	empty := SegmentGroup{}
 	empty.MinWidth(100)
 	empty.Separator(true)
 	empty.SeparatorWidth(0)

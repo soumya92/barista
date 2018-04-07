@@ -80,7 +80,7 @@ func TestDiskspace(t *testing.T) {
 	})
 
 	out := tester.AssertOutput("on start")
-	assert.Equal(outputs.Text("0.50 GB"), out)
+	assert.Equal(outputs.Text("0.50 GB").Segments(), out)
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -98,7 +98,7 @@ func TestDiskspace(t *testing.T) {
 	})
 	scheduler.NextTick()
 	out = tester.AssertOutput("on next tick")
-	assert.Equal(outputs.Text("2.00 GB"), out)
+	assert.Equal(outputs.Text("2.00 GB").Segments(), out)
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -108,7 +108,7 @@ func TestDiskspace(t *testing.T) {
 	})
 	diskspace.OutputTemplate(outputs.TextTemplate(`{{.Available.In "MB" | printf "%.1f"}}`))
 	out = tester.AssertOutput("on output format change")
-	assert.Equal(outputs.Text("500.0"), out)
+	assert.Equal(outputs.Text("500.0").Segments(), out)
 
 	diskspace.UrgentWhen(func(i Info) bool {
 		return i.AvailFrac() < 0.5
@@ -214,5 +214,5 @@ func TestNonexistentDiskspace(t *testing.T) {
 	})
 	scheduler.NextTick()
 	out := tester.AssertOutput("on next tick after mounting")
-	assert.Equal(outputs.Text("6.00 GB"), out)
+	assert.Equal(outputs.Text("6.00 GB").Segments(), out)
 }

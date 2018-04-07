@@ -55,7 +55,7 @@ func TestMeminfo(t *testing.T) {
 
 	tester1 := testModule.NewOutputTester(t, avail)
 	out := tester1.AssertOutput("on start")
-	assert.Equal(outputs.Text("2048"), out)
+	assert.Equal(outputs.Text("2048").Segments(), out)
 
 	shouldReturn(meminfo{
 		"MemAvailable": 1024,
@@ -66,13 +66,13 @@ func TestMeminfo(t *testing.T) {
 	scheduler.NextTick()
 
 	out = tester1.AssertOutput("on tick")
-	assert.Equal(outputs.Text("1024"), out)
+	assert.Equal(outputs.Text("1024").Segments(), out)
 
 	free := m.OutputTemplate(outputs.TextTemplate(`{{.FreeFrac "Mem"}}`))
 
 	tester2 := testModule.NewOutputTester(t, free)
 	out = tester2.AssertOutput("on start")
-	assert.Equal(outputs.Text("0.0625"), out)
+	assert.Equal(outputs.Text("0.0625").Segments(), out)
 
 	tester1.Drain()
 
@@ -85,10 +85,10 @@ func TestMeminfo(t *testing.T) {
 	scheduler.NextTick()
 
 	out = tester1.AssertOutput("on tick")
-	assert.Equal(outputs.Text("2048"), out)
+	assert.Equal(outputs.Text("2048").Segments(), out)
 
 	out = tester2.AssertOutput("on tick")
-	assert.Equal(outputs.Text("0.125"), out)
+	assert.Equal(outputs.Text("0.125").Segments(), out)
 
 	beforeTick := scheduler.Now()
 	m.RefreshInterval(time.Minute)
@@ -147,13 +147,13 @@ func TestErrors(t *testing.T) {
 	scheduler.NextTick()
 
 	out := tester.AssertOutput("when meminfo is back to normal")
-	assert.Equal(t, outputs.Textf("0.5"), out)
+	assert.Equal(t, outputs.Textf("0.5").Segments(), out)
 
 	out = tester1.AssertOutput("when meminfo is back to normal")
-	assert.Equal(t, outputs.Textf("1.0 MiB"), out)
+	assert.Equal(t, outputs.Textf("1.0 MiB").Segments(), out)
 
 	out = tester2.AssertOutput("when meminfo is back to normal")
-	assert.Equal(t, outputs.Textf("2.1 MB"), out)
+	assert.Equal(t, outputs.Textf("2.1 MB").Segments(), out)
 }
 
 // TODO: Remove this and spec out a "units" package.
@@ -165,5 +165,5 @@ func TestInvalidBaseInParse(t *testing.T) {
 	submodule := m.OutputTemplate(outputs.TextTemplate(`{{.MemTotal.In "foo"}}`))
 	tester := testModule.NewOutputTester(t, submodule)
 	out := tester.AssertOutput("on start")
-	assert.Equal(t, outputs.Text("1024"), out)
+	assert.Equal(t, outputs.Text("1024").Segments(), out)
 }

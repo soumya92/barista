@@ -61,8 +61,10 @@ See output.go for supported methods.
 */
 type Segment map[string]interface{}
 
-// Output groups together one or more segments to display on the bar.
-type Output []Segment
+// Output is an interface for displaying objects on the bar.
+type Output interface {
+	Segments() []Segment
+}
 
 // Button represents an X11 mouse button.
 type Button int

@@ -114,17 +114,17 @@ func TestCpuload(t *testing.T) {
 	shouldReturn(1)
 	scheduler.NextTick()
 	out = tester.AssertOutput("on next tick")
-	assert.Equal(outputs.Error(fmt.Errorf("getloadavg: 1")), out)
+	assert.Equal(outputs.Error(fmt.Errorf("getloadavg: 1")).Segments(), out)
 
 	shouldReturn(1, 2, 3, 4, 5)
 	scheduler.NextTick()
 	out = tester.AssertOutput("on next tick")
-	assert.Equal(outputs.Error(fmt.Errorf("getloadavg: 5")), out)
+	assert.Equal(outputs.Error(fmt.Errorf("getloadavg: 5")).Segments(), out)
 
 	shouldError(fmt.Errorf("test"))
 	scheduler.NextTick()
 	out = tester.AssertOutput("on next tick")
-	assert.Equal(outputs.Error(fmt.Errorf("test")), out)
+	assert.Equal(outputs.Error(fmt.Errorf("test")).Segments(), out)
 
 	load.RefreshInterval(time.Minute)
 	tester.AssertNoOutput("on refresh interval change")

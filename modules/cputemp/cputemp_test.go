@@ -56,10 +56,10 @@ func TestCputemp(t *testing.T) {
 	tester2 := testModule.NewOutputTester(t, temp2)
 
 	out := tester0.AssertOutput("on start")
-	assert.Equal(outputs.Text("49"), out)
+	assert.Equal(outputs.Text("49").Segments(), out)
 
 	out = tester1.AssertOutput("on start")
-	assert.Equal(outputs.Text("72"), out)
+	assert.Equal(outputs.Text("72").Segments(), out)
 
 	tester2.AssertError("on start with invalid zone")
 
@@ -71,13 +71,13 @@ func TestCputemp(t *testing.T) {
 	scheduler.NextTick()
 
 	out = tester0.AssertOutput("on next tick")
-	assert.Equal(outputs.Text("42"), out)
+	assert.Equal(outputs.Text("42").Segments(), out)
 	tester1.AssertOutput("on next tick")
 	tester2.AssertError("on each tick")
 
 	temp0.UrgentWhen(func(t Temperature) bool { return t.C() > 30 })
 	out = tester0.AssertOutput("on urgent func change")
-	assert.Equal(outputs.Text("42").Urgent(true), out)
+	assert.Equal(outputs.Text("42").Urgent(true).Segments(), out)
 
 	red := bar.Color("red")
 	green := bar.Color("green")
@@ -88,7 +88,7 @@ func TestCputemp(t *testing.T) {
 		return green
 	})
 	out = tester1.AssertOutput("on color func change")
-	assert.Equal(outputs.Text("68").Color(green), out)
+	assert.Equal(outputs.Text("68").Color(green).Segments(), out)
 
 	temp2.OutputTemplate(outputs.TextTemplate(`{{.K}} kelvin`))
 	tester2.AssertError("error persists even with template change")
@@ -97,10 +97,10 @@ func TestCputemp(t *testing.T) {
 	scheduler.NextTick()
 
 	out = tester0.AssertOutput("on next tick")
-	assert.Equal(outputs.Text("22").Urgent(false), out)
+	assert.Equal(outputs.Text("22").Urgent(false).Segments(), out)
 
 	out = tester1.AssertOutput("on next tick")
-	assert.Equal(outputs.Text("72").Color(red), out)
+	assert.Equal(outputs.Text("72").Color(red).Segments(), out)
 
 	tester2.AssertError("on each tick")
 
@@ -112,7 +112,7 @@ func TestCputemp(t *testing.T) {
 	// Only temp2 has an update, since temp0 and temp1 are still
 	// on the 3 second refresh interval.
 	out = tester2.AssertOutput("on next tick when zone becomes available")
-	assert.Equal(outputs.Text("273 kelvin"), out)
+	assert.Equal(outputs.Text("273 kelvin").Segments(), out)
 
 	shouldReturn("0", "0", "invalid")
 	scheduler.NextTick()

@@ -26,12 +26,12 @@ import (
 )
 
 func TestEmpty(t *testing.T) {
-	assert.Empty(t, Empty(), "empty output")
+	assert.Empty(t, Empty().Segments(), "empty output")
 }
 
 func textOf(out bar.Output) string {
 	str := ""
-	for _, segment := range out {
+	for _, segment := range out.Segments() {
 		str += segment["full_text"].(string)
 	}
 	return str
@@ -39,7 +39,7 @@ func textOf(out bar.Output) string {
 
 func textWithSeparators(out bar.Output) string {
 	str := ""
-	for _, segment := range out {
+	for _, segment := range out.Segments() {
 		str += segment["full_text"].(string)
 		if sep, ok := segment["separator"]; !ok || sep.(bool) {
 			str += "|"
@@ -82,80 +82,9 @@ func TestPango(t *testing.T) {
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.expected, textOf(tc.output), tc.desc)
-		assert.Equal(t, bar.MarkupPango, tc.output[0]["markup"].(bar.Markup), tc.desc)
-	}
-}
-
-func TestComposite(t *testing.T) {
-	tests := []struct {
-		desc     string
-		output   bar.Output
-		expected string
-	}{
-		{"empty output", Multi().Build(), ""},
-
-		{
-			"simple composite",
-			Multi().AddText("name1", "1").AddTextf("name2", "%d", 2).Build(),
-			"12|",
-		},
-
-		{
-			"composite with separator",
-			Multi().AddText("n1", "1").AddText("n2", "2").KeepSeparators(true).Build(),
-			"1|2|",
-		},
-
-		{
-			"calling KeepSeparators before adding modules",
-			Multi().KeepSeparators(true).AddText("n1", "1").AddText("n2", "2").Build(),
-			"1|2|",
-		},
-
-		{
-			"KeepSeparators with explicitly removed separators",
-			Multi().
-				KeepSeparators(true).
-				AddText("name1", "1").
-				Add("name2", bar.Output{bar.NewSegment("2").Separator(false)}).
-				AddTextf("name3", "%d", 3).
-				Build(),
-			"1|23|",
-		},
-
-		{
-			"with explicitly added separators",
-			Multi().
-				AddText("name1", "1").
-				Add("name2", bar.Output{bar.NewSegment("2").Separator(true)}).
-				AddTextf("name3", "%d", 3).
-				Build(),
-			"12|3|",
-		},
-
-		{
-			"Built from multi-segment bar.Output",
-			Multi().
-				AddText("name1", "1").
-				Add("name2", bar.Output{
-					bar.NewSegment("2").Separator(true),
-					bar.NewSegment("3").Separator(false),
-					bar.NewSegment("4"),
-					bar.NewSegment("5").Separator(true),
-				}).
-				AddTextf("name3", "%d", 6).
-				Build(),
-			"12|345|6|",
-		},
-
-		{
-			"with a pango segment",
-			Multi().AddPango("name1", pango.Span("test")).Build(),
-			"test|",
-		},
-	}
-	for _, tc := range tests {
-		assert.Equal(t, tc.expected, textWithSeparators(tc.output), tc.desc)
+		assert.Equal(t,
+			bar.MarkupPango, tc.output.Segments()[0]["markup"].(bar.Markup),
+			tc.desc)
 	}
 }
 
@@ -193,8 +122,49 @@ func TestErrors(t *testing.T) {
 	}
 	for _, tc := range tests {
 		assert.Contains(t, textOf(tc.output), tc.expected, tc.desc)
-		assert.Equal(t, tc.output[0]["short_text"], "Error",
+		assert.Equal(t, tc.output.Segments()[0]["short_text"], "Error",
 			"Short text is set to 'Error'")
-		assert.True(t, tc.output[0]["urgent"].(bool), "error is marked urgent")
+		assert.True(t, tc.output.Segments()[0]["urgent"].(bool),
+			"error is marked urgent")
+	}
+}
+
+func TestGroup(t *testing.T) {
+	tests := []struct {
+		desc     string
+		output   bar.Output
+		expected string
+	}{
+		{"empty", Group(), ""},
+
+		{
+			"simple group",
+			Group(Text("1"), Textf("%d", 2)),
+			"1|2|",
+		},
+
+		{
+			"group without inner separator",
+			Group(Text("1"), Textf("%d", 2)).InnerSeparator(false),
+			"12|",
+		},
+
+		{
+			"nested grouping",
+			Group(
+				Text("1").Separator(false),
+				Group(
+					bar.NewSegment("2").Separator(true),
+					bar.NewSegment("3").Separator(false),
+					bar.NewSegment("4").Separator(false),
+					bar.NewSegment("5").Separator(true),
+				),
+				Textf("%d", 6),
+			),
+			"12|345|6|",
+		},
+	}
+	for _, tc := range tests {
+		assert.Equal(t, tc.expected, textWithSeparators(tc.output), tc.desc)
 	}
 }

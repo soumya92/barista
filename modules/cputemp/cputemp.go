@@ -147,7 +147,7 @@ func (m *module) update() {
 	}
 	temp := Temperature(float64(milliC) / 1000.0)
 	m.Lock()
-	out := m.outputFunc(temp)
+	out := outputs.Group(m.outputFunc(temp))
 	if m.urgentFunc != nil {
 		out.Urgent(m.urgentFunc(temp))
 	}

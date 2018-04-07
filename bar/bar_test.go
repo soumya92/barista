@@ -142,18 +142,18 @@ func TestMultipleModules(t *testing.T) {
 	assert.Equal(t, []string{"test", "middle", "new value"}, out,
 		"newly updated module correctly repositions other modules")
 
-	module1.Output(Output{})
+	module1.Output(outputs.Empty())
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"middle", "new value"}, out,
 		"nil output correctly repositions other modules")
 }
 
 func multiOutput(texts ...string) Output {
-	m := outputs.Multi()
-	for idx, text := range texts {
-		m.AddText(fmt.Sprintf("instance_%d", idx), text)
+	m := SegmentGroup{}
+	for _, text := range texts {
+		m = append(m, NewSegment(text))
 	}
-	return m.Build()
+	return m
 }
 
 func TestMultiSegmentModule(t *testing.T) {
