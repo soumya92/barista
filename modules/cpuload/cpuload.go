@@ -136,7 +136,7 @@ func (m *module) update() {
 		return
 	}
 	m.Lock()
-	out := m.outputFunc(m.loads)
+	out := outputs.Group(m.outputFunc(m.loads))
 	if m.urgentFunc != nil {
 		out.Urgent(m.urgentFunc(m.loads))
 	}

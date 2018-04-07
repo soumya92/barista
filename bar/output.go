@@ -16,58 +16,62 @@ package bar
 
 import "math"
 
-// Color sets the color for all segments in the output.
-func (o Output) Color(color Color) Output {
-	for _, s := range o {
+// SegmentGroup represents a group of Segments to be
+// displayed together on the bar.
+type SegmentGroup []Segment
+
+// Color sets the color for all segments in the group.
+func (g SegmentGroup) Color(color Color) SegmentGroup {
+	for _, s := range g {
 		s.Color(color)
 	}
-	return o
+	return g
 }
 
-// Background sets the background color for all segments in the output.
-func (o Output) Background(background Color) Output {
-	for _, s := range o {
+// Background sets the background color for all segments in the group.
+func (g SegmentGroup) Background(background Color) SegmentGroup {
+	for _, s := range g {
 		s.Background(background)
 	}
-	return o
+	return g
 }
 
-// Border sets the border color for all segments in the output.
-func (o Output) Border(border Color) Output {
-	for _, s := range o {
+// Border sets the border color for all segments in the group.
+func (g SegmentGroup) Border(border Color) SegmentGroup {
+	for _, s := range g {
 		s.Border(border)
 	}
-	return o
+	return g
 }
 
-// Align sets the text alignment for all segments in the output.
-func (o Output) Align(align TextAlignment) Output {
-	for _, s := range o {
+// Align sets the text alignment for all segments in the group.
+func (g SegmentGroup) Align(align TextAlignment) SegmentGroup {
+	for _, s := range g {
 		s.Align(align)
 	}
-	return o
+	return g
 }
 
-// Urgent sets the urgency flag for all segments in the output.
-func (o Output) Urgent(urgent bool) Output {
-	for _, s := range o {
+// Urgent sets the urgency flag for all segments in the group.
+func (g SegmentGroup) Urgent(urgent bool) SegmentGroup {
+	for _, s := range g {
 		s.Urgent(urgent)
 	}
-	return o
+	return g
 }
 
-// Markup sets the markup type for all segments in the output.
-func (o Output) Markup(markup Markup) Output {
-	for _, s := range o {
+// Markup sets the markup type for all segments in the group.
+func (g SegmentGroup) Markup(markup Markup) SegmentGroup {
+	for _, s := range g {
 		s.Markup(markup)
 	}
-	return o
+	return g
 }
 
 /*
 Width and separator(width) are treated specially such that the methods
 make sense when called on a single-segment output (such as the result
-of outputs.Textf(...)) as well as when called on a multi-segment output.
+of outputs.Textf(...)) as well as when called on a multi-segment group.
 
 To that end, min-width distributes the minimum width equally amongst
 all segments, and separator(width) only operate on the last segment.
@@ -77,52 +81,57 @@ last segment.
 */
 
 // MinWidth sets the minimum width for the output, by (mostly) equally
-// distributing the given minWidth amongst all segments in the output.
-func (o Output) MinWidth(minWidth int) Output {
+// distributing the given minWidth amongst all segments in the group.
+func (g SegmentGroup) MinWidth(minWidth int) SegmentGroup {
 	remainingWidth := float64(minWidth)
-	for idx, s := range o {
-		remainingSegments := float64(len(o) - idx)
+	for idx, s := range g {
+		remainingSegments := float64(len(g) - idx)
 		myWidth := math.Floor(remainingWidth/remainingSegments + 0.5)
 		s.MinWidth(int(myWidth))
 		remainingWidth = remainingWidth - myWidth
 	}
-	return o
+	return g
 }
 
-// Separator sets the separator visibility of the last segment in the output.
-func (o Output) Separator(separator bool) Output {
-	if len(o) > 0 {
-		o[len(o)-1].Separator(separator)
+// Separator sets the separator visibility of the last segment in the group.
+func (g SegmentGroup) Separator(separator bool) SegmentGroup {
+	if len(g) > 0 {
+		g[len(g)-1].Separator(separator)
 	}
-	return o
+	return g
 }
 
-// SeparatorWidth sets the separator width of the last segment in the output.
-func (o Output) SeparatorWidth(separatorWidth int) Output {
-	if len(o) > 0 {
-		o[len(o)-1].SeparatorWidth(separatorWidth)
+// SeparatorWidth sets the separator width of the last segment in the group.
+func (g SegmentGroup) SeparatorWidth(separatorWidth int) SegmentGroup {
+	if len(g) > 0 {
+		g[len(g)-1].SeparatorWidth(separatorWidth)
 	}
-	return o
+	return g
 }
 
-// InnerSeparator sets the separator visibility between segments of this output.
-func (o Output) InnerSeparator(separator bool) Output {
-	for idx, s := range o {
-		if idx+1 < len(o) {
+// InnerSeparator sets the separator visibility between segments of this group.
+func (g SegmentGroup) InnerSeparator(separator bool) SegmentGroup {
+	for idx, s := range g {
+		if idx+1 < len(g) {
 			s.Separator(separator)
 		}
 	}
-	return o
+	return g
 }
 
-// InnerSeparatorWidth sets the separator width between segments of this output.
-func (o Output) InnerSeparatorWidth(separatorWidth int) Output {
-	for idx, s := range o {
-		if idx+1 < len(o) {
+// InnerSeparatorWidth sets the separator width between segments of this group.
+func (g SegmentGroup) InnerSeparatorWidth(separatorWidth int) SegmentGroup {
+	for idx, s := range g {
+		if idx+1 < len(g) {
 			s.SeparatorWidth(separatorWidth)
 		}
 	}
-	return o
+	return g
+}
+
+// Segments trivially implements bar.Output for SegmentGroup.
+func (g SegmentGroup) Segments() []Segment {
+	return g
 }
 
 // NewSegment creates a new output segment with text content.
@@ -210,4 +219,9 @@ func (s Segment) Markup(markup Markup) Segment {
 func (s Segment) Instance(instance string) Segment {
 	s["instance"] = instance
 	return s
+}
+
+// Segments implements bar.Output for a single Segment.
+func (s Segment) Segments() []Segment {
+	return []Segment{s}
 }

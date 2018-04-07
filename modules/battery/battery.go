@@ -169,7 +169,7 @@ func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
 func (m *module) update() {
 	info := batteryInfo(m.batteryName)
 	m.Lock()
-	out := m.outputFunc(info)
+	out := outputs.Group(m.outputFunc(info))
 	if m.urgentFunc != nil {
 		out.Urgent(m.urgentFunc(info))
 	}

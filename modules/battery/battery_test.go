@@ -183,7 +183,7 @@ func TestSimple(t *testing.T) {
 	bat2 := New("BAT2").
 		UrgentWhen(capLt30).
 		OutputFunc(func(i Info) bar.Output {
-			return bar.Output{bar.NewSegment(i.Technology)}
+			return bar.NewSegment(i.Technology)
 		}).
 		RefreshInterval(150 * time.Millisecond)
 

@@ -61,7 +61,7 @@ type i3Module struct {
 func (m *i3Module) output(ch chan<- interface{}) {
 	for o := range m.Stream() {
 		var i3out i3Output
-		for _, segment := range o {
+		for _, segment := range o.Segments() {
 			segment["name"] = m.Name
 			i3out = append(i3out, segment)
 		}

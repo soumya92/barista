@@ -178,7 +178,7 @@ func (m *module) update() {
 		Free:      Bytes(m.statResult.Bfree * mult),
 		Total:     Bytes(m.statResult.Blocks * mult),
 	}
-	out := m.outputFunc(info)
+	out := outputs.Group(m.outputFunc(info))
 	if m.urgentFunc != nil {
 		out.Urgent(m.urgentFunc(info))
 	}

@@ -73,7 +73,7 @@ func TestDiskIo(t *testing.T) {
 
 	out := tester1.AssertOutput("on tick")
 	// 9+9 sectors / 3 seconds = 6 sectors / second * 512 bytes / sector = 3027 bytes.
-	assert.Equal(outputs.Text("3072"), out)
+	assert.Equal(outputs.Text("3072").Segments(), out)
 
 	// Simpler math.
 	RefreshInterval(time.Second)
@@ -95,7 +95,7 @@ func TestDiskIo(t *testing.T) {
 	<-signalChan
 
 	out = tester1.AssertOutput("on tick")
-	assert.Equal(outputs.Text("512"), out)
+	assert.Equal(outputs.Text("512").Segments(), out)
 
 	tester2.AssertNoOutput("for missing disk")
 
@@ -107,7 +107,7 @@ func TestDiskIo(t *testing.T) {
 	<-signalChan
 
 	out = tester1.AssertOutput("on tick")
-	assert.Equal(outputs.Text("0"), out)
+	assert.Equal(outputs.Text("0").Segments(), out)
 
 	sda1.OutputFunc(func(i IO) bar.Output {
 		return outputs.Textf("%s", i.Total().SI())
@@ -115,7 +115,7 @@ func TestDiskIo(t *testing.T) {
 	<-signalChan
 
 	out = tester1.AssertOutput("on output func change")
-	assert.Equal(outputs.Text("0 B"), out)
+	assert.Equal(outputs.Text("0 B").Segments(), out)
 
 	tester2.AssertNoOutput("for missing disk")
 
@@ -141,7 +141,7 @@ func TestDiskIo(t *testing.T) {
 	tester1.AssertNoOutput("for missing disk")
 
 	out = tester2.AssertOutput("on tick")
-	assert.Equal(outputs.Text("50 KiB"), out)
+	assert.Equal(outputs.Text("50 KiB").Segments(), out)
 }
 
 func TestErrors(t *testing.T) {
@@ -199,7 +199,7 @@ a b sda2 0 0 100 0 0 0 b 0 0 0 0
 	<-signalChan
 
 	out := tester.AssertOutput("on second tick")
-	assert.Equal(t, outputs.Textf("Disk: 100 KiB/s"), out,
+	assert.Equal(t, outputs.Textf("Disk: 100 KiB/s").Segments(), out,
 		"ignores invalid lines in diskstats")
 }
 
