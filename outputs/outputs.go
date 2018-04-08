@@ -47,7 +47,7 @@ func Errorf(format string, args ...interface{}) bar.Output {
 
 // Error constructs a bar output that indicates an error.
 func Error(e error) bar.Output {
-	return bar.NewSegment(e.Error()).
+	return Text(e.Error()).
 		ShortText("Error").
 		Urgent(true)
 }
@@ -59,19 +59,13 @@ func Textf(format string, args ...interface{}) bar.Segment {
 
 //Text constructs a simple text output from the given string.
 func Text(text string) bar.Segment {
-	return bar.NewSegment(text)
-}
-
-// PangoUnsafe constructs a bar output from existing pango markup.
-// This function does not perform any escaping.
-func PangoUnsafe(markup string) bar.Segment {
-	return bar.NewSegment(markup).Markup(bar.MarkupPango)
+	return bar.TextSegment(text)
 }
 
 // Pango constructs a bar output from a list of things.
 func Pango(things ...interface{}) bar.Segment {
 	// The extra span tag will be collapsed if no attributes were added.
-	return PangoUnsafe(pango.Span(things...).Pango())
+	return bar.PangoSegment(pango.Span(things...).Pango())
 }
 
 // Group merges several outputs into a single SegmentGroup, to facilitate

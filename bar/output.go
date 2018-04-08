@@ -60,14 +60,6 @@ func (g SegmentGroup) Urgent(urgent bool) SegmentGroup {
 	return g
 }
 
-// Markup sets the markup type for all segments in the group.
-func (g SegmentGroup) Markup(markup Markup) SegmentGroup {
-	for _, s := range g {
-		s.Markup(markup)
-	}
-	return g
-}
-
 /*
 Width and separator(width) are treated specially such that the methods
 make sense when called on a single-segment output (such as the result
@@ -134,9 +126,16 @@ func (g SegmentGroup) Segments() []Segment {
 	return g
 }
 
-// NewSegment creates a new output segment with text content.
-func NewSegment(text string) Segment {
-	return Segment{"full_text": text}
+// TextSegment creates a new output segment with text content.
+func TextSegment(text string) Segment {
+	return Segment{"full_text": text, "markup": "none"}
+}
+
+// PangoSegment creates a new output segment with content that uses pango
+// markup for formatting. Not all features may be supported.
+// See https://developer.gnome.org/pango/stable/PangoMarkupFormat.html.
+func PangoSegment(text string) Segment {
+	return Segment{"full_text": text, "markup": "pango"}
 }
 
 // Text returns the text content of this segment.
@@ -205,12 +204,6 @@ func (s Segment) Separator(separator bool) Segment {
 // SeparatorWidth sets the width of the separator "block" for the segment.
 func (s Segment) SeparatorWidth(separatorWidth int) Segment {
 	s["separator_block_width"] = separatorWidth
-	return s
-}
-
-// Markup sets the markup type (pango or none) for the segment.
-func (s Segment) Markup(markup Markup) Segment {
-	s["markup"] = markup
 	return s
 }
 

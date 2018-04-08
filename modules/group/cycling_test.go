@@ -38,7 +38,7 @@ func TestCyclingWithModules(t *testing.T) {
 	group := Cycling()
 
 	module1 := testModule.New(t)
-	out1 := bar.NewSegment("1")
+	out1 := bar.TextSegment("1")
 	wrapped1 := group.Add(module1)
 	module1.AssertNotStarted("when wrapped")
 
@@ -48,13 +48,13 @@ func TestCyclingWithModules(t *testing.T) {
 	tester1.AssertOutput("first module starts visible")
 
 	module2 := testModule.New(t)
-	out2 := bar.NewSegment("2")
+	out2 := bar.TextSegment("2")
 	tester2 := testModule.NewOutputTester(t, group.Add(module2))
 	module2.Output(out2)
 	tester2.AssertNoOutput("other modules start hidden")
 
 	module3 := testModule.New(t)
-	out3 := bar.NewSegment("3")
+	out3 := bar.TextSegment("3")
 	tester3 := testModule.NewOutputTester(t, group.Add(module3))
 	module3.Output(out3)
 	tester3.AssertNoOutput("other modules start hidden")
@@ -83,10 +83,10 @@ func TestCyclingWithModules(t *testing.T) {
 		"updates with previous output")
 	tester2.AssertNoOutput("only two modules updated at a time")
 
-	out4 := bar.NewSegment("4")
+	out4 := bar.TextSegment("4")
 	module2.Output(out4)
 	tester2.AssertNoOutput("while hidden")
-	out5 := bar.NewSegment("5")
+	out5 := bar.TextSegment("5")
 	module2.Output(out5)
 	tester2.AssertNoOutput("while hidden")
 	group.Show(1)
@@ -102,7 +102,7 @@ func TestCyclingButton(t *testing.T) {
 	for i := 0; i <= 3; i++ {
 		group.Add(testModule.New(t)).Stream()
 	}
-	button := group.Button(bar.NewSegment("<>"))
+	button := group.Button(bar.TextSegment("<>"))
 	assert.Equal(t, 0, group.Visible(), "starts with first module")
 	button.Click(leftClick)
 	assert.Equal(t, 1, group.Visible(), "switches to next module on click")

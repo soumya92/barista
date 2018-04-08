@@ -183,7 +183,7 @@ func TestSimple(t *testing.T) {
 	bat2 := New("BAT2").
 		UrgentWhen(capLt30).
 		OutputFunc(func(i Info) bar.Output {
-			return bar.NewSegment(i.Technology)
+			return bar.TextSegment(i.Technology)
 		}).
 		RefreshInterval(150 * time.Millisecond)
 
@@ -193,17 +193,17 @@ func TestSimple(t *testing.T) {
 
 	out := m0.AssertOutput("on start")
 	assert.Equal(
-		bar.NewSegment("Charging").Urgent(false),
+		bar.TextSegment("Charging").Urgent(false),
 		out[0])
 
 	out = m1.AssertOutput("on start")
 	assert.Equal(
-		bar.NewSegment("100").Color(bar.Color("#ff0000")),
+		bar.TextSegment("100").Color(bar.Color("#ff0000")),
 		out[0])
 
 	out = m2.AssertOutput("on start")
 	assert.Equal(
-		bar.NewSegment("NiCd").Urgent(false),
+		bar.TextSegment("NiCd").Urgent(false),
 		out[0])
 
 	write(battery{
@@ -223,7 +223,7 @@ func TestSimple(t *testing.T) {
 
 	out = m2.AssertOutput("on elapsed interval")
 	assert.Equal(
-		bar.NewSegment("NiCd").Urgent(true),
+		bar.TextSegment("NiCd").Urgent(true),
 		out[0],
 		"module picks up updates to battery info")
 
@@ -237,16 +237,16 @@ func TestSimple(t *testing.T) {
 	bat1.OutputTemplate(outputs.TextTemplate(`{{.Capacity}}`))
 	out = m1.AssertOutput("when output template changes")
 	assert.Equal(
-		bar.NewSegment("100").Color(bar.Color("#ff0000")),
+		bar.TextSegment("100").Color(bar.Color("#ff0000")),
 		out[0])
 
 	bat1.OutputColor(nil)
 	out = m1.AssertOutput("when colour func changes")
-	assert.Equal(bar.NewSegment("100"), out[0])
+	assert.Equal(bar.TextSegment("100"), out[0])
 
 	bat1.UrgentWhen(capLt30)
 	out = m1.AssertOutput("when urgent func changes")
 	assert.Equal(
-		bar.NewSegment("100").Urgent(false),
+		bar.TextSegment("100").Urgent(false),
 		out[0])
 }

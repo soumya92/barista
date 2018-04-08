@@ -75,30 +75,30 @@ func TestCpuload(t *testing.T) {
 	shouldReturn(0, 0, 0)
 
 	out := tester.AssertOutput("on start")
-	assert.Equal(bar.NewSegment("0.00"), out[0])
+	assert.Equal(bar.TextSegment("0.00"), out[0])
 
 	shouldReturn(1, 2, 3)
 	tester.AssertNoOutput("until refresh")
 
 	scheduler.NextTick()
 	out = tester.AssertOutput("on next tick")
-	assert.Equal(bar.NewSegment("1.00"), out[0])
+	assert.Equal(bar.TextSegment("1.00"), out[0])
 
 	load.OutputTemplate(outputs.TextTemplate(`{{.Min5 | printf "%.2f"}}`))
 	out = tester.AssertOutput("on output format change")
-	assert.Equal(bar.NewSegment("2.00"), out[0])
+	assert.Equal(bar.TextSegment("2.00"), out[0])
 
 	load.UrgentWhen(func(l LoadAvg) bool {
 		return l.Min15() > 2
 	})
 	out = tester.AssertOutput("on urgent function change")
-	assert.Equal(bar.NewSegment("2.00").Urgent(true), out[0])
+	assert.Equal(bar.TextSegment("2.00").Urgent(true), out[0])
 
 	load.OutputColor(func(l LoadAvg) bar.Color {
 		return bar.Color("red")
 	})
 	out = tester.AssertOutput("on color function change")
-	assert.Equal(bar.NewSegment("2.00").
+	assert.Equal(bar.TextSegment("2.00").
 		Urgent(true).
 		Color(bar.Color("red")),
 		out[0])
@@ -106,7 +106,7 @@ func TestCpuload(t *testing.T) {
 	shouldReturn(0, 0, 0)
 	scheduler.NextTick()
 	out = tester.AssertOutput("on next tick")
-	assert.Equal(bar.NewSegment("0.00").
+	assert.Equal(bar.TextSegment("0.00").
 		Urgent(false).
 		Color(bar.Color("red")),
 		out[0])

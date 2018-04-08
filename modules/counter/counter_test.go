@@ -29,7 +29,7 @@ func TestCounter(t *testing.T) {
 	tester := testModule.NewOutputTester(t, ctr)
 
 	out := tester.AssertOutput("on start")
-	assert.Equal(bar.NewSegment("C:0"), out[0])
+	assert.Equal(bar.TextSegment("C:0"), out[0])
 
 	tester.AssertNoOutput("without any interaction")
 	ctr.(bar.Pausable).Pause()
@@ -39,13 +39,13 @@ func TestCounter(t *testing.T) {
 
 	ctr.(bar.Clickable).Click(bar.Event{Button: bar.ScrollUp})
 	out = tester.AssertOutput("on click")
-	assert.Equal(bar.NewSegment("C:1"), out[0])
+	assert.Equal(bar.TextSegment("C:1"), out[0])
 
 	ctr.(bar.Clickable).Click(bar.Event{Button: bar.ScrollDown})
 	out = tester.AssertOutput("on click")
-	assert.Equal(bar.NewSegment("C:0"), out[0])
+	assert.Equal(bar.TextSegment("C:0"), out[0])
 
 	ctr.(bar.Clickable).Click(bar.Event{Button: bar.ButtonBack})
 	out = tester.AssertOutput("on click")
-	assert.Equal(bar.NewSegment("C:-1"), out[0])
+	assert.Equal(bar.TextSegment("C:-1"), out[0])
 }

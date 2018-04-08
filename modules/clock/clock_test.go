@@ -35,11 +35,11 @@ func TestSimple(t *testing.T) {
 	tester := testModule.NewOutputTester(t, local)
 
 	out := tester.AssertOutput("on start")
-	assert.Equal(bar.NewSegment("00:00"), out[0])
+	assert.Equal(bar.TextSegment("00:00"), out[0])
 
 	now := scheduler.NextTick()
 	out = tester.AssertOutput("on next tick")
-	assert.Equal(bar.NewSegment("00:00"), out[0])
+	assert.Equal(bar.TextSegment("00:00"), out[0])
 	assert.Equal(1, now.Second(), "increases by granularity")
 	assert.Equal(0, now.Nanosecond(), "triggers at exact granularity")
 
@@ -56,11 +56,11 @@ func TestSimple(t *testing.T) {
 
 	local.OutputFormat("15:04:05")
 	out = tester.AssertOutput("on output format change")
-	assert.Equal(bar.NewSegment("00:00:02"), out[0])
+	assert.Equal(bar.TextSegment("00:00:02"), out[0])
 
 	now = scheduler.NextTick()
 	out = tester.AssertOutput("on next tick")
-	assert.Equal(bar.NewSegment("00:01:00"), out[0])
+	assert.Equal(bar.TextSegment("00:01:00"), out[0])
 	assert.Equal(0, now.Second(), "triggers on exact granularity")
 	assert.Equal(1, now.Minute(), "triggers on exact granularity")
 
@@ -87,13 +87,13 @@ func TestZones(t *testing.T) {
 	tUnknown := testModule.NewOutputTester(t, unknown)
 
 	out := tPst.AssertOutput("on start")
-	assert.Equal(bar.NewSegment("05:15:00"), out[0])
+	assert.Equal(bar.TextSegment("05:15:00"), out[0])
 
 	out = tBerlin.AssertOutput("on start")
-	assert.Equal(bar.NewSegment("14:15:00"), out[0])
+	assert.Equal(bar.TextSegment("14:15:00"), out[0])
 
 	out = tTokyo.AssertOutput("on start")
-	assert.Equal(bar.NewSegment("22:15:00"), out[0])
+	assert.Equal(bar.TextSegment("22:15:00"), out[0])
 
 	errStr := tUnknown.AssertError("on start with error")
 	assert.Contains(errStr, "Global/Unknown", "error mentions time zone")

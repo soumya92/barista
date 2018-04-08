@@ -30,7 +30,7 @@ func TextTemplate(tpl string) TemplateFunc {
 		if err := t.Execute(&out, arg); err != nil {
 			return Error(err)
 		}
-		return Text(out.String())
+		return bar.TextSegment(out.String())
 	}
 }
 
@@ -43,6 +43,6 @@ func PangoTemplate(tpl string) TemplateFunc {
 		if err := t.Execute(&out, arg); err != nil {
 			return Error(err)
 		}
-		return PangoUnsafe(out.String())
+		return bar.PangoSegment(out.String())
 	}
 }

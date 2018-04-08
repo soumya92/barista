@@ -82,9 +82,6 @@ func TestPango(t *testing.T) {
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.expected, textOf(tc.output), tc.desc)
-		assert.Equal(t,
-			bar.MarkupPango, tc.output.Segments()[0]["markup"].(bar.Markup),
-			tc.desc)
 	}
 }
 
@@ -154,10 +151,10 @@ func TestGroup(t *testing.T) {
 			Group(
 				Text("1").Separator(false),
 				Group(
-					bar.NewSegment("2").Separator(true),
-					bar.NewSegment("3").Separator(false),
-					bar.NewSegment("4").Separator(false),
-					bar.NewSegment("5").Separator(true),
+					bar.TextSegment("2").Separator(true),
+					bar.TextSegment("3").Separator(false),
+					bar.TextSegment("4").Separator(false),
+					bar.TextSegment("5").Separator(true),
 				),
 				Textf("%d", 6),
 			),

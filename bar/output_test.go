@@ -40,16 +40,18 @@ func segmentAssertions(t *testing.T, segment Segment) sA {
 }
 
 func TestSegment(t *testing.T) {
-	segment := NewSegment("test")
+	segment := TextSegment("test")
 	a := segmentAssertions(t, segment)
 
 	a.Expected["full_text"] = "test"
+	a.Expected["markup"] = "none"
 	a.AssertEqual("sets full_text")
 
 	segment2 := segment.ShortText("t")
 	a2 := segmentAssertions(t, segment2)
 	a2.Expected["full_text"] = "test"
 	a2.Expected["short_text"] = "t"
+	a2.Expected["markup"] = "none"
 	a2.AssertEqual("sets short_text, does not lose full_text")
 
 	assert.Equal(t, "test", segment.Text(), "text getter")
@@ -68,10 +70,6 @@ func TestSegment(t *testing.T) {
 
 	segment.Background(Color(""))
 	a.AssertEqual("clearing unset color works")
-
-	segment.Markup(MarkupNone)
-	a.Expected["markup"] = "none"
-	a.AssertEqual("markup strings are preserved")
 
 	segment.Align(AlignStart)
 	a.Expected["align"] = "left"
@@ -93,22 +91,25 @@ func TestSegment(t *testing.T) {
 
 func TestGroup(t *testing.T) {
 	out := SegmentGroup{
-		NewSegment("1"),
-		NewSegment("2"),
-		NewSegment("3"),
-		NewSegment("4"),
-		NewSegment("5"),
-		NewSegment("6"),
+		TextSegment("1"),
+		TextSegment("2"),
+		TextSegment("3"),
+		PangoSegment("4"),
+		PangoSegment("5"),
+		PangoSegment("6"),
 	}
 
 	first := segmentAssertions(t, out[0])
 	first.Expected["full_text"] = "1"
+	first.Expected["markup"] = "none"
 
 	mid := segmentAssertions(t, out[3])
 	mid.Expected["full_text"] = "4"
+	mid.Expected["markup"] = "pango"
 
 	last := segmentAssertions(t, out[5])
 	last.Expected["full_text"] = "6"
+	last.Expected["markup"] = "pango"
 
 	assertAllEqual := func(message string) {
 		first.AssertEqual(message)
@@ -177,17 +178,16 @@ func TestGroup(t *testing.T) {
 	mid.Expected["separator"] = "false"
 	assertAllEqual("inner separator only affects inner segments")
 
-	single := SegmentGroup{NewSegment("only")}
+	single := SegmentGroup{PangoSegment("<b>only</b>")}
 	a := segmentAssertions(t, single[0])
-	a.Expected["full_text"] = "only"
+	a.Expected["full_text"] = "<b>only</b>"
+	a.Expected["markup"] = "pango"
 	single.Background(Color("yellow"))
 	a.Expected["background"] = "yellow"
 	single.Color(Color("red"))
 	a.Expected["color"] = "red"
 	single.Align(AlignEnd)
 	a.Expected["align"] = "right"
-	single.Markup(MarkupPango)
-	a.Expected["markup"] = "pango"
 	single.SeparatorWidth(2)
 	a.Expected["separator_block_width"] = "2"
 	single.MinWidth(100)

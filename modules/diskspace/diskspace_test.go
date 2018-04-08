@@ -114,7 +114,7 @@ func TestDiskspace(t *testing.T) {
 		return i.AvailFrac() < 0.5
 	})
 	out = tester.AssertOutput("on urgent function change")
-	assert.Equal(bar.NewSegment("500.0").Urgent(true), out[0])
+	assert.Equal(bar.TextSegment("500.0").Urgent(true), out[0])
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -126,7 +126,7 @@ func TestDiskspace(t *testing.T) {
 		return bar.Color("red")
 	})
 	out = tester.AssertOutput("on color function change")
-	assert.Equal(bar.NewSegment("1500.0").
+	assert.Equal(bar.TextSegment("1500.0").
 		Urgent(false).
 		Color(bar.Color("red")),
 		out[0])

@@ -76,7 +76,7 @@ func TestUpdateAndScheduler(t *testing.T) {
 	updateCalled := false
 	b.OnUpdate(func() {
 		updateCalled = true
-		b.Output(bar.NewSegment("test"))
+		b.Output(bar.TextSegment("test"))
 	})
 
 	assertUpdate := func(message string) []bar.Segment {

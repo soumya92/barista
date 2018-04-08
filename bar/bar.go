@@ -29,17 +29,6 @@ const (
 	AlignEnd = TextAlignment("right")
 )
 
-// Markup defines the output type of a block, e.g. plain text or pango format.
-type Markup string
-
-const (
-	// MarkupNone represents plain-text output. No formatting will be parsed.
-	MarkupNone = Markup("none")
-	// MarkupPango represents pango formatting. Not all features may be supported.
-	// See https://developer.gnome.org/pango/stable/PangoMarkupFormat.html.
-	MarkupPango = Markup("pango")
-)
-
 // Color represents a color string that will be handled by i3.
 type Color string
 

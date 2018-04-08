@@ -34,7 +34,7 @@ func TestCollapsingEmpty(t *testing.T) {
 
 	module := testModule.New(t)
 	tester := testModule.NewOutputTester(t, group.Add(module))
-	module.Output(bar.NewSegment("test"))
+	module.Output(bar.TextSegment("test"))
 	tester.AssertNoOutput("adding to collapsed group")
 }
 
@@ -49,7 +49,7 @@ func TestCollapsingWithModule(t *testing.T) {
 	tester := testModule.NewOutputTester(t, wrapped)
 	module.AssertStarted("when wrapping module is started")
 
-	out := bar.NewSegment("hello")
+	out := bar.TextSegment("hello")
 	module.Output(out)
 	wOut := tester.AssertOutput("passes thru when expanded")
 	assert.Equal(t, out.Segments(), wOut, "output is unchanged")
@@ -64,7 +64,7 @@ func TestCollapsingWithModule(t *testing.T) {
 	group.Toggle()
 	assert.True(t, group.Collapsed(), "state check")
 	tester.AssertEmpty("on collapse")
-	out2 := bar.NewSegment("world")
+	out2 := bar.TextSegment("world")
 	module.Output(out2)
 	tester.AssertNoOutput("while collapsed")
 
@@ -74,7 +74,7 @@ func TestCollapsingWithModule(t *testing.T) {
 	assert.Equal(t, out2.Segments(), wOut,
 		"output while collapsed is not discarded")
 
-	out3 := bar.NewSegment("foo")
+	out3 := bar.TextSegment("foo")
 	module.Output(out3)
 	wOut = tester.AssertOutput("passes thru when expanded")
 	assert.Equal(t, out3.Segments(), wOut, "works normally when expanded")
@@ -93,8 +93,8 @@ func TestCollapsingWithModule(t *testing.T) {
 func TestCollapsingButton(t *testing.T) {
 	group := Collapsing()
 	leftClick := bar.Event{Button: bar.ButtonLeft}
-	col := bar.NewSegment("collapsed")
-	exp := bar.NewSegment("expanded")
+	col := bar.TextSegment("collapsed")
+	exp := bar.TextSegment("expanded")
 
 	button := group.Button(col, exp)
 	buttonTester := testModule.NewOutputTester(t, button)
