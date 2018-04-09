@@ -68,12 +68,13 @@ func Pango(things ...interface{}) bar.Segment {
 	return bar.PangoSegment(pango.Span(things...).Pango())
 }
 
-// Group merges several outputs into a single SegmentGroup, to facilitate
-// easier manipulation of output properties (e.g. colour, urgency).
-func Group(outputs ...bar.Output) bar.SegmentGroup {
-	out := []bar.Segment{}
+// Group concatenates several outputs into a single SegmentGroup,
+// to facilitate easier manipulation of output properties.
+// For example, setting a colour or urgency for all segments together.
+func Group(outputs ...bar.Output) SegmentGroup {
+	group := newSegmentGroup()
 	for _, o := range outputs {
-		out = append(out, o.Segments()...)
+		group.Append(o.Segments()...)
 	}
-	return bar.SegmentGroup(out)
+	return group
 }

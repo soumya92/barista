@@ -149,9 +149,9 @@ func TestMultipleModules(t *testing.T) {
 }
 
 func multiOutput(texts ...string) Output {
-	m := SegmentGroup{}
+	m := outputs.Group()
 	for _, text := range texts {
-		m = append(m, TextSegment(text))
+		m.Append(TextSegment(text))
 	}
 	return m
 }

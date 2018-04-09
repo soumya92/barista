@@ -71,9 +71,25 @@ func TestSegment(t *testing.T) {
 	segment.Background(Color(""))
 	a.AssertEqual("clearing unset color works")
 
+	segment.Background(Color("green"))
+	a.Expected["background"] = "green"
+	a.AssertEqual("sets background color")
+
+	segment.Border(Color("yellow"))
+	a.Expected["border"] = "yellow"
+	a.AssertEqual("sets border color")
+
 	segment.Align(AlignStart)
 	a.Expected["align"] = "left"
 	a.AssertEqual("alignment strings are preserved")
+
+	segment.MinWidth(10)
+	a.Expected["min_width"] = "10"
+	a.AssertEqual("sets min width in px")
+
+	segment.MinWidthPlaceholder("00:00")
+	a.Expected["min_width"] = "00:00"
+	a.AssertEqual("sets min width placeholder")
 
 	// sanity check default go values.
 	segment.Separator(false)
@@ -83,6 +99,10 @@ func TestSegment(t *testing.T) {
 	segment.SeparatorWidth(0)
 	a.Expected["separator_block_width"] = "0"
 	a.AssertEqual("separator width = 0")
+
+	segment.Urgent(false)
+	a.Expected["urgent"] = "false"
+	a.AssertEqual("urgent = false")
 
 	segment.Identifier("ident")
 	a.Expected["instance"] = "ident"
@@ -169,117 +189,26 @@ func TestGets(t *testing.T) {
 	assert.Equal("test", assertSet(segment.GetID()))
 }
 
-func TestGroup(t *testing.T) {
-	out := SegmentGroup{
-		TextSegment("1"),
-		TextSegment("2"),
-		TextSegment("3"),
-		PangoSegment("4"),
-		PangoSegment("5"),
-		PangoSegment("6"),
-	}
+func TestClone(t *testing.T) {
+	assert := assert.New(t)
+	a := TextSegment("10 deg C").
+		Urgent(true).
+		MinWidthPlaceholder("## deg C")
+	b := a.Clone()
 
-	first := segmentAssertions(t, out[0])
-	first.Expected["full_text"] = "1"
-	first.Expected["markup"] = "none"
+	assert.Equal(a, b, "copied values are the same")
+	c := b.Background(Color("green"))
 
-	mid := segmentAssertions(t, out[3])
-	mid.Expected["full_text"] = "4"
-	mid.Expected["markup"] = "pango"
+	assert.NotEqual(a, b, "changes to b not reflected in a")
+	_, isSet := a.GetBackground()
+	assert.False(isSet)
+	bg, isSet := b.GetBackground()
+	assert.True(isSet)
+	assert.Equal(Color("green"), bg)
 
-	last := segmentAssertions(t, out[5])
-	last.Expected["full_text"] = "6"
-	last.Expected["markup"] = "pango"
-
-	assertAllEqual := func(message string) {
-		first.AssertEqual(message)
-		mid.AssertEqual(message)
-		last.AssertEqual(message)
-	}
-
-	assertAllEqual("initial values")
-
-	out.Border(Color("green"))
-	first.Expected["border"] = "green"
-	mid.Expected["border"] = "green"
-	last.Expected["border"] = "green"
-	assertAllEqual("sets border for all segments")
-
-	out.Urgent(true)
-	first.Expected["urgent"] = "true"
-	mid.Expected["urgent"] = "true"
-	last.Expected["urgent"] = "true"
-	assertAllEqual("sets urgent for all segments")
-
-	out.Urgent(false)
-	first.Expected["urgent"] = "false"
-	mid.Expected["urgent"] = "false"
-	last.Expected["urgent"] = "false"
-	assertAllEqual("sets urgent for all segments")
-
-	sumMinWidth := func() int {
-		minWidth := 0
-		for _, s := range out {
-			m, _ := s.GetMinWidth()
-			minWidth += m.(int)
-		}
-		return minWidth
-	}
-
-	out.MinWidth(60)
-	first.Expected["min_width"] = "10"
-	mid.Expected["min_width"] = "10"
-	last.Expected["min_width"] = "10"
-	assertAllEqual("min_width when equally distributed")
-	assert.Equal(t, 60, sumMinWidth(), "min_width when equally distributed")
-
-	// Test that however the min_width distribution happens, the sum of segments'
-	// min_width should be whatever was given to the output as a whole.
-	for _, testWidth := range []int{10, 100, 6, 3, 2, 1} {
-		out.MinWidth(testWidth)
-		assert.Equal(t, testWidth, sumMinWidth(), "min_width = %d", testWidth)
-	}
-
-	out.MinWidth(0)
-	first.Expected["min_width"] = "0"
-	mid.Expected["min_width"] = "0"
-	last.Expected["min_width"] = "0"
-	assertAllEqual("min_width when 0")
-	assert.Equal(t, 0, sumMinWidth(), "min_width when 0")
-
-	out.Separator(true)
-	last.Expected["separator"] = "true"
-	assertAllEqual("separator only affects last segment")
-
-	out.InnerSeparatorWidth(5)
-	out.InnerSeparator(false)
-	first.Expected["separator_block_width"] = "5"
-	first.Expected["separator"] = "false"
-	mid.Expected["separator_block_width"] = "5"
-	mid.Expected["separator"] = "false"
-	assertAllEqual("inner separator only affects inner segments")
-
-	single := SegmentGroup{PangoSegment("<b>only</b>")}
-	a := segmentAssertions(t, single[0])
-	a.Expected["full_text"] = "<b>only</b>"
-	a.Expected["markup"] = "pango"
-	single.Background(Color("yellow"))
-	a.Expected["background"] = "yellow"
-	single.Color(Color("red"))
-	a.Expected["color"] = "red"
-	single.Align(AlignEnd)
-	a.Expected["align"] = "right"
-	single.SeparatorWidth(2)
-	a.Expected["separator_block_width"] = "2"
-	single.MinWidth(100)
-	a.Expected["min_width"] = "100"
-	a.AssertEqual("setting properties on a single segment output work")
-
-	// Sanity check properties where the number of segments matters.
-	empty := SegmentGroup{}
-	empty.MinWidth(100)
-	empty.Separator(true)
-	empty.SeparatorWidth(0)
-	empty.InnerSeparator(false)
-	empty.InnerSeparatorWidth(10)
+	c.ShortText("short")
+	assert.Equal(b, c, "chained methods still return same segment")
+	text, isSet := b.GetShortText()
+	assert.True(isSet)
+	assert.Equal("short", text)
 }

@@ -14,10 +14,6 @@
 
 package bar
 
-import (
-	"math"
-)
-
 // TextSegment creates a new output segment with text content.
 func TextSegment(text string) Segment {
 	return Segment{&data{text: text, markup: "none"}}
@@ -228,112 +224,10 @@ func (s Segment) i3map() map[string]interface{} {
 	return i3map
 }
 
-// SegmentGroup represents a group of Segments to be
-// displayed together on the bar.
-type SegmentGroup []Segment
-
-// Color sets the color for all segments in the group.
-func (g SegmentGroup) Color(color Color) SegmentGroup {
-	for _, s := range g {
-		s.Color(color)
-	}
-	return g
-}
-
-// Background sets the background color for all segments in the group.
-func (g SegmentGroup) Background(background Color) SegmentGroup {
-	for _, s := range g {
-		s.Background(background)
-	}
-	return g
-}
-
-// Border sets the border color for all segments in the group.
-func (g SegmentGroup) Border(border Color) SegmentGroup {
-	for _, s := range g {
-		s.Border(border)
-	}
-	return g
-}
-
-// Align sets the text alignment for all segments in the group.
-func (g SegmentGroup) Align(align TextAlignment) SegmentGroup {
-	for _, s := range g {
-		s.Align(align)
-	}
-	return g
-}
-
-// Urgent sets the urgency flag for all segments in the group.
-func (g SegmentGroup) Urgent(urgent bool) SegmentGroup {
-	for _, s := range g {
-		s.Urgent(urgent)
-	}
-	return g
-}
-
-/*
-Width and separator(width) are treated specially such that the methods
-make sense when called on a single-segment output (such as the result
-of outputs.Textf(...)) as well as when called on a multi-segment group.
-
-To that end, min-width distributes the minimum width equally amongst
-all segments, and separator(width) only operate on the last segment.
-
-Additional methods for "inner" separator(width) operate on all but the
-last segment.
-*/
-
-// MinWidth sets the minimum width for the output, by (mostly) equally
-// distributing the given minWidth amongst all segments in the group.
-func (g SegmentGroup) MinWidth(minWidth int) SegmentGroup {
-	remainingWidth := float64(minWidth)
-	for idx, s := range g {
-		remainingSegments := float64(len(g) - idx)
-		myWidth := math.Floor(remainingWidth/remainingSegments + 0.5)
-		s.MinWidth(int(myWidth))
-		remainingWidth = remainingWidth - myWidth
-	}
-	return g
-}
-
-// Separator sets the separator visibility of the last segment in the group.
-func (g SegmentGroup) Separator(separator bool) SegmentGroup {
-	if len(g) > 0 {
-		g[len(g)-1].Separator(separator)
-	}
-	return g
-}
-
-// SeparatorWidth sets the separator width of the last segment in the group.
-func (g SegmentGroup) SeparatorWidth(separatorWidth int) SegmentGroup {
-	if len(g) > 0 {
-		g[len(g)-1].SeparatorWidth(separatorWidth)
-	}
-	return g
-}
-
-// InnerSeparator sets the separator visibility between segments of this group.
-func (g SegmentGroup) InnerSeparator(separator bool) SegmentGroup {
-	for idx, s := range g {
-		if idx+1 < len(g) {
-			s.Separator(separator)
-		}
-	}
-	return g
-}
-
-// InnerSeparatorWidth sets the separator width between segments of this group.
-func (g SegmentGroup) InnerSeparatorWidth(separatorWidth int) SegmentGroup {
-	for idx, s := range g {
-		if idx+1 < len(g) {
-			s.SeparatorWidth(separatorWidth)
-		}
-	}
-	return g
-}
-
-// Segments trivially implements bar.Output for SegmentGroup.
-func (g SegmentGroup) Segments() []Segment {
-	return g
+// Clone makes a copy of the Segment that can be modified
+// without the changes being reflected in the original.
+func (s Segment) Clone() Segment {
+	copied := Segment{&data{}}
+	*copied.data = *s.data
+	return copied
 }

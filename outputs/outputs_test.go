@@ -132,7 +132,7 @@ func TestGroup(t *testing.T) {
 		output   bar.Output
 		expected string
 	}{
-		{"empty", Group(), ""},
+		{"empty output", Group(), ""},
 
 		{
 			"simple group",
@@ -141,24 +141,55 @@ func TestGroup(t *testing.T) {
 		},
 
 		{
-			"group without inner separator",
+			"group with append",
+			Group().Append(Text("1"), Textf("%d", 2)),
+			"1|2|",
+		},
+
+		{
+			"without inner separators",
 			Group(Text("1"), Textf("%d", 2)).InnerSeparator(false),
 			"12|",
 		},
 
 		{
-			"nested grouping",
+			"setting inner separators before adding modules",
+			Group().InnerSeparator(false).Append(Text("1"), Text("2")),
+			"12|",
+		},
+
+		{
+			"innerseparator with existing separators in modules",
+			Group().
+				InnerSeparator(false).
+				Append(Text("1"),
+					Text("2").Separator(true),
+					Textf("%d", 3)),
+			"12|3|",
+		},
+
+		{
+			"with explicitly removed separators",
 			Group(
-				Text("1").Separator(false),
+				Text("1"),
+				Text("2").Separator(false),
+				Textf("%d", 3)),
+			"1|23|",
+		},
+
+		{
+			"nested group with inner separators",
+			Group(
+				Text("1"),
 				Group(
-					bar.TextSegment("2").Separator(true),
-					bar.TextSegment("3").Separator(false),
-					bar.TextSegment("4").Separator(false),
-					bar.TextSegment("5").Separator(true),
-				),
+					Text("2").Separator(true),
+					Text("3").Separator(false),
+					Text("4"),
+					Text("5").Separator(true),
+				).InnerSeparator(false),
 				Textf("%d", 6),
-			),
-			"12|345|6|",
+			).InnerSeparator(true),
+			"1|2|345|6|",
 		},
 	}
 	for _, tc := range tests {
