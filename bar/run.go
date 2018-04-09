@@ -26,8 +26,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// i3Output is sent to i3bar. It groups together one or more Segments.
-type i3Output []Segment
+// i3Output is sent to i3bar.
+type i3Output []map[string]interface{}
 
 // i3Event instances are received from i3bar on stdin.
 type i3Event struct {
@@ -62,8 +62,9 @@ func (m *i3Module) output(ch chan<- interface{}) {
 	for o := range m.Stream() {
 		var i3out i3Output
 		for _, segment := range o.Segments() {
-			segment["name"] = m.Name
-			i3out = append(i3out, segment)
+			segmentOut := segment.i3map()
+			segmentOut["name"] = m.Name
+			i3out = append(i3out, segmentOut)
 		}
 		m.LastOutput = i3out
 		ch <- nil
@@ -262,7 +263,7 @@ func (b *I3Bar) print() error {
 	// last cached value for each module and construct the current bar.
 	// The bar will update any modules before calling this method, so the
 	// LastOutput property of each module will represent the current state.
-	var outputs []Segment
+	var outputs []map[string]interface{}
 	for _, m := range b.i3Modules {
 		for _, segment := range m.LastOutput {
 			outputs = append(outputs, segment)

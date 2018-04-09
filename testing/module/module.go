@@ -198,13 +198,10 @@ func (o *OutputTester) AssertError(message string) string {
 		assert.Fail(o, "Expected an error output", message)
 		return ""
 	}
-	urgent, ok := out[0]["urgent"]
-	if !ok {
-		assert.Fail(o, "Expected an error output", message)
-		return ""
-	}
-	assert.True(o, urgent.(bool), message)
-	assert.Equal(o, out[0]["short_text"], "Error", message)
+	urgent, _ := out[0].IsUrgent()
+	shortText, _ := out[0].GetShortText()
+	assert.True(o, urgent, message)
+	assert.Equal(o, shortText, "Error", message)
 	return out[0].Text()
 }
 

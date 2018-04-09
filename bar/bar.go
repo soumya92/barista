@@ -37,18 +37,58 @@ Segment is a single "block" of output that conforms to the i3bar protocol.
 See https://i3wm.org/docs/i3bar-protocol.html#_blocks_in_detail for details.
 
 Note: Name is not included because only the bar needs to know the name in
-order to dispatch click events and maintain the output cache. Multiple outputs
-can still use the instance key (which the bar does not modify) to map click
-events to output segments.
+order to dispatch click events and maintain the output cache. Multiple segments
+can still use the identifier to map click events to output segments.
+The bar will map the unmodified identifier to i3bar's "instance", and set the
+value from the clicked segment as the SegmentID of the generated event.
 
-Since many of i3's default values do not match the default values in go for
-their types, Segment is just a map[string]interface{} with typed methods
-for setting values to allow distinguishing between unset values and values
-that happen to match go's defaults. (e.g. separator = false, MinWidth = 0).
-
-See output.go for supported methods.
+See segment.go for supported methods. All fields are unexported to make sure
+that when setting a field, the attrSet mask is also updated.
 */
-type Segment map[string]interface{}
+type Segment struct {
+	// We should support both chaining (e.g. segment.Urgent(true).Color(red))
+	// and sequential calls (e.g. segment.Urgent(true); segment.Color(red);).
+	// To do so, Segment needs to be mutable in-place, but making Segment
+	// a reference type will disallow `return TextSegment("bad").Color(red)'.
+	// To work around this, we wrap a reference type that holds all the data,
+	// and have each method act on the inner field.
+	*data
+}
+
+type data struct {
+	// A bitmask of attributes that are set. Needed because the go default
+	// for some attributes behave differently from unset values when sent to
+	// i3bar. (e.g. the default separatorWidth is not 0).
+	attrSet    int
+	identifier string
+
+	text      string
+	shortText string
+	markup    string
+
+	color      Color
+	background Color
+	border     Color
+
+	// Minimum width can be specified as either a numeric pixel value
+	// or a string placeholder value. The unexported field is interface{}
+	// but there are two methods on Segment that set this, one for each type.
+	minWidth interface{}
+
+	align          TextAlignment
+	urgent         bool
+	separator      bool
+	separatorWidth int
+}
+
+// sa* (Segment Attribute) consts are used as bitwise flags in attrSet
+// to indicate which attributes are set (and so should be serialised).
+const (
+	saShortText int = 1 << iota
+	saUrgent
+	saSeparator
+	saSeparatorWidth
+)
 
 // Output is an interface for displaying objects on the bar.
 type Output interface {

@@ -32,7 +32,7 @@ func TestEmpty(t *testing.T) {
 func textOf(out bar.Output) string {
 	str := ""
 	for _, segment := range out.Segments() {
-		str += segment["full_text"].(string)
+		str += segment.Text()
 	}
 	return str
 }
@@ -40,8 +40,8 @@ func textOf(out bar.Output) string {
 func textWithSeparators(out bar.Output) string {
 	str := ""
 	for _, segment := range out.Segments() {
-		str += segment["full_text"].(string)
-		if sep, ok := segment["separator"]; !ok || sep.(bool) {
+		str += segment.Text()
+		if sep, _ := segment.HasSeparator(); sep {
 			str += "|"
 		}
 	}
@@ -119,10 +119,10 @@ func TestErrors(t *testing.T) {
 	}
 	for _, tc := range tests {
 		assert.Contains(t, textOf(tc.output), tc.expected, tc.desc)
-		assert.Equal(t, tc.output.Segments()[0]["short_text"], "Error",
-			"Short text is set to 'Error'")
-		assert.True(t, tc.output.Segments()[0]["urgent"].(bool),
-			"error is marked urgent")
+		shortText, _ := tc.output.Segments()[0].GetShortText()
+		assert.Equal(t, shortText, "Error", "Short text is set to 'Error'")
+		urgent, _ := tc.output.Segments()[0].IsUrgent()
+		assert.True(t, urgent, "error is marked urgent")
 	}
 }
 

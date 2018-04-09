@@ -29,7 +29,7 @@ type sA struct {
 
 func (s sA) AssertEqual(message string) {
 	actualMap := make(map[string]string)
-	for k, v := range s.actual {
+	for k, v := range s.actual.i3map() {
 		actualMap[k] = fmt.Sprintf("%v", v)
 	}
 	assert.Equal(s.T, s.Expected, actualMap, message)
@@ -84,9 +84,89 @@ func TestSegment(t *testing.T) {
 	a.Expected["separator_block_width"] = "0"
 	a.AssertEqual("separator width = 0")
 
-	segment.Instance("instance")
-	a.Expected["instance"] = "instance"
+	segment.Identifier("ident")
+	a.Expected["instance"] = "ident"
 	a.AssertEqual("opaque instance")
+
+	barOut := segment.Segments()
+	assert.Equal(t, 1, len(barOut), "bar.Output from Segment returns 1 segment")
+	assert.Equal(t, segment, barOut[0])
+}
+
+func TestGets(t *testing.T) {
+	assert := assert.New(t)
+
+	segment := TextSegment("test")
+	assert.Equal("test", segment.Text())
+	assert.False(segment.IsPango())
+
+	assertUnset := func(value interface{}, isSet bool) interface{} {
+		assert.False(isSet)
+		return value
+	}
+
+	assertSet := func(value interface{}, isSet bool) interface{} {
+		assert.True(isSet)
+		return value
+	}
+
+	assertUnset(segment.GetShortText())
+	assertUnset(segment.GetAlignment())
+	assertUnset(segment.GetColor())
+	assertUnset(segment.GetBackground())
+	assertUnset(segment.GetBorder())
+	assertUnset(segment.GetMinWidth())
+	assertUnset(segment.GetID())
+
+	defaultUrgent := assertUnset(segment.IsUrgent())
+	assert.False(defaultUrgent.(bool))
+
+	defaultSep := assertUnset(segment.HasSeparator())
+	assert.True(defaultSep.(bool))
+
+	defaultSepWidth := assertUnset(segment.GetSeparatorWidth())
+	assert.Equal(9, defaultSepWidth)
+
+	segment = PangoSegment("<b>bold</b>")
+	assert.Equal("<b>bold</b>", segment.Text())
+	assert.True(segment.IsPango())
+
+	assertUnset(segment.GetShortText())
+	segment.ShortText("BD")
+	assert.Equal("BD", assertSet(segment.GetShortText()))
+	segment.ShortText("")
+	assert.Equal("", assertSet(segment.GetShortText()))
+
+	segment.Color(Color("red"))
+	assert.Equal(Color("red"), assertSet(segment.GetColor()))
+
+	segment.Background(Color("green"))
+	assert.Equal(Color("green"), assertSet(segment.GetBackground()))
+
+	segment.Border(Color("yellow"))
+	assert.Equal(Color("yellow"), assertSet(segment.GetBorder()))
+
+	segment.Urgent(true)
+	assert.True(assertSet(segment.IsUrgent()).(bool))
+
+	segment.Separator(false)
+	assert.False(assertSet(segment.HasSeparator()).(bool))
+
+	segment.SeparatorWidth(3)
+	assert.Equal(3, assertSet(segment.GetSeparatorWidth()))
+
+	segment.MinWidth(40)
+	assert.Equal(40, assertSet(segment.GetMinWidth()))
+	segment.MinWidth(0)
+	assert.Equal(0, assertSet(segment.GetMinWidth()))
+
+	segment.MinWidthPlaceholder("00:00:00")
+	assert.Equal("00:00:00", assertSet(segment.GetMinWidth()))
+	segment.MinWidthPlaceholder("")
+	assert.Equal("", assertSet(segment.GetMinWidth()))
+
+	segment.Identifier("test")
+	assert.Equal("test", assertSet(segment.GetID()))
 }
 
 func TestGroup(t *testing.T) {
@@ -140,7 +220,8 @@ func TestGroup(t *testing.T) {
 	sumMinWidth := func() int {
 		minWidth := 0
 		for _, s := range out {
-			minWidth += s["min_width"].(int)
+			m, _ := s.GetMinWidth()
+			minWidth += m.(int)
 		}
 		return minWidth
 	}
