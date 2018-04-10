@@ -29,7 +29,7 @@ type SegmentGroup struct {
 // We should support both chaining (e.g. Group(...).MinWidth(10).Append(...))
 // and sequential calls (e.g. g.InnerSeparators(true); g.Append(...);).
 // To do so, SegmentGroup needs to be mutable in-place, but making it
-// a reference type will disallow `return Group(...).SeparatorWidth(...)'.
+// a reference type will disallow `return Group(...).Padding(...)'.
 // To work around this, we wrap a reference type that holds all the data,
 // and have each method act on the inner field.
 
@@ -38,26 +38,26 @@ type groupData struct {
 	segments []bar.Segment
 	// To support addition of segments after construction, store
 	// attributes on the group, and apply them in Segments().
-	attrSet             int
-	color               bar.Color
-	background          bar.Color
-	border              bar.Color
-	minWidth            int
-	align               bar.TextAlignment
-	urgent              bool
-	innerSeparator      bool
-	innerSeparatorWidth int
-	outerSeparator      bool
-	outerSeparatorWidth int
+	attrSet        int
+	color          bar.Color
+	background     bar.Color
+	border         bar.Color
+	minWidth       int
+	align          bar.TextAlignment
+	urgent         bool
+	innerSeparator bool
+	innerPadding   int
+	outerSeparator bool
+	outerPadding   int
 }
 
 const (
 	sgaUrgent int = 1 << iota
 	sgaMinWidth
-	sgaInnerSeparator
-	sgaInnerSeparatorWidth
+	sgaInnerSeparators
+	sgaInnerPadding
 	sgaOuterSeparator
-	sgaOuterSeparatorWidth
+	sgaOuterPadding
 )
 
 // newSegmentGroup constructs an empty SegmentGroup
@@ -123,25 +123,30 @@ func (g SegmentGroup) Separator(separator bool) SegmentGroup {
 	return g
 }
 
-// SeparatorWidth sets the separator width of the last segment in the group.
-func (g SegmentGroup) SeparatorWidth(separatorWidth int) SegmentGroup {
-	g.attrSet |= sgaOuterSeparatorWidth
-	g.outerSeparatorWidth = separatorWidth
+// Padding sets the padding of the last segment in the group.
+func (g SegmentGroup) Padding(separatorWidth int) SegmentGroup {
+	g.attrSet |= sgaOuterPadding
+	g.outerPadding = separatorWidth
 	return g
 }
 
-// InnerSeparator sets the separator visibility between segments of this group.
-func (g SegmentGroup) InnerSeparator(separator bool) SegmentGroup {
-	g.attrSet |= sgaInnerSeparator
+// InnerSeparators sets the separator visibility between segments of this group.
+func (g SegmentGroup) InnerSeparators(separator bool) SegmentGroup {
+	g.attrSet |= sgaInnerSeparators
 	g.innerSeparator = separator
 	return g
 }
 
-// InnerSeparatorWidth sets the separator width between segments of this group.
-func (g SegmentGroup) InnerSeparatorWidth(separatorWidth int) SegmentGroup {
-	g.attrSet |= sgaInnerSeparatorWidth
-	g.innerSeparatorWidth = separatorWidth
+// InnerPadding sets the padding between segments of this group.
+func (g SegmentGroup) InnerPadding(separatorWidth int) SegmentGroup {
+	g.attrSet |= sgaInnerPadding
+	g.innerPadding = separatorWidth
 	return g
+}
+
+// Glue is a shortcut to remove the inner separators and padding.
+func (g SegmentGroup) Glue() SegmentGroup {
+	return g.InnerSeparators(false).InnerPadding(0)
 }
 
 // Append adds additional segments to this group.
@@ -172,15 +177,15 @@ func (g SegmentGroup) Segments() []bar.Segment {
 			if !isSet(s.HasSeparator()) && g.attrSet&sgaOuterSeparator != 0 {
 				c.Separator(g.outerSeparator)
 			}
-			if !isSet(s.GetSeparatorWidth()) && g.attrSet&sgaOuterSeparatorWidth != 0 {
-				c.SeparatorWidth(g.outerSeparatorWidth)
+			if !isSet(s.GetPadding()) && g.attrSet&sgaOuterPadding != 0 {
+				c.Padding(g.outerPadding)
 			}
 		} else {
-			if !isSet(s.HasSeparator()) && g.attrSet&sgaInnerSeparator != 0 {
+			if !isSet(s.HasSeparator()) && g.attrSet&sgaInnerSeparators != 0 {
 				c.Separator(g.innerSeparator)
 			}
-			if !isSet(s.GetSeparatorWidth()) && g.attrSet&sgaInnerSeparatorWidth != 0 {
-				c.SeparatorWidth(g.innerSeparatorWidth)
+			if !isSet(s.GetPadding()) && g.attrSet&sgaInnerPadding != 0 {
+				c.Padding(g.innerPadding)
 			}
 		}
 		if !isSet(s.GetMinWidth()) && g.attrSet&sgaMinWidth != 0 {

@@ -109,23 +109,29 @@ func TestSegmentGroup(t *testing.T) {
 	assert.True(isSet, "separator only affects last segment")
 	assert.True(sep)
 
-	out.InnerSeparatorWidth(5)
-	out.InnerSeparator(false)
+	out.InnerPadding(5)
+	out.InnerSeparators(false)
 
 	sep, isSet = first().HasSeparator()
 	assert.True(isSet, "inner separator only affects inner segments")
 	assert.False(sep)
-	sepW, _ := first().GetSeparatorWidth()
-	assert.Equal(5, sepW)
+	pad, _ := first().GetPadding()
+	assert.Equal(5, pad)
 	sep, isSet = mid().HasSeparator()
 	assert.True(isSet, "inner separator only affects inner segments")
 	assert.False(sep)
-	sepW, _ = mid().GetSeparatorWidth()
-	assert.Equal(5, sepW)
+	pad, _ = mid().GetPadding()
+	assert.Equal(5, pad)
 	sep, _ = last().HasSeparator()
 	assert.True(sep, "last segment separator untouched by inner separator")
-	_, isSet = last().GetSeparatorWidth()
+	_, isSet = last().GetPadding()
 	assert.False(isSet, "last segment separator untouched by inner separator")
+
+	out.Glue()
+	pad, _ = mid().GetPadding()
+	assert.Equal(0, pad, "Glue removes inner padding")
+	sep, _ = mid().HasSeparator()
+	assert.Equal(false, sep, "Glue removes inner separator")
 }
 
 func TestSingleGroup(t *testing.T) {
@@ -150,13 +156,13 @@ func TestSingleGroup(t *testing.T) {
 	align, _ := segment().GetAlignment()
 	assert.Equal(bar.AlignEnd, align)
 
-	single.SeparatorWidth(2)
+	single.Padding(2)
 	// Single segment should ignore inner separator.
-	single.InnerSeparator(false)
-	single.InnerSeparatorWidth(12)
+	single.InnerSeparators(false)
+	single.InnerPadding(12)
 
-	sepW, _ := segment().GetSeparatorWidth()
-	assert.Equal(2, sepW)
+	pad, _ := segment().GetPadding()
+	assert.Equal(2, pad)
 
 	_, isSet := segment().HasSeparator()
 	assert.False(isSet)
@@ -173,8 +179,8 @@ func TestSingleGroup(t *testing.T) {
 	minW, _ = segment().GetMinWidth()
 	assert.Equal(50, minW)
 	// Now using inner separator config.
-	sepW, _ = segment().GetSeparatorWidth()
-	assert.Equal(12, sepW)
+	pad, _ = segment().GetPadding()
+	assert.Equal(12, pad)
 	_, isSet = segment().HasSeparator()
 	assert.True(isSet)
 
@@ -198,9 +204,9 @@ func TestEmptyGroup(t *testing.T) {
 	empty := Group()
 	empty.MinWidth(100)
 	empty.Separator(true)
-	empty.SeparatorWidth(0)
-	empty.InnerSeparator(false)
-	empty.InnerSeparatorWidth(10)
+	empty.Padding(0)
+	empty.InnerSeparators(false)
+	empty.InnerPadding(10)
 	// Make sure nothing blows up...
 	assert.NotPanics(t, func() { empty.Segments() })
 }

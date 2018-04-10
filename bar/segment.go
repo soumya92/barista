@@ -149,20 +149,22 @@ func (s Segment) HasSeparator() (bool, bool) {
 	return true, false
 }
 
-// SeparatorWidth sets the width of the separator "block" for the segment.
-func (s Segment) SeparatorWidth(separatorWidth int) Segment {
-	s.separatorWidth = separatorWidth
-	s.attrSet |= saSeparatorWidth
+// Padding sets the padding at the end of this segment. The separator
+// (if displayed) will be centred within the padding.
+func (s Segment) Padding(padding int) Segment {
+	s.padding = padding
+	s.attrSet |= saPadding
 	return s
 }
 
-// GetSeparatorWidth returns the separator width of this segment.
+// GetPadding returns the padding at the end of this segment.
 // The second value indicates whether it was explicitly set.
-func (s Segment) GetSeparatorWidth() (int, bool) {
-	if s.attrSet&saSeparatorWidth != 0 {
-		return s.separatorWidth, true
+// This maps to "separator_block_width" in i3.
+func (s Segment) GetPadding() (int, bool) {
+	if s.attrSet&saPadding != 0 {
+		return s.padding, true
 	}
-	// Default separator width is 9px.
+	// Default padding is 9px.
 	return 9, false
 }
 
@@ -217,8 +219,8 @@ func (s Segment) i3map() map[string]interface{} {
 	if s.attrSet&saSeparator != 0 {
 		i3map["separator"] = s.separator
 	}
-	if s.attrSet&saSeparatorWidth != 0 {
-		i3map["separator_block_width"] = s.separatorWidth
+	if s.attrSet&saPadding != 0 {
+		i3map["separator_block_width"] = s.padding
 	}
 	i3map["markup"] = s.markup
 	return i3map

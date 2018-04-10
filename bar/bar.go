@@ -75,10 +75,10 @@ type data struct {
 	// but there are two methods on Segment that set this, one for each type.
 	minWidth interface{}
 
-	align          TextAlignment
-	urgent         bool
-	separator      bool
-	separatorWidth int
+	align     TextAlignment
+	urgent    bool
+	separator bool
+	padding   int
 }
 
 // sa* (Segment Attribute) consts are used as bitwise flags in attrSet
@@ -87,7 +87,7 @@ const (
 	saShortText int = 1 << iota
 	saUrgent
 	saSeparator
-	saSeparatorWidth
+	saPadding
 )
 
 // Output is an interface for displaying objects on the bar.

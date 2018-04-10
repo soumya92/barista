@@ -21,7 +21,7 @@ which don't allow for colours or borders. You can add those using reformat:
 
  t := localtime.New(...)
  r := reformat.New(t, func(o bar.Output) bar.Output {
-   return o.Background("red").SeparatorWidth(20)
+   return o.Background("red").Padding(20)
  })
 */
 package reformat

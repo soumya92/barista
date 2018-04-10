@@ -96,7 +96,7 @@ func TestSegment(t *testing.T) {
 	a.Expected["separator"] = "false"
 	a.AssertEqual("separator = false")
 
-	segment.SeparatorWidth(0)
+	segment.Padding(0)
 	a.Expected["separator_block_width"] = "0"
 	a.AssertEqual("separator width = 0")
 
@@ -144,7 +144,7 @@ func TestGets(t *testing.T) {
 	defaultSep := assertUnset(segment.HasSeparator())
 	assert.True(defaultSep.(bool))
 
-	defaultSepWidth := assertUnset(segment.GetSeparatorWidth())
+	defaultSepWidth := assertUnset(segment.GetPadding())
 	assert.Equal(9, defaultSepWidth)
 
 	segment = PangoSegment("<b>bold</b>")
@@ -172,8 +172,8 @@ func TestGets(t *testing.T) {
 	segment.Separator(false)
 	assert.False(assertSet(segment.HasSeparator()).(bool))
 
-	segment.SeparatorWidth(3)
-	assert.Equal(3, assertSet(segment.GetSeparatorWidth()))
+	segment.Padding(3)
+	assert.Equal(3, assertSet(segment.GetPadding()))
 
 	segment.MinWidth(40)
 	assert.Equal(40, assertSet(segment.GetMinWidth()))
