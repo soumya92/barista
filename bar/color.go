@@ -23,12 +23,12 @@ package bar
 // to produce: <span color="red">bad-thing</span>
 // assuming that the current scheme's 'bad' color is 'red'.
 
-// AttrName returns the name of the pango 'color' attribute.
-func (c Color) AttrName() string {
-	return "color"
+// String returns the string value of a color.
+func (c Color) String() string {
+	return string(c)
 }
 
-// AttrValue returns the color as a pango 'color' value.
-func (c Color) AttrValue() string {
-	return string(c)
+// PangoAttr returns the color as a pango 'color' value.
+func (c Color) PangoAttr() (string, string) {
+	return "color", c.String()
 }

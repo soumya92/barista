@@ -47,8 +47,7 @@ type Node interface {
 
 // Attribute represents a pango attribute name and value.
 type Attribute interface {
-	AttrName() string
-	AttrValue() string
+	PangoAttr() (name string, value string)
 }
 
 // element represents a generic element.
@@ -70,10 +69,11 @@ func (e *element) Pango() string {
 		out.WriteString("<")
 		out.WriteString(e.tagName)
 		for _, attr := range e.attributes {
+			attrName, attrVal := attr.PangoAttr()
 			out.WriteString(" ")
-			out.WriteString(attr.AttrName())
+			out.WriteString(attrName)
 			out.WriteString("='")
-			out.WriteString(html.EscapeString(attr.AttrValue()))
+			out.WriteString(html.EscapeString(attrVal))
 			out.WriteString("'")
 		}
 		out.WriteString(">")

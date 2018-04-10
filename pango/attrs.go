@@ -23,28 +23,18 @@ import (
 // Font sets the font face.
 type Font string
 
-// AttrName returns the name of the pango 'face' attribute.
-func (f Font) AttrName() string {
-	return "face"
-}
-
-// AttrValue returns the font as a pango 'face' value.
-func (f Font) AttrValue() string {
-	return string(f)
+// PangoAttr returns the font as a pango 'face' value.
+func (f Font) PangoAttr() (string, string) {
+	return "face", string(f)
 }
 
 // Size sets the font size, in points.
 type Size float64
 
-// AttrName returns the name of the pango 'size' attribute.
-func (s Size) AttrName() string {
-	return "size"
-}
-
-// AttrValue returns the font size as a pango 'size' value.
-func (s Size) AttrValue() string {
+// PangoAttr returns the font size as a pango 'size' value.
+func (s Size) PangoAttr() (string, string) {
 	// Pango size is 1/1024ths of a point.
-	return fmt.Sprintf("%d", int(float64(s)*1024))
+	return "size", fmt.Sprintf("%d", int(float64(s)*1024))
 }
 
 type size string
@@ -63,14 +53,9 @@ var (
 	Larger  = size("larger")
 )
 
-// AttrName returns the name of the pango 'size' attribute.
-func (s size) AttrName() string {
-	return "size"
-}
-
-// AttrValue returns the font size as a pango 'size' keyword value.
-func (s size) AttrValue() string {
-	return string(s)
+// PangoAttr returns the font size as a pango 'size' keyword value.
+func (s size) PangoAttr() (string, string) {
+	return "size", string(s)
 }
 
 type style string
@@ -82,27 +67,17 @@ var (
 	Italic                = style("italic")
 )
 
-// AttrName returns the name of the pango 'style' attribute.
-func (s style) AttrName() string {
-	return "style"
-}
-
-// AttrValue returns the font as a pango 'style' value.
-func (s style) AttrValue() string {
-	return string(s)
+// PangoAttr returns the font as a pango 'style' value.
+func (s style) PangoAttr() (string, string) {
+	return "style", string(s)
 }
 
 // Weight sets the font weight in numeric form.
 type Weight int
 
-// AttrName returns the name of the pango 'weight' attribute.
-func (w Weight) AttrName() string {
-	return "weight"
-}
-
-// AttrValue returns the weight as a pango 'weight' value.
-func (w Weight) AttrValue() string {
-	return fmt.Sprintf("%d", w)
+// PangoAttr returns the weight as a pango 'weight' value.
+func (w Weight) PangoAttr() (string, string) {
+	return "weight", fmt.Sprintf("%d", w)
 }
 
 type weight string
@@ -117,14 +92,9 @@ var (
 	Heavy                  = weight("heavy")
 )
 
-// AttrName returns the name of the pango 'weight' attribute.
-func (w weight) AttrName() string {
-	return "weight"
-}
-
-// AttrValue returns the weight as a pango 'weight' value.
-func (w weight) AttrValue() string {
-	return string(w)
+// PangoAttr returns the weight as a pango 'weight' value.
+func (w weight) PangoAttr() (string, string) {
+	return "weight", string(w)
 }
 
 type variant string
@@ -135,14 +105,9 @@ var (
 	SmallCaps               = variant("smallcaps")
 )
 
-// AttrName returns the name of the pango 'variant' attribute.
-func (v variant) AttrName() string {
-	return "variant"
-}
-
-// AttrValue returns the variant as a pango 'variant' value.
-func (v variant) AttrValue() string {
-	return string(v)
+// PangoAttr returns the variant as a pango 'variant' value.
+func (v variant) PangoAttr() (string, string) {
+	return "variant", string(v)
 }
 
 type stretch string
@@ -160,56 +125,36 @@ var (
 	UltraExpanded            = stretch("ultraexpanded")
 )
 
-// AttrName returns the name of the pango 'stretch' attribute.
-func (s stretch) AttrName() string {
-	return "stretch"
-}
-
-// AttrValue returns the stretch as a pango 'stretch' value.
-func (s stretch) AttrValue() string {
-	return string(s)
+// PangoAttr returns the stretch as a pango 'stretch' value.
+func (s stretch) PangoAttr() (string, string) {
+	return "stretch", string(s)
 }
 
 // Background wraps a bar color but applies it as a background
 // instead of the foreground.
 type Background bar.Color
 
-// AttrName returns the name of the pango 'background' attribute.
-func (b Background) AttrName() string {
-	return "background"
-}
-
-// AttrValue delegates to bar.Color to return the pango color value.
-func (b Background) AttrValue() string {
-	return bar.Color(b).AttrValue()
+// PangoAttr delegates to bar.Color to return the pango color value.
+func (b Background) PangoAttr() (string, string) {
+	return "background", bar.Color(b).String()
 }
 
 // Alpha sets the foreground opacity on a scale of 0 to 1.
 type Alpha float64
 
-// AttrName returns the name of the pango 'alpha' attribute.
-func (a Alpha) AttrName() string {
-	return "alpha"
-}
-
-// AttrValue returns the fg alpha as a pango 'alpha' value.
-func (a Alpha) AttrValue() string {
+// PangoAttr returns the fg alpha as a pango 'alpha' value.
+func (a Alpha) PangoAttr() (string, string) {
 	// Pango alpha ranges from 1 to 65535.
-	return fmt.Sprintf("%d", int(float64(a)*65535))
+	return "alpha", fmt.Sprintf("%d", int(float64(a)*65535))
 }
 
 // BgAlpha sets the background opacity on a scale of 0 to 1.
 type BgAlpha float64
 
-// AttrName returns the name of the pango 'background_alpha' attribute.
-func (b BgAlpha) AttrName() string {
-	return "background_alpha"
-}
-
-// AttrValue returns the bg alpha as a pango 'background_alpha' value.
-func (b BgAlpha) AttrValue() string {
+// PangoAttr returns the bg alpha as a pango 'background_alpha' value.
+func (b BgAlpha) PangoAttr() (string, string) {
 	// Pango alpha ranges from 1 to 65535.
-	return fmt.Sprintf("%d", int(float64(b)*65535))
+	return "background_alpha", fmt.Sprintf("%d", int(float64(b)*65535))
 }
 
 type underline string
@@ -223,42 +168,27 @@ var (
 	UnderlineError            = underline("error")
 )
 
-// AttrName returns the name of the pango 'underline' attribute.
-func (u underline) AttrName() string {
-	return "underline"
-}
-
-// AttrValue returns the underline as a pango 'underline' value.
-func (u underline) AttrValue() string {
-	return string(u)
+// PangoAttr returns the underline as a pango 'underline' value.
+func (u underline) PangoAttr() (string, string) {
+	return "underline", string(u)
 }
 
 // UnderlineColor wraps a bar color but applies it as the
 // underline color instead of the foreground.
 type UnderlineColor bar.Color
 
-// AttrName returns the name of the pango 'underline_color' attribute.
-func (u UnderlineColor) AttrName() string {
-	return "underline_color"
-}
-
-// AttrValue delegates to bar.Color to return the pango color value.
-func (u UnderlineColor) AttrValue() string {
-	return bar.Color(u).AttrValue()
+// PangoAttr delegates to bar.Color to return the pango color value.
+func (u UnderlineColor) PangoAttr() (string, string) {
+	return "underline_color", bar.Color(u).String()
 }
 
 // Rise sets the font "rise" in pango units.
 // Negative for subscript, positive for superscript.
 type Rise int
 
-// AttrName returns the name of the pango 'rise' attribute.
-func (r Rise) AttrName() string {
-	return "rise"
-}
-
-// AttrValue returns the rise as a pango 'rise' value.
-func (r Rise) AttrValue() string {
-	return fmt.Sprintf("%d", r)
+// PangoAttr returns the rise as a pango 'rise' value.
+func (r Rise) PangoAttr() (string, string) {
+	return "rise", fmt.Sprintf("%d", r)
 }
 
 type strikethrough bool
@@ -269,40 +199,31 @@ var (
 	NoStrikethrough           = strikethrough(false)
 )
 
-// AttrName returns the name of the pango 'strikethrough' attribute.
-func (s strikethrough) AttrName() string {
-	return "strikethrough"
-}
-
-// AttrValue returns true or false for the pango 'strikethrough' attribute.
-func (s strikethrough) AttrValue() string {
-	return fmt.Sprintf("%v", s)
+// PangoAttr returns true or false for the pango 'strikethrough' attribute.
+func (s strikethrough) PangoAttr() (name string, value string) {
+	name = "strikethrough"
+	if s {
+		value = "true"
+	} else {
+		value = "false"
+	}
+	return name, value
 }
 
 // StrikethroughColor wraps a bar color but applies it as the
 // strikethrough color instead of the foreground.
 type StrikethroughColor bar.Color
 
-// AttrName returns the name of the pango 'strikethrough_color' attribute.
-func (s StrikethroughColor) AttrName() string {
-	return "strikethrough_color"
-}
-
-// AttrValue delegates to bar.Color to return the pango color value.
-func (s StrikethroughColor) AttrValue() string {
-	return bar.Color(s).AttrValue()
+// PangoAttr delegates to bar.Color to return the pango color value.
+func (s StrikethroughColor) PangoAttr() (string, string) {
+	return "strikethrough_color", bar.Color(s).String()
 }
 
 // LetterSpacing sets the letter spacing, in points.
 type LetterSpacing float64
 
-// AttrName returns the name of the pango 'letter_spacing' attribute.
-func (l LetterSpacing) AttrName() string {
-	return "letter_spacing"
-}
-
-// AttrValue returns the letter spacing as a pango 'letter_spacing' value.
-func (l LetterSpacing) AttrValue() string {
+// PangoAttr returns the letter spacing as a pango 'letter_spacing' value.
+func (l LetterSpacing) PangoAttr() (string, string) {
 	// Pango spacing is 1/1024ths of a point.
-	return fmt.Sprintf("%d", int(float64(l)*1024))
+	return "letter_spacing", fmt.Sprintf("%d", int(float64(l)*1024))
 }

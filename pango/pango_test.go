@@ -23,24 +23,16 @@ import (
 
 type intAttribute int
 
-func (m intAttribute) AttrName() string {
-	return "int"
-}
-
-func (m intAttribute) AttrValue() string {
-	return fmt.Sprintf("%d", int(m))
+func (m intAttribute) PangoAttr() (string, string) {
+	return "int", fmt.Sprintf("%d", int(m))
 }
 
 type customAttribute struct {
 	name, value string
 }
 
-func (c customAttribute) AttrName() string {
-	return c.name
-}
-
-func (c customAttribute) AttrValue() string {
-	return c.value
+func (c customAttribute) PangoAttr() (string, string) {
+	return c.name, c.value
 }
 
 var stringifyingTests = []struct {
@@ -63,8 +55,8 @@ var stringifyingTests = []struct {
 	},
 	{
 		"nested tags with attributes",
-		Tag("span", Font("monospace"), Span(Bold)),
-		"<span face='monospace'><span weight='bold'></span></span>",
+		Tag("span", Font("monospace"), Span(Bold), Strikethrough),
+		"<span face='monospace' strikethrough='true'><span weight='bold'></span></span>",
 	},
 
 	{"int attribute", Tag("tt", intAttribute(5)), "<tt int='5'></tt>"},
