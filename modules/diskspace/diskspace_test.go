@@ -79,8 +79,7 @@ func TestDiskspace(t *testing.T) {
 		Blocks: 2000,
 	})
 
-	out := tester.AssertOutput("on start")
-	assert.Equal(outputs.Text("0.50 GB").Segments(), out)
+	tester.AssertOutputEquals(outputs.Text("0.50 GB"), "on start")
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -97,8 +96,7 @@ func TestDiskspace(t *testing.T) {
 		Blocks: 2000,
 	})
 	scheduler.NextTick()
-	out = tester.AssertOutput("on next tick")
-	assert.Equal(outputs.Text("2.00 GB").Segments(), out)
+	tester.AssertOutputEquals(outputs.Text("2.00 GB"), "on next tick")
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -107,14 +105,15 @@ func TestDiskspace(t *testing.T) {
 		Blocks: 2000,
 	})
 	diskspace.OutputTemplate(outputs.TextTemplate(`{{.Available.In "MB" | printf "%.1f"}}`))
-	out = tester.AssertOutput("on output format change")
-	assert.Equal(outputs.Text("500.0").Segments(), out)
+	tester.AssertOutputEquals(
+		outputs.Text("500.0"), "on output format change")
 
 	diskspace.UrgentWhen(func(i Info) bool {
 		return i.AvailFrac() < 0.5
 	})
-	out = tester.AssertOutput("on urgent function change")
-	assert.Equal(bar.TextSegment("500.0").Urgent(true), out[0])
+	tester.AssertOutputEquals(
+		outputs.Text("500.0").Urgent(true),
+		"on urgent function change")
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -125,11 +124,9 @@ func TestDiskspace(t *testing.T) {
 	diskspace.OutputColor(func(i Info) bar.Color {
 		return bar.Color("red")
 	})
-	out = tester.AssertOutput("on color function change")
-	assert.Equal(bar.TextSegment("1500.0").
-		Urgent(false).
-		Color(bar.Color("red")),
-		out[0])
+	tester.AssertOutputEquals(
+		outputs.Text("1500.0").Urgent(false).Color(bar.Color("red")),
+		"on color function change")
 
 	diskspace.RefreshInterval(time.Minute)
 	tester.AssertNoOutput("on refresh interval change")
@@ -194,7 +191,6 @@ func TestDiskspaceInfo(t *testing.T) {
 }
 
 func TestNonexistentDiskspace(t *testing.T) {
-	assert := assert.New(t)
 	statfs = mockStatfs
 	scheduler.TestMode(true)
 
@@ -213,6 +209,6 @@ func TestNonexistentDiskspace(t *testing.T) {
 		Blocks: 9 * 1000 * 1000,
 	})
 	scheduler.NextTick()
-	out := tester.AssertOutput("on next tick after mounting")
-	assert.Equal(outputs.Text("6.00 GB").Segments(), out)
+	tester.AssertOutputEquals(
+		outputs.Text("6.00 GB"), "on next tick after mounting")
 }

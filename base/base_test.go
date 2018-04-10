@@ -76,14 +76,13 @@ func TestUpdateAndScheduler(t *testing.T) {
 	updateCalled := false
 	b.OnUpdate(func() {
 		updateCalled = true
-		b.Output(bar.TextSegment("test"))
+		b.Output(outputs.Text("test"))
 	})
 
-	assertUpdate := func(message string) []bar.Segment {
-		out := o.AssertOutput(message)
+	assertUpdate := func(message string) {
+		o.AssertOutput(message)
 		assert.True(t, updateCalled, message)
 		updateCalled = false
-		return out
 	}
 
 	assertNoUpdate := func(message string) {
@@ -118,11 +117,10 @@ func TestPauseResume(t *testing.T) {
 	})
 	o := testModule.NewOutputTester(t, b)
 
-	assertUpdate := func(message string) []bar.Segment {
-		out := o.AssertOutput(message)
+	assertUpdate := func(message string) {
+		o.AssertOutput(message)
 		assert.True(t, updateCalled, message)
 		updateCalled = false
-		return out
 	}
 
 	assertNoUpdate := func(message string) {
@@ -164,8 +162,7 @@ func TestPauseResume(t *testing.T) {
 	o.AssertNoOutput("while paused")
 
 	b.Resume()
-	out := o.AssertOutput("from calling output while paused")
-	assert.Equal(t, newOut.Segments(), out, "updates with last output")
+	o.AssertOutputEquals(newOut, "updates with last output when resumed")
 	o.AssertNoOutput("only last output emitted on resume")
 }
 
@@ -229,8 +226,7 @@ func TestClickUpdates(t *testing.T) {
 	assertNotClicked("when no click event")
 
 	b.Click(clickEvent(bar.ButtonRight))
-	out := o.AssertOutput("on right click")
-	assert.Empty(t, out, "clears on right click when error'd")
+	o.AssertOutputEquals(outputs.Empty(), "clears error on right click")
 	assertUpdate("after clearing error")
 	assertNotClicked("when clearing error")
 
@@ -238,8 +234,7 @@ func TestClickUpdates(t *testing.T) {
 	o.AssertOutput("on error")
 
 	b.Click(clickEvent(bar.ButtonMiddle))
-	out = o.AssertOutput("on middle click")
-	assert.Empty(t, out, "clears on middle click when error'd")
+	o.AssertOutputEquals(outputs.Empty(), "clears error on middle click")
 	assertUpdate("after clearing error")
 	assertNotClicked("when clearing error")
 

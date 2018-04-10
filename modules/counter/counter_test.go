@@ -17,19 +17,16 @@ package counter
 import (
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
-
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
 func TestCounter(t *testing.T) {
-	assert := assert.New(t)
 	ctr := New("C:%d")
 	tester := testModule.NewOutputTester(t, ctr)
 
-	out := tester.AssertOutput("on start")
-	assert.Equal(bar.TextSegment("C:0"), out[0])
+	tester.AssertOutputEquals(outputs.Text("C:0"), "on start")
 
 	tester.AssertNoOutput("without any interaction")
 	ctr.(bar.Pausable).Pause()
@@ -38,14 +35,11 @@ func TestCounter(t *testing.T) {
 	tester.AssertNoOutput("on resume")
 
 	ctr.(bar.Clickable).Click(bar.Event{Button: bar.ScrollUp})
-	out = tester.AssertOutput("on click")
-	assert.Equal(bar.TextSegment("C:1"), out[0])
+	tester.AssertOutputEquals(outputs.Text("C:1"), "on click")
 
 	ctr.(bar.Clickable).Click(bar.Event{Button: bar.ScrollDown})
-	out = tester.AssertOutput("on click")
-	assert.Equal(bar.TextSegment("C:0"), out[0])
+	tester.AssertOutputEquals(outputs.Text("C:0"), "on click")
 
 	ctr.(bar.Clickable).Click(bar.Event{Button: bar.ButtonBack})
-	out = tester.AssertOutput("on click")
-	assert.Equal(bar.TextSegment("C:-1"), out[0])
+	tester.AssertOutputEquals(outputs.Text("C:-1"), "on click")
 }

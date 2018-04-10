@@ -34,8 +34,8 @@ func TestReformat(t *testing.T) {
 	original.AssertStarted("on stream of reformatted module")
 
 	original.Output(outputs.Textf("test"))
-	out := tester.AssertOutput("when original module updates")
-	assert.Equal(t, out[0].Text(), "+test+")
+	tester.AssertOutputEquals(
+		outputs.Text("+test+"), "when original module updates")
 
 	reformatted.(bar.Pausable).Pause()
 	original.AssertPaused("when reformatted module is paused")

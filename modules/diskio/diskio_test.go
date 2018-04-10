@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
-	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base/scheduler"
@@ -44,7 +43,6 @@ func shouldReturn(stats diskstats) {
 }
 
 func TestDiskIo(t *testing.T) {
-	assert := assert.New(t)
 	fs = afero.NewMemMapFs()
 	scheduler.TestMode(true)
 	// Because updater was set in init, it's not a test-mode scheduler.
@@ -71,9 +69,8 @@ func TestDiskIo(t *testing.T) {
 	scheduler.NextTick()
 	<-signalChan
 
-	out := tester1.AssertOutput("on tick")
 	// 9+9 sectors / 3 seconds = 6 sectors / second * 512 bytes / sector = 3027 bytes.
-	assert.Equal(outputs.Text("3072").Segments(), out)
+	tester1.AssertOutputEquals(outputs.Text("3072"), "on tick")
 
 	// Simpler math.
 	RefreshInterval(time.Second)
@@ -94,9 +91,7 @@ func TestDiskIo(t *testing.T) {
 	scheduler.NextTick()
 	<-signalChan
 
-	out = tester1.AssertOutput("on tick")
-	assert.Equal(outputs.Text("512").Segments(), out)
-
+	tester1.AssertOutputEquals(outputs.Text("512"), "on tick")
 	tester2.AssertNoOutput("for missing disk")
 
 	shouldReturn(diskstats{
@@ -106,17 +101,14 @@ func TestDiskIo(t *testing.T) {
 	scheduler.NextTick()
 	<-signalChan
 
-	out = tester1.AssertOutput("on tick")
-	assert.Equal(outputs.Text("0").Segments(), out)
+	tester1.AssertOutputEquals(outputs.Text("0"), "on tick")
 
 	sda1.OutputFunc(func(i IO) bar.Output {
 		return outputs.Textf("%s", i.Total().SI())
 	})
 	<-signalChan
 
-	out = tester1.AssertOutput("on output func change")
-	assert.Equal(outputs.Text("0 B").Segments(), out)
-
+	tester1.AssertOutputEquals(outputs.Text("0 B"), "on output func change")
 	tester2.AssertNoOutput("for missing disk")
 
 	shouldReturn(diskstats{
@@ -126,9 +118,8 @@ func TestDiskIo(t *testing.T) {
 	scheduler.NextTick()
 	<-signalChan
 
-	out = tester1.AssertOutput("first tick after disk is removed")
-	assert.Empty(out, "output is cleared when disk is removed")
-
+	tester1.AssertOutputEquals(outputs.Empty(),
+		"first tick after disk is removed")
 	tester2.AssertNoOutput("first tick after disk is added")
 
 	shouldReturn(diskstats{
@@ -139,9 +130,7 @@ func TestDiskIo(t *testing.T) {
 	<-signalChan
 
 	tester1.AssertNoOutput("for missing disk")
-
-	out = tester2.AssertOutput("on tick")
-	assert.Equal(outputs.Text("50 KiB").Segments(), out)
+	tester2.AssertOutputEquals(outputs.Text("50 KiB"), "on tick")
 }
 
 func TestErrors(t *testing.T) {
@@ -198,8 +187,8 @@ a b sda2 0 0 100 0 0 0 b 0 0 0 0
 	scheduler.NextTick()
 	<-signalChan
 
-	out := tester.AssertOutput("on second tick")
-	assert.Equal(t, outputs.Textf("Disk: 100 KiB/s").Segments(), out,
+	tester.AssertOutputEquals(
+		outputs.Text("Disk: 100 KiB/s"),
 		"ignores invalid lines in diskstats")
 }
 

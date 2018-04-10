@@ -20,8 +20,8 @@ import (
 
 	"github.com/stretchrcom/testify/assert"
 
-	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base/scheduler"
+	"github.com/soumya92/barista/outputs"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
@@ -34,12 +34,10 @@ func TestSimple(t *testing.T) {
 	local := New()
 	tester := testModule.NewOutputTester(t, local)
 
-	out := tester.AssertOutput("on start")
-	assert.Equal(bar.TextSegment("00:00"), out[0])
+	tester.AssertOutputEquals(outputs.Text("00:00"), "on start")
 
 	now := scheduler.NextTick()
-	out = tester.AssertOutput("on next tick")
-	assert.Equal(bar.TextSegment("00:00"), out[0])
+	tester.AssertOutputEquals(outputs.Text("00:00"), "on next tick")
 	assert.Equal(1, now.Second(), "increases by granularity")
 	assert.Equal(0, now.Nanosecond(), "triggers at exact granularity")
 
@@ -55,12 +53,10 @@ func TestSimple(t *testing.T) {
 	tester.AssertOutput("on granularity change")
 
 	local.OutputFormat("15:04:05")
-	out = tester.AssertOutput("on output format change")
-	assert.Equal(bar.TextSegment("00:00:02"), out[0])
+	tester.AssertOutputEquals(outputs.Text("00:00:02"), "on output format change")
 
 	now = scheduler.NextTick()
-	out = tester.AssertOutput("on next tick")
-	assert.Equal(bar.TextSegment("00:01:00"), out[0])
+	tester.AssertOutputEquals(outputs.Text("00:01:00"), "on next tick")
 	assert.Equal(0, now.Second(), "triggers on exact granularity")
 	assert.Equal(1, now.Minute(), "triggers on exact granularity")
 
@@ -86,14 +82,9 @@ func TestZones(t *testing.T) {
 	unknown := New().Timezone("Global/Unknown").OutputFormat("15:04:05")
 	tUnknown := testModule.NewOutputTester(t, unknown)
 
-	out := tPst.AssertOutput("on start")
-	assert.Equal(bar.TextSegment("05:15:00"), out[0])
-
-	out = tBerlin.AssertOutput("on start")
-	assert.Equal(bar.TextSegment("14:15:00"), out[0])
-
-	out = tTokyo.AssertOutput("on start")
-	assert.Equal(bar.TextSegment("22:15:00"), out[0])
+	tPst.AssertOutputEquals(outputs.Text("05:15:00"), "on start")
+	tBerlin.AssertOutputEquals(outputs.Text("14:15:00"), "on start")
+	tTokyo.AssertOutputEquals(outputs.Text("22:15:00"), "on start")
 
 	errStr := tUnknown.AssertError("on start with error")
 	assert.Contains(errStr, "Global/Unknown", "error mentions time zone")

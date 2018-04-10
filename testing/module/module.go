@@ -184,6 +184,12 @@ func (o *OutputTester) AssertOutput(message string) []bar.Segment {
 	}
 }
 
+// AssertOutputEquals asserts that the last output is equivalent to the expected value.
+func (o *OutputTester) AssertOutputEquals(expected bar.Output, message string) {
+	actual := o.AssertOutput(message)
+	assert.Equal(o, expected.Segments(), actual, message)
+}
+
 // AssertEmpty asserts that the output channel was updated with empty output.
 func (o *OutputTester) AssertEmpty(message string) {
 	out := o.AssertOutput(message)

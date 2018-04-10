@@ -20,6 +20,7 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
@@ -38,7 +39,7 @@ func TestCyclingWithModules(t *testing.T) {
 	group := Cycling()
 
 	module1 := testModule.New(t)
-	out1 := bar.TextSegment("1")
+	out1 := outputs.Text("1")
 	wrapped1 := group.Add(module1)
 	module1.AssertNotStarted("when wrapped")
 
@@ -48,13 +49,13 @@ func TestCyclingWithModules(t *testing.T) {
 	tester1.AssertOutput("first module starts visible")
 
 	module2 := testModule.New(t)
-	out2 := bar.TextSegment("2")
+	out2 := outputs.Text("2")
 	tester2 := testModule.NewOutputTester(t, group.Add(module2))
 	module2.Output(out2)
 	tester2.AssertNoOutput("other modules start hidden")
 
 	module3 := testModule.New(t)
-	out3 := bar.TextSegment("3")
+	out3 := outputs.Text("3")
 	tester3 := testModule.NewOutputTester(t, group.Add(module3))
 	module3.Output(out3)
 	tester3.AssertNoOutput("other modules start hidden")
@@ -62,37 +63,29 @@ func TestCyclingWithModules(t *testing.T) {
 	group.Next()
 	assert.Equal(t, 1, group.Visible(), "updates visible index")
 	tester1.AssertEmpty("on switch")
-	wOut := tester2.AssertOutput("shows next module on switch")
-	assert.Equal(t, out2.Segments(), wOut,
-		"updates with previous output")
+	tester2.AssertOutputEquals(out2, "shows next module on switch")
 	tester3.AssertNoOutput("only two modules updated at a time")
 
 	group.Previous()
 	assert.Equal(t, 0, group.Visible(), "updates visible index")
 	tester2.AssertEmpty("previous output on switch")
-	wOut = tester1.AssertOutput("shows next module on switch")
-	assert.Equal(t, out1.Segments(), wOut,
-		"updates with previous output")
+	tester1.AssertOutputEquals(out1, "shows next module on switch")
 	tester3.AssertNoOutput("only two modules updated at a time")
 
 	group.Show(2)
 	assert.Equal(t, 2, group.Visible(), "updates visible index")
 	tester1.AssertEmpty("previous output on switch")
-	wOut = tester3.AssertOutput("shows next module on switch")
-	assert.Equal(t, out3.Segments(), wOut,
-		"updates with previous output")
+	tester3.AssertOutputEquals(out3, "shows next module on switch")
 	tester2.AssertNoOutput("only two modules updated at a time")
 
-	out4 := bar.TextSegment("4")
+	out4 := outputs.Text("4")
 	module2.Output(out4)
 	tester2.AssertNoOutput("while hidden")
-	out5 := bar.TextSegment("5")
+	out5 := outputs.Text("5")
 	module2.Output(out5)
 	tester2.AssertNoOutput("while hidden")
 	group.Show(1)
-	wOut = tester2.AssertOutput("when visible")
-	assert.Equal(t, out5.Segments(), wOut,
-		"updates while hidden coalesced")
+	tester2.AssertOutputEquals(out5, "updates while hidden coalesced")
 }
 
 func TestCyclingButton(t *testing.T) {
@@ -102,7 +95,7 @@ func TestCyclingButton(t *testing.T) {
 	for i := 0; i <= 3; i++ {
 		group.Add(testModule.New(t)).Stream()
 	}
-	button := group.Button(bar.TextSegment("<>"))
+	button := group.Button(outputs.Text("<>"))
 	assert.Equal(t, 0, group.Visible(), "starts with first module")
 	button.Click(leftClick)
 	assert.Equal(t, 1, group.Visible(), "switches to next module on click")

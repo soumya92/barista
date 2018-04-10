@@ -15,7 +15,7 @@
 package cpuload
 
 import (
-	"fmt"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -74,57 +74,53 @@ func TestCpuload(t *testing.T) {
 
 	shouldReturn(0, 0, 0)
 
-	out := tester.AssertOutput("on start")
-	assert.Equal(bar.TextSegment("0.00"), out[0])
+	tester.AssertOutputEquals(outputs.Text("0.00"), "on start")
 
 	shouldReturn(1, 2, 3)
 	tester.AssertNoOutput("until refresh")
 
 	scheduler.NextTick()
-	out = tester.AssertOutput("on next tick")
-	assert.Equal(bar.TextSegment("1.00"), out[0])
+	tester.AssertOutputEquals(outputs.Text("1.00"), "on next tick")
 
 	load.OutputTemplate(outputs.TextTemplate(`{{.Min5 | printf "%.2f"}}`))
-	out = tester.AssertOutput("on output format change")
-	assert.Equal(bar.TextSegment("2.00"), out[0])
+	tester.AssertOutputEquals(outputs.Text("2.00"), "on output format change")
 
 	load.UrgentWhen(func(l LoadAvg) bool {
 		return l.Min15() > 2
 	})
-	out = tester.AssertOutput("on urgent function change")
-	assert.Equal(bar.TextSegment("2.00").Urgent(true), out[0])
+	tester.AssertOutputEquals(
+		outputs.Text("2.00").Urgent(true),
+		"on urgent function change")
 
 	load.OutputColor(func(l LoadAvg) bar.Color {
 		return bar.Color("red")
 	})
-	out = tester.AssertOutput("on color function change")
-	assert.Equal(bar.TextSegment("2.00").
-		Urgent(true).
-		Color(bar.Color("red")),
-		out[0])
+	tester.AssertOutputEquals(
+		outputs.Text("2.00").Urgent(true).Color(bar.Color("red")),
+		"on color function change")
 
 	shouldReturn(0, 0, 0)
 	scheduler.NextTick()
-	out = tester.AssertOutput("on next tick")
-	assert.Equal(bar.TextSegment("0.00").
-		Urgent(false).
-		Color(bar.Color("red")),
-		out[0])
+	tester.AssertOutputEquals(
+		outputs.Text("0.00").Urgent(false).Color(bar.Color("red")),
+		"on next tick")
 
 	shouldReturn(1)
 	scheduler.NextTick()
-	out = tester.AssertOutput("on next tick")
-	assert.Equal(outputs.Error(fmt.Errorf("getloadavg: 1")).Segments(), out)
+	tester.AssertOutputEquals(
+		outputs.Error(errors.New("getloadavg: 1")),
+		"on next tick")
 
 	shouldReturn(1, 2, 3, 4, 5)
 	scheduler.NextTick()
-	out = tester.AssertOutput("on next tick")
-	assert.Equal(outputs.Error(fmt.Errorf("getloadavg: 5")).Segments(), out)
+	tester.AssertOutputEquals(
+		outputs.Error(errors.New("getloadavg: 5")),
+		"on next tick")
 
-	shouldError(fmt.Errorf("test"))
+	shouldError(errors.New("test"))
 	scheduler.NextTick()
-	out = tester.AssertOutput("on next tick")
-	assert.Equal(outputs.Error(fmt.Errorf("test")).Segments(), out)
+	tester.AssertOutputEquals(
+		outputs.Error(errors.New("test")), "on next tick")
 
 	load.RefreshInterval(time.Minute)
 	tester.AssertNoOutput("on refresh interval change")

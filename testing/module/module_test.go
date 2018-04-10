@@ -211,9 +211,7 @@ func TestOutputTester(t *testing.T) {
 	o.AssertNoOutput("no output")
 	testOut := outputs.Text("test")
 	m.Output(testOut)
-	actualOut := o.AssertOutput("has output")
-	assert.Equal(t, testOut.Segments(), actualOut,
-		"output passed through")
+	o.AssertOutputEquals(testOut, "output passed through")
 	m.Output(outputs.Empty())
 	o.AssertEmpty("on empty output")
 
@@ -227,9 +225,7 @@ func TestOutputTester(t *testing.T) {
 	o.Drain()
 	testOut = outputs.Text("4")
 	m.Output(testOut)
-	actualOut = o.AssertOutput("has output")
-	assert.Equal(t, testOut.Segments(), actualOut,
-		"drain removes previous outputs")
+	o.AssertOutputEquals(testOut, "drain removes previous outputs")
 
 	fakeT := &testing.T{}
 	m = New(fakeT)

@@ -54,8 +54,7 @@ func TestMeminfo(t *testing.T) {
 	avail := m.OutputTemplate(outputs.TextTemplate(`{{.Available.In "KiB"}}`))
 
 	tester1 := testModule.NewOutputTester(t, avail)
-	out := tester1.AssertOutput("on start")
-	assert.Equal(outputs.Text("2048").Segments(), out)
+	tester1.AssertOutputEquals(outputs.Text("2048"), "on start")
 
 	shouldReturn(meminfo{
 		"MemAvailable": 1024,
@@ -65,14 +64,12 @@ func TestMeminfo(t *testing.T) {
 	})
 	scheduler.NextTick()
 
-	out = tester1.AssertOutput("on tick")
-	assert.Equal(outputs.Text("1024").Segments(), out)
+	tester1.AssertOutputEquals(outputs.Text("1024"), "on tick")
 
 	free := m.OutputTemplate(outputs.TextTemplate(`{{.FreeFrac "Mem"}}`))
 
 	tester2 := testModule.NewOutputTester(t, free)
-	out = tester2.AssertOutput("on start")
-	assert.Equal(outputs.Text("0.0625").Segments(), out)
+	tester2.AssertOutputEquals(outputs.Text("0.0625"), "on start")
 
 	tester1.Drain()
 
@@ -84,11 +81,8 @@ func TestMeminfo(t *testing.T) {
 	})
 	scheduler.NextTick()
 
-	out = tester1.AssertOutput("on tick")
-	assert.Equal(outputs.Text("2048").Segments(), out)
-
-	out = tester2.AssertOutput("on tick")
-	assert.Equal(outputs.Text("0.125").Segments(), out)
+	tester1.AssertOutputEquals(outputs.Text("2048"), "on tick")
+	tester2.AssertOutputEquals(outputs.Text("0.125"), "on tick")
 
 	beforeTick := scheduler.Now()
 	m.RefreshInterval(time.Minute)
@@ -146,14 +140,12 @@ func TestErrors(t *testing.T) {
 
 	scheduler.NextTick()
 
-	out := tester.AssertOutput("when meminfo is back to normal")
-	assert.Equal(t, outputs.Textf("0.5").Segments(), out)
-
-	out = tester1.AssertOutput("when meminfo is back to normal")
-	assert.Equal(t, outputs.Textf("1.0 MiB").Segments(), out)
-
-	out = tester2.AssertOutput("when meminfo is back to normal")
-	assert.Equal(t, outputs.Textf("2.1 MB").Segments(), out)
+	tester.AssertOutputEquals(
+		outputs.Text("0.5"), "when meminfo is back to normal")
+	tester1.AssertOutputEquals(
+		outputs.Text("1.0 MiB"), "when meminfo is back to normal")
+	tester2.AssertOutputEquals(
+		outputs.Text("2.1 MB"), "when meminfo is back to normal")
 }
 
 // TODO: Remove this and spec out a "units" package.
@@ -164,6 +156,5 @@ func TestInvalidBaseInParse(t *testing.T) {
 	m := New()
 	submodule := m.OutputTemplate(outputs.TextTemplate(`{{.MemTotal.In "foo"}}`))
 	tester := testModule.NewOutputTester(t, submodule)
-	out := tester.AssertOutput("on start")
-	assert.Equal(t, outputs.Text("1024").Segments(), out)
+	tester.AssertOutputEquals(outputs.Text("1024"), "on start")
 }

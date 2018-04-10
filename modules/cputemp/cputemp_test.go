@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
-	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base/scheduler"
@@ -38,7 +37,6 @@ func shouldReturn(temps ...string) {
 }
 
 func TestCputemp(t *testing.T) {
-	assert := assert.New(t)
 	fs = afero.NewMemMapFs()
 	scheduler.TestMode(true)
 
@@ -55,12 +53,8 @@ func TestCputemp(t *testing.T) {
 		OutputTemplate(outputs.TextTemplate(`{{.K}}`))
 	tester2 := testModule.NewOutputTester(t, temp2)
 
-	out := tester0.AssertOutput("on start")
-	assert.Equal(outputs.Text("49").Segments(), out)
-
-	out = tester1.AssertOutput("on start")
-	assert.Equal(outputs.Text("72").Segments(), out)
-
+	tester0.AssertOutputEquals(outputs.Text("49"), "on start")
+	tester1.AssertOutputEquals(outputs.Text("72"), "on start")
 	tester2.AssertError("on start with invalid zone")
 
 	shouldReturn("42123", "20000")
@@ -70,14 +64,13 @@ func TestCputemp(t *testing.T) {
 
 	scheduler.NextTick()
 
-	out = tester0.AssertOutput("on next tick")
-	assert.Equal(outputs.Text("42").Segments(), out)
+	tester0.AssertOutputEquals(outputs.Text("42"), "on next tick")
 	tester1.AssertOutput("on next tick")
 	tester2.AssertError("on each tick")
 
 	temp0.UrgentWhen(func(t Temperature) bool { return t.C() > 30 })
-	out = tester0.AssertOutput("on urgent func change")
-	assert.Equal(outputs.Text("42").Urgent(true).Segments(), out)
+	tester0.AssertOutputEquals(
+		outputs.Text("42").Urgent(true), "on urgent func change")
 
 	red := bar.Color("red")
 	green := bar.Color("green")
@@ -87,8 +80,8 @@ func TestCputemp(t *testing.T) {
 		}
 		return green
 	})
-	out = tester1.AssertOutput("on color func change")
-	assert.Equal(outputs.Text("68").Color(green).Segments(), out)
+	tester1.AssertOutputEquals(
+		outputs.Text("68").Color(green), "on color func change")
 
 	temp2.OutputTemplate(outputs.TextTemplate(`{{.K}} kelvin`))
 	tester2.AssertError("error persists even with template change")
@@ -96,11 +89,10 @@ func TestCputemp(t *testing.T) {
 	shouldReturn("22222", "22222")
 	scheduler.NextTick()
 
-	out = tester0.AssertOutput("on next tick")
-	assert.Equal(outputs.Text("22").Urgent(false).Segments(), out)
-
-	out = tester1.AssertOutput("on next tick")
-	assert.Equal(outputs.Text("72").Color(red).Segments(), out)
+	tester0.AssertOutputEquals(
+		outputs.Text("22").Urgent(false), "on next tick")
+	tester1.AssertOutputEquals(
+		outputs.Text("72").Color(red), "on next tick")
 
 	tester2.AssertError("on each tick")
 
@@ -111,8 +103,9 @@ func TestCputemp(t *testing.T) {
 	scheduler.NextTick()
 	// Only temp2 has an update, since temp0 and temp1 are still
 	// on the 3 second refresh interval.
-	out = tester2.AssertOutput("on next tick when zone becomes available")
-	assert.Equal(outputs.Text("273 kelvin").Segments(), out)
+	tester2.AssertOutputEquals(
+		outputs.Text("273 kelvin"),
+		"on next tick when zone becomes available")
 
 	shouldReturn("0", "0", "invalid")
 	scheduler.NextTick()

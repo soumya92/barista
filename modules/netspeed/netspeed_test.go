@@ -86,8 +86,7 @@ func TestNetspeed(t *testing.T) {
 	})
 	scheduler.NextTick()
 
-	out := tester.AssertOutput("on tick")
-	assert.Equal(outputs.Text("3/1").Segments(), out)
+	tester.AssertOutputEquals(outputs.Text("3/1"), "on tick")
 
 	setLink("if0", netlink.LinkStatistics{
 		RxBytes: 8192,
@@ -95,27 +94,25 @@ func TestNetspeed(t *testing.T) {
 	})
 	scheduler.NextTick()
 
-	out = tester.AssertOutput("on tick")
-	assert.Equal(outputs.Text("4/1").Segments(), out)
+	tester.AssertOutputEquals(outputs.Text("4/1"), "on tick")
 
 	n.OutputTemplate(outputs.TextTemplate(`{{.Total.IEC}}`))
-	out = tester.AssertOutput("on output function change")
-	assert.Equal(outputs.Text("5.0 KiB").Segments(), out,
-		"uses previous result")
+	tester.AssertOutputEquals(
+		outputs.Text("5.0 KiB"),
+		"uses previous result on output function change")
 
 	n.OutputTemplate(outputs.TextTemplate(`{{.Total.SI}}`))
-	out = tester.AssertOutput("on output function change")
-	assert.Equal(outputs.Text("5.1 kB").Segments(), out,
-		"uses previous result")
+	tester.AssertOutputEquals(
+		outputs.Text("5.1 kB"),
+		"uses previous result on output function change")
 
 	n.OutputTemplate(outputs.TextTemplate(`{{.Tx.In "blahblah"}}`))
-	out = tester.AssertOutput("on output function change")
-	assert.Equal(outputs.Text("1024").Segments(), out,
-		"bad unit defaults to bytes")
+	tester.AssertOutputEquals(
+		outputs.Text("1024"), "bad unit defaults to bytes")
 
 	scheduler.NextTick()
-	out = tester.AssertOutput("on tick after output function change")
-	assert.Equal(outputs.Text("0").Segments(), out)
+	tester.AssertOutputEquals(
+		outputs.Text("0"), "on tick after output function change")
 
 	beforeTick := scheduler.Now()
 	n.RefreshInterval(time.Minute)
@@ -152,8 +149,7 @@ func TestErrors(t *testing.T) {
 		TxBytes: 2048,
 	})
 	scheduler.NextTick()
-	out := tester.AssertOutput("on tick")
-	assert.Equal(t, outputs.Text("4/2").Segments(), out)
+	tester.AssertOutputEquals(outputs.Text("4/2"), "on tick")
 }
 
 // TODO: Remove this and spec out a "units" package.
@@ -179,6 +175,5 @@ func TestInvalidBaseInParse(t *testing.T) {
 	})
 	scheduler.NextTick()
 
-	out := tester.AssertOutput("after one tick")
-	assert.Equal(t, outputs.Text("4096/2048").Segments(), out)
+	tester.AssertOutputEquals(outputs.Text("4096/2048"), "after one tick")
 }

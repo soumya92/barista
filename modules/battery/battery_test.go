@@ -183,7 +183,7 @@ func TestSimple(t *testing.T) {
 	bat2 := New("BAT2").
 		UrgentWhen(capLt30).
 		OutputFunc(func(i Info) bar.Output {
-			return bar.TextSegment(i.Technology)
+			return outputs.Text(i.Technology)
 		}).
 		RefreshInterval(150 * time.Millisecond)
 
@@ -191,20 +191,10 @@ func TestSimple(t *testing.T) {
 	m1 := testModule.NewOutputTester(t, bat1)
 	m2 := testModule.NewOutputTester(t, bat2)
 
-	out := m0.AssertOutput("on start")
-	assert.Equal(
-		bar.TextSegment("Charging").Urgent(false),
-		out[0])
-
-	out = m1.AssertOutput("on start")
-	assert.Equal(
-		bar.TextSegment("100").Color(bar.Color("#ff0000")),
-		out[0])
-
-	out = m2.AssertOutput("on start")
-	assert.Equal(
-		bar.TextSegment("NiCd").Urgent(false),
-		out[0])
+	m0.AssertOutputEquals(outputs.Text("Charging").Urgent(false), "on start")
+	m1.AssertOutputEquals(
+		outputs.Text("100").Color(bar.Color("#ff0000")), "on start")
+	m2.AssertOutputEquals(outputs.Text("NiCd").Urgent(false), "on start")
 
 	write(battery{
 		"NAME":               "BAT2",
@@ -221,10 +211,8 @@ func TestSimple(t *testing.T) {
 
 	m0.AssertOutput("on elapsed interval")
 
-	out = m2.AssertOutput("on elapsed interval")
-	assert.Equal(
-		bar.TextSegment("NiCd").Urgent(true),
-		out[0],
+	m2.AssertOutputEquals(
+		outputs.Text("NiCd").Urgent(true),
 		"module picks up updates to battery info")
 
 	// Default interval is 3 seconds,
@@ -235,18 +223,15 @@ func TestSimple(t *testing.T) {
 	m1.AssertNoOutput("On change of refresh interval")
 
 	bat1.OutputTemplate(outputs.TextTemplate(`{{.Capacity}}`))
-	out = m1.AssertOutput("when output template changes")
-	assert.Equal(
-		bar.TextSegment("100").Color(bar.Color("#ff0000")),
-		out[0])
+	m1.AssertOutputEquals(
+		outputs.Text("100").Color(bar.Color("#ff0000")),
+		"when output template changes")
 
 	bat1.OutputColor(nil)
-	out = m1.AssertOutput("when colour func changes")
-	assert.Equal(bar.TextSegment("100"), out[0])
+	m1.AssertOutputEquals(outputs.Text("100"), "when colour func changes")
 
 	bat1.UrgentWhen(capLt30)
-	out = m1.AssertOutput("when urgent func changes")
-	assert.Equal(
-		bar.TextSegment("100").Urgent(false),
-		out[0])
+	m1.AssertOutputEquals(
+		outputs.Text("100").Urgent(false),
+		"when urgent func changes")
 }
