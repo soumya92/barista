@@ -64,18 +64,29 @@ func PangoTemplate(tpl string) TemplateFunc {
 	}
 }
 
+// Bytesize formats a Datasize in SI units using go-humanize.
+// e.g. Bytesize(10 * unit.Megabyte) == "10 MB"
 func Bytesize(v unit.Datasize) string {
 	intval := uint64(v.Bytes())
 	return humanize.Bytes(intval)
 }
+
+// IBytesize formats a Datasize in IEC units using go-humanize.
+// e.g. IBytesize(10 * unit.Mebibyte) == "10 MiB"
 func IBytesize(v unit.Datasize) string {
 	intval := uint64(v.Bytes())
 	return humanize.IBytes(intval)
 }
+
+// Byterate formats a Datarate in SI units using go-humanize.
+// e.g. Byterate(10 * unit.MegabytePerSecond) == "10 MB/s"
 func Byterate(v unit.Datarate) string {
 	intval := uint64(v.BytesPerSecond())
 	return fmt.Sprintf("%s/s", humanize.Bytes(intval))
 }
+
+// IByterate formats a Datarate in IEC units using go-humanize.
+// e.g. Byterate(10 * unit.MebibytePerSecond) == "10 MiB/s"
 func IByterate(v unit.Datarate) string {
 	intval := uint64(v.BytesPerSecond())
 	return fmt.Sprintf("%s/s", humanize.IBytes(intval))
