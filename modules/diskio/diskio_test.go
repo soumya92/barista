@@ -55,7 +55,7 @@ func TestDiskIo(t *testing.T) {
 	})
 
 	signalChan = make(chan bool)
-	sda1 := Disk("sda1").OutputTemplate(outputs.TextTemplate(`{{.Total.In "b"}}`))
+	sda1 := Disk("sda1").OutputTemplate(outputs.TextTemplate(`{{.Total | byterate}}`))
 
 	tester1 := testModule.NewOutputTester(t, sda1)
 	<-signalChan
@@ -69,13 +69,13 @@ func TestDiskIo(t *testing.T) {
 	scheduler.NextTick()
 	<-signalChan
 
-	// 9+9 sectors / 3 seconds = 6 sectors / second * 512 bytes / sector = 3027 bytes.
-	tester1.AssertOutputEquals(outputs.Text("3072"), "on tick")
+	// 9+9 sectors / 3 seconds = 6 sectors / second * 512 bytes / sector = 3072 bytes.
+	tester1.AssertOutputEquals(outputs.Text("3.1 kB/s"), "on tick")
 
 	// Simpler math.
 	RefreshInterval(time.Second)
 
-	sdb1 := Disk("sdb1").OutputTemplate(outputs.TextTemplate(`{{.Total.IEC}}`))
+	sdb1 := Disk("sdb1").OutputTemplate(outputs.TextTemplate(`{{.Total | ibyterate}}`))
 	tester2 := testModule.NewOutputTester(t, sdb1)
 	tester2.AssertNoOutput("on start")
 
@@ -91,7 +91,7 @@ func TestDiskIo(t *testing.T) {
 	scheduler.NextTick()
 	<-signalChan
 
-	tester1.AssertOutputEquals(outputs.Text("512"), "on tick")
+	tester1.AssertOutputEquals(outputs.Text("512 B/s"), "on tick")
 	tester2.AssertNoOutput("for missing disk")
 
 	shouldReturn(diskstats{
@@ -101,14 +101,14 @@ func TestDiskIo(t *testing.T) {
 	scheduler.NextTick()
 	<-signalChan
 
-	tester1.AssertOutputEquals(outputs.Text("0"), "on tick")
+	tester1.AssertOutputEquals(outputs.Text("0 B/s"), "on tick")
 
 	sda1.OutputFunc(func(i IO) bar.Output {
-		return outputs.Textf("%s", i.Total().SI())
+		return outputs.Textf("%.1f", i.Total().KibibytesPerSecond())
 	})
 	<-signalChan
 
-	tester1.AssertOutputEquals(outputs.Text("0 B"), "on output func change")
+	tester1.AssertOutputEquals(outputs.Text("0.0"), "on output func change")
 	tester2.AssertNoOutput("for missing disk")
 
 	shouldReturn(diskstats{
@@ -130,7 +130,7 @@ func TestDiskIo(t *testing.T) {
 	<-signalChan
 
 	tester1.AssertNoOutput("for missing disk")
-	tester2.AssertOutputEquals(outputs.Text("50 KiB"), "on tick")
+	tester2.AssertOutputEquals(outputs.Text("50 KiB/s"), "on tick")
 }
 
 func TestErrors(t *testing.T) {

@@ -51,7 +51,7 @@ func TestMeminfo(t *testing.T) {
 	})
 
 	m := New()
-	avail := m.OutputTemplate(outputs.TextTemplate(`{{.Available.In "KiB"}}`))
+	avail := m.OutputTemplate(outputs.TextTemplate(`{{.Available.Kibibytes}}`))
 
 	tester1 := testModule.NewOutputTester(t, avail)
 	tester1.AssertOutputEquals(outputs.Text("2048"), "on start")
@@ -100,8 +100,8 @@ func TestErrors(t *testing.T) {
 	m := New()
 
 	availFrac := m.OutputTemplate(outputs.TextTemplate(`{{.AvailFrac}}`))
-	free := m.OutputTemplate(outputs.TextTemplate(`{{.MemFree.IEC}}`))
-	total := m.OutputTemplate(outputs.TextTemplate(`{{.MemTotal.SI}}`))
+	free := m.OutputTemplate(outputs.TextTemplate(`{{.MemFree | ibytesize}}`))
+	total := m.OutputTemplate(outputs.TextTemplate(`{{.MemTotal | bytesize}}`))
 
 	tester := testModule.NewOutputTester(t, availFrac)
 	tester1 := testModule.NewOutputTester(t, free)
@@ -146,15 +146,4 @@ func TestErrors(t *testing.T) {
 		outputs.Text("1.0 MiB"), "when meminfo is back to normal")
 	tester2.AssertOutputEquals(
 		outputs.Text("2.1 MB"), "when meminfo is back to normal")
-}
-
-// TODO: Remove this and spec out a "units" package.
-func TestInvalidBaseInParse(t *testing.T) {
-	fs = afero.NewMemMapFs()
-	shouldReturn(meminfo{"MemTotal": 1})
-
-	m := New()
-	submodule := m.OutputTemplate(outputs.TextTemplate(`{{.MemTotal.In "foo"}}`))
-	tester := testModule.NewOutputTester(t, submodule)
-	tester.AssertOutputEquals(outputs.Text("1024"), "on start")
 }

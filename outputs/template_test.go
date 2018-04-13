@@ -17,6 +17,7 @@ package outputs
 import (
 	"testing"
 
+	"github.com/martinlindhe/unit"
 	"github.com/stretchrcom/testify/assert"
 )
 
@@ -85,5 +86,29 @@ func TestPangoTemplate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.expected, textOf(tc.template(testObject)), tc.desc)
+	}
+}
+
+var unitsObject = struct {
+	Size unit.Datasize
+	Rate unit.Datarate
+}{
+	Size: 10 * unit.Kilobyte,
+	Rate: 192 * unit.KilobitPerSecond,
+}
+
+func TestTemplateFuncs(t *testing.T) {
+	tests := []struct {
+		desc     string
+		template string
+		expected string
+	}{
+		{"bytesize", `{{.Size | bytesize}}`, "10 kB"},
+		{"ibytesize", `{{.Size | ibytesize}}`, "9.8 KiB"},
+		{"byterate", `{{.Rate | byterate}}`, "24 kB/s"},
+		{"ibyterate", `{{.Rate | ibyterate}}`, "23 KiB/s"},
+	}
+	for _, tc := range tests {
+		assert.Equal(t, tc.expected, textOf(TextTemplate(tc.template)(unitsObject)), tc.desc)
 	}
 }

@@ -22,6 +22,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/martinlindhe/unit"
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
@@ -104,7 +105,7 @@ func TestDiskspace(t *testing.T) {
 		Bfree:  800,
 		Blocks: 2000,
 	})
-	diskspace.OutputTemplate(outputs.TextTemplate(`{{.Available.In "MB" | printf "%.1f"}}`))
+	diskspace.OutputTemplate(outputs.TextTemplate(`{{.Available.Megabytes | printf "%.1f"}}`))
 	tester.AssertOutputEquals(
 		outputs.Text("500.0"), "on output format change")
 
@@ -168,11 +169,8 @@ func TestDiskspaceInfo(t *testing.T) {
 	assert.Equal(27, info.AvailPct())
 	assert.Equal(67, info.UsedPct())
 
-	assert.Equal("3.0 GB", info.Total.SI())
-	assert.Equal("763 MiB", info.Available.IEC())
-
-	assert.InDelta(2000*1000*1000, info.Used().In("foobar"), 0.001)
-	assert.InDelta(0.8, info.Available.In("GB"), 0.001)
+	assert.InDelta(3.0, info.Total.Gigabytes(), float64(unit.Byte))
+	assert.InDelta(763, info.Available.Mebibytes(), float64(unit.Byte))
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1024 * 1024,
@@ -183,11 +181,8 @@ func TestDiskspaceInfo(t *testing.T) {
 	scheduler.NextTick()
 	info = <-infos
 
-	assert.Equal("3.1 GB", info.Total.SI())
-	assert.Equal("800 MiB", info.Available.IEC())
-
-	assert.InDelta(2000*1024*1024, info.Used().In("foobar"), 0.001)
-	assert.InDelta(800.0, info.Available.In("MiB"), 0.001)
+	assert.InDelta(3.1, info.Total.Gigabytes(), float64(unit.Byte))
+	assert.InDelta(800, info.Available.Mebibytes(), float64(unit.Byte))
 }
 
 func TestNonexistentDiskspace(t *testing.T) {

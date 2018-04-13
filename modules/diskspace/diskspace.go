@@ -21,7 +21,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/dustin/go-humanize"
+	"github.com/martinlindhe/unit"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
@@ -30,14 +30,14 @@ import (
 
 // Info wraps disk space information.
 type Info struct {
-	Available Bytes
-	Free      Bytes
-	Total     Bytes
+	Available unit.Datasize
+	Free      unit.Datasize
+	Total     unit.Datasize
 }
 
 // Used returns the disk space currently in use.
-func (i Info) Used() Bytes {
-	return Bytes(int(i.Total) - int(i.Free))
+func (i Info) Used() unit.Datasize {
+	return i.Total - i.Free
 }
 
 // UsedFrac returns the fraction of disk space currently in use.
@@ -58,28 +58,6 @@ func (i Info) AvailFrac() float64 {
 // AvailPct returns the percentage of disk space available for use.
 func (i Info) AvailPct() int {
 	return int(i.AvailFrac()*100 + 0.5)
-}
-
-// Bytes represents a size in bytes.
-type Bytes uint64
-
-// In gets the size in a specific unit, e.g. "b" or "MB".
-func (b Bytes) In(unit string) float64 {
-	base, err := humanize.ParseBytes("1" + unit)
-	if err != nil {
-		base = 1
-	}
-	return float64(b) / float64(base)
-}
-
-// IEC returns the size formatted in base 2.
-func (b Bytes) IEC() string {
-	return humanize.IBytes(uint64(b))
-}
-
-// SI returns the size formatted in base 10.
-func (b Bytes) SI() string {
-	return humanize.Bytes(uint64(b))
 }
 
 // Module represents a diskspace bar module. It supports setting the output
@@ -125,7 +103,7 @@ func New(path string) Module {
 	// Default is to refresh every 3s, matching the behaviour of top.
 	m.Schedule().Every(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the used disk space.
-	m.OutputTemplate(outputs.TextTemplate(`{{.Used.In "GB" | printf "%.2f"}} GB`))
+	m.OutputTemplate(outputs.TextTemplate(`{{.Used.Gigabytes | printf "%.2f"}} GB`))
 	// Update disk information when asked.
 	m.OnUpdate(m.update)
 	return m
@@ -172,11 +150,11 @@ func (m *module) update() {
 	if m.Error(statfs(m.path, &m.statResult)) {
 		return
 	}
-	mult := uint64(m.statResult.Bsize)
+	mult := unit.Datasize(m.statResult.Bsize) * unit.Byte
 	info := Info{
-		Available: Bytes(m.statResult.Bavail * mult),
-		Free:      Bytes(m.statResult.Bfree * mult),
-		Total:     Bytes(m.statResult.Blocks * mult),
+		Available: unit.Datasize(m.statResult.Bavail) * mult,
+		Free:      unit.Datasize(m.statResult.Bfree) * mult,
+		Total:     unit.Datasize(m.statResult.Blocks) * mult,
 	}
 	out := outputs.Group(m.outputFunc(info))
 	if m.urgentFunc != nil {

@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dustin/go-humanize"
+	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
@@ -32,36 +32,14 @@ import (
 	"github.com/soumya92/barista/outputs"
 )
 
-// Rate represents disk io in bytes per second.
-type Rate uint64
-
-// In gets the rate in a specific unit, e.g. "b" or "MB".
-func (r Rate) In(unit string) float64 {
-	base, err := humanize.ParseBytes("1" + unit)
-	if err != nil {
-		base = 1
-	}
-	return float64(r) / float64(base)
-}
-
-// IEC returns the rate formatted in base 2.
-func (r Rate) IEC() string {
-	return humanize.IBytes(uint64(r))
-}
-
-// SI returns the rate formatted in base 10.
-func (r Rate) SI() string {
-	return humanize.Bytes(uint64(r))
-}
-
 // IO represents input and output rates for a disk.
 type IO struct {
-	Input, Output Rate
+	Input, Output unit.Datarate
 }
 
 // Total gets the total IO rate (input + output).
-func (i IO) Total() Rate {
-	return Rate(uint64(i.Input) + uint64(i.Output))
+func (i IO) Total() unit.Datarate {
+	return i.Input + i.Output
 }
 
 var lock sync.Mutex
@@ -98,7 +76,7 @@ func Disk(disk string) Submodule {
 	s := &submodule{
 		Submodule: moduleSet.New(),
 	}
-	s.OutputTemplate(outputs.TextTemplate(`Disk: {{.Total.IEC}}/s`))
+	s.OutputTemplate(outputs.TextTemplate(`Disk: {{.Total | ibyterate}}`))
 	submodules[disk] = s
 	return s
 }
@@ -144,8 +122,16 @@ type io struct {
 // the delta read and written since the last update in bytes/sec.
 func (i *io) Update(in, out uint64) (inRate, outRate int) {
 	duration := scheduler.Now().Sub(i.Time).Seconds()
-	inRate = int(float64(in-i.In) / duration)
-	outRate = int(float64(out-i.Out) / duration)
+	if in == i.In {
+		inRate = 0
+	} else {
+		inRate = int(float64(in-i.In) / duration)
+	}
+	if out == i.Out {
+		outRate = 0
+	} else {
+		outRate = int(float64(out-i.Out) / duration)
+	}
 	i.In = in
 	i.Out = out
 	i.Time = scheduler.Now()
@@ -196,8 +182,8 @@ func update() {
 			// independently of the devices real block size.
 			// (from linux/types.h)
 			submodule.Output(submodule.outputFunc(IO{
-				Input:  Rate(readRate * 512),
-				Output: Rate(writeRate * 512),
+				Input:  unit.Datarate(readRate) * 512 * unit.BytePerSecond,
+				Output: unit.Datarate(writeRate) * 512 * unit.BytePerSecond,
 			}))
 		}
 	}

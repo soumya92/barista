@@ -223,8 +223,8 @@ func main() {
 	}).OnClick(startTaskManager)
 
 	freeMem := meminfo.New().OutputFunc(func(m meminfo.Info) bar.Output {
-		out := outputs.Pango(material.Icon("memory"), m.Available().IEC())
-		freeGigs := m.Available().In("GiB")
+		out := outputs.Pango(material.Icon("memory"), outputs.IBytesize(m.Available()))
+		freeGigs := m.Available().Gigabytes()
 		switch {
 		case freeGigs < 0.5:
 			out.Urgent(true)
@@ -264,9 +264,9 @@ func main() {
 		RefreshInterval(2 * time.Second).
 		OutputFunc(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
-				fontawesome.Icon("upload"), spacer, pango.Textf("%5s", s.Tx.SI()),
+				fontawesome.Icon("upload"), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
 				pango.Span(" ", pango.Small),
-				fontawesome.Icon("download"), spacer, pango.Textf("%5s", s.Rx.SI()),
+				fontawesome.Icon("download"), spacer, pango.Textf("%7s", outputs.Byterate(s.Rx)),
 			)
 		})
 

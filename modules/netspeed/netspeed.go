@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dustin/go-humanize"
+	"github.com/martinlindhe/unit"
 	"github.com/vishvananda/netlink"
 
 	"github.com/soumya92/barista/bar"
@@ -28,36 +28,14 @@ import (
 	"github.com/soumya92/barista/outputs"
 )
 
-// Speed represents unidirectional network traffic per second.
-type Speed uint64
-
-// In gets the speed in a specific unit, e.g. "b" or "MB".
-func (s Speed) In(unit string) float64 {
-	base, err := humanize.ParseBytes("1" + unit)
-	if err != nil {
-		base = 1
-	}
-	return float64(s) / float64(base)
-}
-
-// IEC returns the speed formatted in base 2.
-func (s Speed) IEC() string {
-	return humanize.IBytes(uint64(s))
-}
-
-// SI returns the speed formatted in base 10.
-func (s Speed) SI() string {
-	return humanize.Bytes(uint64(s))
-}
-
 // Speeds represents bidirectional network traffic.
 type Speeds struct {
-	Rx, Tx Speed
+	Rx, Tx unit.Datarate
 }
 
 // Total gets the total speed (both up and down).
-func (s Speeds) Total() Speed {
-	return Speed(uint64(s.Rx) + uint64(s.Tx))
+func (s Speeds) Total() unit.Datarate {
+	return s.Rx + s.Tx
 }
 
 // Module represents a netspeed bar module. It supports setting the output
@@ -123,8 +101,8 @@ func (i *info) Refresh(linkStats *netlink.LinkStatistics) Speeds {
 	i.TxBytes = linkStats.TxBytes
 	i.Time = now
 	return Speeds{
-		Rx: Speed(dRx),
-		Tx: Speed(dTx),
+		Rx: unit.Datarate(dRx) * unit.BytePerSecond,
+		Tx: unit.Datarate(dTx) * unit.BytePerSecond,
 	}
 }
 

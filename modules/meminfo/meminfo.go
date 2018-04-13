@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dustin/go-humanize"
+	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
@@ -34,7 +34,7 @@ import (
 // Info wraps meminfo output.
 // See /proc/meminfo for names of keys.
 // Some common functions are also provided.
-type Info map[string]Bytes
+type Info map[string]unit.Datasize
 
 // FreeFrac returns a free/total metric for a given name,
 // e.g. Mem, Swap, High, etc.
@@ -44,40 +44,18 @@ func (i Info) FreeFrac(k string) float64 {
 
 // Available returns the "available" system memory, including
 // currently cached memory that can be freed up if needed.
-func (i Info) Available() Bytes {
+func (i Info) Available() unit.Datasize {
 	// MemAvailable, if present, is a more accurate indication of
 	// available memory.
 	if avail, ok := i["MemAvailable"]; ok {
 		return avail
 	}
-	return Bytes(uint64(i["MemFree"]) + uint64(i["Cached"]) + uint64(i["Buffers"]))
+	return i["MemFree"] + i["Cached"] + i["Buffers"]
 }
 
 // AvailFrac returns the available memory as a fraction of total.
 func (i Info) AvailFrac() float64 {
 	return float64(i.Available()) / float64(i["MemTotal"])
-}
-
-// Bytes represents a size in bytes.
-type Bytes uint64
-
-// In gets the size in a specific unit, e.g. "b" or "MB".
-func (b Bytes) In(unit string) float64 {
-	base, err := humanize.ParseBytes("1" + unit)
-	if err != nil {
-		base = 1
-	}
-	return float64(b) / float64(base)
-}
-
-// IEC returns the size formatted in base 2.
-func (b Bytes) IEC() string {
-	return humanize.IBytes(uint64(b))
-}
-
-// SI returns the size formatted in base 10.
-func (b Bytes) SI() string {
-	return humanize.Bytes(uint64(b))
 }
 
 // Module represents a meminfo multi-module, and provides an interface
@@ -144,18 +122,18 @@ func (m *Module) update() {
 		}
 		name := strings.TrimSpace(line[:colon])
 		value := strings.TrimSpace(line[colon+1:])
-		var shift uint
+		mult := unit.Byte
 		// 0 values may not have kB, but kB is the only possible unit here.
 		// see sysinfo.c from psprocs, where everything is also assumed to be kb.
 		if strings.HasSuffix(value, " kB") {
-			shift = 10
+			mult = unit.Kibibyte
 			value = value[:len(value)-len(" kB")]
 		}
 		intval, err := strconv.ParseUint(value, 10, 64)
 		if m.moduleSet.Error(err) {
 			return
 		}
-		i[name] = Bytes(intval << shift)
+		i[name] = unit.Datasize(intval) * mult
 	}
 	m.Lock()
 	defer m.Unlock()

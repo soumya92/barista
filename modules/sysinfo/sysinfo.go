@@ -20,7 +20,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/dustin/go-humanize"
+	"github.com/martinlindhe/unit"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
@@ -32,37 +32,15 @@ import (
 type Info struct {
 	Uptime       time.Duration
 	Loads        [3]float64
-	TotalRAM     Bytes
-	FreeRAM      Bytes
-	SharedRAM    Bytes
-	BufferRAM    Bytes
-	TotalSwap    Bytes
-	FreeSwap     Bytes
+	TotalRAM     unit.Datasize
+	FreeRAM      unit.Datasize
+	SharedRAM    unit.Datasize
+	BufferRAM    unit.Datasize
+	TotalSwap    unit.Datasize
+	FreeSwap     unit.Datasize
 	Procs        uint16
-	TotalHighRAM Bytes
-	FreeHighRAM  Bytes
-}
-
-// Bytes represents a size in bytes.
-type Bytes uint64
-
-// In gets the size in a specific unit, e.g. "b" or "MB".
-func (b Bytes) In(unit string) float64 {
-	base, err := humanize.ParseBytes("1" + unit)
-	if err != nil {
-		base = 1
-	}
-	return float64(b) / float64(base)
-}
-
-// IEC returns the size formatted in base 2.
-func (b Bytes) IEC() string {
-	return humanize.IBytes(uint64(b))
-}
-
-// SI returns the size formatted in base 10.
-func (b Bytes) SI() string {
-	return humanize.Bytes(uint64(b))
+	TotalHighRAM unit.Datasize
+	FreeHighRAM  unit.Datasize
 }
 
 // Module represents a sysinfo multi-module, and provides an interface
@@ -112,7 +90,7 @@ func (m *Module) update() {
 	if m.moduleSet.Error(unix.Sysinfo(&sysinfoT)) {
 		return
 	}
-	unit := uint64(sysinfoT.Unit)
+	mult := unit.Datasize(sysinfoT.Unit) * unit.Byte
 	sysinfo := Info{
 		Uptime: time.Duration(sysinfoT.Uptime) * time.Second,
 		Loads: [3]float64{
@@ -121,14 +99,14 @@ func (m *Module) update() {
 			float64(sysinfoT.Loads[2]) / loadScale,
 		},
 		Procs:        sysinfoT.Procs,
-		TotalRAM:     Bytes(sysinfoT.Totalram * unit),
-		FreeRAM:      Bytes(sysinfoT.Freeram * unit),
-		SharedRAM:    Bytes(sysinfoT.Sharedram * unit),
-		BufferRAM:    Bytes(sysinfoT.Bufferram * unit),
-		TotalSwap:    Bytes(sysinfoT.Totalswap * unit),
-		FreeSwap:     Bytes(sysinfoT.Freeswap * unit),
-		TotalHighRAM: Bytes(sysinfoT.Totalhigh * unit),
-		FreeHighRAM:  Bytes(sysinfoT.Freehigh * unit),
+		TotalRAM:     unit.Datasize(sysinfoT.Totalram) * mult,
+		FreeRAM:      unit.Datasize(sysinfoT.Freeram) * mult,
+		SharedRAM:    unit.Datasize(sysinfoT.Sharedram) * mult,
+		BufferRAM:    unit.Datasize(sysinfoT.Bufferram) * mult,
+		TotalSwap:    unit.Datasize(sysinfoT.Totalswap) * mult,
+		FreeSwap:     unit.Datasize(sysinfoT.Freeswap) * mult,
+		TotalHighRAM: unit.Datasize(sysinfoT.Totalhigh) * mult,
+		FreeHighRAM:  unit.Datasize(sysinfoT.Freehigh) * mult,
 	}
 	for submodule, outputFunc := range m.outputs {
 		submodule.Output(outputFunc(sysinfo))

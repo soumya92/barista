@@ -75,7 +75,7 @@ func TestNetspeed(t *testing.T) {
 	n := New("if0").
 		RefreshInterval(time.Second).
 		OutputTemplate(outputs.TextTemplate(
-			`{{.Rx.In "KiB"}}/{{.Tx.In "KiB"}}`))
+			`{{.Rx.KibibytesPerSecond}}/{{.Tx.KibibytesPerSecond}}`))
 
 	tester := testModule.NewOutputTester(t, n)
 	tester.AssertNoOutput("on start")
@@ -96,23 +96,19 @@ func TestNetspeed(t *testing.T) {
 
 	tester.AssertOutputEquals(outputs.Text("4/1"), "on tick")
 
-	n.OutputTemplate(outputs.TextTemplate(`{{.Total.IEC}}`))
+	n.OutputTemplate(outputs.TextTemplate(`{{.Total | ibyterate}}`))
 	tester.AssertOutputEquals(
-		outputs.Text("5.0 KiB"),
+		outputs.Text("5.0 KiB/s"),
 		"uses previous result on output function change")
 
-	n.OutputTemplate(outputs.TextTemplate(`{{.Total.SI}}`))
+	n.OutputTemplate(outputs.TextTemplate(`{{.Total | byterate}}`))
 	tester.AssertOutputEquals(
-		outputs.Text("5.1 kB"),
+		outputs.Text("5.1 kB/s"),
 		"uses previous result on output function change")
-
-	n.OutputTemplate(outputs.TextTemplate(`{{.Tx.In "blahblah"}}`))
-	tester.AssertOutputEquals(
-		outputs.Text("1024"), "bad unit defaults to bytes")
 
 	scheduler.NextTick()
 	tester.AssertOutputEquals(
-		outputs.Text("0"), "on tick after output function change")
+		outputs.Text("0 B/s"), "on tick after output function change")
 
 	beforeTick := scheduler.Now()
 	n.RefreshInterval(time.Minute)
@@ -130,7 +126,7 @@ func TestErrors(t *testing.T) {
 	n := New("if0").
 		RefreshInterval(time.Second).
 		OutputTemplate(outputs.TextTemplate(
-			`{{.Rx.In "KiB"}}/{{.Tx.In "KiB"}}`))
+			`{{.Rx.KibibytesPerSecond}}/{{.Tx.KibibytesPerSecond}}`))
 	tester := testModule.NewOutputTester(t, n)
 	tester.AssertError("on start for missing interface")
 
@@ -150,30 +146,4 @@ func TestErrors(t *testing.T) {
 	})
 	scheduler.NextTick()
 	tester.AssertOutputEquals(outputs.Text("4/2"), "on tick")
-}
-
-// TODO: Remove this and spec out a "units" package.
-func TestInvalidBaseInParse(t *testing.T) {
-	scheduler.TestMode(true)
-
-	setLink("if0", netlink.LinkStatistics{
-		RxBytes: 0,
-		TxBytes: 0,
-	})
-
-	n := New("if0").
-		RefreshInterval(time.Second).
-		OutputTemplate(outputs.TextTemplate(
-			`{{.Rx.In "blahblah"}}/{{.Tx.In "NiB"}}`))
-
-	tester := testModule.NewOutputTester(t, n)
-	tester.AssertNoOutput("on start")
-
-	setLink("if0", netlink.LinkStatistics{
-		RxBytes: 4096,
-		TxBytes: 2048,
-	})
-	scheduler.NextTick()
-
-	tester.AssertOutputEquals(outputs.Text("4096/2048"), "after one tick")
 }
