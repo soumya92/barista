@@ -179,7 +179,7 @@ func main() {
 		}
 		return outputs.Pango(
 			typicons.Icon(iconName), spacer,
-			pango.Textf("%d℃", w.Temperature.C()),
+			pango.Textf("%d℃", w.Temperature.Celsius()),
 			pango.Span(" (provided by ", w.Attribution, ")", pango.XSmall),
 		)
 	})

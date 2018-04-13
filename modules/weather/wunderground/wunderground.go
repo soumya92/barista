@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/martinlindhe/unit"
+
 	"github.com/soumya92/barista/modules/weather"
 )
 
@@ -141,9 +143,9 @@ func parsePercent(percent string) float64 {
 	return floatVal
 }
 
-func parsePressure(pressure string) weather.Pressure {
+func parsePressure(pressure string) unit.Pressure {
 	floatVal, _ := strconv.ParseFloat(pressure, 64)
-	return weather.PressureFromMillibar(floatVal)
+	return unit.Pressure(floatVal) * unit.Millibar
 }
 
 func parseUnixTime(unix string) time.Time {
@@ -170,12 +172,12 @@ func (wu Provider) GetWeather() (*weather.Weather, error) {
 		Location:    w.CurrentObservation.DisplayLocation.City,
 		Condition:   getCondition(w.CurrentObservation.Icon),
 		Description: w.CurrentObservation.Weather,
-		Temperature: weather.TemperatureFromC(w.CurrentObservation.TempC),
+		Temperature: unit.FromCelsius(w.CurrentObservation.TempC),
 		Humidity:    parsePercent(w.CurrentObservation.Humidity),
 		Pressure:    parsePressure(w.CurrentObservation.PressureMb),
 		Updated:     parseUnixTime(w.CurrentObservation.ObservationEpoch),
 		Wind: weather.Wind{
-			Speed:     weather.SpeedFromKmh(w.CurrentObservation.WindKph),
+			Speed:     unit.Speed(w.CurrentObservation.WindKph) * unit.KilometersPerHour,
 			Direction: weather.Direction(w.CurrentObservation.WindDegrees),
 		},
 		Attribution: "Weather Underground",

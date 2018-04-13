@@ -20,49 +20,6 @@ import (
 	"github.com/stretchrcom/testify/assert"
 )
 
-func TestTemperature(t *testing.T) {
-	a0 := TemperatureFromK(0)
-	assert.Equal(t, 0, a0.K())
-	assert.InDelta(t, -273, a0.C(), 1)
-	assert.InDelta(t, -460, a0.F(), 1)
-
-	freezing := TemperatureFromC(0)
-	assert.InDelta(t, 273, freezing.K(), 1)
-	assert.Equal(t, 0, freezing.C())
-	assert.InDelta(t, 32, freezing.F(), 1)
-
-	boiling := TemperatureFromF(212)
-	assert.InDelta(t, 373, boiling.K(), 1)
-	assert.InDelta(t, 100, boiling.C(), 1)
-	assert.Equal(t, 212, boiling.F())
-}
-
-func TestPressure(t *testing.T) {
-	p := PressureFromMillibar(1000)
-	assert.InDelta(t, 1000, p.Millibar(), 1)
-	p = PressureFromPascal(p.Pascal())
-	assert.InDelta(t, 1000, p.Millibar(), 1)
-	p = PressureFromAtm(p.Atm())
-	assert.InDelta(t, 1000, p.Millibar(), 1)
-	p = PressureFromTorr(p.Torr())
-	assert.InDelta(t, 1000, p.Millibar(), 1)
-	p = PressureFromInHg(p.InHg())
-	assert.InDelta(t, 1000, p.Millibar(), 1)
-	p = PressureFromPsi(p.Psi())
-	assert.InDelta(t, 1000, p.Millibar(), 1)
-}
-
-func TestSpeed(t *testing.T) {
-	s := SpeedFromMs(1000)
-	assert.InDelta(t, 1000, s.Ms(), 1)
-	s = SpeedFromKmh(s.Kmh())
-	assert.InDelta(t, 1000, s.Ms(), 1)
-	s = SpeedFromMph(s.Mph())
-	assert.InDelta(t, 1000, s.Ms(), 1)
-	s = SpeedFromKnots(s.Knots())
-	assert.InDelta(t, 1000, s.Ms(), 1)
-}
-
 func TestDirection(t *testing.T) {
 	for _, c := range []struct {
 		deg  int

@@ -18,6 +18,8 @@ package weather
 import (
 	"time"
 
+	"github.com/martinlindhe/unit"
+
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -28,9 +30,9 @@ type Weather struct {
 	Location    string
 	Condition   Condition
 	Description string
-	Temperature Temperature
+	Temperature unit.Temperature
 	Humidity    float64
-	Pressure    Pressure
+	Pressure    unit.Pressure
 	Wind        Wind
 	CloudCover  float64
 	Sunrise     time.Time
@@ -41,7 +43,7 @@ type Weather struct {
 
 // Wind stores the wind speed and direction together.
 type Wind struct {
-	Speed
+	unit.Speed
 	Direction
 }
 
@@ -73,18 +75,6 @@ const (
 	Windy
 	Hail
 )
-
-// Temperature provides unit conversions for temperature,
-// and stores the temperature in kelvin.
-type Temperature float64
-
-// Pressure provides unit conversions for pressure,
-// and stores the temperature in millibar.
-type Pressure float64
-
-// Speed provides unit conversions for speed,
-// and stores the speed in meters per second.
-type Speed float64
 
 // Direction represents a compass direction stored as degrees.
 type Direction int

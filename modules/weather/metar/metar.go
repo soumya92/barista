@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/martinlindhe/unit"
+
 	"github.com/soumya92/barista/modules/weather"
 )
 
@@ -114,11 +116,11 @@ type metar struct {
 	StationElevation   float64        `xml:"elevation_m"`
 }
 
-func (m metar) getBarometricPressure() weather.Pressure {
+func (m metar) getBarometricPressure() unit.Pressure {
 	if m.SeaLevelPressure == 0.0 {
-		return weather.PressureFromInHg(m.Altimeter)
+		return unit.Pressure(m.Altimeter*3386.39) * unit.Pascal
 	}
-	return weather.PressureFromMillibar(m.SeaLevelPressure)
+	return unit.Pressure(m.SeaLevelPressure) * unit.Millibar
 }
 
 type addsResponse struct {
@@ -331,11 +333,11 @@ func (p Provider) GetWeather() (*weather.Weather, error) {
 		Location:    m.StationID,
 		Condition:   m.getCondition(),
 		Description: m.encodeMetar(p.stripRemarks, p.includeFlightCat),
-		Temperature: weather.TemperatureFromC(m.Temperature),
+		Temperature: unit.FromCelsius(m.Temperature),
 		Humidity:    relativeHumidity(m.Temperature, m.Dewpoint),
 		Pressure:    m.getBarometricPressure(),
 		Wind: weather.Wind{
-			Speed:     weather.SpeedFromKnots(float64(m.WindSpeed)),
+			Speed:     unit.Speed(float64(m.WindSpeed)) * unit.Knot,
 			Direction: weather.Direction(m.WindDirection),
 		},
 		CloudCover:  m.getCloudCover(),

@@ -25,6 +25,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/martinlindhe/unit"
+
 	"github.com/soumya92/barista/modules/weather"
 )
 
@@ -190,15 +192,15 @@ func (owm Provider) GetWeather() (*weather.Weather, error) {
 		Location:    o.Name,
 		Condition:   getCondition(o.Weather[0].ID),
 		Description: o.Weather[0].Description,
-		Temperature: weather.TemperatureFromK(o.Main.Temp),
+		Temperature: unit.FromKelvin(o.Main.Temp),
 		Humidity:    o.Main.Humidity,
-		Pressure:    weather.PressureFromMillibar(o.Main.Pressure),
+		Pressure:    unit.Pressure(o.Main.Pressure) * unit.Millibar,
 		CloudCover:  o.Clouds.All,
 		Sunrise:     time.Unix(o.Sys.Sunrise, 0),
 		Sunset:      time.Unix(o.Sys.Sunset, 0),
 		Updated:     time.Unix(o.Dt, 0),
 		Wind: weather.Wind{
-			Speed:     weather.SpeedFromMs(o.Wind.Speed),
+			Speed:     unit.Speed(o.Wind.Speed) * unit.MetersPerSecond,
 			Direction: weather.Direction(int(o.Wind.Deg)),
 		},
 		Attribution: "OpenWeatherMap",

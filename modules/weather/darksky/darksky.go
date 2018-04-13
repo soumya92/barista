@@ -25,6 +25,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/martinlindhe/unit"
+
 	"github.com/soumya92/barista/modules/weather"
 )
 
@@ -134,13 +136,13 @@ func (ds Provider) GetWeather() (*weather.Weather, error) {
 		Location:    fmt.Sprintf("%f,%f", d.Latitude, d.Longitude),
 		Condition:   getCondition(d.Currently.Icon),
 		Description: d.Currently.Summary,
-		Temperature: weather.TemperatureFromF(d.Currently.Temperature),
+		Temperature: unit.FromFahrenheit(d.Currently.Temperature),
 		Humidity:    d.Currently.Humidity,
-		Pressure:    weather.PressureFromMillibar(d.Currently.Pressure),
+		Pressure:    unit.Pressure(d.Currently.Pressure) * unit.Millibar,
 		CloudCover:  d.Currently.CloudCover,
 		Updated:     time.Unix(d.Currently.Time, 0),
 		Wind: weather.Wind{
-			Speed:     weather.SpeedFromMph(d.Currently.WindSpeed),
+			Speed:     unit.Speed(d.Currently.WindSpeed) * unit.MilesPerHour,
 			Direction: weather.Direction(d.Currently.WindBearing),
 		},
 		Attribution: "Dark Sky",
