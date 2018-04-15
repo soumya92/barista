@@ -49,6 +49,17 @@ type Scheduler interface {
 	// This will replace any pending triggers.
 	Every(time.Duration) Scheduler
 
+	// Pause suspends calling the Do function until resumed.
+	// The scheduler will still tick as normal (if repeating),
+	// but multiple ticks will still only result in a single
+	// call to the Do function when resumed.
+	Pause()
+
+	// Resume restores the scheduler's ticking behaviour,
+	// and calls Do function if it was originally scheduled to
+	// be called while the scheduler was paused.
+	Resume()
+
 	// Stop cancels all further triggers for the scheduler.
 	Stop()
 }
@@ -56,10 +67,12 @@ type Scheduler interface {
 // scheduler holds either a timer or a ticker that triggers
 // the given function.
 type scheduler struct {
-	timer  *time.Timer
-	ticker *time.Ticker
-	do     func()
-	mutex  sync.Mutex
+	timer        *time.Timer
+	ticker       *time.Ticker
+	do           func()
+	mutex        sync.Mutex
+	paused       bool
+	fireOnResume bool
 	// For test mode, keep track of the next triggers.
 	nextTrigger time.Time
 	interval    time.Duration
@@ -74,6 +87,16 @@ func Do(f func()) Scheduler {
 	return s
 }
 
+func (s *scheduler) maybeDo() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.paused {
+		s.fireOnResume = true
+		return
+	}
+	s.do()
+}
+
 func (s *scheduler) At(when time.Time) Scheduler {
 	return s.After(when.Sub(Now()))
 }
@@ -86,7 +109,7 @@ func (s *scheduler) After(delay time.Duration) Scheduler {
 		s.nextTrigger = Now().Add(delay)
 		return s
 	}
-	s.timer = time.AfterFunc(delay, s.do)
+	s.timer = time.AfterFunc(delay, s.maybeDo)
 	return s
 }
 
@@ -109,10 +132,26 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 			return
 		}
 		for range ticker.C {
-			s.do()
+			s.maybeDo()
 		}
 	}()
 	return s
+}
+
+func (s *scheduler) Pause() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.paused = true
+}
+
+func (s *scheduler) Resume() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.paused = false
+	if s.fireOnResume {
+		s.fireOnResume = false
+		s.do()
+	}
 }
 
 func (s *scheduler) Stop() {
@@ -220,7 +259,7 @@ func AdvanceTo(newTime time.Time) {
 		nextTick := s.tickAfter(now)
 		if nextTick.After(now) && !nextTick.After(newTime) {
 			setNowTo(nextTick)
-			go s.do()
+			go s.maybeDo()
 		}
 	}
 	setNowTo(newTime)

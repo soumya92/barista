@@ -65,6 +65,15 @@ func TestSchedulers(t *testing.T) {
 	sch.At(Now().Add(5 * time.Millisecond)).Stop()
 	d.assertNotCalled("when stopped")
 
+	sch.At(Now().Add(5 * time.Millisecond)).Pause()
+	d.assertNotCalled("when paused")
+
+	sch.Resume()
+	d.assertCalled("when resumed")
+
+	sch.Resume()
+	d.assertNotCalled("repeated resume is nop")
+
 	sch.After(10 * time.Millisecond)
 	d.assertCalled("after interval elapses")
 
@@ -79,6 +88,13 @@ func TestSchedulers(t *testing.T) {
 	d2.assertCalled("after interval elapses")
 	d2.assertCalled("after interval elapses")
 	d2.assertCalled("after interval elapses")
+	sch.Pause()
+	d2.assertNotCalled("when paused")
+	time.Sleep(15 * time.Millisecond) // > 2 intervals.
+	sch.Resume()
+	d2.assertCalled("when resumed")
+	sch.Stop()
+	d2.assertNotCalled("only once on resume")
 
 	sch.Stop()
 	d2.assertNotCalled("when stopped")
@@ -162,6 +178,30 @@ func TestTestMode(t *testing.T) {
 
 	AdvanceBy(10 * time.Millisecond)
 	d1.assertCalled("after interval elapses")
+}
+
+func TestPauseResumeInTestMode(t *testing.T) {
+	d := newDoFunc(t)
+	TestMode(true)
+
+	sch := Do(d.Func)
+
+	start := Now()
+	sch.Pause()
+	sch.Every(time.Minute)
+	assert.Equal(t, start.Add(time.Minute), NextTick(), "with paused scheduler")
+	d.assertNotCalled("while paused")
+	assert.Equal(t, start.Add(2*time.Minute), NextTick(), "with paused scheduler")
+	d.assertNotCalled("while paused")
+	assert.Equal(t, start.Add(3*time.Minute), NextTick(), "with paused scheduler")
+	d.assertNotCalled("while paused")
+	AdvanceBy(30 * time.Second)
+	d.assertNotCalled("while paused")
+	sch.Resume()
+	d.assertCalled("when resumed")
+	d.assertNotCalled("only once when resume")
+	assert.Equal(t, start.Add(4*time.Minute), NextTick(), "with resumed scheduler")
+	d.assertCalled("tick after resuming")
 }
 
 func TestTestModeReset(t *testing.T) {
