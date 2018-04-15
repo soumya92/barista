@@ -121,7 +121,7 @@ func New(provider Provider) Module {
 	// Default is to refresh every 10 minutes
 	m.Schedule().Every(10 * time.Minute)
 	// Default output template is just the temperature and conditions.
-	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C}}℃ {{.Description}}`))
+	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`))
 	// Update weather when asked.
 	m.OnUpdate(m.update)
 	return m
