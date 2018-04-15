@@ -9,6 +9,8 @@ Barista is an i3 status bar written in golang.
 
 **This is not an official Google product**
 
+*This project is currently not stable, updating may randomly break modules and/or bars. See the [stable-api milestone](https://github.com/soumya92/barista/milestone/1) for progress towards a stable API.*
+
 ## Features
 
 - Based on push rather than fixed interval polling. Currently only media and
