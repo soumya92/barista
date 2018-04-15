@@ -244,14 +244,14 @@ func TestClickEvents(t *testing.T) {
 		fmt.Sprintf("{\"name\": \"%s\", \"x\": %d, \"y\": %d, \"button\": %d},",
 			module1_name, 13, 24, 3))
 	evt := module1.AssertClicked("when getting a click event")
-	assert.Equal(t, 13, evt.X, "event value is passed through")
-	assert.Equal(t, 24, evt.Y, "event value is passed through")
+	assert.Equal(t, 13, evt.ScreenX, "event value is passed through")
+	assert.Equal(t, 24, evt.ScreenY, "event value is passed through")
 	assert.Equal(t, ButtonRight, evt.Button, "event value is passed through")
 	module2.AssertNotClicked("only target module receives the event")
 
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", ", module2_name))
 	module2.AssertNotClicked("until event is completely written")
-	mockStdin.WriteString("\"X\": 9, \"Y\": 7")
+	mockStdin.WriteString("\"relative_x\": 9, \"relative_y\": 7")
 	module2.AssertNotClicked("until event is completely written")
 	mockStdin.WriteString("},")
 	evt = module2.AssertClicked("when getting a click event")

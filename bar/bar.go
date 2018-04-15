@@ -127,14 +127,23 @@ Note: As before, name is not included because it's only required to determine
 which module will handle an event from i3. Once the bar receives the event,
 it provides only the information in this struct to individual modules.
 
-The Instance is passed through unchanged from the output segments, so
+The SegmentID is set to the Identifier of the output segment clicked, so
 it can be used to filter events for a module with multiple output segments.
+
+X, Y describe event co-ordinates relative to the output segment, and
+Width, Height are set to the size of the output segment.
+
+ScreenX, ScreenY are the event co-ordinates relative to the root window.
 */
 type Event struct {
-	Button   Button `json:"button"`
-	X        int    `json:"x,omitempty"`
-	Y        int    `json:"y,omitempty"`
-	Instance string `json:"instance"`
+	Button    Button `json:"button"`
+	SegmentID string `json:"instance"`
+	X         int    `json:"relative_x,omitempty"`
+	Y         int    `json:"relative_y,omitempty"`
+	Width     int    `json:"width,omitempty"`
+	Height    int    `json:"height,omitempty"`
+	ScreenX   int    `json:"x,omitempty"`
+	ScreenY   int    `json:"y,omitempty"`
 }
 
 // Module represents a single bar module. A bar is just a list of modules.
