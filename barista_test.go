@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bar_test
+package barista
 
 import (
 	"encoding/json"
@@ -24,19 +24,19 @@ import (
 
 	"github.com/stretchrcom/testify/assert"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/testing/mockio"
-	// testing/module depends on bar, hence the '.' import and package name.
-	. "github.com/soumya92/barista/bar"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
 func TestHeader(t *testing.T) {
+	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
-	bar := NewOnIo(mockStdin, mockStdout)
-	assert.Empty(t, mockStdout.ReadNow(), "Nothing written on construction")
-	go bar.Run()
+	SetIo(mockStdin, mockStdout)
+	assert.Empty(t, mockStdout.ReadNow(), "Nothing written before Run")
+	go Run()
 
 	out, err := mockStdout.ReadUntil('}', time.Second)
 	assert.Nil(t, err, "header was written")
@@ -70,14 +70,15 @@ func readOutputTexts(t *testing.T, stdout *mockio.Writable) []string {
 }
 
 func TestSingleModule(t *testing.T) {
+	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
-	bar := NewOnIo(mockStdin, mockStdout)
+	SetIo(mockStdin, mockStdout)
 
 	module := testModule.New(t)
 
-	bar.Add(module)
-	go bar.Run()
+	Add(module)
+	go Run()
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -99,18 +100,20 @@ func TestSingleModule(t *testing.T) {
 		"output updates when module sends an update")
 
 	assert.Panics(t,
-		func() { bar.Add(testModule.New(t)) },
+		func() { Add(testModule.New(t)) },
 		"adding a module to a running bar")
 }
 
 func TestMultipleModules(t *testing.T) {
+	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
 	module3 := testModule.New(t)
-	go RunOnIo(mockStdin, mockStdout, module1, module2, module3)
+	SetIo(mockStdin, mockStdout)
+	go Run(module1, module2, module3)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -148,20 +151,22 @@ func TestMultipleModules(t *testing.T) {
 		"nil output correctly repositions other modules")
 }
 
-func multiOutput(texts ...string) Output {
+func multiOutput(texts ...string) bar.Output {
 	m := outputs.Group()
 	for _, text := range texts {
-		m.Append(TextSegment(text))
+		m.Append(bar.TextSegment(text))
 	}
 	return m
 }
 
 func TestMultiSegmentModule(t *testing.T) {
+	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 
 	module := testModule.New(t)
-	go RunOnIo(mockStdin, mockStdout, module)
+	SetIo(mockStdin, mockStdout)
+	go Run(module)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -192,12 +197,14 @@ func TestMultiSegmentModule(t *testing.T) {
 }
 
 func TestPauseResume(t *testing.T) {
+	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
-	go RunOnIo(mockStdin, mockStdout, module1, module2)
+	SetIo(mockStdin, mockStdout)
+	go Run(module1, module2)
 
 	// When the infinite array starts, we know the bar is ready.
 	_, err := mockStdout.ReadUntil('[', time.Second)
@@ -216,12 +223,14 @@ func TestPauseResume(t *testing.T) {
 }
 
 func TestClickEvents(t *testing.T) {
+	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
-	go RunOnIo(mockStdin, mockStdout, module1, module2)
+	SetIo(mockStdin, mockStdout)
+	go Run(module1, module2)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -234,38 +243,38 @@ func TestClickEvents(t *testing.T) {
 	out := readOutput(t, mockStdout)
 
 	assert.Equal(t, 7, len(out), "All segments in output")
-	module1_name := out[0]["name"].(string)
-	module2_name := out[3]["name"].(string)
+	module1Name := out[0]["name"].(string)
+	module2Name := out[3]["name"].(string)
 
 	module1.AssertNotClicked("when no click event")
 	module2.AssertNotClicked("when no click event")
 
 	mockStdin.WriteString(
 		fmt.Sprintf("{\"name\": \"%s\", \"x\": %d, \"y\": %d, \"button\": %d},",
-			module1_name, 13, 24, 3))
+			module1Name, 13, 24, 3))
 	evt := module1.AssertClicked("when getting a click event")
 	assert.Equal(t, 13, evt.ScreenX, "event value is passed through")
 	assert.Equal(t, 24, evt.ScreenY, "event value is passed through")
-	assert.Equal(t, ButtonRight, evt.Button, "event value is passed through")
+	assert.Equal(t, bar.ButtonRight, evt.Button, "event value is passed through")
 	module2.AssertNotClicked("only target module receives the event")
 
-	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", ", module2_name))
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", ", module2Name))
 	module2.AssertNotClicked("until event is completely written")
 	mockStdin.WriteString("\"relative_x\": 9, \"relative_y\": 7")
 	module2.AssertNotClicked("until event is completely written")
 	mockStdin.WriteString("},")
 	evt = module2.AssertClicked("when getting a click event")
-	assert.Equal(t, Event{X: 9, Y: 7}, evt, "event values are passed through")
+	assert.Equal(t, bar.Event{X: 9, Y: 7}, evt, "event values are passed through")
 	module1.AssertNotClicked("only target module receives the event")
 
 	mockStdin.WriteString("{\"name\":\"blah\",\"x\":9},")
 	module1.AssertNotClicked("with weird module name")
 	module2.AssertNotClicked("with weird module name")
 
-	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module1_name))
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module1Name))
 	module1.AssertClicked("events are received after the weird name")
 
-	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2_name))
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2Name))
 	module2.AssertClicked("events are received after the weird name")
 
 	mockStdin.WriteString("{\"name\":\"8\",\"x\":9},")
@@ -276,23 +285,25 @@ func TestClickEvents(t *testing.T) {
 	module1.AssertNotClicked("with weird module name")
 	module2.AssertNotClicked("with weird module name")
 
-	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module1_name))
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module1Name))
 	module1.AssertClicked("events are received after the weird name")
 
-	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2_name))
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2Name))
 	module2.AssertClicked("events are received after the weird name")
 }
 
 func TestSignalHandlingSuppression(t *testing.T) {
+	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 
 	module := testModule.New(t)
-	b := NewOnIo(mockStdin, mockStdout).Add(module)
+	SetIo(mockStdin, mockStdout)
+	Add(module)
 	assert.NotPanics(t,
-		func() { b.SuppressSignals(true) },
+		func() { SuppressSignals(true) },
 		"Can suppress signal handling before Run")
-	go b.Run()
+	go Run()
 
 	out, err := mockStdout.ReadUntil('}', time.Second)
 	assert.Nil(t, err, "header was written")
@@ -320,6 +331,96 @@ func TestSignalHandlingSuppression(t *testing.T) {
 	module.AssertNoPauseResume("when signal handling is suppressed")
 
 	assert.Panics(t,
-		func() { b.SuppressSignals(false) },
+		func() { SuppressSignals(false) },
 		"Cannot suppress signal handling after Run")
+}
+
+type segmentAssertions struct {
+	*testing.T
+	actual   bar.Segment
+	Expected map[string]string
+}
+
+func (s segmentAssertions) AssertEqual(message string) {
+	actualMap := make(map[string]string)
+	for k, v := range i3map(s.actual) {
+		actualMap[k] = fmt.Sprintf("%v", v)
+	}
+	assert.Equal(s.T, s.Expected, actualMap, message)
+}
+
+func TestI3Map(t *testing.T) {
+	segment := bar.TextSegment("test")
+	a := segmentAssertions{t, segment, make(map[string]string)}
+
+	a.Expected["full_text"] = "test"
+	a.Expected["markup"] = "none"
+	a.AssertEqual("sets full_text")
+
+	segment2 := segment.ShortText("t")
+	a2 := segmentAssertions{t, segment2, make(map[string]string)}
+	a2.Expected["full_text"] = "test"
+	a2.Expected["short_text"] = "t"
+	a2.Expected["markup"] = "none"
+	a2.AssertEqual("sets short_text, does not lose full_text")
+
+	segment3 := bar.PangoSegment("<b>bold</b>")
+	a3 := segmentAssertions{t, segment3, make(map[string]string)}
+	a3.Expected["full_text"] = "<b>bold</b>"
+	a3.Expected["markup"] = "pango"
+	a3.AssertEqual("markup set for pango segment")
+
+	assert.Equal(t, "test", segment.Text(), "text getter")
+	assert.Equal(t, "test", segment2.Text(), "text getter")
+
+	a.Expected["short_text"] = "t"
+	a.AssertEqual("mutates in place")
+
+	segment.Color(bar.Color("red"))
+	a.Expected["color"] = "red"
+	a.AssertEqual("sets color value")
+
+	segment.Color(bar.Color(""))
+	delete(a.Expected, "color")
+	a.AssertEqual("clears color value when blank")
+
+	segment.Background(bar.Color(""))
+	a.AssertEqual("clearing unset color works")
+
+	segment.Background(bar.Color("green"))
+	a.Expected["background"] = "green"
+	a.AssertEqual("sets background color")
+
+	segment.Border(bar.Color("yellow"))
+	a.Expected["border"] = "yellow"
+	a.AssertEqual("sets border color")
+
+	segment.Align(bar.AlignStart)
+	a.Expected["align"] = "left"
+	a.AssertEqual("alignment strings are preserved")
+
+	segment.MinWidth(10)
+	a.Expected["min_width"] = "10"
+	a.AssertEqual("sets min width in px")
+
+	segment.MinWidthPlaceholder("00:00")
+	a.Expected["min_width"] = "00:00"
+	a.AssertEqual("sets min width placeholder")
+
+	// sanity check default go values.
+	segment.Separator(false)
+	a.Expected["separator"] = "false"
+	a.AssertEqual("separator = false")
+
+	segment.Padding(0)
+	a.Expected["separator_block_width"] = "0"
+	a.AssertEqual("separator width = 0")
+
+	segment.Urgent(false)
+	a.Expected["urgent"] = "false"
+	a.AssertEqual("urgent = false")
+
+	segment.Identifier("ident")
+	a.Expected["instance"] = "ident"
+	a.AssertEqual("opaque instance")
 }

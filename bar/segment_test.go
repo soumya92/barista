@@ -15,105 +15,12 @@
 package bar
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchrcom/testify/assert"
 )
 
-type sA struct {
-	*testing.T
-	actual   Segment
-	Expected map[string]string
-}
-
-func (s sA) AssertEqual(message string) {
-	actualMap := make(map[string]string)
-	for k, v := range s.actual.i3map() {
-		actualMap[k] = fmt.Sprintf("%v", v)
-	}
-	assert.Equal(s.T, s.Expected, actualMap, message)
-}
-
-func segmentAssertions(t *testing.T, segment Segment) sA {
-	return sA{t, segment, make(map[string]string)}
-}
-
 func TestSegment(t *testing.T) {
-	segment := TextSegment("test")
-	a := segmentAssertions(t, segment)
-
-	a.Expected["full_text"] = "test"
-	a.Expected["markup"] = "none"
-	a.AssertEqual("sets full_text")
-
-	segment2 := segment.ShortText("t")
-	a2 := segmentAssertions(t, segment2)
-	a2.Expected["full_text"] = "test"
-	a2.Expected["short_text"] = "t"
-	a2.Expected["markup"] = "none"
-	a2.AssertEqual("sets short_text, does not lose full_text")
-
-	assert.Equal(t, "test", segment.Text(), "text getter")
-	assert.Equal(t, "test", segment2.Text(), "text getter")
-
-	a.Expected["short_text"] = "t"
-	a.AssertEqual("mutates in place")
-
-	segment.Color(Color("red"))
-	a.Expected["color"] = "red"
-	a.AssertEqual("sets color value")
-
-	segment.Color(Color(""))
-	delete(a.Expected, "color")
-	a.AssertEqual("clears color value when blank")
-
-	segment.Background(Color(""))
-	a.AssertEqual("clearing unset color works")
-
-	segment.Background(Color("green"))
-	a.Expected["background"] = "green"
-	a.AssertEqual("sets background color")
-
-	segment.Border(Color("yellow"))
-	a.Expected["border"] = "yellow"
-	a.AssertEqual("sets border color")
-
-	segment.Align(AlignStart)
-	a.Expected["align"] = "left"
-	a.AssertEqual("alignment strings are preserved")
-
-	segment.MinWidth(10)
-	a.Expected["min_width"] = "10"
-	a.AssertEqual("sets min width in px")
-
-	segment.MinWidthPlaceholder("00:00")
-	a.Expected["min_width"] = "00:00"
-	a.AssertEqual("sets min width placeholder")
-
-	// sanity check default go values.
-	segment.Separator(false)
-	a.Expected["separator"] = "false"
-	a.AssertEqual("separator = false")
-
-	segment.Padding(0)
-	a.Expected["separator_block_width"] = "0"
-	a.AssertEqual("separator width = 0")
-
-	segment.Urgent(false)
-	a.Expected["urgent"] = "false"
-	a.AssertEqual("urgent = false")
-
-	segment.Identifier("ident")
-	a.Expected["instance"] = "ident"
-	a.AssertEqual("opaque instance")
-
-	barOut := segment.Segments()
-	assert.Equal(t, 1, len(barOut), "bar.Output from Segment returns 1 segment")
-	assert.Equal(t, segment, barOut[0])
-}
-
-func TestGets(t *testing.T) {
 	assert := assert.New(t)
 
 	segment := TextSegment("test")
@@ -187,6 +94,13 @@ func TestGets(t *testing.T) {
 
 	segment.Identifier("test")
 	assert.Equal("test", assertSet(segment.GetID()))
+}
+
+func TestBarOutput(t *testing.T) {
+	segment := TextSegment("test").Align(AlignCenter)
+	barOut := segment.Segments()
+	assert.Equal(t, 1, len(barOut), "bar.Output from Segment returns 1 segment")
+	assert.Equal(t, segment, barOut[0])
 }
 
 func TestClone(t *testing.T) {

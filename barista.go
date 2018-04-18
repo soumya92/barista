@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bar
+package barista
 
 import (
 	"bufio"
@@ -22,8 +22,11 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/soumya92/barista/bar"
 )
 
 // i3Output is sent to i3bar.
@@ -31,7 +34,7 @@ type i3Output []map[string]interface{}
 
 // i3Event instances are received from i3bar on stdin.
 type i3Event struct {
-	Event
+	bar.Event
 	Name string `json:"name"`
 }
 
@@ -45,14 +48,14 @@ type i3Header struct {
 
 // i3Module wraps Module with extra information to help run i3bar.
 type i3Module struct {
-	Module
+	bar.Module
 	Name       string
 	LastOutput i3Output
 	// Keep track of the paused/resumed state of the module.
 	// Using a channel here allows concurrent pause/resume across
 	// modules while guaranteeing ordering.
 	paused   chan bool
-	pausable Pausable
+	pausable bar.Pausable
 }
 
 // output converts the module's output to i3Output by adding the name (position),
@@ -63,7 +66,7 @@ func (m *i3Module) output(ch chan<- interface{}) {
 		var i3out i3Output
 		if o != nil {
 			for _, segment := range o.Segments() {
-				segmentOut := segment.i3map()
+				segmentOut := i3map(segment)
 				segmentOut["name"] = m.Name
 				i3out = append(i3out, segmentOut)
 			}
@@ -101,8 +104,8 @@ func (m *i3Module) resume() {
 	}
 }
 
-// I3Bar is a "bar" instance that handles events and streams output.
-type I3Bar struct {
+// i3Bar is the "bar" instance that handles events and streams output.
+type i3Bar struct {
 	// The list of modules that make up this bar.
 	i3Modules []*i3Module
 	// The channel that receives a signal on module updates.
@@ -123,49 +126,54 @@ type I3Bar struct {
 	suppressSignals bool
 }
 
-// Add adds a module to a bar, and returns the bar for chaining.
-func (b *I3Bar) Add(modules ...Module) *I3Bar {
-	for _, m := range modules {
-		b.addModule(m)
-	}
-	// Return the bar for chaining (e.g. bar.Add(x, y).Run())
-	return b
+var instance *i3Bar
+var instanceInit sync.Once
+
+func construct() {
+	instanceInit.Do(func() {
+		instance = &i3Bar{
+			update: make(chan interface{}),
+			events: make(chan i3Event),
+			reader: os.Stdin,
+			writer: os.Stdout,
+		}
+	})
 }
 
-// addModule adds a single module to the bar.
-func (b *I3Bar) addModule(module Module) {
-	// Panic if adding modules to an already running bar.
-	// TODO: Support this in the future.
-	if b.started {
-		panic("Cannot add modules after .Run()")
+// Add adds a module to the bar.
+func Add(modules ...bar.Module) {
+	construct()
+	for _, m := range modules {
+		instance.addModule(m)
 	}
-	// Use the position of the module in the list as the "name", so when i3bar
-	// sends us events, we can use atoi(name) to get the correct module.
-	name := strconv.Itoa(len(b.i3Modules))
-	i3Module := i3Module{
-		Module: module,
-		Name:   name,
-	}
-	if pauseable, ok := module.(Pausable); ok {
-		i3Module.paused = make(chan bool, 10)
-		i3Module.pausable = pauseable
-		go i3Module.loopPauseResume()
-	}
-	b.i3Modules = append(b.i3Modules, &i3Module)
 }
 
 // SuppressSignals instructs the bar to skip the pause/resume signal handling.
 // Must be called before Run.
-func (b *I3Bar) SuppressSignals(suppressSignals bool) *I3Bar {
-	if b.started {
+func SuppressSignals(suppressSignals bool) {
+	construct()
+	if instance.started {
 		panic("Cannot change signal handling after .Run()")
 	}
-	b.suppressSignals = suppressSignals
-	return b
+	instance.suppressSignals = suppressSignals
+}
+
+// SetIo sets the input/output streams for the bar.
+func SetIo(reader io.Reader, writer io.Writer) {
+	construct()
+	instance.reader = reader
+	instance.writer = writer
 }
 
 // Run sets up all the streams and enters the main loop.
-func (b *I3Bar) Run() error {
+// If any modules are provided, they are added to the bar now.
+// This allows both styles of bar construction:
+// `bar.Add(a); bar.Add(b); bar.Run()`, and `bar.Run(a, b)`.
+func Run(modules ...bar.Module) error {
+	Add(modules...)
+	// To allow ResetForTest to work, we need to avoid any references
+	// to instance in the run loop.
+	b := instance
 	var signalChan chan os.Signal
 	if !b.suppressSignals {
 		// Set up signal handlers for USR1/2 to pause/resume supported modules.
@@ -218,7 +226,7 @@ func (b *I3Bar) Run() error {
 			// correct module.
 			if module, ok := b.get(event.Name); ok {
 				// Check that the module actually supports click events.
-				if clickable, ok := module.Module.(Clickable); ok {
+				if clickable, ok := module.Module.(bar.Clickable); ok {
 					// Goroutine to prevent click handlers from blocking the bar.
 					go clickable.Click(event.Event)
 				}
@@ -234,33 +242,73 @@ func (b *I3Bar) Run() error {
 	}
 }
 
-// Run with a list of modules just adds each module and runs the bar on stdout/stdin.
-func Run(modules ...Module) error {
-	return New().Add(modules...).Run()
-}
-
-// RunOnIo takes a list of modules and the input/output streams, and runs the bar.
-func RunOnIo(reader io.Reader, writer io.Writer, modules ...Module) error {
-	return NewOnIo(reader, writer).Add(modules...).Run()
-}
-
-// New constructs a new bar running on standard I/O.
-func New() *I3Bar {
-	return NewOnIo(os.Stdin, os.Stdout)
-}
-
-// NewOnIo constructs a new bar with an input and output stream, for maximum flexibility.
-func NewOnIo(reader io.Reader, writer io.Writer) *I3Bar {
-	return &I3Bar{
-		update: make(chan interface{}),
-		events: make(chan i3Event),
-		reader: reader,
-		writer: writer,
+// addModule adds a single module to the bar.
+func (b *i3Bar) addModule(module bar.Module) {
+	// Panic if adding modules to an already running bar.
+	// TODO: Support this in the future.
+	if b.started {
+		panic("Cannot add modules after .Run()")
 	}
+	// Use the position of the module in the list as the "name", so when i3bar
+	// sends us events, we can use atoi(name) to get the correct module.
+	name := strconv.Itoa(len(b.i3Modules))
+	i3Module := i3Module{
+		Module: module,
+		Name:   name,
+	}
+	if pauseable, ok := module.(bar.Pausable); ok {
+		i3Module.paused = make(chan bool, 10)
+		i3Module.pausable = pauseable
+		go i3Module.loopPauseResume()
+	}
+	b.i3Modules = append(b.i3Modules, &i3Module)
+}
+
+// i3map serialises the attributes of the Segment in
+// the format used by i3bar.
+func i3map(s bar.Segment) map[string]interface{} {
+	i3map := make(map[string]interface{})
+	i3map["full_text"] = s.Text()
+	if shortText, ok := s.GetShortText(); ok {
+		i3map["short_text"] = shortText
+	}
+	if color, ok := s.GetColor(); ok {
+		i3map["color"] = color
+	}
+	if background, ok := s.GetBackground(); ok {
+		i3map["background"] = background
+	}
+	if border, ok := s.GetBorder(); ok {
+		i3map["border"] = border
+	}
+	if minWidth, ok := s.GetMinWidth(); ok {
+		i3map["min_width"] = minWidth
+	}
+	if align, ok := s.GetAlignment(); ok {
+		i3map["align"] = align
+	}
+	if id, ok := s.GetID(); ok {
+		i3map["instance"] = id
+	}
+	if urgent, ok := s.IsUrgent(); ok {
+		i3map["urgent"] = urgent
+	}
+	if separator, ok := s.HasSeparator(); ok {
+		i3map["separator"] = separator
+	}
+	if padding, ok := s.GetPadding(); ok {
+		i3map["separator_block_width"] = padding
+	}
+	if s.IsPango() {
+		i3map["markup"] = "pango"
+	} else {
+		i3map["markup"] = "none"
+	}
+	return i3map
 }
 
 // print outputs the entire bar, using the last output for each module.
-func (b *I3Bar) print() error {
+func (b *i3Bar) print() error {
 	// i3bar requires the entire bar to be printed at once, so we just take the
 	// last cached value for each module and construct the current bar.
 	// The bar will update any modules before calling this method, so the
@@ -279,7 +327,7 @@ func (b *I3Bar) print() error {
 }
 
 // get finds the module that corresponds to the given "name" from i3.
-func (b *I3Bar) get(name string) (*i3Module, bool) {
+func (b *i3Bar) get(name string) (*i3Module, bool) {
 	index, err := strconv.Atoi(name)
 	if err != nil {
 		return nil, false
@@ -291,7 +339,7 @@ func (b *I3Bar) get(name string) (*i3Module, bool) {
 }
 
 // readEvents parses the infinite stream of events received from i3.
-func (b *I3Bar) readEvents() {
+func (b *i3Bar) readEvents() {
 	// Buffered I/O to allow complete events to be read in at once.
 	reader := bufio.NewReader(b.reader)
 	// Consume opening '['
@@ -323,15 +371,21 @@ func (b *I3Bar) readEvents() {
 }
 
 // pause instructs all pausable modules to suspend processing.
-func (b *I3Bar) pause() {
+func (b *i3Bar) pause() {
 	for _, m := range b.i3Modules {
 		m.pause()
 	}
 }
 
 // resume instructs all pausable modules to continue processing.
-func (b *I3Bar) resume() {
+func (b *i3Bar) resume() {
 	for _, m := range b.i3Modules {
 		m.resume()
 	}
+}
+
+// resetForTest resets the bar for testing purposes.
+func resetForTest() {
+	instance = nil
+	instanceInit = sync.Once{}
 }

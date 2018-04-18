@@ -187,45 +187,6 @@ func (s Segment) Segments() []Segment {
 	return []Segment{s}
 }
 
-// i3map serialises the attributes of the Segment in
-// the format used by i3bar.
-func (s Segment) i3map() map[string]interface{} {
-	i3map := make(map[string]interface{})
-	i3map["full_text"] = s.text
-	if s.attrSet&saShortText != 0 {
-		i3map["short_text"] = s.shortText
-	}
-	if s.color != "" {
-		i3map["color"] = s.color
-	}
-	if s.background != "" {
-		i3map["background"] = s.background
-	}
-	if s.border != "" {
-		i3map["border"] = s.border
-	}
-	if s.minWidth != nil {
-		i3map["min_width"] = s.minWidth
-	}
-	if s.align != "" {
-		i3map["align"] = s.align
-	}
-	if s.identifier != "" {
-		i3map["instance"] = s.identifier
-	}
-	if s.attrSet&saUrgent != 0 {
-		i3map["urgent"] = s.urgent
-	}
-	if s.attrSet&saSeparator != 0 {
-		i3map["separator"] = s.separator
-	}
-	if s.attrSet&saPadding != 0 {
-		i3map["separator_block_width"] = s.padding
-	}
-	i3map["markup"] = s.markup
-	return i3map
-}
-
 // Clone makes a copy of the Segment that can be modified
 // without the changes being reflected in the original.
 func (s Segment) Clone() Segment {

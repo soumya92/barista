@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/modules/clock"
@@ -274,7 +275,7 @@ func main() {
 
 	g := group.Collapsing()
 
-	panic(bar.Run(
+	panic(barista.Run(
 		rhythmbox,
 		g.Add(net),
 		g.Add(temp),
