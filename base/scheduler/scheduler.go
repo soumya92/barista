@@ -35,7 +35,7 @@ import (
 )
 
 // Scheduler represents a function triggered on a schedule.
-// It provides an interface to stop or modify the trigger schedule.
+// It provides an interface to modify the trigger schedule.
 type Scheduler interface {
 	// At sets the scheduler to trigger a specific time.
 	// This will replace any pending triggers.
@@ -48,6 +48,13 @@ type Scheduler interface {
 	// Every sets the scheduler to trigger at an interval.
 	// This will replace any pending triggers.
 	Every(time.Duration) Scheduler
+}
+
+// Controller extends a Scheduler with pause/resume/stop.
+// This allows a Controller to be provided as just a Scheduler
+// when only the scheduling capabilities are required.
+type Controller interface {
+	Scheduler
 
 	// Pause suspends calling the Do function until resumed.
 	// The scheduler will still tick as normal (if repeating),
@@ -79,7 +86,7 @@ type scheduler struct {
 }
 
 // Do creates a scheduler that calls the given function when triggered.
-func Do(f func()) Scheduler {
+func Do(f func()) Controller {
 	s := &scheduler{do: f}
 	if testMode {
 		testSchedulers = append(testSchedulers, s)

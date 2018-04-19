@@ -35,7 +35,7 @@ type Base struct {
 	updateOnResume bool
 	outputOnResume bar.Output
 	lastError      error
-	scheduler      scheduler.Scheduler
+	scheduler      scheduler.Controller
 }
 
 // Module implements bar's Module, Clickable, and Pausable,
@@ -229,6 +229,6 @@ func (b *Base) internalOutput(out bar.Output) {
 // This allows derived modules to change the update frequency, or
 // even enable and disable scheduled updates, without needing to
 // worry about inadvertently scheduling multiple concurrent updates.
-func (b *Base) Schedule() scheduler.Scheduler {
+func (b *Base) Schedule() scheduler.Controller {
 	return b.scheduler
 }

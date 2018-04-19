@@ -174,7 +174,7 @@ type module struct {
 	player *mprisPlayer
 	// An additional update every second while music is playing
 	// to keep the position up to date.
-	positionScheduler scheduler.Scheduler
+	positionScheduler scheduler.Controller
 }
 
 // New constructs an instance of the media module for the given player.

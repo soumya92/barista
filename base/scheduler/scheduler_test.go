@@ -56,16 +56,20 @@ func TestSchedulers(t *testing.T) {
 	sch := Do(d.Func)
 	d.assertNotCalled("when not scheduled")
 
-	sch.After(5 * time.Millisecond).Stop()
+	sch.After(5 * time.Millisecond)
+	sch.Stop()
 	d.assertNotCalled("when stopped")
 
-	sch.Every(5 * time.Millisecond).Stop()
+	sch.Every(5 * time.Millisecond)
+	sch.Stop()
 	d.assertNotCalled("when stopped")
 
-	sch.At(Now().Add(5 * time.Millisecond)).Stop()
+	sch.At(Now().Add(5 * time.Millisecond))
+	sch.Stop()
 	d.assertNotCalled("when stopped")
 
-	sch.At(Now().Add(5 * time.Millisecond)).Pause()
+	sch.At(Now().Add(5 * time.Millisecond))
+	sch.Pause()
 	d.assertNotCalled("when paused")
 
 	sch.Resume()
@@ -84,7 +88,8 @@ func TestSchedulers(t *testing.T) {
 	d.assertNotCalled("when elapsed scheduler is stopped again")
 
 	d2 := newDoFunc(t)
-	sch = Do(d2.Func).Every(5 * time.Millisecond)
+	sch = Do(d2.Func)
+	sch.Every(5 * time.Millisecond)
 	d2.assertCalled("after interval elapses")
 	d2.assertCalled("after interval elapses")
 	d2.assertCalled("after interval elapses")
