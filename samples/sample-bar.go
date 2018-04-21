@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/martinlindhe/unit"
 	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
@@ -241,23 +242,23 @@ func main() {
 
 	temp := cputemp.DefaultZone().
 		RefreshInterval(2 * time.Second).
-		UrgentWhen(func(temp cputemp.Temperature) bool {
-			return temp.C() > 90
+		UrgentWhen(func(temp unit.Temperature) bool {
+			return temp.Celsius() > 90
 		}).
-		OutputColor(func(temp cputemp.Temperature) bar.Color {
+		OutputColor(func(temp unit.Temperature) bar.Color {
 			switch {
-			case temp.C() > 70:
+			case temp.Celsius() > 70:
 				return colors.Scheme("bad")
-			case temp.C() > 60:
+			case temp.Celsius() > 60:
 				return colors.Scheme("degraded")
 			default:
 				return colors.Empty()
 			}
 		}).
-		OutputFunc(func(temp cputemp.Temperature) bar.Output {
+		OutputFunc(func(temp unit.Temperature) bar.Output {
 			return outputs.Pango(
 				materialCommunity.Icon("fan"), spacer,
-				pango.Textf("%2d℃", temp.C()),
+				pango.Textf("%2d℃", int(temp.Celsius())),
 			)
 		})
 

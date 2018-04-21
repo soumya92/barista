@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
@@ -42,15 +43,15 @@ func TestCputemp(t *testing.T) {
 
 	shouldReturn("48800", "22200")
 
-	temp0 := DefaultZone().OutputTemplate(outputs.TextTemplate(`{{.C}}`))
+	temp0 := DefaultZone().OutputTemplate(outputs.TextTemplate(`{{.Celsius | printf "%.0f"}}`))
 	tester0 := testModule.NewOutputTester(t, temp0)
 
 	temp1 := Zone("thermal_zone1").
-		OutputTemplate(outputs.TextTemplate(`{{.F}}`))
+		OutputTemplate(outputs.TextTemplate(`{{.Fahrenheit | printf "%.0f"}}`))
 	tester1 := testModule.NewOutputTester(t, temp1)
 
 	temp2 := Zone("thermal_zone2").
-		OutputTemplate(outputs.TextTemplate(`{{.K}}`))
+		OutputTemplate(outputs.TextTemplate(`{{.Kelvin | printf "%.0f"}}`))
 	tester2 := testModule.NewOutputTester(t, temp2)
 
 	tester0.AssertOutputEquals(outputs.Text("49"), "on start")
@@ -68,14 +69,14 @@ func TestCputemp(t *testing.T) {
 	tester1.AssertOutput("on next tick")
 	tester2.AssertError("on each tick")
 
-	temp0.UrgentWhen(func(t Temperature) bool { return t.C() > 30 })
+	temp0.UrgentWhen(func(t unit.Temperature) bool { return t.Celsius() > 30 })
 	tester0.AssertOutputEquals(
 		outputs.Text("42").Urgent(true), "on urgent func change")
 
 	red := bar.Color("red")
 	green := bar.Color("green")
-	temp1.OutputColor(func(t Temperature) bar.Color {
-		if t.C() > 20 {
+	temp1.OutputColor(func(t unit.Temperature) bar.Color {
+		if t.Celsius() > 20 {
 			return red
 		}
 		return green
@@ -83,7 +84,7 @@ func TestCputemp(t *testing.T) {
 	tester1.AssertOutputEquals(
 		outputs.Text("68").Color(green), "on color func change")
 
-	temp2.OutputTemplate(outputs.TextTemplate(`{{.K}} kelvin`))
+	temp2.OutputTemplate(outputs.TextTemplate(`{{.Kelvin | printf "%.0f"}} kelvin`))
 	tester2.AssertError("error persists even with template change")
 
 	shouldReturn("22222", "22222")
