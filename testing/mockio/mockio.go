@@ -49,7 +49,7 @@ func (w *Writable) Write(out []byte) (n int, e error) {
 	sigChan := w.signal
 	w.mutex.Unlock()
 	if sigChan != nil {
-		defer func() { nonBlockingSignal(sigChan) }()
+		defer func() { sigChan <- nil }()
 	}
 	return
 }
@@ -74,7 +74,7 @@ func (w *Writable) ReadUntil(delim byte, timeout time.Duration) (string, error) 
 		w.mutex.Unlock()
 		return val, nil
 	}
-	signalChan := make(chan *interface{})
+	signalChan := make(chan *interface{}, 1)
 	w.signal = signalChan
 	w.mutex.Unlock()
 	timeoutChan := time.After(timeout)
@@ -82,11 +82,17 @@ func (w *Writable) ReadUntil(delim byte, timeout time.Duration) (string, error) 
 	for err == io.EOF {
 		select {
 		case <-timeoutChan:
+			w.mutex.Lock()
+			w.signal = nil
+			w.mutex.Unlock()
 			return val, err
 		case <-signalChan:
 			var v string
 			w.mutex.Lock()
 			v, err = w.buffer.ReadString(delim)
+			if err != io.EOF {
+				w.signal = nil
+			}
 			w.mutex.Unlock()
 			val += v
 		}

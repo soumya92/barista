@@ -83,6 +83,21 @@ func TestStdout(t *testing.T) {
 	}
 	<-wait
 
+	bytes := []byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}
+	for i := 0; i < 20; i++ {
+		go (func(w io.Writer) {
+			wait <- nil
+			for _, b := range bytes {
+				w.Write([]byte{b})
+			}
+		})(stdout)
+		<-wait
+		for _, b := range bytes {
+			_, err = stdout.ReadUntil(b, 10*time.Millisecond)
+			assert.NoError(t, err)
+		}
+	}
+
 	stdout.ShouldError(io.ErrClosedPipe)
 	_, err = stdout.Write([]byte{','})
 	assert.Error(t, err, "next error on write")
