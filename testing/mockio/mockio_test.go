@@ -69,6 +69,20 @@ func TestStdout(t *testing.T) {
 	<-wait
 	assert.Equal(t, "cd", stdout.ReadNow(), "continues normally after timeout")
 
+	go func() {
+		val, err = stdout.ReadUntil('b', 20*time.Millisecond)
+		// This is a test of data races, the assertions are not very important.
+		assert.Equal(t, err, io.EOF)
+		assert.Equal(t, 50, len(val))
+		wait <- nil
+	}()
+	for i := 0; i < 50; i++ {
+		go (func(w io.Writer) {
+			io.WriteString(w, "a")
+		})(stdout)
+	}
+	<-wait
+
 	stdout.ShouldError(io.ErrClosedPipe)
 	_, err = stdout.Write([]byte{','})
 	assert.Error(t, err, "next error on write")

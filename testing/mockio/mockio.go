@@ -46,8 +46,11 @@ func (w *Writable) Write(out []byte) (n int, e error) {
 		return
 	}
 	n, e = w.buffer.Write(out)
+	sigChan := w.signal
 	w.mutex.Unlock()
-	nonBlockingSignal(w.signal)
+	if sigChan != nil {
+		defer func() { nonBlockingSignal(sigChan) }()
+	}
 	return
 }
 
@@ -67,17 +70,20 @@ func (w *Writable) ReadNow() string {
 func (w *Writable) ReadUntil(delim byte, timeout time.Duration) (string, error) {
 	w.mutex.Lock()
 	val, err := w.buffer.ReadString(delim)
-	w.mutex.Unlock()
 	if err == nil {
+		w.mutex.Unlock()
 		return val, nil
 	}
+	signalChan := make(chan *interface{})
+	w.signal = signalChan
+	w.mutex.Unlock()
 	timeoutChan := time.After(timeout)
 	// EOF means we ran out of bytes, so we need to wait until more are written.
 	for err == io.EOF {
 		select {
 		case <-timeoutChan:
 			return val, err
-		case <-w.signal:
+		case <-signalChan:
 			var v string
 			w.mutex.Lock()
 			v, err = w.buffer.ReadString(delim)
@@ -98,10 +104,7 @@ func (w *Writable) ShouldError(e error) {
 // Stdout returns a Writable that can be used for making assertions
 // against what was written to stdout.
 func Stdout() *Writable {
-	return &Writable{
-		buffer: bytes.Buffer{},
-		signal: make(chan *interface{}),
-	}
+	return &Writable{}
 }
 
 // Readable is an infinite stream that satisfies io.Reader and io.Writer
