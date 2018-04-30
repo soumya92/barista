@@ -68,6 +68,12 @@ func TestStdout(t *testing.T) {
 	wait <- nil
 	<-wait
 	assert.Equal(t, "cd", stdout.ReadNow(), "continues normally after timeout")
+
+	stdout.ShouldError(io.ErrClosedPipe)
+	_, err = stdout.Write([]byte{','})
+	assert.Error(t, err, "next error on write")
+	_, err = stdout.Write([]byte{':'})
+	assert.NoError(t, err, "next error is consumed")
 }
 
 func TestTiming(t *testing.T) {
@@ -181,4 +187,14 @@ func TestStdin(t *testing.T) {
 	request <- 10
 	r = <-result
 	assert.Equal(t, readResult{"bc", nil}, r, "remaining writes are read by later requests")
+
+	stdin.WriteString("foo")
+	stdin.ShouldError(io.ErrClosedPipe)
+	request <- 3
+	r = <-result
+	assert.Error(t, r.err, "next error on read")
+	request <- 3
+	r = <-result
+	assert.NoError(t, r.err, "next error is consumed")
+	assert.Equal(t, "foo", r.contents)
 }

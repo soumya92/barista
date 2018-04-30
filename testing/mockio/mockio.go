@@ -31,11 +31,20 @@ type Writable struct {
 	signal chan *interface{}
 	// Mutex to prevent data races in buffer.
 	mutex sync.Mutex
+	// For simulation, if this is set the next write will return
+	// this error instead of behaving normally.
+	nextError error
 }
 
 // Write satisfies the io.Writer interface.
 func (w *Writable) Write(out []byte) (n int, e error) {
 	w.mutex.Lock()
+	if w.nextError != nil {
+		e = w.nextError
+		w.nextError = nil
+		w.mutex.Unlock()
+		return
+	}
 	n, e = w.buffer.Write(out)
 	w.mutex.Unlock()
 	nonBlockingSignal(w.signal)
@@ -48,8 +57,8 @@ var _ io.Writer = (*Writable)(nil)
 func (w *Writable) ReadNow() string {
 	w.mutex.Lock()
 	val := w.buffer.String()
-	w.mutex.Unlock()
 	w.buffer = bytes.Buffer{}
+	w.mutex.Unlock()
 	return val
 }
 
@@ -79,6 +88,13 @@ func (w *Writable) ReadUntil(delim byte, timeout time.Duration) (string, error) 
 	return val, err
 }
 
+// ShouldError sets the stream to return an error on the next write.
+func (w *Writable) ShouldError(e error) {
+	w.mutex.Lock()
+	w.nextError = e
+	w.mutex.Unlock()
+}
+
 // Stdout returns a Writable that can be used for making assertions
 // against what was written to stdout.
 func Stdout() *Writable {
@@ -99,11 +115,20 @@ type Readable struct {
 	consumed chan *interface{}
 	// Mutex to prevent data races in buffer.
 	mutex sync.Mutex
+	// For simulation, if this is set the next read will return
+	// this error instead of behaving normally.
+	nextError error
 }
 
 // Read satisfies the io.Reader interface.
 func (r *Readable) Read(out []byte) (n int, e error) {
 	r.mutex.Lock()
+	if r.nextError != nil {
+		e = r.nextError
+		r.nextError = nil
+		r.mutex.Unlock()
+		return
+	}
 	len := r.buffer.Len()
 	r.mutex.Unlock()
 	if len == 0 {
@@ -138,6 +163,13 @@ func (r *Readable) WriteString(s string) (n int, e error) {
 	r.mutex.Unlock()
 	r.signalWrite()
 	return
+}
+
+// ShouldError sets the stream to return an error on the next read.
+func (r *Readable) ShouldError(e error) {
+	r.mutex.Lock()
+	r.nextError = e
+	r.mutex.Unlock()
 }
 
 // signalWrite signals that data was written, and waits for it to be consumed.
