@@ -46,11 +46,8 @@ func (w *Writable) Write(out []byte) (n int, e error) {
 		return
 	}
 	n, e = w.buffer.Write(out)
-	sigChan := w.signal
 	w.mutex.Unlock()
-	if sigChan != nil {
-		defer func() { sigChan <- nil }()
-	}
+	nonBlockingSignal(w.signal)
 	return
 }
 
@@ -62,6 +59,7 @@ func (w *Writable) ReadNow() string {
 	val := w.buffer.String()
 	w.buffer = bytes.Buffer{}
 	w.mutex.Unlock()
+	nonBlockingConsume(w.signal)
 	return val
 }
 
@@ -70,34 +68,44 @@ func (w *Writable) ReadNow() string {
 func (w *Writable) ReadUntil(delim byte, timeout time.Duration) (string, error) {
 	w.mutex.Lock()
 	val, err := w.buffer.ReadString(delim)
+	w.mutex.Unlock()
 	if err == nil {
-		w.mutex.Unlock()
+		nonBlockingConsume(w.signal)
 		return val, nil
 	}
-	signalChan := make(chan *interface{}, 1)
-	w.signal = signalChan
-	w.mutex.Unlock()
 	timeoutChan := time.After(timeout)
 	// EOF means we ran out of bytes, so we need to wait until more are written.
 	for err == io.EOF {
 		select {
 		case <-timeoutChan:
-			w.mutex.Lock()
-			w.signal = nil
-			w.mutex.Unlock()
 			return val, err
-		case <-signalChan:
+		case <-w.signal:
 			var v string
 			w.mutex.Lock()
 			v, err = w.buffer.ReadString(delim)
-			if err != io.EOF {
-				w.signal = nil
-			}
 			w.mutex.Unlock()
 			val += v
 		}
 	}
 	return val, err
+}
+
+// WaitForWrite waits until the timeout for a write to this stream.
+func (w *Writable) WaitForWrite(timeout time.Duration) bool {
+	w.mutex.Lock()
+	bufLen := w.buffer.Len()
+	w.mutex.Unlock()
+	if bufLen != 0 {
+		nonBlockingConsume(w.signal)
+		return true
+	}
+	timeoutChan := time.After(timeout)
+	select {
+	case <-timeoutChan:
+		return false
+	case <-w.signal:
+		return true
+	}
 }
 
 // ShouldError sets the stream to return an error on the next write.
@@ -110,7 +118,9 @@ func (w *Writable) ShouldError(e error) {
 // Stdout returns a Writable that can be used for making assertions
 // against what was written to stdout.
 func Stdout() *Writable {
-	return &Writable{}
+	return &Writable{
+		signal: make(chan *interface{}, 1),
+	}
 }
 
 // Readable is an infinite stream that satisfies io.Reader and io.Writer
@@ -204,5 +214,15 @@ func nonBlockingSignal(ch chan<- *interface{}) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// nonBlockingConsume consumes a value from the channel if it is available.
+// Useful to ensure the signal buffered channel is empty, so that false positive
+// signals are eliminated.
+func nonBlockingConsume(ch <-chan *interface{}) {
+	select {
+	case <-ch:
+	default:
 	}
 }

@@ -136,6 +136,45 @@ func TestTiming(t *testing.T) {
 	assert.Equal(t, "ghij", stdout.ReadNow(), "subsequent readnow returns content after timeout")
 }
 
+func TestWaiting(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping waiting test in short mode.")
+	}
+
+	stdout := Stdout()
+
+	io.WriteString(stdout, "123")
+	_, err := stdout.ReadUntil('3', time.Second)
+	assert.NoError(t, err)
+
+	assert.False(t, stdout.WaitForWrite(time.Second),
+		"wait when buffer is empty")
+
+	wait := make(chan *interface{})
+
+	go (func(w io.Writer) {
+		<-wait
+		io.WriteString(w, "ab")
+		<-wait
+		time.Sleep(4 * time.Second)
+		io.WriteString(w, "cd")
+	})(stdout)
+
+	wait <- nil
+	assert.True(t, stdout.WaitForWrite(time.Second),
+		"wait when buffer is not empty")
+	assert.True(t, stdout.WaitForWrite(time.Second),
+		"wait when buffer is still not empty")
+
+	stdout.ReadNow()
+	wait <- nil
+	assert.False(t, stdout.WaitForWrite(time.Second),
+		"wait after buffer is emptied")
+
+	assert.True(t, stdout.WaitForWrite(6*time.Second),
+		"write before timeout expires")
+}
+
 func TestStdin(t *testing.T) {
 	stdin := Stdin()
 
