@@ -130,14 +130,14 @@ func TestErrors(t *testing.T) {
 	testBar.Tick()
 	errs := testBar.LatestOutput().AssertError("on next tick with error")
 	assert.Equal("getloadavg: 1", errs[0], "error string contains getloadavg code")
-	testBar.Click(0) // to restart.
 
 	shouldReturn(1, 2, 3, 4, 5)
+	testBar.Click(0) // to restart.
 	errs = testBar.LatestOutput().AssertError("on next tick with error")
 	assert.Equal("getloadavg: 5", errs[0], "error string contains getloadavg code")
-	testBar.Click(0)
 
 	shouldError(errors.New("test"))
+	testBar.Click(0)
 	errs = testBar.LatestOutput().AssertError("on next tick with error")
 	assert.Equal("test", errs[0], "error string is passed through")
 }
