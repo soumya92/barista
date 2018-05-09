@@ -23,7 +23,6 @@ import (
 
 	"github.com/martinlindhe/unit"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -54,7 +53,7 @@ var updater bar.Scheduler
 // construct initialises sysinfo's global updating.
 func construct() {
 	once.Do(func() {
-		updater = barista.Schedule().Every(3 * time.Second)
+		updater = base.Schedule().Every(3 * time.Second)
 		go func(updater bar.Scheduler) {
 			for {
 				update()

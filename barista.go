@@ -145,11 +145,11 @@ func SuppressSignals(suppressSignals bool) {
 	instance.suppressSignals = suppressSignals
 }
 
-// Schedule creates a Scheduler tied to the bar, automatically
+// NewScheduler creates a Scheduler tied to the bar, automatically
 // pausing and resuming it with the bar. Modules should use
 // the scheduler as a signal for performing work, so they can
 // be automatically suspended when the bar is not running.
-func Schedule() bar.Scheduler {
+func NewScheduler() bar.Scheduler {
 	construct()
 	sch := scheduler.New()
 	instance.Lock()

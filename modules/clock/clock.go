@@ -110,7 +110,7 @@ func (m *module) Stream() <-chan bar.Output {
 }
 
 func (m *module) worker(ch base.Channel) {
-	sch := barista.Schedule()
+	sch := barista.NewScheduler()
 	cfg := m.getConfig()
 	tz := time.Local
 	prevTz := ""

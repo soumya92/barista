@@ -20,7 +20,6 @@ import (
 
 	"github.com/martinlindhe/unit"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -122,10 +121,8 @@ func defaultOutputFunc(w Weather) bar.Output {
 func New(provider Provider) Module {
 	m := &module{
 		provider:  provider,
-		scheduler: barista.Schedule(),
+		scheduler: base.Schedule().Every(10 * time.Minute),
 	}
-	// Default is to refresh every 10 minutes
-	m.RefreshInterval(10 * time.Minute)
 	// Default output template is just the temperature and conditions.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`))
 	m.OnClick(nil)

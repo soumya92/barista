@@ -25,7 +25,6 @@ import (
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -69,7 +68,7 @@ var updater bar.Scheduler
 // modules are updated with just one read of /proc/meminfo.
 func construct() {
 	once.Do(func() {
-		updater = barista.Schedule().Every(3 * time.Second)
+		updater = base.Schedule().Every(3 * time.Second)
 		go func(updater bar.Scheduler) {
 			for {
 				update()

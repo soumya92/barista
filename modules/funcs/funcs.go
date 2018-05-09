@@ -18,7 +18,6 @@ package funcs
 import (
 	"time"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 )
@@ -78,7 +77,7 @@ type every struct {
 func (e *every) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	wrappedCh := &channel{Channel: ch}
-	sch := barista.Schedule().Every(e.d)
+	sch := base.Schedule().Every(e.d)
 	go func() {
 		for {
 			e.f(wrappedCh)

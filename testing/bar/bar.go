@@ -44,7 +44,7 @@ type TestBar struct {
 var instance atomic.Value // of TestBar
 
 // New creates a new TestBar. This must be called before any modules
-// are constructed, to ensure globals like barista.Schedule() are
+// are constructed, to ensure globals like barista.NewScheduler() are
 // associated with the test instance.
 func New(t assert.TestingT) {
 	b := &TestBar{

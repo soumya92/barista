@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -99,10 +98,8 @@ func (m *module) getFormat() format {
 
 // New constructs an instance of the cpuload module.
 func New() Module {
-	m := &module{scheduler: barista.Schedule()}
+	m := &module{scheduler: base.Schedule().Every(3 * time.Second)}
 	m.format.Set(format{})
-	// Default is to refresh every 3s, matching the behaviour of top.
-	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the 1-minute load average.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`))
 	return m

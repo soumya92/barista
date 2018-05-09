@@ -266,7 +266,7 @@ func (m *module) worker(ch base.Channel) {
 	}
 	m.info.Set(info)
 
-	positionUpdater := barista.Schedule()
+	positionUpdater := barista.NewScheduler()
 	// If currently playing, also start the position updater.
 	if info.Playing() {
 		positionUpdater.Every(time.Second)

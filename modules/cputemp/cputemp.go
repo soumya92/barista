@@ -24,7 +24,6 @@ import (
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -88,11 +87,9 @@ func (m *module) getFormat() format {
 func Zone(thermalZone string) Module {
 	m := &module{
 		thermalFile: fmt.Sprintf("/sys/class/thermal/%s/temp", thermalZone),
-		scheduler:   barista.Schedule(),
+		scheduler:   base.Schedule().Every(3 * time.Second),
 	}
 	m.format.Set(format{})
-	// Default is to refresh every 3s, matching the behaviour of top.
-	m.RefreshInterval(3 * time.Second)
 	// Default output template, if no template/function was specified.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Celsius | printf "%.1f"}}℃`))
 	return m

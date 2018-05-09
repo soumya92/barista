@@ -25,7 +25,6 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -139,11 +138,9 @@ func (m *module) getFormat() format {
 func New(name string) Module {
 	m := &module{
 		batteryName: name,
-		scheduler:   barista.Schedule(),
+		scheduler:   base.Schedule().Every(3 * time.Second),
 	}
 	m.format.Set(format{})
-	// Default is to refresh every 3s, matching the behaviour of top.
-	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just the available battery percent.
 	m.OutputTemplate(outputs.TextTemplate(`BATT {{.RemainingPct}}%`))
 	return m

@@ -21,7 +21,6 @@ import (
 	"github.com/martinlindhe/unit"
 	"github.com/vishvananda/netlink"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -69,10 +68,8 @@ type module struct {
 func New(iface string) Module {
 	m := &module{
 		iface:     iface,
-		scheduler: barista.Schedule(),
+		scheduler: base.Schedule().Every(3 * time.Second),
 	}
-	// Default is to refresh every 3s, similar to top.
-	m.RefreshInterval(3 * time.Second)
 	// Default output template that's just the up and down speeds in SI.
 	m.OutputTemplate(outputs.TextTemplate("{{.Tx | ibyterate}} up | {{.Rx | ibyterate}} down"))
 	return m

@@ -23,7 +23,6 @@ import (
 
 	"github.com/martinlindhe/unit"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -117,11 +116,9 @@ func (m *module) getFormat() format {
 func New(path string) Module {
 	m := &module{
 		path:      path,
-		scheduler: barista.Schedule(),
+		scheduler: base.Schedule().Every(3 * time.Second),
 	}
 	m.format.Set(format{})
-	// Default is to refresh every 3s, matching the behaviour of top.
-	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the used disk space.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Used.Gigabytes | printf "%.2f"}} GB`))
 	return m
