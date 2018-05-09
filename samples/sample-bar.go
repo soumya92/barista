@@ -129,7 +129,8 @@ func main() {
 			material.Icon("access-time", colors.Scheme("dim-icon")),
 			now.Format("15:04:05"),
 		)
-	}).OnClick(func(e bar.Event) {
+	})
+	localtime.OnClick(func(e bar.Event) {
 		if e.Button == bar.ButtonLeft {
 			exec.Command("gsimplecal").Run()
 		}
@@ -222,7 +223,8 @@ func main() {
 			out.Color(colors.Scheme("degraded"))
 		}
 		return out
-	}).OnClick(startTaskManager)
+	})
+	loadAvg.OnClick(startTaskManager)
 
 	freeMem := meminfo.New().OutputFunc(func(m meminfo.Info) bar.Output {
 		out := outputs.Pango(material.Icon("memory"), outputs.IBytesize(m.Available()))
@@ -238,7 +240,8 @@ func main() {
 			out.Color(colors.Scheme("good"))
 		}
 		return out
-	}).OnClick(startTaskManager)
+	})
+	freeMem.OnClick(startTaskManager)
 
 	temp := cputemp.DefaultZone().
 		RefreshInterval(2 * time.Second).

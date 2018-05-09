@@ -35,6 +35,7 @@ import (
 	"sync"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -51,6 +52,21 @@ type Button interface {
 	bar.Clickable
 }
 
+// button implements Button and provides additional methods that
+// groups can use to control its behaviour.
+type button struct {
+	base.SimpleClickHandler
+	base.Channel
+}
+
+func (b *button) Stream() <-chan bar.Output {
+	return b.Channel
+}
+
+func newButton() *button {
+	return &button{Channel: base.NewChannel()}
+}
+
 // module wraps a bar.Module with a "visibility" modifier, and only
 // sends output when it's visible. Otherwise it outputs nothing.
 type module struct {
@@ -59,6 +75,7 @@ type module struct {
 	channel    chan bar.Output
 	lastOutput bar.Output
 	visible    bool
+	finished   bool
 }
 
 // WrappedModule implements bar.Module, Clickable, and Pausable.
@@ -66,35 +83,37 @@ type module struct {
 type WrappedModule interface {
 	bar.Module
 	bar.Clickable
-	bar.Pausable
 }
 
 // Stream sets up the output pipeline to filter outputs when hidden.
 func (m *module) Stream() <-chan bar.Output {
+	m.Lock()
 	m.channel = make(chan bar.Output, 10)
 	go m.pipeWhenVisible(m.Module.Stream(), m.channel)
+	m.Unlock()
 	return m.channel
 }
 
 // Click passes through the click event if supported by the wrapped module.
 func (m *module) Click(e bar.Event) {
+	m.Lock()
+	if m.finished && isRestartableClick(e) {
+		go m.pipeWhenVisible(m.Module.Stream(), m.channel)
+		m.finished = false
+	}
+	m.Unlock()
 	if clickable, ok := m.Module.(bar.Clickable); ok {
 		clickable.Click(e)
 	}
 }
 
-// Pause passes through the pause event if supported by the wrapped module.
-func (m *module) Pause() {
-	if pausable, ok := m.Module.(bar.Pausable); ok {
-		pausable.Pause()
-	}
-}
-
-// Resume passes through the resume event if supported by the wrapped module.
-func (m *module) Resume() {
-	if pausable, ok := m.Module.(bar.Pausable); ok {
-		pausable.Resume()
-	}
+// isRestartableClick mimics the function in barista main.
+// Modules that have finished can still be hidden/shown,
+// so the wrapped module cannot close the channel.
+func isRestartableClick(e bar.Event) bool {
+	return e.Button == bar.ButtonLeft ||
+		e.Button == bar.ButtonRight ||
+		e.Button == bar.ButtonMiddle
 }
 
 // SetVisible sets the module visibility and updates the output accordingly.
@@ -122,4 +141,7 @@ func (m *module) pipeWhenVisible(input <-chan bar.Output, output chan<- bar.Outp
 			output <- out
 		}
 	}
+	m.Lock()
+	m.finished = true
+	m.Unlock()
 }

@@ -18,36 +18,79 @@ package funcs
 import (
 	"time"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 )
 
-// Module is an interface that allows functions to display their module output.
-type Module interface {
+// Channel provides methods for functions to send output to the bar.
+type Channel interface {
+	// Output updates the module's output.
 	Output(bar.Output)
+	// Clear hides the module from the bar.
 	Clear()
+	// Error shows an error and restarts the module on click.
 	Error(error) bool
 }
 
-// Func uses the Module interface for output.
-type Func func(Module)
+type channel struct {
+	base.Channel
+	finished bool
+}
+
+func (c *channel) Error(err error) bool {
+	c.finished = c.Channel.Error(err)
+	return c.finished
+}
+
+// Func receives a Channel and uses it for output.
+type Func func(Channel)
 
 // Once constructs a bar module that runs the given function once.
 // Useful if the function loops internally.
-func Once(f Func) base.WithClickHandler {
-	b := base.New()
-	b.OnUpdate(func() {
-		f(b)
-		b.OnUpdate(nil)
-	})
-	return b
+func Once(f Func) base.SimpleClickHandlerModule {
+	return &once{Func: f}
+}
+
+type once struct {
+	base.SimpleClickHandler
+	Func
+}
+
+func (o *once) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go o.Func(ch)
+	return ch
 }
 
 // Every constructs a bar module that repeatedly runs the given function.
 // Useful if the function needs to poll a resource for output.
-func Every(d time.Duration, f Func) base.WithClickHandler {
-	b := base.New()
-	b.OnUpdate(func() { f(b) })
-	b.Schedule().Every(d)
-	return b
+func Every(d time.Duration, f Func) base.SimpleClickHandlerModule {
+	return &every{f: f, d: d}
+}
+
+type every struct {
+	base.SimpleClickHandler
+	f Func
+	d time.Duration
+}
+
+func (e *every) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	wrappedCh := &channel{Channel: ch}
+	sch := barista.Schedule().Every(e.d)
+	go func() {
+		for {
+			e.f(wrappedCh)
+			if wrappedCh.finished {
+				// The next click will call stream again, so return
+				// from this goroutine so that the other instance can
+				// run normally.
+				sch.Stop()
+				return
+			}
+			sch.Wait()
+		}
+	}()
+	return ch
 }

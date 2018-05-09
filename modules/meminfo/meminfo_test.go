@@ -17,16 +17,16 @@ package meminfo
 import (
 	"bytes"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchrcom/testify/assert"
 
-	_ "github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
-	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/scheduler"
+	testBar "github.com/soumya92/barista/testing/bar"
 )
 
 type meminfo map[string]int
@@ -42,7 +42,8 @@ func shouldReturn(info meminfo) {
 func TestMeminfo(t *testing.T) {
 	assert := assert.New(t)
 	fs = afero.NewMemMapFs()
-	scheduler.TestMode(true)
+	testBar.New(t)
+	once = sync.Once{}
 
 	shouldReturn(meminfo{
 		"MemAvailable": 2048,
@@ -50,11 +51,12 @@ func TestMeminfo(t *testing.T) {
 		"MemFree":      1024,
 	})
 
-	m := New()
-	avail := m.OutputTemplate(outputs.TextTemplate(`{{.Available.Kibibytes}}`))
+	avail := New().OutputTemplate(outputs.TextTemplate(`{{.Available.Kibibytes}}`))
+	free := New().OutputTemplate(outputs.TextTemplate(`{{.FreeFrac "Mem"}}`))
 
-	tester1 := testModule.NewOutputTester(t, avail)
-	tester1.AssertOutputEquals(outputs.Text("2048"), "on start")
+	testBar.Run(avail, free)
+	testBar.LatestOutput().AssertText(
+		[]string{"2048", "0.25"}, "on start")
 
 	shouldReturn(meminfo{
 		"MemAvailable": 1024,
@@ -62,16 +64,10 @@ func TestMeminfo(t *testing.T) {
 		"MemFree":      256,
 		"Cached":       512,
 	})
-	scheduler.NextTick()
+	testBar.Tick()
 
-	tester1.AssertOutputEquals(outputs.Text("1024"), "on tick")
-
-	free := m.OutputTemplate(outputs.TextTemplate(`{{.FreeFrac "Mem"}}`))
-
-	tester2 := testModule.NewOutputTester(t, free)
-	tester2.AssertOutputEquals(outputs.Text("0.0625"), "on start")
-
-	tester1.Drain()
+	testBar.LatestOutput().AssertText(
+		[]string{"1024", "0.0625"}, "on tick")
 
 	shouldReturn(meminfo{
 		"Cached":   1024,
@@ -79,41 +75,30 @@ func TestMeminfo(t *testing.T) {
 		"MemTotal": 4096,
 		"MemFree":  512,
 	})
-	scheduler.NextTick()
+	testBar.Tick()
 
-	tester1.AssertOutputEquals(outputs.Text("2048"), "on tick")
-	tester2.AssertOutputEquals(outputs.Text("0.125"), "on tick")
+	testBar.LatestOutput().AssertText(
+		[]string{"2048", "0.125"}, "on tick")
 
 	beforeTick := scheduler.Now()
-	m.RefreshInterval(time.Minute)
-	scheduler.NextTick()
+	RefreshInterval(time.Minute)
+	testBar.Tick()
 	assert.Equal(time.Minute, scheduler.Now().Sub(beforeTick), "RefreshInterval change")
 
-	tester1.Drain()
-	tester2.Drain()
+	testBar.LatestOutput().Expect("on refresh interval change")
 }
 
 func TestErrors(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	scheduler.TestMode(true)
+	testBar.New(t)
+	once = sync.Once{}
 
-	m := New()
+	availFrac := New().OutputTemplate(outputs.TextTemplate(`{{.AvailFrac}}`))
+	free := New().OutputTemplate(outputs.TextTemplate(`{{.MemFree | ibytesize}}`))
+	total := New().OutputTemplate(outputs.TextTemplate(`{{.MemTotal | bytesize}}`))
 
-	availFrac := m.OutputTemplate(outputs.TextTemplate(`{{.AvailFrac}}`))
-	free := m.OutputTemplate(outputs.TextTemplate(`{{.MemFree | ibytesize}}`))
-	total := m.OutputTemplate(outputs.TextTemplate(`{{.MemTotal | bytesize}}`))
-
-	tester := testModule.NewOutputTester(t, availFrac)
-	tester1 := testModule.NewOutputTester(t, free)
-	tester2 := testModule.NewOutputTester(t, total)
-
-	tester.AssertError("on start if missing meminfo")
-	tester1.AssertError("on start if missing meminfo")
-	tester2.AssertError("on start if missing meminfo")
-
-	tester.Drain()
-	tester1.Drain()
-	tester2.Drain()
+	testBar.Run(availFrac, free, total)
+	testBar.LatestOutput().AssertError("on start if missing meminfo")
 
 	afero.WriteFile(fs, "/proc/meminfo", []byte(`
 	-- Lines in weird formats --
@@ -126,24 +111,20 @@ func TestErrors(t *testing.T) {
 	Fields are non-numeric:
 	MemTotal: ABCD kB
 	`), 0644)
-
-	scheduler.NextTick()
-	tester.AssertError("non-numeric value")
-	tester1.AssertError("non-numeric value")
-	tester2.AssertError("non-numeric value")
+	testBar.Tick()
+	out := testBar.LatestOutput()
+	out.At(1).AssertError("non-numeric value")
+	out.At(2).AssertError("non-numeric value")
+	// MemAvailable is parsed, but total is 0.
+	out.At(0).AssertText("+Inf")
 
 	afero.WriteFile(fs, "/proc/meminfo", []byte(`
 	MemAvailable: 1024 kB
 	MemFree: 1024 kB
 	MemTotal: 2048 kB
 	`), 0644)
-
-	scheduler.NextTick()
-
-	tester.AssertOutputEquals(
-		outputs.Text("0.5"), "when meminfo is back to normal")
-	tester1.AssertOutputEquals(
-		outputs.Text("1.0 MiB"), "when meminfo is back to normal")
-	tester2.AssertOutputEquals(
-		outputs.Text("2.1 MB"), "when meminfo is back to normal")
+	testBar.Tick()
+	testBar.LatestOutput().AssertText(
+		[]string{"0.5", "1.0 MiB", "2.1 MB"},
+		"when meminfo is back to normal")
 }

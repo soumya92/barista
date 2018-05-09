@@ -63,7 +63,7 @@ const (
 
 // Module represents a wlan bar module.
 type Module interface {
-	base.WithClickHandler
+	base.SimpleClickHandlerModule
 
 	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(Info) bar.Output) Module
@@ -73,33 +73,21 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
-	outputFunc func(Info) bar.Output
+	base.SimpleClickHandler
 	intf       string
-	info       Info
-	lastFlags  uint32
+	outputFunc base.Value // of func(Info) bar.Output
 }
 
 // New constructs an instance of the wlan module for the specified interface.
 func New(iface string) Module {
-	m := &module{
-		Base: base.New(),
-		intf: iface,
-	}
+	m := &module{intf: iface}
 	// Default output template is just the SSID when connected.
 	m.OutputTemplate(outputs.TextTemplate("{{if .Connected}}{{.SSID}}{{end}}"))
-	m.OnUpdate(m.update)
 	return m
 }
 
-func (m *module) Stream() <-chan bar.Output {
-	go m.worker()
-	return m.Base.Stream()
-}
-
 func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -109,82 +97,97 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 	})
 }
 
-func (m *module) worker() {
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
+}
+
+func (m *module) worker(ch base.Channel) {
 	// Initial state.
 	link, err := netlink.LinkByName(m.intf)
-	if m.Error(err) {
+	if ch.Error(err) {
 		return
 	}
-	m.info = Info{}
+	var info Info
 	if link.Attrs().Flags&net.FlagUp == net.FlagUp {
-		if m.Error(m.getWifiInfo()) {
+		info, err = m.getWifiInfo()
+		if ch.Error(err) {
 			return
 		}
-		if m.info.SSID == "" {
-			m.info.State = Disconnected
+		if info.SSID == "" {
+			info.State = Disconnected
 		}
 	}
-	m.Update()
+	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+	ch.Output(outputFunc(info))
 
 	// Watch for changes.
-	ch := make(chan netlink.LinkUpdate)
+	linkCh := make(chan netlink.LinkUpdate)
 	done := make(chan struct{})
 	defer close(done)
-	netlink.LinkSubscribe(ch, done)
-	for update := range ch {
-		if update.Attrs().Name != m.intf {
-			continue
-		}
-		newFlags := update.IfInfomsg.Flags
-		shouldUpdate := false
-		if m.lastFlags&unix.IFF_UP != newFlags&unix.IFF_UP {
-			shouldUpdate = true
-		}
-		if m.lastFlags&unix.IFF_RUNNING != newFlags&unix.IFF_RUNNING {
-			shouldUpdate = true
-		}
-		if shouldUpdate {
-			m.lastFlags = newFlags
-			m.info = Info{}
-			if newFlags&unix.IFF_UP != unix.IFF_UP {
-				m.info.State = Disabled
-			} else if newFlags&unix.IFF_RUNNING != unix.IFF_RUNNING {
-				m.info.State = Disconnected
-			} else {
-				if m.Error(m.getWifiInfo()) {
-					return
-				}
+	netlink.LinkSubscribe(linkCh, done)
+	var lastFlags uint32
+
+	for {
+		select {
+		case update := <-linkCh:
+			if update.Attrs().Name != m.intf {
+				continue
 			}
-			m.Update()
+			newFlags := update.IfInfomsg.Flags
+			shouldUpdate := false
+			if lastFlags&unix.IFF_UP != newFlags&unix.IFF_UP {
+				shouldUpdate = true
+			}
+			if lastFlags&unix.IFF_RUNNING != newFlags&unix.IFF_RUNNING {
+				shouldUpdate = true
+			}
+			if shouldUpdate {
+				lastFlags = newFlags
+				info = Info{}
+				if newFlags&unix.IFF_UP != unix.IFF_UP {
+					info.State = Disabled
+				} else if newFlags&unix.IFF_RUNNING != unix.IFF_RUNNING {
+					info.State = Disconnected
+				} else {
+					info, err = m.getWifiInfo()
+					if ch.Error(err) {
+						return
+					}
+				}
+				ch.Output(outputFunc(info))
+			}
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
+			ch.Output(outputFunc(info))
 		}
 	}
 }
 
-func (m *module) getWifiInfo() error {
-	var err error
-	m.info.State = Connected
-	m.info.SSID, _ = m.iwgetid("-r")
-	m.info.AccessPointMAC, _ = m.iwgetid("-a")
-	if ch, err := m.iwgetid("-c"); err == nil {
-		m.info.Channel, err = strconv.Atoi(ch)
+func (m *module) getWifiInfo() (info Info, err error) {
+	info.State = Connected
+	info.SSID, _ = m.iwgetid("-r")
+	info.AccessPointMAC, _ = m.iwgetid("-a")
+	var ch string
+	if ch, err = m.iwgetid("-c"); err == nil {
+		info.Channel, err = strconv.Atoi(ch)
 		if err != nil {
-			return err
+			return
 		}
 	}
-	if freq, err := m.iwgetid("-f"); err == nil {
-		m.info.Frequency, err = strconv.ParseFloat(freq, 64)
+	var freq string
+	if freq, err = m.iwgetid("-f"); err == nil {
+		info.Frequency, err = strconv.ParseFloat(freq, 64)
 		if err != nil {
-			return err
+			return
 		}
 	}
-	return err
+	return
 }
 
 func (m *module) iwgetid(flag string) (string, error) {
 	out, err := exec.Command("/sbin/iwgetid", m.intf, "-r", flag).Output()
 	return strings.TrimSpace(string(out)), err
-}
-
-func (m *module) update() {
-	m.Output(m.outputFunc(m.info))
 }

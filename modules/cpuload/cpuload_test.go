@@ -23,9 +23,9 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
-	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/scheduler"
+	testBar "github.com/soumya92/barista/testing/bar"
 )
 
 var syncMutex sync.Mutex
@@ -67,66 +67,77 @@ var mockloadavg = func(out *LoadAvg, count int) (int, error) {
 func TestCpuload(t *testing.T) {
 	assert := assert.New(t)
 	getloadavg = mockloadavg
-	scheduler.TestMode(true)
-
-	load := New()
-	tester := testModule.NewOutputTester(t, load)
+	testBar.New(t)
 
 	shouldReturn(0, 0, 0)
 
-	tester.AssertOutputEquals(outputs.Text("0.00"), "on start")
+	load := New()
+	testBar.Run(load)
+
+	testBar.LatestOutput().AssertText(
+		[]string{"0.00"}, "on start")
 
 	shouldReturn(1, 2, 3)
-	tester.AssertNoOutput("until refresh")
-
-	scheduler.NextTick()
-	tester.AssertOutputEquals(outputs.Text("1.00"), "on next tick")
+	testBar.AssertNoOutput("until refresh")
+	testBar.Tick()
+	testBar.NextOutput().AssertText(
+		[]string{"1.00"}, "on next tick")
 
 	load.OutputTemplate(outputs.TextTemplate(`{{.Min5 | printf "%.2f"}}`))
-	tester.AssertOutputEquals(outputs.Text("2.00"), "on output format change")
+	testBar.NextOutput().AssertText(
+		[]string{"2.00"}, "on output format change")
 
 	load.UrgentWhen(func(l LoadAvg) bool {
 		return l.Min15() > 2
 	})
-	tester.AssertOutputEquals(
+	testBar.NextOutput().AssertEqual(
 		outputs.Text("2.00").Urgent(true),
 		"on urgent function change")
 
 	load.OutputColor(func(l LoadAvg) bar.Color {
 		return bar.Color("red")
 	})
-	tester.AssertOutputEquals(
+	testBar.NextOutput().AssertEqual(
 		outputs.Text("2.00").Urgent(true).Color(bar.Color("red")),
 		"on color function change")
 
 	shouldReturn(0, 0, 0)
-	scheduler.NextTick()
-	tester.AssertOutputEquals(
+	testBar.Tick()
+	testBar.NextOutput().AssertEqual(
 		outputs.Text("0.00").Urgent(false).Color(bar.Color("red")),
 		"on next tick")
 
-	shouldReturn(1)
-	scheduler.NextTick()
-	tester.AssertOutputEquals(
-		outputs.Error(errors.New("getloadavg: 1")),
-		"on next tick")
-
-	shouldReturn(1, 2, 3, 4, 5)
-	scheduler.NextTick()
-	tester.AssertOutputEquals(
-		outputs.Error(errors.New("getloadavg: 5")),
-		"on next tick")
-
-	shouldError(errors.New("test"))
-	scheduler.NextTick()
-	tester.AssertOutputEquals(
-		outputs.Error(errors.New("test")), "on next tick")
-
 	load.RefreshInterval(time.Minute)
-	tester.AssertNoOutput("on refresh interval change")
+	testBar.AssertNoOutput("on refresh interval change")
 
 	beforeTick := scheduler.Now()
 	afterTick := scheduler.NextTick()
-	tester.AssertOutput("on next tick")
+	testBar.NextOutput().Expect("on next tick")
 	assert.Equal(time.Minute, afterTick.Sub(beforeTick))
+
+	testBar.AssertNoOutput("until next tick")
+}
+
+func TestErrors(t *testing.T) {
+	assert := assert.New(t)
+	getloadavg = mockloadavg
+	testBar.New(t)
+
+	load := New()
+	testBar.Run(load)
+
+	shouldReturn(1)
+	testBar.Tick()
+	errs := testBar.LatestOutput().AssertError("on next tick with error")
+	assert.Equal("getloadavg: 1", errs[0], "error string contains getloadavg code")
+	testBar.Click(0) // to restart.
+
+	shouldReturn(1, 2, 3, 4, 5)
+	errs = testBar.LatestOutput().AssertError("on next tick with error")
+	assert.Equal("getloadavg: 5", errs[0], "error string contains getloadavg code")
+	testBar.Click(0)
+
+	shouldError(errors.New("test"))
+	errs = testBar.LatestOutput().AssertError("on next tick with error")
+	assert.Equal("test", errs[0], "error string is passed through")
 }

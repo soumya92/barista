@@ -16,16 +16,17 @@
 package sysinfo
 
 import (
+	"sync"
 	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/martinlindhe/unit"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/multi"
-	"github.com/soumya92/barista/base/scheduler"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Info wraps the result of sysinfo and makes it more useful.
@@ -43,51 +44,103 @@ type Info struct {
 	FreeHighRAM  unit.Datasize
 }
 
-// Module represents a sysinfo multi-module, and provides an interface
-// for creating bar.Modules with various output functions/templates
-// that share the same data source, cutting down on updates required.
-type Module struct {
-	moduleSet *multi.ModuleSet
-	outputs   map[multi.Submodule]func(Info) bar.Output
-	scheduler scheduler.Scheduler
-}
+// currentInfo stores the last value read by the updater.
+// This allows newly created modules to start with data.
+var currentInfo base.ErrorValue // of Info
 
-// New constructs an instance of the sysinfo multi-module
-func New() *Module {
-	m := &Module{
-		moduleSet: multi.NewModuleSet(),
-		// Because the nil value of map is not sensible :(
-		outputs: make(map[multi.Submodule]func(Info) bar.Output),
-	}
-	// Update sysinfo when asked.
-	m.moduleSet.OnUpdate(m.update)
-	// Default is to refresh every 3s, matching the behaviour of top.
-	m.scheduler = scheduler.Do(m.moduleSet.Update).Every(3 * time.Second)
-	return m
+var once sync.Once
+var updater bar.Scheduler
+
+// construct initialises sysinfo's global updating.
+func construct() {
+	once.Do(func() {
+		updater = barista.Schedule().Every(3 * time.Second)
+		go func(updater bar.Scheduler) {
+			for {
+				update()
+				updater.Wait()
+			}
+		}(updater)
+	})
 }
 
 // RefreshInterval configures the polling frequency.
-func (m *Module) RefreshInterval(interval time.Duration) *Module {
-	m.scheduler.Every(interval)
+func RefreshInterval(interval time.Duration) {
+	construct()
+	updater.Every(interval)
+}
+
+// Module represents a bar.Module that displays memory information.
+type Module interface {
+	base.SimpleClickHandlerModule
+
+	// OutputFunc configures a module to display the output of a user-defined function.
+	OutputFunc(func(Info) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
+	OutputTemplate(func(interface{}) bar.Output) Module
+}
+
+type module struct {
+	base.SimpleClickHandler
+	ticker     bar.Ticker
+	outputFunc base.Value
+}
+
+func defaultOutputFunc(i Info) bar.Output {
+	return outputs.Textf("up: %s, load: %0.2f", i.Uptime, i.Loads[0])
+}
+
+// New creates a new sysinfo module.
+func New() Module {
+	construct()
+	m := &module{ticker: currentInfo.Subscribe()}
+	m.OutputFunc(defaultOutputFunc)
 	return m
 }
 
-// OutputFunc creates a submodule that displays the output of a user-defined function.
-func (m *Module) OutputFunc(format func(Info) bar.Output) base.WithClickHandler {
-	submodule := m.moduleSet.New()
-	m.outputs[submodule] = format
-	return submodule
+func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+	m.outputFunc.Set(outputFunc)
+	return m
 }
 
-// OutputTemplate creates a submodule that displays the output of a template.
-func (m *Module) OutputTemplate(template func(interface{}) bar.Output) base.WithClickHandler {
-	return m.OutputFunc(func(i Info) bar.Output { return template(i) })
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(i Info) bar.Output {
+		return template(i)
+	})
 }
 
-func (m *Module) update() {
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
+}
+
+func (m *module) worker(ch base.Channel) {
+	i, err := currentInfo.Get()
+	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+	for {
+		if err != nil {
+			ch.Output(outputs.Error(err))
+		} else if info, ok := i.(Info); ok {
+			ch.Output(outputFunc(info))
+		}
+		select {
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
+		case <-m.ticker.Tick():
+			i, err = currentInfo.Get()
+		}
+	}
+}
+
+const loadScale = 65536.0 // LINUX_SYSINFO_LOADS_SCALE
+
+func update() {
 	var sysinfoT unix.Sysinfo_t
-	const loadScale = 65536.0 // LINUX_SYSINFO_LOADS_SCALE
-	if m.moduleSet.Error(unix.Sysinfo(&sysinfoT)) {
+	err := unix.Sysinfo(&sysinfoT)
+	if currentInfo.Error(err) {
 		return
 	}
 	mult := unit.Datasize(sysinfoT.Unit) * unit.Byte
@@ -108,7 +161,5 @@ func (m *Module) update() {
 		TotalHighRAM: unit.Datasize(sysinfoT.Totalhigh) * mult,
 		FreeHighRAM:  unit.Datasize(sysinfoT.Freehigh) * mult,
 	}
-	for submodule, outputFunc := range m.outputs {
-		submodule.Output(outputFunc(sysinfo))
-	}
+	currentInfo.Set(sysinfo)
 }

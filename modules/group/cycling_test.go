@@ -21,6 +21,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
+	testBar "github.com/soumya92/barista/testing/bar"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
@@ -36,64 +37,133 @@ func TestCyclingEmpty(t *testing.T) {
 }
 
 func TestCyclingWithModules(t *testing.T) {
+	testBar.New(t)
 	group := Cycling()
 
 	module1 := testModule.New(t)
-	out1 := outputs.Text("1")
+	module2 := testModule.New(t)
+	module3 := testModule.New(t)
+
 	wrapped1 := group.Add(module1)
 	module1.AssertNotStarted("when wrapped")
 
-	tester1 := testModule.NewOutputTester(t, wrapped1)
+	testBar.Run(wrapped1, group.Add(module2), group.Add(module3))
 	module1.AssertStarted("when wrapping module is started")
+	module2.AssertStarted("when wrapping module is started")
+	module3.AssertStarted("when wrapping module is started")
+	// implicitly asserts that all modules are started.
+	testBar.AssertNoOutput("before any output from module")
+
+	out1 := outputs.Text("1")
 	module1.Output(out1)
-	tester1.AssertOutput("first module starts visible")
 
-	module2 := testModule.New(t)
 	out2 := outputs.Text("2")
-	tester2 := testModule.NewOutputTester(t, group.Add(module2))
 	module2.Output(out2)
-	tester2.AssertNoOutput("other modules start hidden")
 
-	module3 := testModule.New(t)
 	out3 := outputs.Text("3")
-	tester3 := testModule.NewOutputTester(t, group.Add(module3))
 	module3.Output(out3)
-	tester3.AssertNoOutput("other modules start hidden")
+
+	testBar.LatestOutput().AssertEqual(out1, "first module starts visible")
 
 	group.Next()
 	assert.Equal(t, 1, group.Visible(), "updates visible index")
-	tester1.AssertEmpty("on switch")
-	tester2.AssertOutputEquals(out2, "shows next module on switch")
-	tester3.AssertNoOutput("only two modules updated at a time")
+	testBar.LatestOutput().AssertEqual(out2, "on switch")
 
 	group.Previous()
 	assert.Equal(t, 0, group.Visible(), "updates visible index")
-	tester2.AssertEmpty("previous output on switch")
-	tester1.AssertOutputEquals(out1, "shows next module on switch")
-	tester3.AssertNoOutput("only two modules updated at a time")
+	testBar.LatestOutput().AssertEqual(out1, "previous output on switch")
 
 	group.Show(2)
 	assert.Equal(t, 2, group.Visible(), "updates visible index")
-	tester1.AssertEmpty("previous output on switch")
-	tester3.AssertOutputEquals(out3, "shows next module on switch")
-	tester2.AssertNoOutput("only two modules updated at a time")
+	testBar.LatestOutput().AssertEqual(out3, "directly jumping to an index")
 
 	out4 := outputs.Text("4")
 	module2.Output(out4)
-	tester2.AssertNoOutput("while hidden")
+	testBar.AssertNoOutput("while hidden")
+
 	out5 := outputs.Text("5")
 	module2.Output(out5)
-	tester2.AssertNoOutput("while hidden")
+	testBar.AssertNoOutput("while hidden")
+
 	group.Show(1)
-	tester2.AssertOutputEquals(out5, "updates while hidden coalesced")
+	testBar.LatestOutput().AssertEqual(out5, "updates while hidden coalesced")
+}
+
+func TestCyclingRestart(t *testing.T) {
+	testBar.New(t)
+
+	group := Cycling()
+	module1 := testModule.New(t)
+	module2 := testModule.New(t)
+	module3 := testModule.New(t)
+
+	testBar.Run(
+		group.Add(module1),
+		group.Add(module2),
+		group.Add(module3),
+	)
+	module1.AssertStarted("when wrapping module is started")
+	module2.AssertStarted("when wrapping module is started")
+	module3.AssertStarted("when wrapping module is started")
+	// implicitly asserts that all modules are started.
+
+	module1.OutputText("1")
+	module1.Close()
+
+	module2.OutputText("2")
+	module2.Close()
+
+	module3.OutputText("3")
+
+	testBar.LatestOutput().AssertText(
+		[]string{"1"}, "first module")
+	module1.AssertNotStarted("after being stopped")
+
+	group.Next()
+	testBar.LatestOutput().AssertText(
+		[]string{"2"}, "switching to second module")
+	module2.AssertNotStarted("after being stopped")
+
+	// module 2 is showing.
+	testBar.Click(0)
+	module2.AssertStarted("when clicked after finish")
+	assert.NotPanics(t, func() {
+		module2.OutputText("2")
+	})
+	module1.AssertNotStarted("click when not showing")
+	testBar.LatestOutput().AssertText([]string{"2"})
+
+	group.Show(2)
+	testBar.LatestOutput().Expect("on switch")
+	testBar.Click(0)
+	// Clicking on the third module does nothing.
+
+	module1.AssertNotStarted("click when not showing")
+
+	group.Show(0)
+	testBar.LatestOutput().AssertText([]string{"1"})
+	module1.AssertNotStarted("until clicked")
+
+	testBar.Click(0)
+	module1.AssertStarted("when clicked after finish")
 }
 
 func TestCyclingButton(t *testing.T) {
+	testBar.New(t)
+
 	group := Cycling()
 	leftClick := bar.Event{Button: bar.ButtonLeft}
 	scrollUp := bar.Event{Button: bar.ScrollUp}
+	var ts []*testModule.TestModule
+	var ms []bar.Module
 	for i := 0; i <= 3; i++ {
-		group.Add(testModule.New(t)).Stream()
+		tm := testModule.New(t)
+		ts = append(ts, tm)
+		ms = append(ms, group.Add(tm))
+	}
+	testBar.Run(ms...)
+	for i := 0; i <= 3; i++ {
+		ts[i].AssertStarted("when wrapping module is started")
 	}
 	button := group.Button(outputs.Text("<>"))
 	assert.Equal(t, 0, group.Visible(), "starts with first module")

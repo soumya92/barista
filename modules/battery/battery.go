@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -85,7 +86,7 @@ func (i Info) PluggedIn() bool {
 // Module represents a battery bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module interface {
-	base.WithClickHandler
+	base.SimpleClickHandlerModule
 
 	// RefreshInterval configures the polling frequency for battery info.
 	RefreshInterval(time.Duration) Module
@@ -107,25 +108,44 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
+	base.SimpleClickHandler
 	batteryName string
-	outputFunc  func(Info) bar.Output
-	colorFunc   func(Info) bar.Color
-	urgentFunc  func(Info) bool
+	scheduler   bar.Scheduler
+	format      base.Value
+}
+
+type format struct {
+	outputFunc func(Info) bar.Output
+	colorFunc  func(Info) bar.Color
+	urgentFunc func(Info) bool
+}
+
+func (f format) output(i Info) bar.Output {
+	out := outputs.Group(f.outputFunc(i))
+	if f.urgentFunc != nil {
+		out.Urgent(f.urgentFunc(i))
+	}
+	if f.colorFunc != nil {
+		out.Color(f.colorFunc(i))
+	}
+	return out
+}
+
+func (m *module) getFormat() format {
+	return m.format.Get().(format)
 }
 
 // New constructs an instance of the battery module for the given battery name.
 func New(name string) Module {
 	m := &module{
-		Base:        base.New(),
 		batteryName: name,
+		scheduler:   barista.Schedule(),
 	}
+	m.format.Set(format{})
 	// Default is to refresh every 3s, matching the behaviour of top.
 	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just the available battery percent.
 	m.OutputTemplate(outputs.TextTemplate(`BATT {{.RemainingPct}}%`))
-	// Update battery stats whenever an update is requested.
-	m.OnUpdate(m.update)
 	return m
 }
 
@@ -135,9 +155,9 @@ func Default() Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.outputFunc = outputFunc
+	c := m.getFormat()
+	c.outputFunc = outputFunc
+	m.format.Set(c)
 	return m
 }
 
@@ -148,36 +168,43 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.Schedule().Every(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 
 func (m *module) OutputColor(colorFunc func(Info) bar.Color) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.colorFunc = colorFunc
+	c := m.getFormat()
+	c.colorFunc = colorFunc
+	m.format.Set(c)
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.urgentFunc = urgentFunc
+	c := m.getFormat()
+	c.urgentFunc = urgentFunc
+	m.format.Set(c)
 	return m
 }
 
-func (m *module) update() {
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
+}
+
+func (m *module) worker(ch base.Channel) {
 	info := batteryInfo(m.batteryName)
-	m.Lock()
-	out := outputs.Group(m.outputFunc(info))
-	if m.urgentFunc != nil {
-		out.Urgent(m.urgentFunc(info))
+	format := m.getFormat()
+	sFormat := m.format.Subscribe()
+	for {
+		ch.Output(format.output(info))
+		select {
+		case <-m.scheduler.Tick():
+			info = batteryInfo(m.batteryName)
+		case <-sFormat.Tick():
+			format = m.getFormat()
+		}
 	}
-	if m.colorFunc != nil {
-		out.Color(m.colorFunc(info))
-	}
-	m.Unlock()
-	m.Output(out)
 }
 
 // electricValue represents a value that is either watts or amperes.
@@ -213,12 +240,9 @@ func fromMicroStr(str string) float64 {
 
 var fs = afero.NewOsFs()
 
-func batteryPath(name string) string {
-	return fmt.Sprintf("/sys/class/power_supply/%s/uevent", name)
-}
-
 func batteryInfo(name string) Info {
-	f, err := fs.Open(batteryPath(name))
+	batteryPath := fmt.Sprintf("/sys/class/power_supply/%s/uevent", name)
+	f, err := fs.Open(batteryPath)
 	if err != nil {
 		return Info{Status: "Disconnected"}
 	}

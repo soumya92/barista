@@ -15,56 +15,78 @@
 package funcs
 
 import (
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchrcom/testify/assert"
 
-	"github.com/soumya92/barista/base/scheduler"
+	"github.com/soumya92/barista/outputs"
+	testBar "github.com/soumya92/barista/testing/bar"
 )
 
-var funcChan chan interface{}
+var count = int64(0)
 
-func signal(m Module) {
-	funcChan <- nil
-}
-
-func signalled() bool {
-	select {
-	case <-funcChan:
-		return true
-	case <-time.After(10 * time.Millisecond):
+func doFunc(ch Channel) {
+	newCount := atomic.AddInt64(&count, 1)
+	if newCount < 4 {
+		ch.Output(outputs.Textf("%d", newCount))
+	} else {
+		ch.Error(fmt.Errorf("something"))
 	}
-	return false
 }
 
 func TestOneShot(t *testing.T) {
 	assert := assert.New(t)
-	funcChan = make(chan interface{}, 10)
+	testBar.New(t)
+	atomic.StoreInt64(&count, 0)
 
-	module := Once(signal)
-	assert.False(signalled(), "Function isn't called until module starts streaming")
+	module := Once(doFunc)
+	assert.Equal(int64(0), atomic.LoadInt64(&count),
+		"Function isn't called until module starts streaming")
 
-	module.Stream()
-	assert.True(signalled(), "Function called when streaming")
+	testBar.Run(module)
+	testBar.NextOutput().AssertText(
+		[]string{"1"}, "Function is never called again")
 
-	assert.False(signalled(), "Function is never called again")
-	assert.False(signalled(), "Function is never called again")
-	assert.False(signalled(), "Function is never called again")
+	testBar.AssertNoOutput("No output is sent")
+	assert.Equal(int64(1), atomic.LoadInt64(&count),
+		"Function is never called again")
 }
 
 func TestRepeated(t *testing.T) {
 	assert := assert.New(t)
-	scheduler.TestMode(true)
-	funcChan = make(chan interface{}, 10)
+	testBar.New(t)
+	atomic.StoreInt64(&count, 0)
 
-	module := Every(time.Minute, signal)
-	assert.False(signalled(), "Function isn't called until module starts streaming")
+	module := Every(time.Minute, doFunc)
+	assert.Equal(int64(0), atomic.LoadInt64(&count),
+		"Function isn't called until module starts streaming")
 
-	module.Stream()
-	assert.True(signalled(), "Function called when streaming")
-	assert.False(signalled(), "Function is not called again until next tick")
+	testBar.Run(module)
+	testBar.NextOutput().AssertText(
+		[]string{"1"}, "Function called when streaming")
+	testBar.AssertNoOutput("Function is not called again until next tick")
+	testBar.Tick()
+	testBar.NextOutput().AssertText(
+		[]string{"2"}, "Function is called on next tick")
+	testBar.Tick()
+	testBar.NextOutput().AssertText(
+		[]string{"3"}, "Function is called on next tick")
+	testBar.Tick()
+	testBar.NextOutput().AssertError("When function calls Error(...)")
+	testBar.Tick()
+	testBar.AssertNoOutput("No output after error")
 
-	scheduler.NextTick()
-	assert.True(signalled(), "Function is called on next tick")
+	atomic.StoreInt64(&count, 0)
+	testBar.Click(0)
+	testBar.NextOutput().AssertText(
+		[]string{"1"}, "Function is called again on click")
+	testBar.Tick()
+	testBar.NextOutput().AssertText(
+		[]string{"2"}, "Function is called on next tick")
+	testBar.Tick()
+	testBar.NextOutput().AssertText(
+		[]string{"3"}, "Function is called on next tick")
 }

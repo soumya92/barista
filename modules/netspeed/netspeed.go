@@ -16,21 +16,24 @@
 package netspeed
 
 import (
-	"sync"
 	"time"
 
 	"github.com/martinlindhe/unit"
 	"github.com/vishvananda/netlink"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/scheduler"
 )
 
 // Speeds represents bidirectional network traffic.
 type Speeds struct {
 	Rx, Tx unit.Datarate
+	// Keep track of whether these speeds are actually 0
+	// or uninitialised.
+	available bool
 }
 
 // Total gets the total speed (both up and down).
@@ -41,7 +44,7 @@ func (s Speeds) Total() unit.Datarate {
 // Module represents a netspeed bar module. It supports setting the output
 // format, click handler, and update frequency.
 type Module interface {
-	base.WithClickHandler
+	base.SimpleClickHandlerModule
 
 	// RefreshInterval configures the polling frequency for network speed.
 	// Since there is no concept of an instantaneous network speed, the speeds will
@@ -56,61 +59,27 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
+	base.SimpleClickHandler
 	iface      string
-	outputFunc func(Speeds) bar.Output
-	// To get network speed, we need to know delta-rx/tx,
-	// so we need to store the previous rx/tx.
-	lastRead info
-	// To handle outputFunc changes without waiting for next
-	// refresh interval, also store the previous speeds.
-	lastSpeeds *Speeds
+	scheduler  bar.Scheduler
+	outputFunc base.Value // of func(Speeds) bar.Output
 }
 
 // New constructs an instance of the netspeed module for the given interface.
 func New(iface string) Module {
 	m := &module{
-		Base:  base.New(),
-		iface: iface,
+		iface:     iface,
+		scheduler: barista.Schedule(),
 	}
 	// Default is to refresh every 3s, similar to top.
-	m.Schedule().Every(3 * time.Second)
+	m.RefreshInterval(3 * time.Second)
 	// Default output template that's just the up and down speeds in SI.
-	m.OutputTemplate(outputs.TextTemplate("{{.Tx.SI}}/s up | {{.Rx.SI}}/s down"))
-	// Worker goroutine to recalculate speeds.
-	m.OnUpdate(m.update)
+	m.OutputTemplate(outputs.TextTemplate("{{.Tx | ibyterate}} up | {{.Rx | ibyterate}} down"))
 	return m
 }
 
-// info represents that last read network information,
-// and is used to compute the delta-rx and tx.
-type info struct {
-	sync.Mutex
-	RxBytes, TxBytes uint64
-	Time             time.Time
-}
-
-// Refresh updates the last read information, and returns
-// the delta-rx and tx since the last update in bytes/sec.
-func (i *info) Refresh(linkStats *netlink.LinkStatistics) Speeds {
-	now := scheduler.Now()
-	duration := now.Sub(i.Time).Seconds()
-	dRx := uint64(float64(linkStats.RxBytes-i.RxBytes) / duration)
-	dTx := uint64(float64(linkStats.TxBytes-i.TxBytes) / duration)
-	i.RxBytes = linkStats.RxBytes
-	i.TxBytes = linkStats.TxBytes
-	i.Time = now
-	return Speeds{
-		Rx: unit.Datarate(dRx) * unit.BytePerSecond,
-		Tx: unit.Datarate(dTx) * unit.BytePerSecond,
-	}
-}
-
 func (m *module) OutputFunc(outputFunc func(Speeds) bar.Output) Module {
-	m.Lock()
-	m.outputFunc = outputFunc
-	m.Unlock()
-	m.output()
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -121,36 +90,64 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.Schedule().Every(interval)
+	m.scheduler.Every(interval)
 	return m
+}
+
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
 }
 
 // For tests.
 var linkByName = netlink.LinkByName
 
-func (m *module) update() {
-	link, err := linkByName(m.iface)
-	if m.Error(err) {
+func (m *module) worker(ch base.Channel) {
+	lastRx, lastTx, err := linkRxTx(m.iface)
+	if ch.Error(err) {
 		return
 	}
-	m.lastRead.Lock()
-	shouldOutput := !m.lastRead.Time.IsZero()
-	speeds := m.lastRead.Refresh(link.Attrs().Statistics)
-	m.lastRead.Unlock()
-	if !shouldOutput {
-		return
+	lastRead := scheduler.Now()
+
+	var speeds Speeds
+	outputFunc := m.outputFunc.Get().(func(Speeds) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+
+	for {
+		if speeds.available {
+			ch.Output(outputFunc(speeds))
+		}
+		select {
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(Speeds) bar.Output)
+		case <-m.scheduler.Tick():
+			rx, tx, err := linkRxTx(m.iface)
+			if ch.Error(err) {
+				return
+			}
+			now := scheduler.Now()
+			duration := now.Sub(lastRead).Seconds()
+
+			speeds.available = true
+			speeds.Rx = unit.Datarate(float64(rx-lastRx)/duration) * unit.BytePerSecond
+			speeds.Tx = unit.Datarate(float64(tx-lastTx)/duration) * unit.BytePerSecond
+
+			lastRead = now
+			lastRx = rx
+			lastTx = tx
+		}
 	}
-	m.Lock()
-	m.lastSpeeds = &speeds
-	m.Unlock()
-	m.output()
 }
 
-func (m *module) output() {
-	m.Lock()
-	lastSpeeds := m.lastSpeeds
-	m.Unlock()
-	if lastSpeeds != nil {
-		m.Output(m.outputFunc(*lastSpeeds))
+func linkRxTx(iface string) (rx, tx uint64, err error) {
+	var link netlink.Link
+	link, err = linkByName(iface)
+	if err != nil {
+		return
 	}
+	linkStats := link.Attrs().Statistics
+	rx = linkStats.RxBytes
+	tx = linkStats.TxBytes
+	return
 }

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -48,7 +49,7 @@ func (l LoadAvg) Min15() float64 {
 // Module represents a cpuload bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module interface {
-	base.WithClickHandler
+	base.SimpleClickHandlerModule
 
 	// RefreshInterval configures the polling frequency for getloadavg.
 	RefreshInterval(time.Duration) Module
@@ -70,29 +71,47 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
+	base.SimpleClickHandler
+	scheduler bar.Scheduler
+	format    base.Value
+}
+
+type format struct {
 	outputFunc func(LoadAvg) bar.Output
 	colorFunc  func(LoadAvg) bar.Color
 	urgentFunc func(LoadAvg) bool
-	loads      LoadAvg
+}
+
+func (f format) output(l LoadAvg) bar.Output {
+	out := outputs.Group(f.outputFunc(l))
+	if f.urgentFunc != nil {
+		out.Urgent(f.urgentFunc(l))
+	}
+	if f.colorFunc != nil {
+		out.Color(f.colorFunc(l))
+	}
+	return out
+}
+
+func (m *module) getFormat() format {
+	return m.format.Get().(format)
 }
 
 // New constructs an instance of the cpuload module.
 func New() Module {
-	m := &module{Base: base.New()}
+	m := &module{scheduler: barista.Schedule()}
+	m.format.Set(format{})
 	// Default is to refresh every 3s, matching the behaviour of top.
 	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the 1-minute load average.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`))
-	// Update load average when asked.
-	m.OnUpdate(m.update)
 	return m
 }
 
 func (m *module) OutputFunc(outputFunc func(LoadAvg) bar.Output) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.outputFunc = outputFunc
+	c := m.getFormat()
+	c.outputFunc = outputFunc
+	m.format.Set(c)
 	return m
 }
 
@@ -106,45 +125,51 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.Schedule().Every(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 
 func (m *module) OutputColor(colorFunc func(LoadAvg) bar.Color) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.colorFunc = colorFunc
+	c := m.getFormat()
+	c.colorFunc = colorFunc
+	m.format.Set(c)
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(LoadAvg) bool) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.urgentFunc = urgentFunc
+	c := m.getFormat()
+	c.urgentFunc = urgentFunc
+	m.format.Set(c)
 	return m
 }
 
-func (m *module) update() {
-	m.Lock()
-	count, err := getloadavg(&m.loads, 3)
-	m.Unlock()
-	if m.Error(err) {
-		return
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
+}
+
+func (m *module) worker(ch base.Channel) {
+	var loads LoadAvg
+	count, err := getloadavg(&loads, 3)
+	format := m.getFormat()
+	sFormat := m.format.Subscribe()
+	for {
+		if ch.Error(err) {
+			return
+		}
+		if count != 3 {
+			ch.Error(fmt.Errorf("getloadavg: %d", count))
+			return
+		}
+		ch.Output(format.output(loads))
+		select {
+		case <-m.scheduler.Tick():
+			count, err = getloadavg(&loads, 3)
+		case <-sFormat.Tick():
+			format = m.getFormat()
+		}
 	}
-	if count != 3 {
-		m.Error(fmt.Errorf("getloadavg: %d", count))
-		return
-	}
-	m.Lock()
-	out := outputs.Group(m.outputFunc(m.loads))
-	if m.urgentFunc != nil {
-		out.Urgent(m.urgentFunc(m.loads))
-	}
-	if m.colorFunc != nil {
-		out.Color(m.colorFunc(m.loads))
-	}
-	m.Unlock()
-	m.Output(out)
 }
 
 // To allow tests to mock out getloadavg.

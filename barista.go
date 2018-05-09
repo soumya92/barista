@@ -23,10 +23,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/scheduler"
 )
 
 // i3Output is sent to i3bar.
@@ -49,63 +51,18 @@ type i3Header struct {
 // i3Module wraps Module with extra information to help run i3bar.
 type i3Module struct {
 	bar.Module
-	Name       string
-	LastOutput i3Output
-	// Keep track of the paused/resumed state of the module.
-	// Using a channel here allows concurrent pause/resume across
-	// modules while guaranteeing ordering.
-	paused   chan bool
-	pausable bar.Pausable
-}
-
-// output converts the module's output to i3Output by adding the name (position),
-// sets the module's last output to the converted i3Output, and signals the bar
-// to update its output.
-func (m *i3Module) output(ch chan<- interface{}) {
-	for o := range m.Stream() {
-		var i3out i3Output
-		if o != nil {
-			for _, segment := range o.Segments() {
-				segmentOut := i3map(segment)
-				segmentOut["name"] = m.Name
-				i3out = append(i3out, segmentOut)
-			}
-		}
-		m.LastOutput = i3out
-		ch <- nil
-	}
-}
-
-// loopPauseResume loops over values on the resumed channel and calls
-// pause or resume on the wrapped module as appropriate.
-func (m *i3Module) loopPauseResume() {
-	for paused := range m.paused {
-		if paused {
-			m.pausable.Pause()
-		} else {
-			m.pausable.Resume()
-		}
-	}
-}
-
-// pause enqueues a pause call on the wrapped module
-// if the wrapped module supports being paused.
-func (m *i3Module) pause() {
-	if m.paused != nil {
-		m.paused <- true
-	}
-}
-
-// resume enqueues a resume call on the wrapped module
-// if the wrapped module supports being paused.
-func (m *i3Module) resume() {
-	if m.paused != nil {
-		m.paused <- false
-	}
+	name       string
+	lastOutput atomic.Value // of i3Output
+	// If the Stream() channel is closed, the next left/middle/right click
+	// event will restart the module. This provides an easy way for modules
+	// to report errors: `out <- outputs.Error(...); close(out);`
+	// (where out = the output channel of the module, returned from Stream).
+	restartable atomic.Value // of bool
 }
 
 // i3Bar is the "bar" instance that handles events and streams output.
 type i3Bar struct {
+	sync.Mutex
 	// The list of modules that make up this bar.
 	i3Modules []*i3Module
 	// The channel that receives a signal on module updates.
@@ -124,6 +81,34 @@ type i3Bar struct {
 	// Suppress pause/resume signal handling to workaround potential
 	// weirdness with signals.
 	suppressSignals bool
+	// Keeps track of whether the bar is currently paused, and
+	// whether it needs to be refreshed on resume.
+	paused          bool
+	refreshOnResume bool
+	// Schedulers to pause/resume when the bar is paused/resumed.
+	schedulers []scheduler.Controller
+}
+
+// output converts the module's output to i3Output by adding the name (position),
+// sets the module's last output to the converted i3Output, and signals the bar
+// to update its output.
+func (m *i3Module) output(bar *i3Bar) {
+	for o := range m.Stream() {
+		var i3out i3Output
+		if o != nil {
+			for _, segment := range o.Segments() {
+				segmentOut := i3map(segment)
+				segmentOut["name"] = m.name
+				i3out = append(i3out, segmentOut)
+			}
+		}
+		m.lastOutput.Store(i3out)
+		bar.refresh()
+	}
+	// If we got here, the channel was closed, so we mark the module
+	// as "restartable" and the next click event (Button1/2/3) will
+	// call the output() method again.
+	m.restartable.Store(true)
 }
 
 var instance *i3Bar
@@ -132,37 +117,48 @@ var instanceInit sync.Once
 func construct() {
 	instanceInit.Do(func() {
 		instance = &i3Bar{
-			update: make(chan interface{}),
+			update: make(chan interface{}, 1),
 			events: make(chan i3Event),
 			reader: os.Stdin,
 			writer: os.Stdout,
+			// bar starts paused, will be resumed on Run().
+			paused: true,
 		}
 	})
 }
 
 // Add adds a module to the bar.
-func Add(modules ...bar.Module) {
+func Add(module bar.Module) {
 	construct()
-	for _, m := range modules {
-		instance.addModule(m)
-	}
+	instance.addModule(module)
 }
 
 // SuppressSignals instructs the bar to skip the pause/resume signal handling.
 // Must be called before Run.
 func SuppressSignals(suppressSignals bool) {
 	construct()
+	instance.Lock()
+	defer instance.Unlock()
 	if instance.started {
 		panic("Cannot change signal handling after .Run()")
 	}
 	instance.suppressSignals = suppressSignals
 }
 
-// SetIo sets the input/output streams for the bar.
-func SetIo(reader io.Reader, writer io.Writer) {
+// Schedule creates a Scheduler tied to the bar, automatically
+// pausing and resuming it with the bar. Modules should use
+// the scheduler as a signal for performing work, so they can
+// be automatically suspended when the bar is not running.
+func Schedule() bar.Scheduler {
 	construct()
-	instance.reader = reader
-	instance.writer = writer
+	sch := scheduler.New()
+	instance.Lock()
+	defer instance.Unlock()
+	instance.schedulers = append(instance.schedulers, sch)
+	if instance.paused {
+		sch.Pause()
+	}
+	return sch
 }
 
 // Run sets up all the streams and enters the main loop.
@@ -170,8 +166,11 @@ func SetIo(reader io.Reader, writer io.Writer) {
 // This allows both styles of bar construction:
 // `bar.Add(a); bar.Add(b); bar.Run()`, and `bar.Run(a, b)`.
 func Run(modules ...bar.Module) error {
-	Add(modules...)
-	// To allow ResetForTest to work, we need to avoid any references
+	construct()
+	for _, m := range modules {
+		instance.addModule(m)
+	}
+	// To allow TestMode to work, we need to avoid any references
 	// to instance in the run loop.
 	b := instance
 	var signalChan chan os.Signal
@@ -187,7 +186,7 @@ func Run(modules ...bar.Module) error {
 	// Read events from the input stream, pipe them to the events channel.
 	go b.readEvents()
 	for _, m := range b.i3Modules {
-		go m.output(b.update)
+		go m.output(b)
 	}
 
 	// Write header.
@@ -213,10 +212,13 @@ func Run(modules ...bar.Module) error {
 		return err
 	}
 
+	// Bar starts paused, so resume it to get the initial output.
+	b.resume()
+
 	// Infinite arrays on both sides.
 	for {
 		select {
-		case _ = <-b.update:
+		case <-b.update:
 			// The complete bar needs to printed on each update.
 			if err := b.print(); err != nil {
 				return err
@@ -225,6 +227,15 @@ func Run(modules ...bar.Module) error {
 			// Events are stripped of the name before being dispatched to the
 			// correct module.
 			if module, ok := b.get(event.Name); ok {
+				// If the module is pending a restart, check that the event is
+				// left/middle/right button, and restart the module if so.
+				if val, ok := module.restartable.Load().(bool); val && ok {
+					if isRestartableClick(event) {
+						module.restartable.Store(false)
+						go module.output(b)
+					}
+					continue
+				}
 				// Check that the module actually supports click events.
 				if clickable, ok := module.Module.(bar.Clickable); ok {
 					// Goroutine to prevent click handlers from blocking the bar.
@@ -242,6 +253,14 @@ func Run(modules ...bar.Module) error {
 	}
 }
 
+// isRestartableClick checks whether an event is allowed to restart
+// a pending module. Only left/middle/right clicks restart a module.
+func isRestartableClick(e i3Event) bool {
+	return e.Button == bar.ButtonLeft ||
+		e.Button == bar.ButtonRight ||
+		e.Button == bar.ButtonMiddle
+}
+
 // addModule adds a single module to the bar.
 func (b *i3Bar) addModule(module bar.Module) {
 	// Panic if adding modules to an already running bar.
@@ -254,13 +273,10 @@ func (b *i3Bar) addModule(module bar.Module) {
 	name := strconv.Itoa(len(b.i3Modules))
 	i3Module := i3Module{
 		Module: module,
-		Name:   name,
+		name:   name,
 	}
-	if pauseable, ok := module.(bar.Pausable); ok {
-		i3Module.paused = make(chan bool, 10)
-		i3Module.pausable = pauseable
-		go i3Module.loopPauseResume()
-	}
+	b.Lock()
+	defer b.Unlock()
 	b.i3Modules = append(b.i3Modules, &i3Module)
 }
 
@@ -312,11 +328,13 @@ func (b *i3Bar) print() error {
 	// i3bar requires the entire bar to be printed at once, so we just take the
 	// last cached value for each module and construct the current bar.
 	// The bar will update any modules before calling this method, so the
-	// LastOutput property of each module will represent the current state.
-	var outputs []map[string]interface{}
+	// lastOutput property of each module will represent the current state.
+	outputs := make([]map[string]interface{}, 0)
 	for _, m := range b.i3Modules {
-		for _, segment := range m.LastOutput {
-			outputs = append(outputs, segment)
+		if lastOut, ok := m.lastOutput.Load().(i3Output); ok {
+			for _, segment := range lastOut {
+				outputs = append(outputs, segment)
+			}
 		}
 	}
 	if err := b.encoder.Encode(outputs); err != nil {
@@ -372,20 +390,60 @@ func (b *i3Bar) readEvents() {
 
 // pause instructs all pausable modules to suspend processing.
 func (b *i3Bar) pause() {
-	for _, m := range b.i3Modules {
-		m.pause()
+	b.Lock()
+	defer b.Unlock()
+	b.paused = true
+	for _, sch := range b.schedulers {
+		sch.Pause()
 	}
 }
 
 // resume instructs all pausable modules to continue processing.
 func (b *i3Bar) resume() {
-	for _, m := range b.i3Modules {
-		m.resume()
+	b.Lock()
+	defer b.Unlock()
+	for _, sch := range b.schedulers {
+		sch.Resume()
+	}
+	b.paused = false
+	if b.refreshOnResume {
+		b.refreshOnResume = false
+		b.maybeUpdate()
 	}
 }
 
-// resetForTest resets the bar for testing purposes.
-func resetForTest() {
-	instance = nil
+// refresh requests an update of the bar's output.
+func (b *i3Bar) refresh() {
+	b.Lock()
+	defer b.Unlock()
+	// If paused, defer the refresh until the bar resumes.
+	if b.paused {
+		b.refreshOnResume = true
+		return
+	}
+	b.maybeUpdate()
+}
+
+// maybeUpdate signals the update channel unless already signalled.
+func (b *i3Bar) maybeUpdate() {
+	select {
+	case b.update <- nil:
+	default:
+		// Since b.update has a buffer of 1, a failure to send to it
+		// implies that an update is already queued. Since refresh
+		// is only be called after individual modules' lastOutput is
+		// set, when the previous update is consumed, each module will
+		// already have the latest output.
+	}
+}
+
+// TestMode creates a new instance of the bar for testing purposes,
+// and runs it on the provided streams instead of stdin/stdout.
+func TestMode(reader io.Reader, writer io.Writer) {
 	instanceInit = sync.Once{}
+	construct()
+	instance.Lock()
+	defer instance.Unlock()
+	instance.reader = reader
+	instance.writer = writer
 }

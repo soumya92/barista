@@ -17,6 +17,8 @@ package barista
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/signal"
 	"testing"
 	"time"
 
@@ -31,10 +33,9 @@ import (
 )
 
 func TestHeader(t *testing.T) {
-	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
-	SetIo(mockStdin, mockStdout)
+	TestMode(mockStdin, mockStdout)
 	assert.Empty(t, mockStdout.ReadNow(), "Nothing written before Run")
 	go Run()
 
@@ -57,6 +58,8 @@ func readOutput(t *testing.T, stdout *mockio.Writable) []map[string]interface{} 
 	assert.Nil(t, json.Unmarshal([]byte(out), &jsonOutputs), "Output is valid json")
 	_, err = stdout.ReadUntil(',', time.Second)
 	assert.Nil(t, err, "outputs a comma after full bar")
+	_, err = stdout.ReadUntil('\n', time.Second)
+	assert.Nil(t, err, "outputs a newline after full bar")
 	return jsonOutputs
 }
 
@@ -69,11 +72,21 @@ func readOutputTexts(t *testing.T, stdout *mockio.Writable) []string {
 	return outputs
 }
 
+func waitForSignal(sigChan <-chan os.Signal) {
+	ch := make(chan bool)
+	go func() {
+		<-sigChan
+		// TODO: Eliminate this sleep.
+		time.Sleep(10 * time.Millisecond)
+		ch <- true
+	}()
+	<-ch
+}
+
 func TestSingleModule(t *testing.T) {
-	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
-	SetIo(mockStdin, mockStdout)
+	TestMode(mockStdin, mockStdout)
 
 	module := testModule.New(t)
 
@@ -86,7 +99,8 @@ func TestSingleModule(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module.Output(outputs.Text("test"))
+	module.AssertStarted()
+	module.OutputText("test")
 	out := readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test"}, out,
 		"output contains an element for the module")
@@ -94,7 +108,7 @@ func TestSingleModule(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module.Output(outputs.Text("other"))
+	module.OutputText("other")
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"other"}, out,
 		"output updates when module sends an update")
@@ -104,15 +118,41 @@ func TestSingleModule(t *testing.T) {
 		"adding a module to a running bar")
 }
 
-func TestMultipleModules(t *testing.T) {
-	resetForTest()
+func TestEmptyOutputs(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
+	TestMode(mockStdin, mockStdout)
+
+	module1 := testModule.New(t)
+	module2 := testModule.New(t)
+
+	go Run(module1, module2)
+
+	_, err := mockStdout.ReadUntil('[', time.Second)
+	assert.Nil(t, err, "output array started without any errors")
+
+	_, err = mockStdout.ReadUntil(']', time.Millisecond)
+	assert.Error(t, err, "no output until module updates")
+
+	module1.AssertStarted()
+	module1.Output(outputs.Empty())
+	out := readOutputTexts(t, mockStdout)
+	assert.Empty(t, out, "all modules are empty")
+
+	module2.AssertStarted()
+	module2.Output(outputs.Empty())
+	out = readOutputTexts(t, mockStdout)
+	assert.Empty(t, out, "all modules are empty")
+}
+
+func TestMultipleModules(t *testing.T) {
+	mockStdin := mockio.Stdin()
+	mockStdout := mockio.Stdout()
+	TestMode(mockStdin, mockStdout)
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
 	module3 := testModule.New(t)
-	SetIo(mockStdin, mockStdout)
 	go Run(module1, module2, module3)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
@@ -121,7 +161,8 @@ func TestMultipleModules(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module1.Output(outputs.Text("test"))
+	module1.AssertStarted()
+	module1.OutputText("test")
 
 	out := readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test"}, out,
@@ -130,17 +171,19 @@ func TestMultipleModules(t *testing.T) {
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
 	assert.Error(t, err, "no output until module updates")
 
-	module3.Output(outputs.Text("module3"))
+	module3.AssertStarted()
+	module3.OutputText("module3")
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test", "module3"}, out,
 		"new output repeats previous value for other modules")
 
-	module3.Output(outputs.Text("new value"))
+	module3.OutputText("new value")
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test", "new value"}, out,
 		"updated output repeats previous value for other modules")
 
-	module2.Output(outputs.Text("middle"))
+	module2.AssertStarted()
+	module2.OutputText("middle")
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"test", "middle", "new value"}, out,
 		"newly updated module correctly repositions other modules")
@@ -160,12 +203,11 @@ func multiOutput(texts ...string) bar.Output {
 }
 
 func TestMultiSegmentModule(t *testing.T) {
-	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
+	TestMode(mockStdin, mockStdout)
 
 	module := testModule.New(t)
-	SetIo(mockStdin, mockStdout)
 	go Run(module)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
@@ -197,44 +239,102 @@ func TestMultiSegmentModule(t *testing.T) {
 }
 
 func TestPauseResume(t *testing.T) {
-	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
+	TestMode(mockStdin, mockStdout)
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
-	SetIo(mockStdin, mockStdout)
 	go Run(module1, module2)
 
-	// When the infinite array starts, we know the bar is ready.
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, unix.SIGUSR1, unix.SIGUSR2)
+
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
 
+	module1.AssertStarted()
+	module2.AssertStarted()
+
+	module1.OutputText("1")
+	out := readOutputTexts(t, mockStdout)
+	assert.Equal(t, []string{"1"}, out, "Outputs before pause")
+	sch1 := Schedule().After(time.Millisecond)
+	time.Sleep(2 * time.Millisecond)
+	select {
+	case <-sch1.Tick():
+	default:
+		assert.Fail(t, "Scheduler not triggered while bar is running")
+	}
+
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	module1.AssertPaused("on sigusr1")
-	module2.AssertPaused("on sigusr1")
+	waitForSignal(signalChan)
+	module1.OutputText("a")
+	module2.OutputText("b")
+	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+		"No output while paused")
+
+	sch1.After(time.Millisecond)
+	sch2 := Schedule().After(time.Millisecond)
+	time.Sleep(2 * time.Millisecond)
+	select {
+	case <-sch1.Tick():
+		assert.Fail(t, "Scheduler triggered while bar is paused")
+	case <-sch2.Tick():
+		assert.Fail(t, "Scheduler triggered while bar is paused")
+	default:
+	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	module1.AssertResumed("on sigusr2")
-	module2.AssertResumed("on sigusr2")
+	waitForSignal(signalChan)
+	out = readOutputTexts(t, mockStdout)
+	assert.Equal(t, []string{"a", "b"}, out,
+		"Outputs while paused printed on resume")
+	select {
+	case <-sch1.Tick():
+	default:
+		assert.Fail(t, "Scheduler not triggered after bar is resumed")
+	}
+	select {
+	case <-sch2.Tick():
+	default:
+		assert.Fail(t, "Scheduler not triggered after bar is resumed")
+	}
 
-	module1.AssertNoPauseResume("when bar receives no signals")
-	module2.AssertNoPauseResume("when bar receives no signals")
+	unix.Kill(unix.Getpid(), unix.SIGUSR2)
+	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+		"Resuming a running bar is a nop")
+
+	unix.Kill(unix.Getpid(), unix.SIGUSR1)
+	waitForSignal(signalChan)
+	module2.OutputText("c")
+	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+		"No output while paused, got %s", mockStdout.ReadNow())
+
+	unix.Kill(unix.Getpid(), unix.SIGUSR2)
+	waitForSignal(signalChan)
+	out = readOutputTexts(t, mockStdout)
+	assert.Equal(t, []string{"a", "c"}, out,
+		"Partial updates while paused")
+
+	signal.Stop(signalChan)
 }
 
 func TestClickEvents(t *testing.T) {
-	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
+	TestMode(mockStdin, mockStdout)
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
-	SetIo(mockStdin, mockStdout)
 	go Run(module1, module2)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
 	mockStdin.WriteString("[")
+
+	module1.AssertStarted()
+	module2.AssertStarted()
 
 	module1.Output(multiOutput("1", "2", "3"))
 	readOutput(t, mockStdout)
@@ -290,20 +390,36 @@ func TestClickEvents(t *testing.T) {
 
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2Name))
 	module2.AssertClicked("events are received after the weird name")
+
+	module1.Close()
+	module1.AssertNotStarted("After Close()")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2Name))
+	module2.AssertClicked()
+	module1.AssertNotStarted("When a different module is clicked")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", \"button\": 7},", module1Name))
+	module1.AssertNotClicked("After Close()")
+	module1.AssertNotStarted("On Button7 click")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", \"button\": 1},", module1Name))
+	module1.AssertNotClicked("After Close(), before restart")
+	module1.AssertStarted("On Button1 click")
 }
 
 func TestSignalHandlingSuppression(t *testing.T) {
-	resetForTest()
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
+	TestMode(mockStdin, mockStdout)
 
 	module := testModule.New(t)
-	SetIo(mockStdin, mockStdout)
 	Add(module)
 	assert.NotPanics(t,
 		func() { SuppressSignals(true) },
 		"Can suppress signal handling before Run")
 	go Run()
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, unix.SIGUSR1, unix.SIGUSR2)
 
 	out, err := mockStdout.ReadUntil('}', time.Second)
 	assert.Nil(t, err, "header was written")
@@ -320,19 +436,31 @@ func TestSignalHandlingSuppression(t *testing.T) {
 	_, ok = header["cont_signal"]
 	assert.False(t, ok, "No cont_signal in header")
 
-	// When the infinite array starts, we know the bar is ready.
 	_, err = mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
+	module.AssertStarted()
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	module.AssertNoPauseResume("when signal handling is suppressed")
+	waitForSignal(signalChan)
+	module.OutputText("a")
+	outs := readOutputTexts(t, mockStdout)
+	assert.Equal(t, []string{"a"}, outs,
+		"Not paused on USR1")
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	module.AssertNoPauseResume("when signal handling is suppressed")
+	waitForSignal(signalChan)
+	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+		"USR2 is a nop")
+
+	unix.Kill(unix.Getpid(), unix.SIGUSR1)
+	waitForSignal(signalChan)
+	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+		"USR1 is a nop")
 
 	assert.Panics(t,
 		func() { SuppressSignals(false) },
 		"Cannot suppress signal handling after Run")
+	signal.Stop(signalChan)
 }
 
 type segmentAssertions struct {

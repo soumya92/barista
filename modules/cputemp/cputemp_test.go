@@ -21,14 +21,12 @@ import (
 
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
+	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
-	testModule "github.com/soumya92/barista/testing/module"
+	testBar "github.com/soumya92/barista/testing/bar"
 )
-
-type zones map[string]float64
 
 func shouldReturn(temps ...string) {
 	for zoneIndex, temp := range temps {
@@ -39,39 +37,36 @@ func shouldReturn(temps ...string) {
 
 func TestCputemp(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	scheduler.TestMode(true)
+	testBar.New(t)
 
 	shouldReturn("48800", "22200")
 
-	temp0 := DefaultZone().OutputTemplate(outputs.TextTemplate(`{{.Celsius | printf "%.0f"}}`))
-	tester0 := testModule.NewOutputTester(t, temp0)
+	temp0 := DefaultZone()
 
 	temp1 := Zone("thermal_zone1").
 		OutputTemplate(outputs.TextTemplate(`{{.Fahrenheit | printf "%.0f"}}`))
-	tester1 := testModule.NewOutputTester(t, temp1)
 
 	temp2 := Zone("thermal_zone2").
 		OutputTemplate(outputs.TextTemplate(`{{.Kelvin | printf "%.0f"}}`))
-	tester2 := testModule.NewOutputTester(t, temp2)
 
-	tester0.AssertOutputEquals(outputs.Text("49"), "on start")
-	tester1.AssertOutputEquals(outputs.Text("72"), "on start")
-	tester2.AssertError("on start with invalid zone")
+	testBar.Run(temp0, temp1, temp2)
+
+	out := testBar.LatestOutput()
+	out.At(0).AssertText("48.8℃", "on start")
+	out.At(1).AssertText("72", "on start")
+	out.At(2).AssertError("on start with invalid zone")
 
 	shouldReturn("42123", "20000")
+	testBar.AssertNoOutput("until refresh")
+	testBar.Tick()
 
-	tester1.AssertNoOutput("until refresh")
-	tester2.AssertNoOutput("until refresh")
-
-	scheduler.NextTick()
-
-	tester0.AssertOutputEquals(outputs.Text("42"), "on next tick")
-	tester1.AssertOutput("on next tick")
-	tester2.AssertError("on each tick")
+	out = testBar.LatestOutput()
+	out.At(0).AssertText("42.1℃", "on next tick")
 
 	temp0.UrgentWhen(func(t unit.Temperature) bool { return t.Celsius() > 30 })
-	tester0.AssertOutputEquals(
-		outputs.Text("42").Urgent(true), "on urgent func change")
+	out = testBar.LatestOutput()
+	urgent, _ := out.At(0).Segment().IsUrgent()
+	assert.True(t, urgent, "on urgent func change")
 
 	red := bar.Color("red")
 	green := bar.Color("green")
@@ -81,38 +76,40 @@ func TestCputemp(t *testing.T) {
 		}
 		return green
 	})
-	tester1.AssertOutputEquals(
-		outputs.Text("68").Color(green), "on color func change")
+	out = testBar.LatestOutput()
+	col, _ := out.At(1).Segment().GetColor()
+	assert.Equal(t, green, col, "on color func change")
 
 	temp2.OutputTemplate(outputs.TextTemplate(`{{.Kelvin | printf "%.0f"}} kelvin`))
-	tester2.AssertError("error persists even with template change")
+	testBar.AssertNoOutput("on error'd template change")
+	testBar.Click(2)
+	testBar.LatestOutput().At(2).AssertError("error persists at restart")
 
 	shouldReturn("22222", "22222")
-	scheduler.NextTick()
+	testBar.Tick()
 
-	tester0.AssertOutputEquals(
-		outputs.Text("22").Urgent(false), "on next tick")
-	tester1.AssertOutputEquals(
-		outputs.Text("72").Color(red), "on next tick")
-
-	tester2.AssertError("on each tick")
+	testBar.LatestOutput().AssertEqual(
+		outputs.Group(
+			outputs.Text("22.2℃").Urgent(false),
+			outputs.Text("72").Color(red),
+			outputs.Errorf("open /sys/class/thermal/thermal_zone2/temp: file does not exist"),
+		),
+		"on next tick")
 
 	temp2.RefreshInterval(time.Second)
-	tester2.AssertNoOutput("on refresh interval change")
+	testBar.AssertNoOutput("on refresh interval change")
 
 	shouldReturn("0", "0", "0")
-	scheduler.NextTick()
+	testBar.Click(2)
+	testBar.Tick()
 	// Only temp2 has an update, since temp0 and temp1 are still
 	// on the 3 second refresh interval.
-	tester2.AssertOutputEquals(
-		outputs.Text("273 kelvin"),
+	testBar.LatestOutput().At(2).AssertText(
+		"273 kelvin",
 		"on next tick when zone becomes available")
 
 	shouldReturn("0", "0", "invalid")
-	scheduler.NextTick()
-	tester2.AssertError("On invalid numeric value")
-
-	tester0.AssertNoOutput("until tick")
-	tester1.AssertNoOutput("until tick")
-	tester2.AssertNoOutput("until tick")
+	testBar.Tick()
+	testBar.LatestOutput().At(2).AssertError("On invalid numeric value")
+	testBar.AssertNoOutput("until tick")
 }

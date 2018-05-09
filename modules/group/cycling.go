@@ -18,7 +18,6 @@ import (
 	"sync"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
 )
 
 // Cyclic is a group that supports cyclic between its modules.
@@ -111,7 +110,7 @@ func (g *cyclic) Count() int {
 }
 
 func (g *cyclic) Button(output bar.Output) Button {
-	b := base.New()
+	b := newButton()
 	b.Output(output)
 	b.OnClick(func(e bar.Event) {
 		switch e.Button {

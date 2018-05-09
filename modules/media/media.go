@@ -21,9 +21,9 @@ import (
 
 	"github.com/godbus/dbus"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -151,7 +151,8 @@ type Controller interface {
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to control the media player.
 type Module interface {
-	base.Module
+	bar.Module
+	bar.Clickable
 
 	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(Info) bar.Output) Module
@@ -164,37 +165,30 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
-	playerName string
-	outputFunc func(Info) bar.Output
+	playerName   string
+	outputFunc   base.Value // of func(Info) bar.Output
+	clickHandler base.Value // of func(Info, Controller, bar.Event)
+
 	// player state, updated from dbus signals.
-	info Info
+	info base.Value // of Info
+
 	// To simplify adding/removing matches and querying metadata,
 	// store references to bus and player dbus objects.
 	player *mprisPlayer
-	// An additional update every second while music is playing
-	// to keep the position up to date.
-	positionScheduler scheduler.Controller
 }
 
 // New constructs an instance of the media module for the given player.
 func New(player string) Module {
-	m := &module{
-		Base:       base.New(),
-		playerName: player,
-	}
+	m := &module{playerName: player}
 	// Set default click handler in New(), can be overridden later.
 	m.OnClick(DefaultClickHandler)
 	// Default output template that's just the currently playing track.
 	m.OutputTemplate(outputs.TextTemplate(`{{if .Connected}}{{.Title}}{{end}}`))
-	// Set the position scheduler to call update when triggered.
-	m.positionScheduler = scheduler.Do(m.Update)
 	return m
 }
 
 func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -206,13 +200,16 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 
 func (m *module) OnClick(f func(Info, Controller, bar.Event)) Module {
 	if f == nil {
-		m.Base.OnClick(nil)
-		return m
+		f = func(i Info, c Controller, e bar.Event) {}
 	}
-	m.Base.OnClick(func(e bar.Event) {
-		f(m.info, m.player, e)
-	})
+	m.clickHandler.Set(f)
 	return m
+}
+
+func (m *module) Click(e bar.Event) {
+	info := m.info.Get().(Info)
+	clickHandler := m.clickHandler.Get().(func(Info, Controller, bar.Event))
+	clickHandler(info, m.player, e)
 }
 
 // DefaultClickHandler provides useful behaviour out of the box,
@@ -237,66 +234,74 @@ func DefaultClickHandler(i Info, c Controller, e bar.Event) {
 // checking in the update function since we're guaranteed that
 // the update function will only be called if there were no errors
 // during startup.
-func (m *module) Stream() (ch <-chan bar.Output) {
-	ch = m.Base.Stream()
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
+}
+
+func (m *module) worker(ch base.Channel) {
 	// Need a private bus in-case other modules (or other instances of media) are
 	// using dbus as well. Since we rely on (Add|Remove)Match and Signal,
 	// we cannot share the session bus.
 	sessionBus, err := dbus.SessionBusPrivate()
-	if m.Error(err) {
+	if ch.Error(err) {
 		return
 	}
 	// Need to handle auth and handshake ourselves for private sessions buses.
-	if err := sessionBus.Auth(nil); m.Error(err) {
+	if err := sessionBus.Auth(nil); ch.Error(err) {
 		return
 	}
-	if err := sessionBus.Hello(); m.Error(err) {
+	if err := sessionBus.Hello(); ch.Error(err) {
 		return
 	}
-	m.player = newMprisPlayer(sessionBus, m.playerName, &m.info)
-	if m.Error(m.player.err) {
+
+	info := Info{}
+	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+
+	m.player = newMprisPlayer(sessionBus, m.playerName, &info)
+	if ch.Error(m.player.err) {
 		return
 	}
-	// If we made it this far, set the update function.
-	m.OnUpdate(m.update)
-	// Initial output.
-	m.Update()
-	// If currently playing, also start the position scheduler.
-	if m.info.Playing() {
-		m.positionScheduler.Every(time.Second)
+	m.info.Set(info)
+
+	positionUpdater := barista.Schedule()
+	// If currently playing, also start the position updater.
+	if info.Playing() {
+		positionUpdater.Every(time.Second)
 	}
 
 	// Since the channel is shared with method call responses,
 	// we need a buffer to prevent deadlocks.
 	// The buffer value of 10 is based on the dbus signal example,
 	// and is also used in corp/access/credkit.
-	c := make(chan *dbus.Signal, 10)
-	sessionBus.Signal(c)
-	go m.listen(c)
-	return
-}
+	dbusCh := make(chan *dbus.Signal, 10)
+	sessionBus.Signal(dbusCh)
 
-// listen handles dbus signals from the player, and updates
-// the module output when necessary.
-func (m *module) listen(c <-chan *dbus.Signal) {
-	for v := range c {
-		updates, err := m.player.handleDbusSignal(v)
-		if m.Error(err) {
-			continue
-		}
-		if updates.any() {
-			m.Update()
-		}
-		if updates.playingState {
-			if m.info.Playing() {
-				m.positionScheduler.Every(time.Second)
-			} else {
-				m.positionScheduler.Stop()
+	for {
+		select {
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
+			ch.Output(outputFunc(info))
+		case v := <-dbusCh:
+			updates, err := m.player.handleDbusSignal(v)
+			if ch.Error(err) {
+				return
 			}
+			if updates.playingState {
+				if info.Playing() {
+					positionUpdater.Every(time.Second)
+				} else {
+					positionUpdater.Stop()
+				}
+			}
+			if updates.any() {
+				m.info.Set(info)
+				ch.Output(outputFunc(info))
+			}
+		case <-positionUpdater.Tick():
+			ch.Output(outputFunc(info))
 		}
 	}
-}
-
-func (m *module) update() {
-	m.Output(m.outputFunc(m.info))
 }

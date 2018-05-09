@@ -29,11 +29,12 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/modules/funcs"
 	"github.com/soumya92/barista/outputs"
 )
 
 type tailModule struct {
-	*base.Base
+	base.SimpleClickHandler
 	cmd  string
 	args []string
 }
@@ -41,20 +42,17 @@ type tailModule struct {
 // Tail constructs a module that displays the last line of output from
 // a long running command. Use the reformat module to adjust the output
 // if necessary.
-func Tail(cmd string, args ...string) base.WithClickHandler {
-	return &tailModule{
-		Base: base.New(),
-		cmd:  cmd,
-		args: args,
-	}
+func Tail(cmd string, args ...string) base.SimpleClickHandlerModule {
+	return &tailModule{cmd: cmd, args: args}
 }
 
 func (m *tailModule) Stream() <-chan bar.Output {
-	go m.worker()
-	return m.Base.Stream()
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
 }
 
-func (m *tailModule) worker() {
+func (m *tailModule) worker(ch base.Channel) {
 	cmd := exec.Command(m.cmd, m.args...)
 	// Prevent SIGUSR for bar pause/resume from propagating to the
 	// child process. Some commands don't play nice with signals.
@@ -63,50 +61,46 @@ func (m *tailModule) worker() {
 		Pgid:    0,
 	}
 	stdout, err := cmd.StdoutPipe()
-	if m.Error(err) {
+	if ch.Error(err) {
 		return
 	}
-	if m.Error(cmd.Start()) {
+	if ch.Error(cmd.Start()) {
 		return
 	}
-	m.OnUpdate(func() {})
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
-		m.Output(outputs.Text(scanner.Text()))
+		txt := scanner.Text()
+		ch.Output(outputs.Text(txt))
 	}
-	m.Error(cmd.Wait())
-	// If the process died, the next update should restart it.
-	// Since we clear onUpdate when the process starts successfully,
-	// updates while the process is running are no-ops.
-	m.OnUpdate(m.worker)
+	if ch.Error(cmd.Wait()) {
+		return
+	}
+	close(ch)
 }
 
 // Every constructs a module that runs the given command with the
 // specified interval and displays the commands output in the bar.
-func Every(interval time.Duration, cmd string, args ...string) base.WithClickHandler {
-	m := base.New()
-	m.OnUpdate(func() {
-		commandOutputToModule(m, cmd, args...)
+func Every(interval time.Duration, cmd string, args ...string) base.SimpleClickHandlerModule {
+	return funcs.Every(interval, func(ch funcs.Channel) {
+		commandOutput(ch, cmd, args...)
 	})
-	m.Schedule().Every(interval)
-	return m
 }
 
 // Once constructs a static module that displays the output of
 // the given command in the bar.
-func Once(cmd string, args ...string) base.WithClickHandler {
-	m := base.New()
-	commandOutputToModule(m, cmd, args...)
-	return m
+func Once(cmd string, args ...string) base.SimpleClickHandlerModule {
+	return funcs.Once(func(ch funcs.Channel) {
+		commandOutput(ch, cmd, args...)
+	})
 }
 
 // commandOutputToModule runs the command and sends the output or error
-// as appropriate to the base module.
-func commandOutputToModule(module *base.Base, cmd string, args ...string) {
+// as appropriate to the funcs channel.
+func commandOutput(ch funcs.Channel, cmd string, args ...string) {
 	out, err := exec.Command(cmd, args...).Output()
-	if module.Error(err) {
+	if ch.Error(err) {
 		return
 	}
 	strOut := strings.TrimSpace(string(out))
-	module.Output(outputs.Text(strOut))
+	ch.Output(outputs.Text(strOut))
 }

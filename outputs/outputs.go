@@ -31,7 +31,7 @@ type empty struct{}
 
 // Segments implements bar.Output for empty by returning an empty list.
 func (e empty) Segments() []bar.Segment {
-	return []bar.Segment{}
+	return nil
 }
 
 // Empty constructs an empty output, which will hide a module from the bar.

@@ -24,6 +24,7 @@ import (
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -32,7 +33,7 @@ import (
 // Module represents a cputemp bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module interface {
-	base.WithClickHandler
+	base.SimpleClickHandlerModule
 
 	// RefreshInterval configures the polling frequency for cpu temperatures.
 	// Note: updates might still be less frequent if the temperature does not change.
@@ -55,26 +56,45 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
+	base.SimpleClickHandler
 	thermalFile string
-	outputFunc  func(unit.Temperature) bar.Output
-	colorFunc   func(unit.Temperature) bar.Color
-	urgentFunc  func(unit.Temperature) bool
+	scheduler   bar.Scheduler
+	format      base.Value
+}
+
+type format struct {
+	outputFunc func(unit.Temperature) bar.Output
+	colorFunc  func(unit.Temperature) bar.Color
+	urgentFunc func(unit.Temperature) bool
+}
+
+func (f format) output(t unit.Temperature) bar.Output {
+	out := outputs.Group(f.outputFunc(t))
+	if f.urgentFunc != nil {
+		out.Urgent(f.urgentFunc(t))
+	}
+	if f.colorFunc != nil {
+		out.Color(f.colorFunc(t))
+	}
+	return out
+}
+
+func (m *module) getFormat() format {
+	return m.format.Get().(format)
 }
 
 // Zone constructs an instance of the cputemp module for the specified zone.
 // The file /sys/class/thermal/<zone>/temp should return cpu temp in 1/1000 deg C.
 func Zone(thermalZone string) Module {
 	m := &module{
-		Base:        base.New(),
 		thermalFile: fmt.Sprintf("/sys/class/thermal/%s/temp", thermalZone),
+		scheduler:   barista.Schedule(),
 	}
+	m.format.Set(format{})
 	// Default is to refresh every 3s, matching the behaviour of top.
 	m.RefreshInterval(3 * time.Second)
 	// Default output template, if no template/function was specified.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Celsius | printf "%.1f"}}℃`))
-	// Update temperature when asked.
-	m.OnUpdate(m.update)
 	return m
 }
 
@@ -84,9 +104,9 @@ func DefaultZone() Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(unit.Temperature) bar.Output) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.outputFunc = outputFunc
+	c := m.getFormat()
+	c.outputFunc = outputFunc
+	m.format.Set(c)
 	return m
 }
 
@@ -97,45 +117,59 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.Schedule().Every(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 
 func (m *module) OutputColor(colorFunc func(unit.Temperature) bar.Color) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.colorFunc = colorFunc
+	c := m.getFormat()
+	c.colorFunc = colorFunc
+	m.format.Set(c)
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(unit.Temperature) bool) Module {
-	m.Lock()
-	defer m.UnlockAndUpdate()
-	m.urgentFunc = urgentFunc
+	c := m.getFormat()
+	c.urgentFunc = urgentFunc
+	m.format.Set(c)
 	return m
+}
+
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
 }
 
 var fs = afero.NewOsFs()
 
-func (m *module) update() {
-	bytes, err := afero.ReadFile(fs, m.thermalFile)
-	if m.Error(err) {
-		return
+func (m *module) worker(ch base.Channel) {
+	temp, err := getTemperature(m.thermalFile)
+	format := m.getFormat()
+	sFormat := m.format.Subscribe()
+	for {
+		if ch.Error(err) {
+			return
+		}
+		ch.Output(format.output(temp))
+		select {
+		case <-m.scheduler.Tick():
+			temp, err = getTemperature(m.thermalFile)
+		case <-sFormat.Tick():
+			format = m.getFormat()
+		}
+	}
+}
+
+func getTemperature(thermalFile string) (unit.Temperature, error) {
+	bytes, err := afero.ReadFile(fs, thermalFile)
+	if err != nil {
+		return 0, err
 	}
 	value := strings.TrimSpace(string(bytes))
 	milliC, err := strconv.Atoi(value)
-	if m.Error(err) {
-		return
+	if err != nil {
+		return 0, err
 	}
-	temp := unit.FromCelsius(float64(milliC) / 1000.0)
-	m.Lock()
-	out := outputs.Group(m.outputFunc(temp))
-	if m.urgentFunc != nil {
-		out.Urgent(m.urgentFunc(temp))
-	}
-	if m.colorFunc != nil {
-		out.Color(m.colorFunc(temp))
-	}
-	m.Unlock()
-	m.Output(out)
+	return unit.FromCelsius(float64(milliC) / 1000.0), nil
 }

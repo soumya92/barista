@@ -65,7 +65,8 @@ type Controller interface {
 // which allows click handlers to control the system volume, and the
 // usual output formatting options.
 type Module interface {
-	base.Module
+	bar.Module
+	bar.Clickable
 
 	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(Volume) bar.Output) Module
@@ -78,26 +79,22 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
-	cardName   string
-	mixerName  string
-	outputFunc func(Volume) bar.Output
+	cardName  string
+	mixerName string
+
+	outputFunc    base.Value      // of func(Volume) bar.Output
+	clickHandler  base.Value      // of func(Volume, Controller, bar.Event)
+	currentVolume base.ErrorValue // of Volume
+
 	// To make it easier to change volume using alsa apis,
 	// store the current state and snd_mixer_elem_t pointer.
-	elem          *C.snd_mixer_elem_t
-	min, max, vol C.long
-	mute          C.int
+	elem *C.snd_mixer_elem_t
 }
 
 // Mixer constructs an instance of the volume module for a
 // specific card and mixer on that card.
 func Mixer(card, mixer string) Module {
-	m := &module{
-		Base:      base.New(),
-		cardName:  card,
-		mixerName: mixer,
-	}
-	m.OnUpdate(m.startWorker)
+	m := &module{cardName: card, mixerName: mixer}
 	m.OnClick(DefaultClickHandler)
 	// Default output template is just the volume %, "MUT" when muted.
 	m.OutputTemplate(outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`))
@@ -110,30 +107,39 @@ func DefaultMixer() Module {
 }
 
 func (m *module) SetVolume(newVol int64) {
-	if max := int64(m.max); newVol > max {
-		newVol = max
+	vol, _ := m.currentVolume.Get()
+	if vol == nil {
+		return
 	}
-	if min := int64(m.min); newVol < min {
-		newVol = min
+	v := vol.(Volume)
+	if newVol > v.Max {
+		newVol = v.Max
 	}
-	m.vol = C.long(newVol)
-	C.snd_mixer_selem_set_playback_volume_all(m.elem, m.vol)
-	m.Update()
+	if newVol < v.Min {
+		newVol = v.Min
+	}
+	v.Vol = newVol
+	C.snd_mixer_selem_set_playback_volume_all(m.elem, C.long(v.Vol))
+	m.currentVolume.Set(v)
 }
 
 func (m *module) SetMuted(muted bool) {
-	if muted {
-		m.mute = C.int(0)
-	} else {
-		m.mute = C.int(1)
+	vol, _ := m.currentVolume.Get()
+	if vol == nil {
+		return
 	}
-	C.snd_mixer_selem_set_playback_switch_all(m.elem, m.mute)
-	m.Update()
+	v := vol.(Volume)
+	if muted {
+		C.snd_mixer_selem_set_playback_switch_all(m.elem, C.int(0))
+	} else {
+		C.snd_mixer_selem_set_playback_switch_all(m.elem, C.int(1))
+	}
+	v.Mute = muted
+	m.currentVolume.Set(v)
 }
 
 func (m *module) OutputFunc(outputFunc func(Volume) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -145,12 +151,16 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 
 func (m *module) OnClick(f func(Volume, Controller, bar.Event)) {
 	if f == nil {
-		m.Base.OnClick(nil)
-		return
+		f = func(v Volume, c Controller, e bar.Event) {}
 	}
-	m.Base.OnClick(func(e bar.Event) {
-		f(m.volume(), m, e)
-	})
+	m.clickHandler.Set(f)
+}
+
+func (m *module) Click(e bar.Event) {
+	handler := m.clickHandler.Get().(func(Volume, Controller, bar.Event))
+	if vol, err := m.currentVolume.Get(); err == nil {
+		handler(vol.(Volume), m, e)
+	}
 }
 
 // Throttle volume updates to a ~20ms to prevent alsa breakage.
@@ -181,9 +191,15 @@ func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
 	}
 }
 
-// worker continuously waits for signals from alsa and refreshes
-// the module whenever the volume changes.
-func (m *module) worker() error {
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker()
+	go m.outputLoop(ch)
+	return ch
+}
+
+// worker waits for signals from alsa and updates the stored volume.
+func (m *module) worker() {
 	cardName := C.CString(m.cardName)
 	defer C.free(unsafe.Pointer(cardName))
 	mixerName := C.CString(m.mixerName)
@@ -193,62 +209,78 @@ func (m *module) worker() error {
 	var sid *C.snd_mixer_selem_id_t
 	// Set up query for master mixer.
 	if err := int(C.snd_mixer_selem_id_malloc(&sid)); err < 0 {
-		return fmt.Errorf("snd_mixer_selem_id_malloc: %d", err)
+		m.currentVolume.Error(fmt.Errorf("snd_mixer_selem_id_malloc: %d", err))
+		return
 	}
 	C.snd_mixer_selem_id_set_index(sid, 0)
 	C.snd_mixer_selem_id_set_name(sid, mixerName)
 	// Connect to alsa
 	if err := int(C.snd_mixer_open(&handle, 0)); err < 0 {
-		return fmt.Errorf("snd_mixer_open: %d", err)
+		m.currentVolume.Error(fmt.Errorf("snd_mixer_open: %d", err))
+		return
 	}
 	if err := int(C.snd_mixer_attach(handle, cardName)); err < 0 {
-		return fmt.Errorf("snd_mixer_attach: %d", err)
+		m.currentVolume.Error(fmt.Errorf("snd_mixer_attach: %d", err))
+		return
 	}
 	if err := int(C.snd_mixer_load(handle)); err < 0 {
-		return fmt.Errorf("snd_mixer_load: %d", err)
+		m.currentVolume.Error(fmt.Errorf("snd_mixer_load: %d", err))
+		return
 	}
 	if err := int(C.snd_mixer_selem_register(handle, nil, nil)); err < 0 {
-		return fmt.Errorf("snd_mixer_selem_register: %d", err)
+		m.currentVolume.Error(fmt.Errorf("snd_mixer_selem_register: %d", err))
+		return
 	}
 	// Get master default thing
 	m.elem = C.snd_mixer_find_selem(handle, sid)
 	if m.elem == nil {
-		return fmt.Errorf("snd_mixer_find_selem NULL")
+		m.currentVolume.Error(fmt.Errorf("snd_mixer_find_selem NULL"))
+		return
 	}
-	C.snd_mixer_selem_get_playback_volume_range(m.elem, &m.min, &m.max)
+	var min, max, vol C.long
+	var mute C.int
+	C.snd_mixer_selem_get_playback_volume_range(m.elem, &min, &max)
 	for {
-		C.snd_mixer_selem_get_playback_volume(m.elem, C.SND_MIXER_SCHN_MONO, &m.vol)
-		C.snd_mixer_selem_get_playback_switch(m.elem, C.SND_MIXER_SCHN_MONO, &m.mute)
-		m.Update()
+		C.snd_mixer_selem_get_playback_volume(m.elem, C.SND_MIXER_SCHN_MONO, &vol)
+		C.snd_mixer_selem_get_playback_switch(m.elem, C.SND_MIXER_SCHN_MONO, &mute)
+		m.currentVolume.Set(Volume{
+			Min:  int64(min),
+			Max:  int64(max),
+			Vol:  int64(vol),
+			Mute: (int(mute) == 0),
+		})
 		if err := int(C.snd_mixer_wait(handle, -1)); err < 0 {
-			return fmt.Errorf("snd_mixer_wait: %d", err)
+			m.currentVolume.Error(fmt.Errorf("snd_mixer_wait: %d", err))
+			return
 		}
 		if err := int(C.snd_mixer_handle_events(handle)); err < 0 {
-			return fmt.Errorf("snd_mixer_handle_events: %d", err)
+			m.currentVolume.Error(fmt.Errorf("snd_mixer_handle_events: %d", err))
+			return
 		}
 	}
 }
 
-func (m *module) volume() Volume {
-	return Volume{
-		Min:  int64(m.min),
-		Max:  int64(m.max),
-		Vol:  int64(m.vol),
-		Mute: (int(m.mute) == 0),
+// outputLoop listens for updates to the volume, as well as the output function,
+// and updates the module output.
+func (m *module) outputLoop(ch base.Channel) {
+	v, err := m.currentVolume.Get()
+	sVol := m.currentVolume.Subscribe()
+
+	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+
+	for {
+		if ch.Error(err) {
+			return
+		}
+		if vol, ok := v.(Volume); ok {
+			ch.Output(outputFunc(vol))
+		}
+		select {
+		case <-sVol.Tick():
+			v, err = m.currentVolume.Get()
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(Volume) bar.Output)
+		}
 	}
-}
-
-func (m *module) startWorker() {
-	// Set the update function to the version that does not
-	// start the worker, and revert it if the worker stops.
-	m.OnUpdate(m.update)
-	go func() {
-		m.Error(m.worker())
-		m.OnUpdate(m.startWorker)
-	}()
-	m.update()
-}
-
-func (m *module) update() {
-	m.Output(m.outputFunc(m.volume()))
 }

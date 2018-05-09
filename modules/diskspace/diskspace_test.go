@@ -26,9 +26,9 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
-	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/scheduler"
+	testBar "github.com/soumya92/barista/testing/bar"
 )
 
 type statFsResult struct {
@@ -68,10 +68,7 @@ var mockStatfs = func(path string, out *unix.Statfs_t) error {
 func TestDiskspace(t *testing.T) {
 	assert := assert.New(t)
 	statfs = mockStatfs
-	scheduler.TestMode(true)
-
-	diskspace := New("/")
-	tester := testModule.NewOutputTester(t, diskspace)
+	testBar.New(t)
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -80,7 +77,9 @@ func TestDiskspace(t *testing.T) {
 		Blocks: 2000,
 	})
 
-	tester.AssertOutputEquals(outputs.Text("0.50 GB"), "on start")
+	diskspace := New("/")
+	testBar.Run(diskspace)
+	testBar.LatestOutput().AssertText([]string{"0.50 GB"}, "on start")
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -88,7 +87,7 @@ func TestDiskspace(t *testing.T) {
 		Bfree:  500,
 		Blocks: 2000,
 	})
-	tester.AssertNoOutput("until refresh")
+	testBar.AssertNoOutput("until refresh")
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -96,8 +95,8 @@ func TestDiskspace(t *testing.T) {
 		Bfree:  0,
 		Blocks: 2000,
 	})
-	scheduler.NextTick()
-	tester.AssertOutputEquals(outputs.Text("2.00 GB"), "on next tick")
+	testBar.Tick()
+	testBar.NextOutput().AssertText([]string{"2.00 GB"}, "on next tick")
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -106,15 +105,15 @@ func TestDiskspace(t *testing.T) {
 		Blocks: 2000,
 	})
 	diskspace.OutputTemplate(outputs.TextTemplate(`{{.Available.Megabytes | printf "%.1f"}}`))
-	tester.AssertOutputEquals(
-		outputs.Text("500.0"), "on output format change")
+	testBar.NextOutput().AssertText(
+		[]string{"0.0"}, "on output format change, updates with existing data")
 
 	diskspace.UrgentWhen(func(i Info) bool {
 		return i.AvailFrac() < 0.5
 	})
-	tester.AssertOutputEquals(
-		outputs.Text("500.0").Urgent(true),
-		"on urgent function change")
+	testBar.NextOutput().AssertEqual(
+		outputs.Text("0.0").Urgent(true),
+		"on urgent function change, updates with existing data")
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
@@ -122,30 +121,35 @@ func TestDiskspace(t *testing.T) {
 		Bfree:  1500,
 		Blocks: 2000,
 	})
+	testBar.Tick()
+	testBar.NextOutput().Expect("on tick")
+
 	diskspace.OutputColor(func(i Info) bar.Color {
 		return bar.Color("red")
 	})
-	tester.AssertOutputEquals(
+	testBar.NextOutput().AssertEqual(
 		outputs.Text("1500.0").Urgent(false).Color(bar.Color("red")),
 		"on color function change")
 
 	diskspace.RefreshInterval(time.Minute)
-	tester.AssertNoOutput("on refresh interval change")
+	testBar.AssertNoOutput("on refresh interval change")
 
 	beforeTick := scheduler.Now()
 	afterTick := scheduler.NextTick()
-	tester.AssertOutput("on next tick")
+	testBar.NextOutput().Expect("on next tick")
 	assert.Equal(time.Minute, afterTick.Sub(beforeTick))
 
-	shouldError("/", os.ErrNotExist)
-	scheduler.NextTick()
-	tester.AssertError("on next tick after unmount")
+	shouldError("/", os.ErrPermission)
+	testBar.Tick()
+	testBar.NextOutput().AssertError("on tick with error")
+	testBar.Tick()
+	testBar.AssertNoOutput("on subsequent tick with error")
 }
 
 func TestDiskspaceInfo(t *testing.T) {
 	assert := assert.New(t)
 	statfs = mockStatfs
-	scheduler.TestMode(true)
+	testBar.New(t)
 
 	infos := make(chan Info)
 
@@ -162,8 +166,15 @@ func TestDiskspaceInfo(t *testing.T) {
 		Blocks: 3000,
 	})
 
-	go diskspace.Stream()
+	testBar.Run(diskspace)
 	info := <-infos
+
+	// Setting the output function sometimes causes an update,
+	// so read the latest info if available.
+	select {
+	case info = <-infos:
+	default:
+	}
 
 	assert.InDelta(0.266, info.AvailFrac(), 0.001)
 	assert.Equal(27, info.AvailPct())
@@ -178,7 +189,7 @@ func TestDiskspaceInfo(t *testing.T) {
 		Bfree:  1000,
 		Blocks: 3000,
 	})
-	scheduler.NextTick()
+	testBar.Tick()
 	info = <-infos
 
 	assert.InDelta(3.1, info.Total.Gigabytes(), float64(unit.Byte))
@@ -187,15 +198,16 @@ func TestDiskspaceInfo(t *testing.T) {
 
 func TestNonexistentDiskspace(t *testing.T) {
 	statfs = mockStatfs
-	scheduler.TestMode(true)
+	testBar.New(t)
 
 	diskspace := New("/not/yet/mounted")
-	tester := testModule.NewOutputTester(t, diskspace)
+	testBar.Run(diskspace)
 
-	tester.AssertError("on start")
-
-	scheduler.NextTick()
-	tester.AssertError("on subsequent ticks if not mounted")
+	testBar.NextOutput().AssertEmpty(
+		"unmounted disk shows no output")
+	testBar.Tick()
+	testBar.NextOutput().AssertEmpty(
+		"on tick when not mounted")
 
 	shouldReturn("/not/yet/mounted", unix.Statfs_t{
 		Bsize:  1000,
@@ -203,7 +215,7 @@ func TestNonexistentDiskspace(t *testing.T) {
 		Bfree:  3 * 1000 * 1000,
 		Blocks: 9 * 1000 * 1000,
 	})
-	scheduler.NextTick()
-	tester.AssertOutputEquals(
+	testBar.Tick()
+	testBar.NextOutput().AssertEqual(
 		outputs.Text("6.00 GB"), "on next tick after mounting")
 }

@@ -20,79 +20,78 @@ import (
 
 	"github.com/stretchrcom/testify/assert"
 
-	"github.com/soumya92/barista/base/scheduler"
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
-	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/scheduler"
+	testBar "github.com/soumya92/barista/testing/bar"
 )
 
+var fixedTime = time.Date(2017, time.March, 1, 0, 0, 0, 0, time.Local)
+
 func TestSimple(t *testing.T) {
-	assert := assert.New(t)
-	scheduler.TestMode(true)
-	fixedTime := time.Date(2017, time.March, 1, 0, 0, 0, 0, time.Local)
+	testBar.New(t)
 	scheduler.AdvanceTo(fixedTime)
 
-	local := New()
-	tester := testModule.NewOutputTester(t, local)
+	testBar.Run(New().Granularity(time.Minute))
+	testBar.LatestOutput().AssertText(
+		[]string{"00:00"}, "on start")
 
-	tester.AssertOutputEquals(outputs.Text("00:00"), "on start")
+	scheduler.NextTick()
+	testBar.NextOutput().AssertText(
+		[]string{"00:01"}, "on next tick")
 
-	now := scheduler.NextTick()
-	tester.AssertOutputEquals(outputs.Text("00:00"), "on next tick")
-	assert.Equal(1, now.Second(), "increases by granularity")
-	assert.Equal(0, now.Nanosecond(), "triggers at exact granularity")
+	scheduler.NextTick()
+	testBar.NextOutput().AssertText(
+		[]string{"00:02"}, "on next tick")
+}
 
-	scheduler.AdvanceBy(500 * time.Millisecond)
-	tester.AssertNoOutput("less than granularity")
+func TestGranularity(t *testing.T) {
+	testBar.New(t)
+	scheduler.AdvanceTo(fixedTime)
 
-	now = scheduler.NextTick()
-	assert.Equal(2, now.Second(), "increases by granularity")
-	assert.Equal(0, now.Nanosecond(), "triggers at exact granularity")
-	tester.AssertOutput("on next tick")
+	local := New().OutputFunc(func(now time.Time) bar.Output {
+		return outputs.Text(now.Format("15:04:05"))
+	}).Granularity(time.Hour)
+	testBar.Run(local)
+	testBar.LatestOutput().AssertText(
+		[]string{"00:00:00"}, "on start")
+
+	scheduler.NextTick()
+	testBar.NextOutput().AssertText(
+		[]string{"01:00:00"}, "on tick")
+
+	scheduler.NextTick()
+	testBar.NextOutput().AssertText(
+		[]string{"02:00:00"}, "on tick")
 
 	local.Granularity(time.Minute)
-	tester.AssertOutput("on granularity change")
+	testBar.NextOutput().AssertText(
+		[]string{"02:00:00"}, "on granularity change")
 
-	local.OutputFormat("15:04:05")
-	tester.AssertOutputEquals(outputs.Text("00:00:02"), "on output format change")
-
-	now = scheduler.NextTick()
-	tester.AssertOutputEquals(outputs.Text("00:01:00"), "on next tick")
-	assert.Equal(0, now.Second(), "triggers on exact granularity")
-	assert.Equal(1, now.Minute(), "triggers on exact granularity")
-
-	tester.AssertNoOutput("when time is frozen")
-	// This also serves as a check to make sure we've consumed all outputs.
+	scheduler.NextTick()
+	testBar.NextOutput().AssertText(
+		[]string{"02:01:00"}, "on tick")
 }
 
 func TestZones(t *testing.T) {
-	assert := assert.New(t)
-	scheduler.TestMode(true)
-	fixedTime := time.Date(2017, time.March, 1, 13, 15, 0, 0, time.UTC)
-	scheduler.AdvanceTo(fixedTime)
+	testBar.New(t)
+	scheduler.AdvanceTo(
+		time.Date(2017, time.March, 1, 13, 15, 0, 0, time.UTC))
 
 	pst := New().Timezone("America/Los_Angeles").OutputFormat("15:04:05")
-	tPst := testModule.NewOutputTester(t, pst)
-
 	berlin := New().Timezone("Europe/Berlin").OutputFormat("15:04:05")
-	tBerlin := testModule.NewOutputTester(t, berlin)
-
 	tokyo := New().Timezone("Asia/Tokyo").OutputFormat("15:04:05")
-	tTokyo := testModule.NewOutputTester(t, tokyo)
-
 	unknown := New().Timezone("Global/Unknown").OutputFormat("15:04:05")
-	tUnknown := testModule.NewOutputTester(t, unknown)
 
-	tPst.AssertOutputEquals(outputs.Text("05:15:00"), "on start")
-	tBerlin.AssertOutputEquals(outputs.Text("14:15:00"), "on start")
-	tTokyo.AssertOutputEquals(outputs.Text("22:15:00"), "on start")
+	testBar.Run(pst, berlin, tokyo, unknown)
 
-	errStr := tUnknown.AssertError("on start with error")
-	assert.Contains(errStr, "Global/Unknown", "error mentions time zone")
+	out := testBar.LatestOutput()
+	out.At(0).AssertText("05:15:00", "on start")
+	out.At(1).AssertText("14:15:00")
+	out.At(2).AssertText("22:15:00")
+	errStr := out.At(3).AssertError("Invalid timezone")
+	assert.Contains(t, errStr, "Global/Unknown", "error mentions time zone")
 
 	scheduler.NextTick()
-
-	tPst.AssertOutput("on tick")
-	tBerlin.AssertOutput("on tick")
-	tTokyo.AssertOutput("on tick")
-	tUnknown.AssertNoOutput("on tick with error")
+	testBar.LatestOutput().Expect("on tick")
 }

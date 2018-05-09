@@ -39,18 +39,23 @@ func finishedWithin(f func(), timeout time.Duration) bool {
 }
 
 func TestSimple(t *testing.T) {
+	positiveTimeout = time.Second
 	m := New(t)
 	m.AssertNotStarted("Initially not started")
 	initialOutput := outputs.Text("hello")
-	assert.True(t,
-		finishedWithin(func() { m.Output(initialOutput) }, time.Second),
-		"Output does not block before start")
+	assert.Panics(t, func() { m.Output(initialOutput) },
+		"Panics when output without stream")
+	assert.Panics(t, func() { m.Click(bar.Event{}) },
+		"Panics when clicked without stream")
 	ch := m.Stream()
 	m.AssertStarted("Started when streaming starts")
 	assert.Panics(t, func() { m.Stream() }, "Panics when streamed again")
+	assert.True(t,
+		finishedWithin(func() { m.Output(initialOutput) }, time.Second),
+		"Output does not block")
 
 	secondOutput := outputs.Text("world")
-	m.Output(secondOutput)
+	m.OutputText("world")
 	var out bar.Output
 	assert.True(t,
 		finishedWithin(func() { out = <-ch }, time.Second),
@@ -64,6 +69,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestOutputBuffer(t *testing.T) {
+	positiveTimeout = time.Second
 	m := New(t)
 	out1 := outputs.Text("1")
 	out2 := outputs.Text("2")
@@ -81,12 +87,13 @@ func TestOutputBuffer(t *testing.T) {
 }
 
 func TestClick(t *testing.T) {
-	positiveTimeout = 10 * time.Millisecond
+	positiveTimeout = time.Second
 
 	m := New(t)
 	evt1 := bar.Event{X: 2}
 	evt2 := bar.Event{Y: 2}
 	evt3 := bar.Event{X: 1, Y: 1}
+	m.Stream()
 
 	m.AssertNotClicked("no events initially")
 	m.Click(evt1)
@@ -101,6 +108,7 @@ func TestClick(t *testing.T) {
 	assert.Equal(t, evt3, evt, "new events received")
 	m.AssertNotClicked("no extra events")
 
+	positiveTimeout = 10 * time.Millisecond
 	fakeT := &testing.T{}
 	m = New(fakeT)
 	m.AssertClicked("fails when not clicked")
@@ -108,168 +116,53 @@ func TestClick(t *testing.T) {
 
 	fakeT = &testing.T{}
 	m = New(fakeT)
+	m.Stream()
 	m.Click(evt1)
 	m.AssertNotClicked("fails when clicked")
 	assert.True(t, fakeT.Failed(), "AssertNotClicked when clicked")
 }
 
-func TestPause(t *testing.T) {
-	positiveTimeout = 10 * time.Millisecond
-
+func TestClose(t *testing.T) {
 	m := New(t)
-	m.Pause()
-	m.AssertPaused("paused")
-	m.AssertNoPauseResume("invocation consumed on assertion")
-	m.Pause()
-	m.Pause()
-	m.AssertPaused("repeated pause")
-	m.AssertPaused("repeated pause")
-	m.AssertNoPauseResume("repeated invocations consumed")
-	m.Resume()
-	m.AssertResumed("resumed")
-	m.Resume()
-	m.Resume()
-	m.AssertResumed("repeated resume")
-	m.AssertResumed("repeated resume")
-	m.AssertNoPauseResume("repeated invocations consumed")
-	m.Resume()
-	m.Resume()
-	m.Pause()
-	m.Resume()
-	m.Resume()
-	m.Pause()
-	m.AssertResumed("ordering")
-	m.AssertResumed("ordering")
-	m.AssertPaused("ordering")
-	m.AssertResumed("ordering")
-	m.AssertResumed("ordering")
-	m.AssertPaused("ordering")
-	m.AssertNoPauseResume("consumed")
-
-	fakeT := &testing.T{}
-	m = New(fakeT)
-	m.AssertPaused("fails when not paused")
-	assert.True(t, fakeT.Failed(), "AssertPaused when not paused")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	m.Resume()
-	m.AssertPaused("fails when not paused")
-	assert.True(t, fakeT.Failed(), "AssertPaused when not paused")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	m.AssertResumed("fails when not resumed")
-	assert.True(t, fakeT.Failed(), "AssertResumed when not resumed")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	m.Pause()
-	m.AssertResumed("fails when not resumed")
-	assert.True(t, fakeT.Failed(), "AssertResumed when not resumed")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	m.Pause()
-	m.AssertNoPauseResume("fails when paused")
-	assert.True(t, fakeT.Failed(), "AssertNoPauseResume when paused")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	m.Resume()
-	m.AssertNoPauseResume("fails when resumed")
-	assert.True(t, fakeT.Failed(), "AssertNoPauseResume when resumed")
-}
-
-func TestReset(t *testing.T) {
-	m := New(t)
-	m.Pause()
-	m.Resume()
-	m.Pause()
-	m.Output(outputs.Empty())
-	m.Output(outputs.Text("test"))
-	m.Click(bar.Event{})
 	m.Stream()
-	m.AssertStarted("some assertions before reset")
-	m.AssertPaused("some assertions before reset")
-	m.Reset()
-	m.AssertNotClicked("reset resets events")
-	m.AssertNoPauseResume("reset resets pause/resume")
-	var ch <-chan bar.Output
-	assert.NotPanics(t, func() { ch = m.Stream() }, "start after reset")
-	assert.False(t,
-		finishedWithin(func() { <-ch }, 10*time.Millisecond),
-		"No previous output sent over channel")
+	assert.Panics(t, func() { m.Stream() },
+		"already streaming")
+	m.Close()
+	assert.Panics(t, func() { m.OutputText("foo") },
+		"output after close")
+	assert.NotPanics(t, func() { m.Stream() },
+		"after closing module")
+	assert.NotPanics(t, func() { m.OutputText("foo") },
+		"output after restarting")
 }
 
-func TestOutputTester(t *testing.T) {
-	positiveTimeout = 10 * time.Millisecond
+func TestStarted(t *testing.T) {
+	positiveTimeout = time.Second
 
 	m := New(t)
-	o := NewOutputTester(t, m)
-	m.AssertStarted("by output tester")
-	o.AssertNoOutput("no output")
-	testOut := outputs.Text("test")
-	m.Output(testOut)
-	o.AssertOutputEquals(testOut, "output passed through")
-	m.Output(outputs.Empty())
-	o.AssertEmpty("on empty output")
+	m.Stream()
+	assert.True(t, finishedWithin(func() { m.AssertStarted() }, time.Second),
+		"AssertStarted when module is already streaming")
 
-	m.Output(outputs.Errorf("error"))
-	errStr := o.AssertError("on error output")
-	assert.Equal(t, "error", errStr, "error string passed through")
+	signalChan := make(chan bool)
+	doneChan := make(chan bool)
+	m2 := New(t)
+	go func() {
+		signalChan <- true
+		m2.AssertStarted()
+		doneChan <- true
+	}()
+	<-signalChan
+	m2.Stream()
+	assert.True(t,
+		finishedWithin(func() { <-doneChan }, time.Second),
+		"AssertStarted after streaming")
 
-	m.Output(outputs.Text("1"))
-	m.Output(outputs.Text("2"))
-	m.Output(outputs.Text("3"))
-	o.Drain()
-	testOut = outputs.Text("4")
-	m.Output(testOut)
-	o.AssertOutputEquals(testOut, "drain removes previous outputs")
-
+	positiveTimeout = 10 * time.Millisecond
 	fakeT := &testing.T{}
-	m = New(fakeT)
-	o = NewOutputTester(fakeT, m)
-	assert.False(t, fakeT.Failed(), "before failing assertion")
-	o.AssertOutput("no output")
-	assert.True(t, fakeT.Failed(), "AssertOutput without output")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	o = NewOutputTester(fakeT, m)
-	m.Output(testOut)
-	assert.False(t, fakeT.Failed(), "before failing assertion")
-	o.AssertNoOutput("with output")
-	assert.True(t, fakeT.Failed(), "AssertNoOutput with output")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	o = NewOutputTester(fakeT, m)
-	m.Output(testOut)
-	assert.False(t, fakeT.Failed(), "before failing assertion")
-	o.AssertEmpty("with non-empty output")
-	assert.True(t, fakeT.Failed(), "AssertEmpty with non-empty output")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	o = NewOutputTester(fakeT, m)
-	m.Output(testOut)
-	assert.False(t, fakeT.Failed(), "before failing assertion")
-	o.AssertError("with non-error output")
-	assert.True(t, fakeT.Failed(), "AssertError with non-error output")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	o = NewOutputTester(fakeT, m)
-	m.Output(outputs.Empty())
-	assert.False(t, fakeT.Failed(), "before failing assertion")
-	o.AssertError("with empty output")
-	assert.True(t, fakeT.Failed(), "AssertError with empty output")
-
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	o = NewOutputTester(fakeT, m)
-	assert.False(t, fakeT.Failed(), "before failing assertion")
-	o.AssertError("with no output")
-	assert.True(t, fakeT.Failed(), "AssertError with empty output")
+	m3 := New(fakeT)
+	assert.False(t, fakeT.Failed())
+	m3.AssertStarted()
+	assert.True(t, fakeT.Failed(),
+		"AssertStarted fails if module is not streamed")
 }

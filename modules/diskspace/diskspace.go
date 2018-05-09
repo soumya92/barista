@@ -16,13 +16,14 @@
 package diskspace
 
 import (
-	"sync"
+	"os"
 	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/martinlindhe/unit"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -63,7 +64,7 @@ func (i Info) AvailPct() int {
 // Module represents a diskspace bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module interface {
-	base.WithClickHandler
+	base.SimpleClickHandlerModule
 
 	// RefreshInterval configures the polling frequency for statfs.
 	RefreshInterval(time.Duration) Module
@@ -85,35 +86,51 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
-	path       string
+	base.SimpleClickHandler
+	path      string
+	scheduler bar.Scheduler
+	format    base.Value
+}
+
+type format struct {
 	outputFunc func(Info) bar.Output
 	colorFunc  func(Info) bar.Color
 	urgentFunc func(Info) bool
-	statResult unix.Statfs_t
-	sync.Mutex
+}
+
+func (f format) output(i Info) bar.Output {
+	out := outputs.Group(f.outputFunc(i))
+	if f.urgentFunc != nil {
+		out.Urgent(f.urgentFunc(i))
+	}
+	if f.colorFunc != nil {
+		out.Color(f.colorFunc(i))
+	}
+	return out
+}
+
+func (m *module) getFormat() format {
+	return m.format.Get().(format)
 }
 
 // New constructs an instance of the diskusage module for the given disk path.
 func New(path string) Module {
 	m := &module{
-		Base: base.New(),
-		path: path,
+		path:      path,
+		scheduler: barista.Schedule(),
 	}
+	m.format.Set(format{})
 	// Default is to refresh every 3s, matching the behaviour of top.
-	m.Schedule().Every(3 * time.Second)
+	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the used disk space.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Used.Gigabytes | printf "%.2f"}} GB`))
-	// Update disk information when asked.
-	m.OnUpdate(m.update)
 	return m
 }
 
 func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
-	m.Lock()
-	defer m.Unlock()
-	m.outputFunc = outputFunc
-	m.Update()
+	c := m.getFormat()
+	c.outputFunc = outputFunc
+	m.format.Set(c)
 	return m
 }
 
@@ -124,46 +141,63 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.Schedule().Every(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 
 func (m *module) OutputColor(colorFunc func(Info) bar.Color) Module {
-	m.Lock()
-	defer m.Unlock()
-	m.colorFunc = colorFunc
-	m.Update()
+	c := m.getFormat()
+	c.colorFunc = colorFunc
+	m.format.Set(c)
 	return m
 }
 
 func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
-	m.Lock()
-	defer m.Unlock()
-	m.urgentFunc = urgentFunc
-	m.Update()
+	c := m.getFormat()
+	c.urgentFunc = urgentFunc
+	m.format.Set(c)
 	return m
 }
 
-func (m *module) update() {
-	m.Lock()
-	defer m.Unlock()
-	if m.Error(statfs(m.path, &m.statResult)) {
-		return
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
+}
+
+func (m *module) worker(ch base.Channel) {
+	info, err := getStatFsInfo(m.path)
+	format := m.getFormat()
+	sFormat := m.format.Subscribe()
+	for {
+		if os.IsNotExist(err) {
+			// Disk is not mounted, hide the module.
+			// But continue regular updates so that the
+			// disk is picked up on remount.
+			ch.Output(outputs.Empty())
+		} else {
+			if ch.Error(err) {
+				return
+			}
+			ch.Output(format.output(info))
+		}
+		select {
+		case <-m.scheduler.Tick():
+			info, err = getStatFsInfo(m.path)
+		case <-sFormat.Tick():
+			format = m.getFormat()
+		}
 	}
-	mult := unit.Datasize(m.statResult.Bsize) * unit.Byte
-	info := Info{
-		Available: unit.Datasize(m.statResult.Bavail) * mult,
-		Free:      unit.Datasize(m.statResult.Bfree) * mult,
-		Total:     unit.Datasize(m.statResult.Blocks) * mult,
-	}
-	out := outputs.Group(m.outputFunc(info))
-	if m.urgentFunc != nil {
-		out.Urgent(m.urgentFunc(info))
-	}
-	if m.colorFunc != nil {
-		out.Color(m.colorFunc(info))
-	}
-	m.Output(out)
+}
+
+func getStatFsInfo(path string) (info Info, err error) {
+	var statfsT unix.Statfs_t
+	err = statfs(path, &statfsT)
+	mult := unit.Datasize(statfsT.Bsize) * unit.Byte
+	info.Available = unit.Datasize(statfsT.Bavail) * mult
+	info.Free = unit.Datasize(statfsT.Bfree) * mult
+	info.Total = unit.Datasize(statfsT.Blocks) * mult
+	return // info, err
 }
 
 // To allow tests to mock out statfs.

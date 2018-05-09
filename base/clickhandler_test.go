@@ -12,34 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package counter
+package base
 
 import (
 	"testing"
+	"time"
+
+	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
-	testBar "github.com/soumya92/barista/testing/bar"
 )
 
-func TestCounter(t *testing.T) {
-	ctr := New("C:%d")
-	testBar.New(t)
-	testBar.Run(ctr)
+func TestClickHandler(t *testing.T) {
+	var s SimpleClickHandler
 
-	testBar.NextOutput().AssertText(
-		[]string{"C:0"}, "on start")
+	assert.NotPanics(t, func() { s.Click(bar.Event{}) },
+		"Without a click handler set")
 
-	testBar.AssertNoOutput("without any interaction")
+	clickedChan := make(chan bool)
+	s.OnClick(func(e bar.Event) {
+		clickedChan <- true
+	})
+	go s.Click(bar.Event{})
+	select {
+	case <-clickedChan:
+		// Test passed.
+	case <-time.After(time.Second):
+		assert.Fail(t, "Click event not sent to handler")
+	}
 
-	testBar.SendEvent(0, bar.Event{Button: bar.ScrollUp})
-	testBar.NextOutput().AssertText(
-		[]string{"C:1"}, "on click")
-
-	testBar.SendEvent(0, bar.Event{Button: bar.ScrollDown})
-	testBar.NextOutput().AssertText(
-		[]string{"C:0"}, "on click")
-
-	testBar.SendEvent(0, bar.Event{Button: bar.ButtonBack})
-	testBar.NextOutput().AssertText(
-		[]string{"C:-1"}, "on click")
+	assert.NotPanics(t, func() { s.OnClick(nil) },
+		"Clearing click handler")
+	assert.NotPanics(t, func() { s.Click(bar.Event{}) },
+		"After removing click handler")
 }

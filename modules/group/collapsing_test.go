@@ -21,10 +21,13 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
+	testBar "github.com/soumya92/barista/testing/bar"
 	testModule "github.com/soumya92/barista/testing/module"
 )
 
 func TestCollapsingEmpty(t *testing.T) {
+	testBar.New(t)
+
 	group := Collapsing()
 	group.Collapse()
 	assert.True(t, group.Collapsed(), "state check for empty group")
@@ -34,12 +37,15 @@ func TestCollapsingEmpty(t *testing.T) {
 	assert.True(t, group.Collapsed(), "state check for empty group")
 
 	module := testModule.New(t)
-	tester := testModule.NewOutputTester(t, group.Add(module))
-	module.Output(outputs.Text("test"))
-	tester.AssertNoOutput("adding to collapsed group")
+	testBar.Run(group.Add(module))
+	module.AssertStarted("when wrapping module is started")
+	module.OutputText("test")
+	testBar.AssertNoOutput("adding to collapsed group")
 }
 
 func TestCollapsingWithModule(t *testing.T) {
+	testBar.New(t)
+
 	group := Collapsing()
 	assert.False(t, group.Collapsed(), "group expanded at start")
 
@@ -47,38 +53,33 @@ func TestCollapsingWithModule(t *testing.T) {
 	wrapped := group.Add(module)
 	module.AssertNotStarted("when wrapped")
 
-	tester := testModule.NewOutputTester(t, wrapped)
+	testBar.Run(wrapped)
 	module.AssertStarted("when wrapping module is started")
 
 	out := outputs.Text("hello")
 	module.Output(out)
-	tester.AssertOutputEquals(out, "passes thru when expanded")
+	testBar.NextOutput().AssertEqual(out, "passes thru when expanded")
 
 	group.Collapse()
-	tester.AssertEmpty("on collapse")
+	testBar.NextOutput().AssertEmpty("on collapse")
 
 	group.Expand()
-	tester.AssertOutputEquals(out, "original output re-sent on expand")
+	testBar.NextOutput().AssertEqual(out, "original output re-sent on expand")
 
 	group.Toggle()
 	assert.True(t, group.Collapsed(), "state check")
-	tester.AssertEmpty("on collapse")
+	testBar.NextOutput().AssertEmpty("on collapse")
 	out2 := outputs.Text("world")
 	module.Output(out2)
-	tester.AssertNoOutput("while collapsed")
+	testBar.AssertNoOutput("while collapsed")
 
 	group.Toggle()
 	assert.False(t, group.Collapsed(), "state check")
-	tester.AssertOutputEquals(out2, "output while collapsed is not discarded")
+	testBar.NextOutput().AssertEqual(out2, "output while collapsed is not discarded")
 
 	out3 := outputs.Text("foo")
 	module.Output(out3)
-	tester.AssertOutputEquals(out3, "passes thru when expanded")
-
-	wrapped.(bar.Pausable).Pause()
-	module.AssertPaused("when wrapper is paused")
-	wrapped.(bar.Pausable).Resume()
-	module.AssertResumed("when wrapper is resumed")
+	testBar.NextOutput().AssertEqual(out3, "passes thru when expanded")
 
 	evt := bar.Event{X: 1, Y: 1}
 	wrapped.(bar.Clickable).Click(evt)
@@ -87,23 +88,25 @@ func TestCollapsingWithModule(t *testing.T) {
 }
 
 func TestCollapsingButton(t *testing.T) {
+	testBar.New(t)
+
 	group := Collapsing()
 	leftClick := bar.Event{Button: bar.ButtonLeft}
 	col := outputs.Text("collapsed")
 	exp := outputs.Text("expanded")
 
 	button := group.Button(col, exp)
-	buttonTester := testModule.NewOutputTester(t, button)
+	testBar.Run(button)
 
-	buttonTester.AssertOutputEquals(exp, "initial output")
+	testBar.NextOutput().AssertEqual(exp, "initial output")
 
 	button.Click(leftClick)
-	buttonTester.AssertOutputEquals(col, "collapsed when clicked")
+	testBar.NextOutput().AssertEqual(col, "collapsed when clicked")
 	assert.True(t, group.Collapsed(), "collapsed")
 
 	button.Click(leftClick)
-	buttonTester.AssertOutputEquals(exp, "expanded when clicked")
+	testBar.NextOutput().AssertEqual(exp, "expanded when clicked")
 	assert.False(t, group.Collapsed(), "expanded")
 
-	buttonTester.AssertNoOutput("no output without interaction")
+	testBar.AssertNoOutput("no output without interaction")
 }

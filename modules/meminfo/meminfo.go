@@ -25,10 +25,10 @@ import (
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/multi"
-	"github.com/soumya92/barista/base/scheduler"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Info wraps meminfo output.
@@ -58,57 +58,106 @@ func (i Info) AvailFrac() float64 {
 	return float64(i.Available()) / float64(i["MemTotal"])
 }
 
-// Module represents a meminfo multi-module, and provides an interface
-// for creating bar.Modules with various output functions/templates
-// that share the same data source, cutting down on updates required.
-type Module struct {
-	sync.Mutex
-	moduleSet *multi.ModuleSet
-	outputs   map[multi.Submodule]func(Info) bar.Output
-	scheduler scheduler.Scheduler
+// currentInfo stores the last value read by the updater.
+// This allows newly created modules to start with data.
+var currentInfo base.ErrorValue // of Info
+
+var once sync.Once
+var updater bar.Scheduler
+
+// construct initialises meminfo's global updating. All meminfo
+// modules are updated with just one read of /proc/meminfo.
+func construct() {
+	once.Do(func() {
+		updater = barista.Schedule().Every(3 * time.Second)
+		go func(updater bar.Scheduler) {
+			for {
+				update()
+				updater.Wait()
+			}
+		}(updater)
+	})
 }
 
-// New constructs an instance of the meminfo multi-module
-func New() *Module {
-	m := &Module{
-		moduleSet: multi.NewModuleSet(),
-		outputs:   make(map[multi.Submodule]func(Info) bar.Output),
+// RefreshInterval configures the polling frequency.
+func RefreshInterval(interval time.Duration) {
+	construct()
+	updater.Every(interval)
+}
+
+// Module represents a bar.Module that displays memory information.
+type Module interface {
+	base.SimpleClickHandlerModule
+
+	// OutputFunc configures a module to display the output of a user-defined function.
+	OutputFunc(func(Info) bar.Output) Module
+
+	// OutputTemplate configures a module to display the output of a template.
+	OutputTemplate(func(interface{}) bar.Output) Module
+}
+
+type module struct {
+	base.SimpleClickHandler
+	ticker     bar.Ticker
+	outputFunc base.Value
+}
+
+func defaultOutputFunc(i Info) bar.Output {
+	return outputs.Textf("Mem: %s", outputs.IBytesize(i.Available()))
+}
+
+// New creates a new meminfo module.
+func New() Module {
+	construct()
+	m := &module{ticker: currentInfo.Subscribe()}
+	m.OutputFunc(defaultOutputFunc)
+	return m
+}
+
+func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+	m.outputFunc.Set(outputFunc)
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(i Info) bar.Output {
+		return template(i)
+	})
+}
+
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
+}
+
+func (m *module) worker(ch base.Channel) {
+	i, err := currentInfo.Get()
+	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+	for {
+		if err != nil {
+			// Do not use ch.Error because that will close the channel,
+			// leaving further updates to deadlock.
+			ch.Output(outputs.Error(err))
+		} else if info, ok := i.(Info); ok {
+			ch.Output(outputFunc(info))
+		}
+		select {
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
+		case <-m.ticker.Tick():
+			i, err = currentInfo.Get()
+		}
 	}
-	// Update meminfo when asked.
-	m.moduleSet.OnUpdate(m.update)
-	// Default is to refresh every 3s, matching the behaviour of top.
-	m.scheduler = scheduler.Do(m.moduleSet.Update).Every(3 * time.Second)
-	return m
-}
-
-// RefreshInterval configures the polling frequency for meminfo.
-func (m *Module) RefreshInterval(interval time.Duration) *Module {
-	m.Lock()
-	defer m.Unlock()
-	m.scheduler.Every(interval)
-	return m
-}
-
-// OutputFunc creates a submodule that displays the output of a user-defined function.
-func (m *Module) OutputFunc(format func(Info) bar.Output) base.WithClickHandler {
-	m.Lock()
-	defer m.Unlock()
-	submodule := m.moduleSet.New()
-	m.outputs[submodule] = format
-	return submodule
-}
-
-// OutputTemplate creates a submodule that displays the output of a template.
-func (m *Module) OutputTemplate(template func(interface{}) bar.Output) base.WithClickHandler {
-	return m.OutputFunc(func(i Info) bar.Output { return template(i) })
 }
 
 var fs = afero.NewOsFs()
 
-func (m *Module) update() {
-	i := make(Info)
+func update() {
+	info := make(Info)
 	f, err := fs.Open("/proc/meminfo")
-	if m.moduleSet.Error(err) {
+	if currentInfo.Error(err) {
 		return
 	}
 	defer f.Close()
@@ -129,15 +178,9 @@ func (m *Module) update() {
 			mult = unit.Kibibyte
 			value = value[:len(value)-len(" kB")]
 		}
-		intval, err := strconv.ParseUint(value, 10, 64)
-		if m.moduleSet.Error(err) {
-			return
+		if intval, err := strconv.ParseUint(value, 10, 64); err == nil {
+			info[name] = unit.Datasize(intval) * mult
 		}
-		i[name] = unit.Datasize(intval) * mult
 	}
-	m.Lock()
-	defer m.Unlock()
-	for submodule, outputFunc := range m.outputs {
-		submodule.Output(outputFunc(i))
-	}
+	currentInfo.Set(info)
 }

@@ -15,6 +15,8 @@
 // Package bar allows a user to create a go binary that follows the i3bar protocol.
 package bar
 
+import "time"
+
 // TextAlignment defines the alignment of text within a block.
 // Using TextAlignment rather than string opens up the possibility of i18n without
 // requiring each module to know the current locale.
@@ -162,14 +164,47 @@ type Clickable interface {
 	Click(Event)
 }
 
-// Pausable is an additional interface modules may implement if they support being "paused".
-type Pausable interface {
-	// Pause will be called by the bar when it receives a SIGSTOP, usually when it is no
-	// longer visible. Modules should use this as a signal to suspend background processing.
-	Pause()
+// Ticker represents anything that can 'tick', and provides two ways to wait for updates.
+// Tick() can be used in select {...}, while Wait() can be used in a for {...} loop.
+type Ticker interface {
+	// Tick returns a channel that sends nil each time the ticker "ticks".
+	Tick() <-chan interface{}
 
-	// Resume will be called by the bar when it receives a SIGCONT, usually when it becomes
-	// visible again. Modules should use this as a trigger for resuming background processing,
-	// as well as immediately updating their output (or triggering a process to do so).
-	Resume()
+	// Wait blocks until the ticker ticks. This is basically <-Tick().
+	Wait()
+}
+
+// Scheduler represents a potentially repeating trigger and
+// provides an interface to modify the trigger schedule.
+type Scheduler interface {
+	// The ticker ticks based on the trigger schedule set below.
+	Ticker
+
+	// At sets the scheduler to trigger a specific time.
+	// This will replace any pending triggers.
+	At(time.Time) Scheduler
+
+	// After sets the scheduler to trigger after a delay.
+	// This will replace any pending triggers.
+	After(time.Duration) Scheduler
+
+	// Every sets the scheduler to trigger at an interval.
+	// This will replace any pending triggers.
+	Every(time.Duration) Scheduler
+
+	// Stop cancels all further triggers for the scheduler.
+	Stop()
+}
+
+// Notifier provides a simple interface to handle notifying waiting
+// clients that at least one update has occurred.
+type Notifier interface {
+	// The ticker ticks whenever the Notifier is marked as updated.
+	Ticker
+
+	// Notify marks this notifier as updated. If a listener is currently
+	// waiting on the Ticker, it will immediately tick, otherwise the
+	// next listener to start listening will receive the tick.
+	// If no listeners are waiting, calling notify again is a nop.
+	Notify()
 }

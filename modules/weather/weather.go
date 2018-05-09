@@ -20,6 +20,7 @@ import (
 
 	"github.com/martinlindhe/unit"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
@@ -89,7 +90,8 @@ type Provider interface {
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to get the current weather.
 type Module interface {
-	base.Module
+	bar.Module
+	bar.Clickable
 
 	// RefreshInterval configures the polling frequency.
 	RefreshInterval(time.Duration) Module
@@ -105,31 +107,33 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
-	provider   Provider
-	outputFunc func(Weather) bar.Output
-	// cache last weather info for click handler.
-	lastWeather Weather
+	provider       Provider
+	scheduler      bar.Scheduler
+	outputFunc     base.Value // of func(Weather) bar.Output
+	clickHandler   base.Value // of func(Weather, bar.Event)
+	currentWeather base.Value // of Weather
+}
+
+func defaultOutputFunc(w Weather) bar.Output {
+	return outputs.Textf("%.1f℃ %s", w.Temperature.Celsius(), w.Description)
 }
 
 // New constructs an instance of the weather module with the provided configuration.
 func New(provider Provider) Module {
 	m := &module{
-		Base:     base.New(),
-		provider: provider,
+		provider:  provider,
+		scheduler: barista.Schedule(),
 	}
 	// Default is to refresh every 10 minutes
-	m.Schedule().Every(10 * time.Minute)
+	m.RefreshInterval(10 * time.Minute)
 	// Default output template is just the temperature and conditions.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`))
-	// Update weather when asked.
-	m.OnUpdate(m.update)
+	m.OnClick(nil)
 	return m
 }
 
 func (m *module) OutputFunc(outputFunc func(Weather) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -140,29 +144,48 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) RefreshInterval(interval time.Duration) Module {
-	m.Schedule().Every(interval)
+	m.scheduler.Every(interval)
 	return m
 }
 
 func (m *module) OnClick(f func(Weather, bar.Event)) Module {
 	if f == nil {
-		m.Base.OnClick(nil)
-		return m
+		f = func(w Weather, e bar.Event) {}
 	}
-	m.Base.OnClick(func(e bar.Event) {
-		f(m.lastWeather, e)
-	})
+	m.clickHandler.Set(f)
 	return m
 }
 
-func (m *module) update() {
+func (m *module) Click(e bar.Event) {
+	clickHandler := m.clickHandler.Get().(func(Weather, bar.Event))
+	if w := m.currentWeather.Get(); w != nil {
+		clickHandler(w.(Weather), e)
+	}
+}
+
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
+}
+
+func (m *module) worker(ch base.Channel) {
 	weather, err := m.provider.GetWeather()
-	if m.Error(err) {
-		return
+	outputFunc := m.outputFunc.Get().(func(Weather) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+	for {
+		if ch.Error(err) {
+			return
+		}
+		if weather != nil {
+			m.currentWeather.Set(*weather)
+			ch.Output(outputFunc(*weather))
+		}
+		select {
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(Weather) bar.Output)
+		case <-m.scheduler.Tick():
+			weather, err = m.provider.GetWeather()
+		}
 	}
-	if weather != nil {
-		// nil weather means unchanged.
-		m.lastWeather = *weather
-	}
-	m.Output(m.outputFunc(m.lastWeather))
 }

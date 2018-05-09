@@ -26,12 +26,6 @@ type simpleModule chan bar.Output
 
 func (s simpleModule) Stream() <-chan bar.Output { return (<-chan bar.Output)(s) }
 
-type pausableModule chan bar.Output
-
-func (p pausableModule) Stream() <-chan bar.Output { return (<-chan bar.Output)(p) }
-func (p pausableModule) Pause()                    {}
-func (p pausableModule) Resume()                   {}
-
 type clickableModule chan bar.Output
 
 func (c clickableModule) Stream() <-chan bar.Output { return (<-chan bar.Output)(c) }
@@ -41,13 +35,10 @@ func TestWrappedModule(t *testing.T) {
 	evt := bar.Event{X: 1, Y: 1}
 	for _, m := range []bar.Module{
 		make(simpleModule),
-		make(pausableModule),
 		make(clickableModule),
 	} {
 		var wrapped WrappedModule = &module{Module: m}
 		wrapped.Stream()
-		assert.NotPanics(t, wrapped.Pause)
-		assert.NotPanics(t, wrapped.Resume)
 		assert.NotPanics(t, func() { wrapped.Click(evt) })
 	}
 }

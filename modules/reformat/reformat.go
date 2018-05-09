@@ -58,24 +58,11 @@ func (m *module) Click(e bar.Event) {
 	}
 }
 
-// Pause passes through the pause event if supported by the wrapped module.
-func (m *module) Pause() {
-	if pausable, ok := m.Module.(bar.Pausable); ok {
-		pausable.Pause()
-	}
-}
-
-// Resume passes through the resume event if supported by the wrapped module.
-func (m *module) Resume() {
-	if pausable, ok := m.Module.(bar.Pausable); ok {
-		pausable.Resume()
-	}
-}
-
 // format takes input from a channel, formats it using the format function,
 // and outputs it to a different channel.
 func format(input <-chan bar.Output, f FormatFunc, output chan<- bar.Output) {
 	for out := range input {
 		output <- f(out)
 	}
+	close(output)
 }

@@ -24,20 +24,23 @@ import (
 )
 
 type module struct {
-	*base.Base
+	base.Channel
 	count  int
 	format string
 }
 
 // New constructs a new counter module.
 func New(format string) bar.Module {
-	m := &module{
-		Base:   base.New(),
+	return &module{
 		count:  0,
 		format: format,
 	}
-	m.Output(outputs.Textf(format, 0))
-	return m
+}
+
+func (m *module) Stream() <-chan bar.Output {
+	m.Channel = base.NewChannel()
+	m.Output(outputs.Textf(m.format, m.count))
+	return m.Channel
 }
 
 func (m *module) Click(e bar.Event) {
@@ -48,5 +51,4 @@ func (m *module) Click(e bar.Event) {
 		m.count++
 	}
 	m.Output(outputs.Textf(m.format, m.count))
-	m.Base.Click(e)
 }

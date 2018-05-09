@@ -25,7 +25,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
-	testModule "github.com/soumya92/barista/testing/module"
+	testBar "github.com/soumya92/barista/testing/bar"
 )
 
 type battery map[string]interface{}
@@ -39,41 +39,51 @@ func write(battery battery) {
 		buffer.WriteString(fmt.Sprintf("%v", value))
 		buffer.WriteString("\n")
 	}
-	batteryFile := batteryPath(battery["NAME"].(string))
+	batteryFile := fmt.Sprintf(
+		"/sys/class/power_supply/%s/uevent",
+		battery["NAME"].(string))
 	afero.WriteFile(fs, batteryFile, buffer.Bytes(), 0644)
 }
 
-func TestUnknownAndDisconnected(t *testing.T) {
-	assert := assert.New(t)
+func TestDisconnected(t *testing.T) {
 	fs = afero.NewMemMapFs()
 
 	// No battery.
 	info := batteryInfo("BAT0")
-	assert.Equal("Disconnected", info.Status)
+	assert.Equal(t, "Disconnected", info.Status)
+
+	// Make sure nothing panics when values are missing.
+	assert.InDelta(t, 0, info.Remaining(), 0.000001)
+	assert.Equal(t, 0, info.RemainingPct())
+	assert.Equal(t, time.Duration(0), info.RemainingTime())
+}
+
+func TestUnknownAndMissingStatus(t *testing.T) {
+	fs = afero.NewMemMapFs()
+
+	// No battery.
+	info := batteryInfo("BAT0")
+	assert.Equal(t, "Disconnected", info.Status)
 
 	// Unknown status.
 	write(battery{"NAME": "BAT1"})
 	info = batteryInfo("BAT1")
-	assert.Equal("Unknown", info.Status)
+	assert.Equal(t, "Unknown", info.Status)
 
 	write(battery{
 		"NAME":   "BAT2",
-		"STATUS": "Unknown",
+		"STATUS": "OtherStatus",
 	})
 	info = batteryInfo("BAT2")
-	assert.Equal("Unknown", info.Status)
-
-	// Make sure nothing panics when values are missing.
-	assert.InDelta(0, info.Remaining(), 0.000001)
-	assert.Equal(0, info.RemainingPct())
-	assert.Equal(time.Duration(0), info.RemainingTime())
+	assert.Equal(t, "OtherStatus", info.Status)
 }
 
 func TestGarbageFiles(t *testing.T) {
 	assert := assert.New(t)
 	fs = afero.NewMemMapFs()
 
-	afero.WriteFile(fs, batteryPath("BAT0"), []byte(`
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/uevent",
+		[]byte(`
 POWER_SUPPLY_NAME=BAT0
 POWER_SUPPLY_STATUS=Charging
 This line is weird and should be ignored
@@ -169,13 +179,13 @@ func TestSimple(t *testing.T) {
 
 	capLt30 := func(i Info) bool { return i.Capacity < 30 }
 
+	testBar.New(t)
+
 	bat0 := Default().
 		UrgentWhen(capLt30).
-		OutputTemplate(outputs.TextTemplate(`{{.Status}}`)).
-		RefreshInterval(50 * time.Millisecond)
+		OutputTemplate(outputs.TextTemplate(`{{.Status}}`))
 
 	bat1 := New("BAT1").
-		OutputTemplate(outputs.TextTemplate(`{{.RemainingPct}}`)).
 		OutputColor(func(i Info) bar.Color {
 			return bar.Color("#ff0000")
 		})
@@ -184,17 +194,15 @@ func TestSimple(t *testing.T) {
 		UrgentWhen(capLt30).
 		OutputFunc(func(i Info) bar.Output {
 			return outputs.Text(i.Technology)
-		}).
-		RefreshInterval(150 * time.Millisecond)
+		})
 
-	m0 := testModule.NewOutputTester(t, bat0)
-	m1 := testModule.NewOutputTester(t, bat1)
-	m2 := testModule.NewOutputTester(t, bat2)
+	testBar.Run(bat0, bat1, bat2)
 
-	m0.AssertOutputEquals(outputs.Text("Charging").Urgent(false), "on start")
-	m1.AssertOutputEquals(
-		outputs.Text("100").Color(bar.Color("#ff0000")), "on start")
-	m2.AssertOutputEquals(outputs.Text("NiCd").Urgent(false), "on start")
+	testBar.LatestOutput().AssertEqual(outputs.Group(
+		outputs.Text("Charging").Urgent(false),
+		outputs.Text("BATT 100%").Color(bar.Color("#ff0000")),
+		outputs.Text("NiCd").Urgent(false),
+	), "on start")
 
 	write(battery{
 		"NAME":               "BAT2",
@@ -208,30 +216,26 @@ func TestSimple(t *testing.T) {
 		"CHARGE_NOW":         int(1.1 * float64(micros)),
 		"CAPACITY":           25,
 	})
+	testBar.Tick()
 
-	m0.AssertOutput("on elapsed interval")
-
-	m2.AssertOutputEquals(
-		outputs.Text("NiCd").Urgent(true),
+	testBar.LatestOutput().At(2).AssertEqual(
+		bar.TextSegment("NiCd").Urgent(true),
 		"module picks up updates to battery info")
 
-	// Default interval is 3 seconds,
-	// but output tester only waits up to 1 second.
-	m1.AssertNoOutput("when update interval has not elapsed")
-
 	bat1.RefreshInterval(time.Hour)
-	m1.AssertNoOutput("On change of refresh interval")
+	testBar.AssertNoOutput("On change of refresh interval")
 
 	bat1.OutputTemplate(outputs.TextTemplate(`{{.Capacity}}`))
-	m1.AssertOutputEquals(
-		outputs.Text("100").Color(bar.Color("#ff0000")),
+	testBar.NextOutput().At(1).AssertEqual(
+		bar.TextSegment("100").Color(bar.Color("#ff0000")),
 		"when output template changes")
 
 	bat1.OutputColor(nil)
-	m1.AssertOutputEquals(outputs.Text("100"), "when colour func changes")
+	testBar.NextOutput().At(1).AssertEqual(
+		bar.TextSegment("100"), "when colour func changes")
 
 	bat1.UrgentWhen(capLt30)
-	m1.AssertOutputEquals(
-		outputs.Text("100").Urgent(false),
+	testBar.NextOutput().At(1).AssertEqual(
+		bar.TextSegment("100").Urgent(false),
 		"when urgent func changes")
 }

@@ -25,16 +25,19 @@ import (
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
 
+	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/base/multi"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/scheduler"
 )
 
 // IO represents input and output rates for a disk.
 type IO struct {
 	Input, Output unit.Datarate
+	// Unexported fields used by module to control output.
+	shouldOutput bool
+	err          error
 }
 
 // Total gets the total IO rate (input + output).
@@ -42,110 +45,172 @@ func (i IO) Total() unit.Datarate {
 	return i.Input + i.Output
 }
 
+type diskInfo struct {
+	ioChan     chan<- IO
+	lastIO     *IO
+	lastRead   uint64
+	lastWrite  uint64
+	updateTime time.Time
+}
+
+var once sync.Once
+
 var lock sync.Mutex
-var moduleSet *multi.ModuleSet
-var submodules map[string]*submodule
-var updater scheduler.Scheduler
+var modules map[string]*diskInfo
+var updater bar.Scheduler
 
-// Needed to prevent data race in tests.
-// Signals after the module is done reading /proc/diskstats.
-var signalChan chan bool
-
-// init initialises the diskio multi-module, which is used to create
-// diskio modules that are all updated together.
-// (with just one read of /proc/diskstats)
-func init() {
-	moduleSet = multi.NewModuleSet()
-	submodules = make(map[string]*submodule)
-	// Update disk io rates when asked.
-	moduleSet.OnUpdate(update)
-	// Default is to refresh every 3s, matching the behaviour of top.
-	updater = scheduler.Do(moduleSet.Update).Every(3 * time.Second)
+// construct initialises diskio's global updating. All diskio
+// modules are updated with just one read of /proc/diskstats.
+func construct() {
+	once.Do(func() {
+		modules = make(map[string]*diskInfo)
+		updater = barista.Schedule().Every(3 * time.Second)
+		go func(updater bar.Scheduler) {
+			for {
+				update()
+				updater.Wait()
+			}
+		}(updater)
+	})
 }
 
 // RefreshInterval configures the polling frequency.
 func RefreshInterval(interval time.Duration) {
+	construct()
 	// Scheduler is goroutine safe, don't need to lock here.
 	updater.Every(interval)
 }
 
-// Disk creates a submodule that displays disk io rates for the given disk.
-func Disk(disk string) Submodule {
-	lock.Lock()
-	defer lock.Unlock()
-	s := &submodule{
-		Submodule: moduleSet.New(),
-	}
-	s.OutputTemplate(outputs.TextTemplate(`Disk: {{.Total | ibyterate}}`))
-	submodules[disk] = s
-	return s
-}
-
-// Submodule represents a bar.Module for a single disk's io activity.
-type Submodule interface {
-	base.WithClickHandler
+// Module represents a bar.Module for a single disk's io activity.
+type Module interface {
+	base.SimpleClickHandlerModule
 
 	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(IO) bar.Output) Submodule
+	OutputFunc(func(IO) bar.Output) Module
 
 	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Submodule
+	OutputTemplate(func(interface{}) bar.Output) Module
 }
 
-// submodule wraps multi.Submodules and provides output formatting controls.
-type submodule struct {
-	multi.Submodule
-	outputFunc func(IO) bar.Output
-	io         io
+type module struct {
+	base.SimpleClickHandler
+	ioChan     <-chan IO
+	outputFunc base.Value
 }
 
-func (s *submodule) OutputFunc(outputFunc func(IO) bar.Output) Submodule {
-	s.outputFunc = outputFunc
-	s.Update()
-	return s
+func defaultOutputFunc(i IO) bar.Output {
+	return outputs.Textf("Disk: %s", outputs.IByterate(i.Total()))
 }
 
-func (s *submodule) OutputTemplate(template func(interface{}) bar.Output) Submodule {
-	return s.OutputFunc(func(i IO) bar.Output {
+// New creates a diskio module that displays disk io rates for the given disk.
+func New(disk string) Module {
+	construct()
+	lock.Lock()
+	defer lock.Unlock()
+	mInfo, found := modules[disk]
+	if !found {
+		mInfo = &diskInfo{}
+		modules[disk] = mInfo
+	}
+	m := &module{ioChan: mInfo.makeChannel()}
+	m.OutputFunc(defaultOutputFunc)
+	return m
+}
+
+func (m *module) OutputFunc(outputFunc func(IO) bar.Output) Module {
+	m.outputFunc.Set(outputFunc)
+	return m
+}
+
+func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+	return m.OutputFunc(func(i IO) bar.Output {
 		return template(i)
 	})
 }
 
-// io represents that last read disk io counters,
-// and is used to compute the rate of disk io.
-type io struct {
-	In, Out uint64
-	Time    time.Time
+func (m *module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
 }
 
-// Update updates the last read information, and returns
+func (m *module) worker(ch base.Channel) {
+	var i IO
+	outputFunc := m.outputFunc.Get().(func(IO) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+	for {
+		select {
+		case i = <-m.ioChan:
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(IO) bar.Output)
+		}
+		if i.err != nil {
+			// Do not use ch.Error because that will close the channel,
+			// leaving further updates to deadlock.
+			ch.Output(outputs.Error(i.err))
+		} else if i.shouldOutput {
+			ch.Output(outputFunc(i))
+		} else {
+			ch.Clear()
+		}
+	}
+}
+
+// update updates the last read information, and returns
 // the delta read and written since the last update in bytes/sec.
-func (i *io) Update(in, out uint64) (inRate, outRate int) {
-	duration := scheduler.Now().Sub(i.Time).Seconds()
-	if in == i.In {
-		inRate = 0
-	} else {
-		inRate = int(float64(in-i.In) / duration)
+func (m *diskInfo) update(read, write uint64) (readRate, writeRate int) {
+	duration := scheduler.Now().Sub(m.updateTime).Seconds()
+	if read != m.lastRead {
+		readRate = int(float64(read-m.lastRead) / duration)
 	}
-	if out == i.Out {
-		outRate = 0
-	} else {
-		outRate = int(float64(out-i.Out) / duration)
+	if write != m.lastWrite {
+		writeRate = int(float64(write-m.lastWrite) / duration)
 	}
-	i.In = in
-	i.Out = out
-	i.Time = scheduler.Now()
-	return // inRate, outRate
+	m.lastRead = read
+	m.lastWrite = write
+	m.updateTime = scheduler.Now()
+	return // readRate, writeRate
+}
+
+func (m *diskInfo) Error(err error) bool {
+	if err == nil {
+		return false
+	}
+	m.send(IO{err: err})
+	return true
+}
+
+func (m *diskInfo) send(i IO) {
+	if m.ioChan == nil {
+		m.lastIO = &i
+	} else {
+		m.ioChan <- i
+	}
+}
+
+func (m *diskInfo) makeChannel() <-chan IO {
+	ioChan := make(chan IO, 1)
+	m.ioChan = ioChan
+	if m.lastIO != nil {
+		m.ioChan <- *m.lastIO
+	}
+	return ioChan
 }
 
 var fs = afero.NewOsFs()
+
+// To prevent data races in tests.
+var signalChan chan bool
 
 func update() {
 	lock.Lock()
 	defer lock.Unlock()
 	var err error
 	f, err := fs.Open("/proc/diskstats")
-	if moduleSet.Error(err) {
+	if err != nil {
+		for _, m := range modules {
+			m.Error(err)
+		}
 		return
 	}
 	defer f.Close()
@@ -161,41 +226,37 @@ func update() {
 		}
 		// See https://www.kernel.org/doc/Documentation/iostats.txt
 		disk := info[2]
-		submodule, found := submodules[disk]
+		module, found := modules[disk]
 		if !found {
-			// Don't care about this disk
-			continue
+			module = &diskInfo{}
+			modules[disk] = module
 		}
 		updated[disk] = true
 		reads, err := strconv.ParseUint(info[5], 10, 64)
-		if submodule.Error(err) {
+		if module.Error(err) {
 			continue
 		}
 		writes, err := strconv.ParseUint(info[9], 10, 64)
-		if submodule.Error(err) {
+		if module.Error(err) {
 			continue
 		}
-		shouldOutput := !submodule.io.Time.IsZero()
-		readRate, writeRate := submodule.io.Update(reads, writes)
-		if shouldOutput {
+		shouldOutput := !module.updateTime.IsZero()
+		readRate, writeRate := module.update(reads, writes)
+		module.send(IO{
 			// Linux always considers sectors to be 512 bytes long
 			// independently of the devices real block size.
 			// (from linux/types.h)
-			submodule.Output(submodule.outputFunc(IO{
-				Input:  unit.Datarate(readRate) * 512 * unit.BytePerSecond,
-				Output: unit.Datarate(writeRate) * 512 * unit.BytePerSecond,
-			}))
-		}
+			Input:        unit.Datarate(readRate) * 512 * unit.BytePerSecond,
+			Output:       unit.Datarate(writeRate) * 512 * unit.BytePerSecond,
+			shouldOutput: shouldOutput,
+		})
 	}
-	for disk, submodule := range submodules {
+	for disk, module := range modules {
 		if !updated[disk] {
-			if !submodule.io.Time.IsZero() {
-				submodule.Clear()
-				submodule.io = io{}
-			}
+			module.lastRead = 0
+			module.lastWrite = 0
+			module.updateTime = time.Time{}
+			module.send(IO{})
 		}
-	}
-	if signalChan != nil {
-		signalChan <- true
 	}
 }

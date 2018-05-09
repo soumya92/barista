@@ -49,7 +49,7 @@ const (
 
 // Module represents a VPN bar module.
 type Module interface {
-	base.WithClickHandler
+	base.SimpleClickHandlerModule
 
 	// OutputFunc configures a module to display the output of a user-defined function.
 	OutputFunc(func(State) bar.Output) Module
@@ -59,22 +59,16 @@ type Module interface {
 }
 
 type module struct {
-	*base.Base
-	outputFunc func(State) bar.Output
+	base.SimpleClickHandler
 	intf       string
-	state      State
-	lastFlags  uint32
+	outputFunc base.Value // of func(State) bar.Output
 }
 
 // New constructs an instance of the VPN module for the specified interface.
 func New(iface string) Module {
-	m := &module{
-		Base: base.New(),
-		intf: iface,
-	}
+	m := &module{intf: iface}
 	// Default output template that's just 'VPN' when connected.
 	m.OutputTemplate(outputs.TextTemplate("{{if .Connected}}VPN{{end}}"))
-	m.OnUpdate(m.update)
 	return m
 }
 
@@ -85,8 +79,7 @@ func DefaultInterface() Module {
 }
 
 func (m *module) OutputFunc(outputFunc func(State) bar.Output) Module {
-	m.outputFunc = outputFunc
-	m.Update()
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -97,52 +90,60 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 }
 
 func (m *module) Stream() <-chan bar.Output {
-	go m.worker()
-	return m.Base.Stream()
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
 }
 
-func (m *module) worker() {
+func (m *module) worker(ch base.Channel) {
 	// Initial state.
-	m.state = Disconnected
+	state := Disconnected
 	if link, err := netlink.LinkByName(m.intf); err == nil {
 		if link.Attrs().Flags&net.FlagUp == net.FlagUp {
-			m.state = Connected
+			state = Connected
 		} else {
-			m.state = Waiting
+			state = Waiting
 		}
 	}
-	m.Update()
+	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+	ch.Output(outputFunc(state))
 
 	// Watch for changes.
-	ch := make(chan netlink.LinkUpdate)
+	linkCh := make(chan netlink.LinkUpdate)
 	done := make(chan struct{})
 	defer close(done)
-	netlink.LinkSubscribe(ch, done)
-	for update := range ch {
-		if update.Attrs().Name != m.intf {
-			continue
-		}
-		newFlags := update.IfInfomsg.Flags
-		shouldUpdate := false
-		if m.lastFlags&unix.IFF_UP != newFlags&unix.IFF_UP {
-			shouldUpdate = true
-		}
-		if m.lastFlags&unix.IFF_RUNNING != newFlags&unix.IFF_RUNNING {
-			shouldUpdate = true
-		}
-		if shouldUpdate {
-			m.lastFlags = newFlags
-			m.state = Disconnected
-			if newFlags&unix.IFF_RUNNING == unix.IFF_RUNNING {
-				m.state = Connected
-			} else if newFlags&unix.IFF_UP == unix.IFF_UP {
-				m.state = Waiting
+	netlink.LinkSubscribe(linkCh, done)
+	var lastFlags uint32
+
+	for {
+		select {
+		case update := <-linkCh:
+			if update.Attrs().Name != m.intf {
+				continue
 			}
-			m.Update()
+			newFlags := update.IfInfomsg.Flags
+			shouldUpdate := false
+			if lastFlags&unix.IFF_UP != newFlags&unix.IFF_UP {
+				shouldUpdate = true
+			}
+			if lastFlags&unix.IFF_RUNNING != newFlags&unix.IFF_RUNNING {
+				shouldUpdate = true
+			}
+			if shouldUpdate {
+				lastFlags = newFlags
+				if newFlags&unix.IFF_RUNNING == unix.IFF_RUNNING {
+					state = Connected
+				} else if newFlags&unix.IFF_UP == unix.IFF_UP {
+					state = Waiting
+				} else {
+					state = Disconnected
+				}
+				ch.Output(outputFunc(state))
+			}
+		case <-sOutputFunc.Tick():
+			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
+			ch.Output(outputFunc(state))
 		}
 	}
-}
-
-func (m *module) update() {
-	m.Output(m.outputFunc(m.state))
 }

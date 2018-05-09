@@ -18,7 +18,6 @@ import (
 	"sync"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
 )
 
 // Collapsable is a group that supports expanding/collapsable.
@@ -96,7 +95,7 @@ func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
 		}
 		return expanded
 	}
-	b := base.New()
+	b := newButton()
 	b.Output(outputFunc())
 	b.OnClick(func(e bar.Event) {
 		if e.Button == bar.ButtonLeft {

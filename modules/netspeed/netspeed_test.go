@@ -23,10 +23,9 @@ import (
 	"github.com/stretchrcom/testify/assert"
 	"github.com/vishvananda/netlink"
 
-	_ "github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/scheduler"
 	"github.com/soumya92/barista/outputs"
-	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/scheduler"
+	testBar "github.com/soumya92/barista/testing/bar"
 )
 
 type testLink netlink.LinkStatistics
@@ -65,7 +64,7 @@ func init() {
 
 func TestNetspeed(t *testing.T) {
 	assert := assert.New(t)
-	scheduler.TestMode(true)
+	testBar.New(t)
 
 	setLink("if0", netlink.LinkStatistics{
 		RxBytes: 1024,
@@ -77,73 +76,70 @@ func TestNetspeed(t *testing.T) {
 		OutputTemplate(outputs.TextTemplate(
 			`{{.Rx.KibibytesPerSecond}}/{{.Tx.KibibytesPerSecond}}`))
 
-	tester := testModule.NewOutputTester(t, n)
-	tester.AssertNoOutput("on start")
+	testBar.Run(n)
+	testBar.AssertNoOutput("on start")
 
 	setLink("if0", netlink.LinkStatistics{
 		RxBytes: 4096,
 		TxBytes: 2048,
 	})
-	scheduler.NextTick()
+	testBar.Tick()
 
-	tester.AssertOutputEquals(outputs.Text("3/1"), "on tick")
+	testBar.NextOutput().AssertEqual(outputs.Text("3/1"), "on tick")
 
 	setLink("if0", netlink.LinkStatistics{
 		RxBytes: 8192,
 		TxBytes: 3072,
 	})
-	scheduler.NextTick()
+	testBar.Tick()
 
-	tester.AssertOutputEquals(outputs.Text("4/1"), "on tick")
+	testBar.NextOutput().AssertEqual(outputs.Text("4/1"), "on tick")
 
 	n.OutputTemplate(outputs.TextTemplate(`{{.Total | ibyterate}}`))
-	tester.AssertOutputEquals(
+	testBar.NextOutput().AssertEqual(
 		outputs.Text("5.0 KiB/s"),
 		"uses previous result on output function change")
 
 	n.OutputTemplate(outputs.TextTemplate(`{{.Total | byterate}}`))
-	tester.AssertOutputEquals(
+	testBar.NextOutput().AssertEqual(
 		outputs.Text("5.1 kB/s"),
 		"uses previous result on output function change")
-
-	scheduler.NextTick()
-	tester.AssertOutputEquals(
+	testBar.Tick()
+	testBar.NextOutput().AssertEqual(
 		outputs.Text("0 B/s"), "on tick after output function change")
 
 	beforeTick := scheduler.Now()
 	n.RefreshInterval(time.Minute)
-	scheduler.NextTick()
+	testBar.Tick()
 	assert.Equal(time.Minute, scheduler.Now().Sub(beforeTick),
 		"RefreshInterval change")
-
-	tester.Drain()
+	testBar.NextOutput().Expect("RefreshInterval change")
 }
 
 func TestErrors(t *testing.T) {
-	scheduler.TestMode(true)
+	testBar.New(t)
 
 	removeLink("if0")
-	n := New("if0").
-		RefreshInterval(time.Second).
-		OutputTemplate(outputs.TextTemplate(
-			`{{.Rx.KibibytesPerSecond}}/{{.Tx.KibibytesPerSecond}}`))
-	tester := testModule.NewOutputTester(t, n)
-	tester.AssertError("on start for missing interface")
-
-	scheduler.NextTick()
-	tester.AssertError("after tick with missing interface")
+	n := New("if0").RefreshInterval(time.Second)
+	testBar.Run(n)
+	testBar.NextOutput().AssertError("on start for missing interface")
 
 	setLink("if0", netlink.LinkStatistics{
 		RxBytes: 0,
 		TxBytes: 0,
 	})
-	scheduler.NextTick()
-	tester.AssertNoOutput("first tick after interface is available")
+	testBar.Click(0)
+	testBar.AssertNoOutput("on click after interface is available")
 
 	setLink("if0", netlink.LinkStatistics{
 		RxBytes: 4096,
 		TxBytes: 2048,
 	})
-	scheduler.NextTick()
-	tester.AssertOutputEquals(outputs.Text("4/2"), "on tick")
+	testBar.Tick()
+	testBar.NextOutput().AssertText(
+		[]string{"2.0 KiB/s up | 4.0 KiB/s down"}, "on tick")
+
+	removeLink("if0")
+	testBar.Tick()
+	testBar.NextOutput().AssertError("on tick after losing interface")
 }
