@@ -47,7 +47,10 @@ func (w *Writable) Write(out []byte) (n int, e error) {
 	}
 	n, e = w.buffer.Write(out)
 	w.mutex.Unlock()
-	nonBlockingSignal(w.signal)
+	select {
+	case w.signal <- nil:
+	default:
+	}
 	return
 }
 
@@ -156,7 +159,12 @@ func (r *Readable) Read(out []byte) (n int, e error) {
 	r.mutex.Lock()
 	n, e = r.buffer.Read(out)
 	r.mutex.Unlock()
-	nonBlockingSignal(r.consumed)
+	if len == 0 {
+		// len == 0 means that we got a signal from available.
+		// Which means that signalWrite() is now waiting
+		// for a signal on consumed.
+		r.consumed <- nil
+	}
 	if e == io.EOF {
 		e = nil
 	}
@@ -193,8 +201,10 @@ func (r *Readable) ShouldError(e error) {
 
 // signalWrite signals that data was written, and waits for it to be consumed.
 func (r *Readable) signalWrite() {
-	if nonBlockingSignal(r.available) {
+	select {
+	case r.available <- nil:
 		<-r.consumed
+	default:
 	}
 }
 
@@ -204,16 +214,6 @@ func Stdin() *Readable {
 		buffer:    bytes.Buffer{},
 		available: make(chan *interface{}),
 		consumed:  make(chan *interface{}),
-	}
-}
-
-// nonBlockingSignal sends a signal, but only if there are listeners.
-func nonBlockingSignal(ch chan<- *interface{}) bool {
-	select {
-	case ch <- nil:
-		return true
-	default:
-		return false
 	}
 }
 
