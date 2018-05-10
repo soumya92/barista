@@ -122,14 +122,15 @@ func main() {
 		"dim-icon": "#777",
 	})
 
-	localtime := clock.New().OutputFunc(func(now time.Time) bar.Output {
-		return outputs.Pango(
-			material.Icon("today", colors.Scheme("dim-icon")),
-			now.Format("Mon Jan 2 "),
-			material.Icon("access-time", colors.Scheme("dim-icon")),
-			now.Format("15:04:05"),
-		)
-	})
+	localtime := clock.Local().
+		OutputFunc(time.Second, func(now time.Time) bar.Output {
+			return outputs.Pango(
+				material.Icon("today", colors.Scheme("dim-icon")),
+				now.Format("Mon Jan 2 "),
+				material.Icon("access-time", colors.Scheme("dim-icon")),
+				now.Format("15:04:05"),
+			)
+		})
 	localtime.OnClick(func(e bar.Event) {
 		if e.Button == bar.ButtonLeft {
 			exec.Command("gsimplecal").Run()

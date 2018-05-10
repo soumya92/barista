@@ -16,6 +16,7 @@
 package clock
 
 import (
+	"strings"
 	"time"
 
 	"github.com/soumya92/barista"
@@ -31,19 +32,19 @@ type Module interface {
 	base.SimpleClickHandlerModule
 
 	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(time.Time) bar.Output) Module
+	//
+	// The first argument configures the granularity at which the module should refresh.
+	// For example, if the format does not have seconds, it should be time.Minute.
+	//
+	// The module will always update at the next second, minute, hour, etc.,
+	// so large granularities will not negatively affect the output.
+	OutputFunc(time.Duration, func(time.Time) bar.Output) Module
 
 	// OutputFormat configures a module to display the time in a given format.
 	OutputFormat(string) Module
 
 	// Timezone configures the timezone for this clock.
-	Timezone(string) Module
-
-	// Granularity configures the granularity at which the module should refresh.
-	// For example, if your format does not have seconds, you can set it to time.Minute.
-	// The module will always update at the next second, minute, hour, etc.,
-	// so you don't need to be concerned about update delays with a large granularity.
-	Granularity(time.Duration) Module
+	Timezone(*time.Location) Module
 }
 
 type module struct {
@@ -54,7 +55,7 @@ type module struct {
 type config struct {
 	granularity time.Duration
 	outputFunc  func(time.Time) bar.Output
-	timezone    string
+	timezone    *time.Location
 }
 
 func (m *module) getConfig() config {
@@ -65,31 +66,60 @@ func defaultOutputFunc(now time.Time) bar.Output {
 	return outputs.Text(now.Format("15:04"))
 }
 
-// New constructs an instance of the clock module with a default configuration.
-func New() Module {
+// Zone constructs a clock module for the given timezone.
+func Zone(timezone *time.Location) Module {
 	m := &module{}
 	m.config.Set(config{
-		timezone:    "",
-		granularity: time.Second,
+		timezone:    timezone,
+		granularity: time.Minute,
 		outputFunc:  defaultOutputFunc,
 	})
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(time.Time) bar.Output) Module {
+// Local constructs a clock module for the current machine's timezone.
+func Local() Module {
+	return Zone(time.Local)
+}
+
+// ZoneByName constructs a clock module for the given zone name,
+// (e.g. "America/Los_Angeles"), and returns any errors.
+func ZoneByName(name string) (Module, error) {
+	tz, err := time.LoadLocation(name)
+	if err != nil {
+		return nil, err
+	}
+	return Zone(tz), nil
+}
+
+func (m *module) OutputFunc(granularity time.Duration, outputFunc func(time.Time) bar.Output) Module {
 	c := m.getConfig()
+	c.granularity = granularity
 	c.outputFunc = outputFunc
 	m.config.Set(c)
 	return m
 }
 
 func (m *module) OutputFormat(format string) Module {
-	return m.OutputFunc(func(now time.Time) bar.Output {
+	granularity := time.Hour
+	switch {
+	case strings.Contains(format, ".000"):
+		granularity = time.Millisecond
+	case strings.Contains(format, ".00"):
+		granularity = 10 * time.Millisecond
+	case strings.Contains(format, ".0"):
+		granularity = 100 * time.Millisecond
+	case strings.Contains(format, "05"):
+		granularity = time.Second
+	case strings.Contains(format, "04"):
+		granularity = time.Minute
+	}
+	return m.OutputFunc(granularity, func(now time.Time) bar.Output {
 		return outputs.Text(now.Format(format))
 	})
 }
 
-func (m *module) Timezone(timezone string) Module {
+func (m *module) Timezone(timezone *time.Location) Module {
 	c := m.getConfig()
 	c.timezone = timezone
 	m.config.Set(c)
@@ -112,21 +142,10 @@ func (m *module) Stream() <-chan bar.Output {
 func (m *module) worker(ch base.Channel) {
 	sch := barista.NewScheduler()
 	cfg := m.getConfig()
-	tz := time.Local
-	prevTz := ""
 	sCfg := m.config.Subscribe()
 	for {
-		if cfg.timezone != prevTz {
-			var err error
-			tz, err = time.LoadLocation(cfg.timezone)
-			if ch.Error(err) {
-				return
-			}
-			prevTz = cfg.timezone
-		}
-
 		now := scheduler.Now()
-		ch.Output(cfg.outputFunc(now.In(tz)))
+		ch.Output(cfg.outputFunc(now.In(cfg.timezone)))
 		next := now.Add(cfg.granularity).Truncate(cfg.granularity)
 
 		select {
