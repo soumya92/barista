@@ -70,17 +70,7 @@ func RefreshInterval(interval time.Duration) {
 }
 
 // Module represents a bar.Module that displays memory information.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(Info) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	ticker     bar.Ticker
 	outputFunc base.Value
@@ -91,31 +81,34 @@ func defaultOutputFunc(i Info) bar.Output {
 }
 
 // New creates a new sysinfo module.
-func New() Module {
+func New() *Module {
 	construct()
-	m := &module{ticker: currentInfo.Subscribe()}
+	m := &Module{ticker: currentInfo.Subscribe()}
 	m.OutputFunc(defaultOutputFunc)
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream subscribes to sysinfo and updates the module's output.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	i, err := currentInfo.Get()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
 	sOutputFunc := m.outputFunc.Subscribe()

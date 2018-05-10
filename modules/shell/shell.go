@@ -33,7 +33,9 @@ import (
 	"github.com/soumya92/barista/outputs"
 )
 
-type tailModule struct {
+// TailModule represents a bar.Module that displays the last line
+// of output from a shell command in the bar.
+type TailModule struct {
 	base.SimpleClickHandler
 	cmd  string
 	args []string
@@ -42,17 +44,18 @@ type tailModule struct {
 // Tail constructs a module that displays the last line of output from
 // a long running command. Use the reformat module to adjust the output
 // if necessary.
-func Tail(cmd string, args ...string) base.SimpleClickHandlerModule {
-	return &tailModule{cmd: cmd, args: args}
+func Tail(cmd string, args ...string) *TailModule {
+	return &TailModule{cmd: cmd, args: args}
 }
 
-func (m *tailModule) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *TailModule) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *tailModule) worker(ch base.Channel) {
+func (m *TailModule) worker(ch base.Channel) {
 	cmd := exec.Command(m.cmd, m.args...)
 	// Prevent SIGUSR for bar pause/resume from propagating to the
 	// child process. Some commands don't play nice with signals.
@@ -78,9 +81,9 @@ func (m *tailModule) worker(ch base.Channel) {
 	close(ch)
 }
 
-// Every constructs a module that runs the given command with the
+// Every constructs a module that runs the given command at the
 // specified interval and displays the commands output in the bar.
-func Every(interval time.Duration, cmd string, args ...string) base.SimpleClickHandlerModule {
+func Every(interval time.Duration, cmd string, args ...string) *funcs.RepeatingModule {
 	return funcs.Every(interval, func(ch funcs.Channel) {
 		commandOutput(ch, cmd, args...)
 	})
@@ -88,14 +91,13 @@ func Every(interval time.Duration, cmd string, args ...string) base.SimpleClickH
 
 // Once constructs a static module that displays the output of
 // the given command in the bar.
-func Once(cmd string, args ...string) base.SimpleClickHandlerModule {
+func Once(cmd string, args ...string) *funcs.OnceModule {
 	return funcs.Once(func(ch funcs.Channel) {
 		commandOutput(ch, cmd, args...)
 	})
 }
 
-// commandOutputToModule runs the command and sends the output or error
-// as appropriate to the funcs channel.
+// commandOutput runs the command and sends the output or error to the channel.
 func commandOutput(ch funcs.Channel, cmd string, args ...string) {
 	out, err := exec.Command(cmd, args...).Output()
 	if ch.Error(err) {

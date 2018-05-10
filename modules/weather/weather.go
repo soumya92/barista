@@ -85,27 +85,10 @@ type Provider interface {
 	GetWeather() (*Weather, error)
 }
 
-// Module is the public interface for a weather module.
+// Module represents a bar.Module that displays weather information.
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to get the current weather.
-type Module interface {
-	bar.Module
-	bar.Clickable
-
-	// RefreshInterval configures the polling frequency.
-	RefreshInterval(time.Duration) Module
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(Weather) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-
-	// OnClick sets a click handler for the module.
-	OnClick(func(Weather, bar.Event)) Module
-}
-
-type module struct {
+type Module struct {
 	provider       Provider
 	scheduler      bar.Scheduler
 	outputFunc     base.Value // of func(Weather) bar.Output
@@ -118,8 +101,8 @@ func defaultOutputFunc(w Weather) bar.Output {
 }
 
 // New constructs an instance of the weather module with the provided configuration.
-func New(provider Provider) Module {
-	m := &module{
+func New(provider Provider) *Module {
+	m := &Module{
 		provider:  provider,
 		scheduler: base.Schedule().Every(10 * time.Minute),
 	}
@@ -129,23 +112,27 @@ func New(provider Provider) Module {
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(Weather) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(Weather) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(w Weather) bar.Output {
 		return template(w)
 	})
 }
 
-func (m *module) RefreshInterval(interval time.Duration) Module {
+// RefreshInterval configures the polling frequency.
+func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	m.scheduler.Every(interval)
 	return m
 }
 
-func (m *module) OnClick(f func(Weather, bar.Event)) Module {
+// OnClick sets a click handler for the module.
+func (m *Module) OnClick(f func(Weather, bar.Event)) *Module {
 	if f == nil {
 		f = func(w Weather, e bar.Event) {}
 	}
@@ -153,20 +140,22 @@ func (m *module) OnClick(f func(Weather, bar.Event)) Module {
 	return m
 }
 
-func (m *module) Click(e bar.Event) {
+// Click handles click events on the module's output.
+func (m *Module) Click(e bar.Event) {
 	clickHandler := m.clickHandler.Get().(func(Weather, bar.Event))
 	if w := m.currentWeather.Get(); w != nil {
 		clickHandler(w.(Weather), e)
 	}
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	weather, err := m.provider.GetWeather()
 	outputFunc := m.outputFunc.Get().(func(Weather) bar.Output)
 	sOutputFunc := m.outputFunc.Subscribe()

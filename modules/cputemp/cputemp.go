@@ -31,30 +31,7 @@ import (
 
 // Module represents a cputemp bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// RefreshInterval configures the polling frequency for cpu temperatures.
-	// Note: updates might still be less frequent if the temperature does not change.
-	RefreshInterval(time.Duration) Module
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(unit.Temperature) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-
-	// OutputColor configures a module to change the colour of its output based on a
-	// user-defined function. This allows you to set up color thresholds, or even
-	// blend between two colours based on the current temperature.
-	OutputColor(func(unit.Temperature) bar.Color) Module
-
-	// UrgentWhen configures a module to mark its output as urgent based on a
-	// user-defined function.
-	UrgentWhen(func(unit.Temperature) bool) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	thermalFile string
 	scheduler   bar.Scheduler
@@ -78,14 +55,14 @@ func (f format) output(t unit.Temperature) bar.Output {
 	return out
 }
 
-func (m *module) getFormat() format {
+func (m *Module) getFormat() format {
 	return m.format.Get().(format)
 }
 
 // Zone constructs an instance of the cputemp module for the specified zone.
 // The file /sys/class/thermal/<zone>/temp should return cpu temp in 1/1000 deg C.
-func Zone(thermalZone string) Module {
-	m := &module{
+func Zone(thermalZone string) *Module {
+	m := &Module{
 		thermalFile: fmt.Sprintf("/sys/class/thermal/%s/temp", thermalZone),
 		scheduler:   base.Schedule().Every(3 * time.Second),
 	}
@@ -96,43 +73,53 @@ func Zone(thermalZone string) Module {
 }
 
 // DefaultZone constructs an instance of the cputemp module for the default zone.
-func DefaultZone() Module {
+func DefaultZone() *Module {
 	return Zone("thermal_zone0")
 }
 
-func (m *module) OutputFunc(outputFunc func(unit.Temperature) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(unit.Temperature) bar.Output) *Module {
 	c := m.getFormat()
 	c.outputFunc = outputFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(t unit.Temperature) bar.Output {
 		return template(t)
 	})
 }
 
-func (m *module) RefreshInterval(interval time.Duration) Module {
+// RefreshInterval configures the polling frequency for cpu temperatures.
+// Note: updates might still be less frequent if the temperature does not change.
+func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	m.scheduler.Every(interval)
 	return m
 }
 
-func (m *module) OutputColor(colorFunc func(unit.Temperature) bar.Color) Module {
+// OutputColor configures a module to change the colour of its output based on a
+// user-defined function. This allows you to set up color thresholds, or even
+// blend between two colours based on the current temperature.
+func (m *Module) OutputColor(colorFunc func(unit.Temperature) bar.Color) *Module {
 	c := m.getFormat()
 	c.colorFunc = colorFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) UrgentWhen(urgentFunc func(unit.Temperature) bool) Module {
+// UrgentWhen configures a module to mark its output as urgent based on a
+// user-defined function.
+func (m *Module) UrgentWhen(urgentFunc func(unit.Temperature) bool) *Module {
 	c := m.getFormat()
 	c.urgentFunc = urgentFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
@@ -140,7 +127,7 @@ func (m *module) Stream() <-chan bar.Output {
 
 var fs = afero.NewOsFs()
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	temp, err := getTemperature(m.thermalFile)
 	format := m.getFormat()
 	sFormat := m.format.Subscribe()

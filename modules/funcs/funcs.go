@@ -47,16 +47,20 @@ type Func func(Channel)
 
 // Once constructs a bar module that runs the given function once.
 // Useful if the function loops internally.
-func Once(f Func) base.SimpleClickHandlerModule {
-	return &once{Func: f}
+func Once(f Func) *OnceModule {
+	return &OnceModule{Func: f}
 }
 
-type once struct {
+// OnceModule represents a bar.Module that runs a function once.
+// If the function sets an error output, it will be restarted on
+// the next click.
+type OnceModule struct {
 	base.SimpleClickHandler
 	Func
 }
 
-func (o *once) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (o *OnceModule) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go o.Func(ch)
 	return ch
@@ -66,17 +70,23 @@ func (o *once) Stream() <-chan bar.Output {
 // when clicked. The function is given a Channel to allow
 // multiple outputs (e.g. Loading... Done), and when the function
 // returns, the next click will call it again.
-func OnClick(f Func) bar.Module {
-	return onclick(f)
+func OnClick(f Func) *OnclickModule {
+	return &OnclickModule{f}
 }
 
-type onclick Func
+// OnclickModule represents a bar.Module that runs a function and
+// marks the module as finished, causing the next click to start the
+// module again.
+type OnclickModule struct {
+	Func
+}
 
-func (o onclick) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (o OnclickModule) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go func() {
 		wrappedCh := &channel{Channel: ch}
-		o(wrappedCh)
+		o.Func(wrappedCh)
 		if !wrappedCh.finished {
 			close(ch)
 		}
@@ -86,23 +96,26 @@ func (o onclick) Stream() <-chan bar.Output {
 
 // Every constructs a bar module that repeatedly runs the given function.
 // Useful if the function needs to poll a resource for output.
-func Every(d time.Duration, f Func) base.SimpleClickHandlerModule {
-	return &every{f: f, d: d}
+func Every(d time.Duration, f Func) *RepeatingModule {
+	return &RepeatingModule{fn: f, duration: d}
 }
 
-type every struct {
+// RepeatingModule represents a bar.Module that runs a function at a fixed
+// interval (while accounting for bar paused/resumed state).
+type RepeatingModule struct {
 	base.SimpleClickHandler
-	f Func
-	d time.Duration
+	fn       Func
+	duration time.Duration
 }
 
-func (e *every) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (r *RepeatingModule) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	wrappedCh := &channel{Channel: ch}
-	sch := base.Schedule().Every(e.d)
+	sch := base.Schedule().Every(r.duration)
 	go func() {
 		for {
-			e.f(wrappedCh)
+			r.fn(wrappedCh)
 			if wrappedCh.finished {
 				// The next click will call stream again, so return
 				// from this goroutine so that the other instance can

@@ -147,24 +147,11 @@ type Controller interface {
 	Seek(offset time.Duration)
 }
 
-// Module is the public interface for a media module.
+// Module represents a bar.Module that displays media information
+// from an MPRIS-compatible media player.
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to control the media player.
-type Module interface {
-	bar.Module
-	bar.Clickable
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(Info) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-
-	// OnClick sets a click handler for the module.
-	OnClick(func(Info, Controller, bar.Event)) Module
-}
-
-type module struct {
+type Module struct {
 	playerName   string
 	outputFunc   base.Value // of func(Info) bar.Output
 	clickHandler base.Value // of func(Info, Controller, bar.Event)
@@ -178,8 +165,8 @@ type module struct {
 }
 
 // New constructs an instance of the media module for the given player.
-func New(player string) Module {
-	m := &module{playerName: player}
+func New(player string) *Module {
+	m := &Module{playerName: player}
 	// Set default click handler in New(), can be overridden later.
 	m.OnClick(DefaultClickHandler)
 	// Default output template that's just the currently playing track.
@@ -187,18 +174,21 @@ func New(player string) Module {
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
 
-func (m *module) OnClick(f func(Info, Controller, bar.Event)) Module {
+// OnClick sets a click handler for the module.
+func (m *Module) OnClick(f func(Info, Controller, bar.Event)) *Module {
 	if f == nil {
 		f = func(i Info, c Controller, e bar.Event) {}
 	}
@@ -206,7 +196,8 @@ func (m *module) OnClick(f func(Info, Controller, bar.Event)) Module {
 	return m
 }
 
-func (m *module) Click(e bar.Event) {
+// Click handles click events on the module's output.
+func (m *Module) Click(e bar.Event) {
 	info := m.info.Get().(Info)
 	clickHandler := m.clickHandler.Get().(func(Info, Controller, bar.Event))
 	clickHandler(info, m.player, e)
@@ -234,13 +225,13 @@ func DefaultClickHandler(i Info, c Controller, e bar.Event) {
 // checking in the update function since we're guaranteed that
 // the update function will only be called if there were no errors
 // during startup.
-func (m *module) Stream() <-chan bar.Output {
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	// Need a private bus in-case other modules (or other instances of media) are
 	// using dbus as well. Since we rely on (Add|Remove)Match and Signal,
 	// we cannot share the session bus.

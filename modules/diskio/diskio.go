@@ -81,17 +81,7 @@ func RefreshInterval(interval time.Duration) {
 }
 
 // Module represents a bar.Module for a single disk's io activity.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(IO) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	ioChan     <-chan IO
 	outputFunc base.Value
@@ -102,7 +92,7 @@ func defaultOutputFunc(i IO) bar.Output {
 }
 
 // New creates a diskio module that displays disk io rates for the given disk.
-func New(disk string) Module {
+func New(disk string) *Module {
 	construct()
 	lock.Lock()
 	defer lock.Unlock()
@@ -111,29 +101,33 @@ func New(disk string) Module {
 		mInfo = &diskInfo{}
 		modules[disk] = mInfo
 	}
-	m := &module{ioChan: mInfo.makeChannel()}
+	m := &Module{ioChan: mInfo.makeChannel()}
 	m.OutputFunc(defaultOutputFunc)
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(IO) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(IO) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(i IO) bar.Output {
 		return template(i)
 	})
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module. Note that diskio updates begin as soon as the
+// first module is constructed, even if no modules are streaming.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	var i IO
 	outputFunc := m.outputFunc.Get().(func(IO) bar.Output)
 	sOutputFunc := m.outputFunc.Subscribe()

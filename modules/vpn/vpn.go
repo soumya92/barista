@@ -48,25 +48,15 @@ const (
 )
 
 // Module represents a VPN bar module.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(State) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	intf       string
 	outputFunc base.Value // of func(State) bar.Output
 }
 
 // New constructs an instance of the VPN module for the specified interface.
-func New(iface string) Module {
-	m := &module{intf: iface}
+func New(iface string) *Module {
+	m := &Module{intf: iface}
 	// Default output template that's just 'VPN' when connected.
 	m.OutputTemplate(outputs.TextTemplate("{{if .Connected}}VPN{{end}}"))
 	return m
@@ -74,28 +64,31 @@ func New(iface string) Module {
 
 // DefaultInterface constructs an instance of the VPN module for "tun0",
 // the usual interface for VPNs.
-func DefaultInterface() Module {
+func DefaultInterface() *Module {
 	return New("tun0")
 }
 
-func (m *module) OutputFunc(outputFunc func(State) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(State) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(s State) bar.Output {
 		return template(s)
 	})
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	// Initial state.
 	state := Disconnected
 	if link, err := netlink.LinkByName(m.intf); err == nil {

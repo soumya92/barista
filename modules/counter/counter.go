@@ -23,32 +23,55 @@ import (
 	"github.com/soumya92/barista/outputs"
 )
 
-type module struct {
-	base.Channel
-	count  int
-	format string
+// Module represents a "counter" module that displays a count
+// in the given format, and adjusts the count on click/scroll.
+// This module exemplifies the event-based architecture of barista.
+type Module struct {
+	count  base.Value // of int
+	format base.Value // of string
 }
 
 // New constructs a new counter module.
-func New(format string) bar.Module {
-	return &module{
-		count:  0,
-		format: format,
-	}
+func New(format string) *Module {
+	m := &Module{}
+	m.count.Set(0)
+	m.format.Set(format)
+	return m
 }
 
-func (m *module) Stream() <-chan bar.Output {
-	m.Channel = base.NewChannel()
-	m.Output(outputs.Textf(m.format, m.count))
-	return m.Channel
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go m.worker(ch)
+	return ch
 }
 
-func (m *module) Click(e bar.Event) {
+// Click handles clicks on the module output.
+func (m *Module) Click(e bar.Event) {
+	current := m.count.Get().(int)
 	switch e.Button {
 	case bar.ButtonLeft, bar.ScrollDown, bar.ScrollLeft, bar.ButtonBack:
-		m.count--
+		current--
 	case bar.ButtonRight, bar.ScrollUp, bar.ScrollRight, bar.ButtonForward:
-		m.count++
+		current++
 	}
-	m.Output(outputs.Textf(m.format, m.count))
+	m.count.Set(current)
+}
+
+func (m *Module) worker(ch base.Channel) {
+	count := m.count.Get().(int)
+	sCount := m.count.Subscribe()
+
+	format := m.format.Get().(string)
+	sFormat := m.format.Subscribe()
+
+	for {
+		ch.Output(outputs.Textf(format, count))
+		select {
+		case <-sCount.Tick():
+			count = m.count.Get().(int)
+		case <-sFormat.Tick():
+			format = m.format.Get().(string)
+		}
+	}
 }

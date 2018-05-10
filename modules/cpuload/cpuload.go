@@ -47,29 +47,7 @@ func (l LoadAvg) Min15() float64 {
 
 // Module represents a cpuload bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// RefreshInterval configures the polling frequency for getloadavg.
-	RefreshInterval(time.Duration) Module
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(LoadAvg) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-
-	// OutputColor configures a module to change the colour of its output based on a
-	// user-defined function. This allows you to set up color thresholds, or even
-	// blend between two colours based on the current load average.
-	OutputColor(func(LoadAvg) bar.Color) Module
-
-	// UrgentWhen configures a module to mark its output as urgent based on a
-	// user-defined function.
-	UrgentWhen(func(LoadAvg) bool) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	scheduler bar.Scheduler
 	format    base.Value
@@ -92,27 +70,29 @@ func (f format) output(l LoadAvg) bar.Output {
 	return out
 }
 
-func (m *module) getFormat() format {
+func (m *Module) getFormat() format {
 	return m.format.Get().(format)
 }
 
 // New constructs an instance of the cpuload module.
-func New() Module {
-	m := &module{scheduler: base.Schedule().Every(3 * time.Second)}
+func New() *Module {
+	m := &Module{scheduler: base.Schedule().Every(3 * time.Second)}
 	m.format.Set(format{})
 	// Construct a simple template that's just 2 decimals of the 1-minute load average.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`))
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(LoadAvg) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(LoadAvg) bar.Output) *Module {
 	c := m.getFormat()
 	c.outputFunc = outputFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(l LoadAvg) bar.Output {
 		// TODO: See if there's a way to avoid this.
 		// Go does not agree with me when I say that a func(interface{})
@@ -121,32 +101,39 @@ func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
 	})
 }
 
-func (m *module) RefreshInterval(interval time.Duration) Module {
+// RefreshInterval configures the polling frequency for getloadavg.
+func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	m.scheduler.Every(interval)
 	return m
 }
 
-func (m *module) OutputColor(colorFunc func(LoadAvg) bar.Color) Module {
+// OutputColor configures a module to change the colour of its output based on a
+// user-defined function. This allows you to set up color thresholds, or even
+// blend between two colours based on the current load average.
+func (m *Module) OutputColor(colorFunc func(LoadAvg) bar.Color) *Module {
 	c := m.getFormat()
 	c.colorFunc = colorFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) UrgentWhen(urgentFunc func(LoadAvg) bool) Module {
+// UrgentWhen configures a module to mark its output as urgent based on a
+// user-defined function.
+func (m *Module) UrgentWhen(urgentFunc func(LoadAvg) bool) *Module {
 	c := m.getFormat()
 	c.urgentFunc = urgentFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	var loads LoadAvg
 	count, err := getloadavg(&loads, 3)
 	format := m.getFormat()

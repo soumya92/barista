@@ -39,11 +39,3 @@ func (s *SimpleClickHandler) Click(e bar.Event) {
 		handler(e)
 	}
 }
-
-// SimpleClickHandlerModule is a bar.Module and bar.Clickable that supports
-// setting the click handler via OnClick(func(bar.Event)).
-type SimpleClickHandlerModule interface {
-	bar.Module
-	bar.Clickable
-	OnClick(func(bar.Event))
-}

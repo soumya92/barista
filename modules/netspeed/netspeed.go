@@ -42,22 +42,7 @@ func (s Speeds) Total() unit.Datarate {
 
 // Module represents a netspeed bar module. It supports setting the output
 // format, click handler, and update frequency.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// RefreshInterval configures the polling frequency for network speed.
-	// Since there is no concept of an instantaneous network speed, the speeds will
-	// be averaged over this interval before being displayed.
-	RefreshInterval(time.Duration) Module
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(Speeds) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	iface      string
 	scheduler  bar.Scheduler
@@ -65,8 +50,8 @@ type module struct {
 }
 
 // New constructs an instance of the netspeed module for the given interface.
-func New(iface string) Module {
-	m := &module{
+func New(iface string) *Module {
+	m := &Module{
 		iface:     iface,
 		scheduler: base.Schedule().Every(3 * time.Second),
 	}
@@ -75,23 +60,29 @@ func New(iface string) Module {
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(Speeds) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(Speeds) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(s Speeds) bar.Output {
 		return template(s)
 	})
 }
 
-func (m *module) RefreshInterval(interval time.Duration) Module {
+// RefreshInterval configures the polling frequency for network speed.
+// Since there is no concept of an instantaneous network speed, the speeds will
+// be averaged over this interval before being displayed.
+func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	m.scheduler.Every(interval)
 	return m
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
@@ -100,7 +91,7 @@ func (m *module) Stream() <-chan bar.Output {
 // For tests.
 var linkByName = netlink.LinkByName
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	lastRx, lastTx, err := linkRxTx(m.iface)
 	if ch.Error(err) {
 		return

@@ -62,29 +62,7 @@ func (i Info) AvailPct() int {
 
 // Module represents a diskspace bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// RefreshInterval configures the polling frequency for statfs.
-	RefreshInterval(time.Duration) Module
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(Info) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-
-	// OutputColor configures a module to change the colour of its output based on a
-	// user-defined function. This allows you to set up color thresholds, or even
-	// blend between two colours based on the current disk utilisation.
-	OutputColor(func(Info) bar.Color) Module
-
-	// UrgentWhen configures a module to mark its output as urgent based on a
-	// user-defined function.
-	UrgentWhen(func(Info) bool) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	path      string
 	scheduler bar.Scheduler
@@ -108,13 +86,13 @@ func (f format) output(i Info) bar.Output {
 	return out
 }
 
-func (m *module) getFormat() format {
+func (m *Module) getFormat() format {
 	return m.format.Get().(format)
 }
 
 // New constructs an instance of the diskusage module for the given disk path.
-func New(path string) Module {
-	m := &module{
+func New(path string) *Module {
+	m := &Module{
 		path:      path,
 		scheduler: base.Schedule().Every(3 * time.Second),
 	}
@@ -124,45 +102,54 @@ func New(path string) Module {
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(Info) bar.Output) *Module {
 	c := m.getFormat()
 	c.outputFunc = outputFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
 
-func (m *module) RefreshInterval(interval time.Duration) Module {
+// RefreshInterval configures the polling frequency for statfs.
+func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	m.scheduler.Every(interval)
 	return m
 }
 
-func (m *module) OutputColor(colorFunc func(Info) bar.Color) Module {
+// OutputColor configures a module to change the colour of its output based on a
+// user-defined function. This allows you to set up color thresholds, or even
+// blend between two colours based on the current disk utilisation.
+func (m *Module) OutputColor(colorFunc func(Info) bar.Color) *Module {
 	c := m.getFormat()
 	c.colorFunc = colorFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) UrgentWhen(urgentFunc func(Info) bool) Module {
+// UrgentWhen configures a module to mark its output as urgent based on a
+// user-defined function.
+func (m *Module) UrgentWhen(urgentFunc func(Info) bool) *Module {
 	c := m.getFormat()
 	c.urgentFunc = urgentFunc
 	m.format.Set(c)
 	return m
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	info, err := getStatFsInfo(m.path)
 	format := m.getFormat()
 	sFormat := m.format.Subscribe()

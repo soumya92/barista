@@ -28,26 +28,7 @@ import (
 
 // Module represents a clock bar module. It supports setting the click handler,
 // timezone, output format, and granularity.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	//
-	// The first argument configures the granularity at which the module should refresh.
-	// For example, if the format does not have seconds, it should be time.Minute.
-	//
-	// The module will always update at the next second, minute, hour, etc.,
-	// so large granularities will not negatively affect the output.
-	OutputFunc(time.Duration, func(time.Time) bar.Output) Module
-
-	// OutputFormat configures a module to display the time in a given format.
-	OutputFormat(string) Module
-
-	// Timezone configures the timezone for this clock.
-	Timezone(*time.Location) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	config base.Value
 }
@@ -58,7 +39,7 @@ type config struct {
 	timezone    *time.Location
 }
 
-func (m *module) getConfig() config {
+func (m *Module) getConfig() config {
 	return m.config.Get().(config)
 }
 
@@ -67,8 +48,8 @@ func defaultOutputFunc(now time.Time) bar.Output {
 }
 
 // Zone constructs a clock module for the given timezone.
-func Zone(timezone *time.Location) Module {
-	m := &module{}
+func Zone(timezone *time.Location) *Module {
+	m := &Module{}
 	m.config.Set(config{
 		timezone:    timezone,
 		granularity: time.Minute,
@@ -78,13 +59,13 @@ func Zone(timezone *time.Location) Module {
 }
 
 // Local constructs a clock module for the current machine's timezone.
-func Local() Module {
+func Local() *Module {
 	return Zone(time.Local)
 }
 
 // ZoneByName constructs a clock module for the given zone name,
 // (e.g. "America/Los_Angeles"), and returns any errors.
-func ZoneByName(name string) (Module, error) {
+func ZoneByName(name string) (*Module, error) {
 	tz, err := time.LoadLocation(name)
 	if err != nil {
 		return nil, err
@@ -92,7 +73,17 @@ func ZoneByName(name string) (Module, error) {
 	return Zone(tz), nil
 }
 
-func (m *module) OutputFunc(granularity time.Duration, outputFunc func(time.Time) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+//
+// The first argument configures the granularity at which the module should refresh.
+// For example, if the format does not have seconds, it should be time.Minute.
+//
+// The module will always update at the next second, minute, hour, etc.,
+// so large granularities will not negatively affect the output.
+func (m *Module) OutputFunc(
+	granularity time.Duration,
+	outputFunc func(time.Time) bar.Output,
+) *Module {
 	c := m.getConfig()
 	c.granularity = granularity
 	c.outputFunc = outputFunc
@@ -100,7 +91,8 @@ func (m *module) OutputFunc(granularity time.Duration, outputFunc func(time.Time
 	return m
 }
 
-func (m *module) OutputFormat(format string) Module {
+// OutputFormat configures a module to display the time in a given format.
+func (m *Module) OutputFormat(format string) *Module {
 	granularity := time.Hour
 	switch {
 	case strings.Contains(format, ".000"):
@@ -119,27 +111,22 @@ func (m *module) OutputFormat(format string) Module {
 	})
 }
 
-func (m *module) Timezone(timezone *time.Location) Module {
+// Timezone configures the timezone for this clock.
+func (m *Module) Timezone(timezone *time.Location) *Module {
 	c := m.getConfig()
 	c.timezone = timezone
 	m.config.Set(c)
 	return m
 }
 
-func (m *module) Granularity(granularity time.Duration) Module {
-	c := m.getConfig()
-	c.granularity = granularity
-	m.config.Set(c)
-	return m
-}
-
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	sch := barista.NewScheduler()
 	cfg := m.getConfig()
 	sCfg := m.config.Subscribe()

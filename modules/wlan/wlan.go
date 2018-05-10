@@ -62,48 +62,41 @@ const (
 )
 
 // Module represents a wlan bar module.
-type Module interface {
-	base.SimpleClickHandlerModule
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(Info) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-}
-
-type module struct {
+type Module struct {
 	base.SimpleClickHandler
 	intf       string
 	outputFunc base.Value // of func(Info) bar.Output
 }
 
 // New constructs an instance of the wlan module for the specified interface.
-func New(iface string) Module {
-	m := &module{intf: iface}
+func New(iface string) *Module {
+	m := &Module{intf: iface}
 	// Default output template is just the SSID when connected.
 	m.OutputTemplate(outputs.TextTemplate("{{if .Connected}}{{.SSID}}{{end}}"))
 	return m
 }
 
-func (m *module) OutputFunc(outputFunc func(Info) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(i Info) bar.Output {
 		return template(i)
 	})
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker(ch)
 	return ch
 }
 
-func (m *module) worker(ch base.Channel) {
+func (m *Module) worker(ch base.Channel) {
 	// Initial state.
 	link, err := netlink.LinkByName(m.intf)
 	if ch.Error(err) {
@@ -166,7 +159,7 @@ func (m *module) worker(ch base.Channel) {
 	}
 }
 
-func (m *module) getWifiInfo() (info Info, err error) {
+func (m *Module) getWifiInfo() (info Info, err error) {
 	info.State = Connected
 	info.SSID, _ = m.iwgetid("-r")
 	info.AccessPointMAC, _ = m.iwgetid("-a")
@@ -187,7 +180,7 @@ func (m *module) getWifiInfo() (info Info, err error) {
 	return
 }
 
-func (m *module) iwgetid(flag string) (string, error) {
+func (m *Module) iwgetid(flag string) (string, error) {
 	out, err := exec.Command("/sbin/iwgetid", m.intf, "-r", flag).Output()
 	return strings.TrimSpace(string(out)), err
 }

@@ -60,25 +60,11 @@ type Controller interface {
 	SetVolume(int64)
 }
 
-// Module is the public interface for the volume module.
+// Module represents a bar.Module that displays alsa volume information.
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to control the system volume, and the
 // usual output formatting options.
-type Module interface {
-	bar.Module
-	bar.Clickable
-
-	// OutputFunc configures a module to display the output of a user-defined function.
-	OutputFunc(func(Volume) bar.Output) Module
-
-	// OutputTemplate configures a module to display the output of a template.
-	OutputTemplate(func(interface{}) bar.Output) Module
-
-	// OnClick sets the click handler for a module.
-	OnClick(func(Volume, Controller, bar.Event))
-}
-
-type module struct {
+type Module struct {
 	cardName  string
 	mixerName string
 
@@ -93,8 +79,8 @@ type module struct {
 
 // Mixer constructs an instance of the volume module for a
 // specific card and mixer on that card.
-func Mixer(card, mixer string) Module {
-	m := &module{cardName: card, mixerName: mixer}
+func Mixer(card, mixer string) *Module {
+	m := &Module{cardName: card, mixerName: mixer}
 	m.OnClick(DefaultClickHandler)
 	// Default output template is just the volume %, "MUT" when muted.
 	m.OutputTemplate(outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`))
@@ -102,11 +88,13 @@ func Mixer(card, mixer string) Module {
 }
 
 // DefaultMixer constructs an instance of the volume module for the default mixer.
-func DefaultMixer() Module {
+func DefaultMixer() *Module {
 	return Mixer("default", "Master")
 }
 
-func (m *module) SetVolume(newVol int64) {
+// SetVolume sets the system volume.
+// It does not change the mute status.
+func (m *Module) SetVolume(newVol int64) {
 	vol, _ := m.currentVolume.Get()
 	if vol == nil {
 		return
@@ -123,7 +111,8 @@ func (m *module) SetVolume(newVol int64) {
 	m.currentVolume.Set(v)
 }
 
-func (m *module) SetMuted(muted bool) {
+// SetMuted controls whether the system volume is muted.
+func (m *Module) SetMuted(muted bool) {
 	vol, _ := m.currentVolume.Get()
 	if vol == nil {
 		return
@@ -138,27 +127,31 @@ func (m *module) SetMuted(muted bool) {
 	m.currentVolume.Set(v)
 }
 
-func (m *module) OutputFunc(outputFunc func(Volume) bar.Output) Module {
+// OutputFunc configures a module to display the output of a user-defined function.
+func (m *Module) OutputFunc(outputFunc func(Volume) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-func (m *module) OutputTemplate(template func(interface{}) bar.Output) Module {
+// OutputTemplate configures a module to display the output of a template.
+func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 	return m.OutputFunc(func(v Volume) bar.Output {
 		return template(v)
 	})
 }
 
-func (m *module) OnClick(f func(Volume, Controller, bar.Event)) {
+// OnClick sets the click handler for the module.
+func (m *Module) OnClick(f func(Volume, Controller, bar.Event)) {
 	if f == nil {
 		f = func(v Volume, c Controller, e bar.Event) {}
 	}
 	m.clickHandler.Set(f)
 }
 
-func (m *module) Click(e bar.Event) {
+// Click handles click events on the module's output.
+func (m *Module) Click(e bar.Event) {
 	handler := m.clickHandler.Get().(func(Volume, Controller, bar.Event))
-	if vol, err := m.currentVolume.Get(); err == nil {
+	if vol, _ := m.currentVolume.Get(); vol != nil {
 		handler(vol.(Volume), m, e)
 	}
 }
@@ -191,7 +184,8 @@ func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
 	}
 }
 
-func (m *module) Stream() <-chan bar.Output {
+// Stream starts the module.
+func (m *Module) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	go m.worker()
 	go m.outputLoop(ch)
@@ -199,7 +193,7 @@ func (m *module) Stream() <-chan bar.Output {
 }
 
 // worker waits for signals from alsa and updates the stored volume.
-func (m *module) worker() {
+func (m *Module) worker() {
 	cardName := C.CString(m.cardName)
 	defer C.free(unsafe.Pointer(cardName))
 	mixerName := C.CString(m.mixerName)
@@ -262,7 +256,7 @@ func (m *module) worker() {
 
 // outputLoop listens for updates to the volume, as well as the output function,
 // and updates the module output.
-func (m *module) outputLoop(ch base.Channel) {
+func (m *Module) outputLoop(ch base.Channel) {
 	v, err := m.currentVolume.Get()
 	sVol := m.currentVolume.Subscribe()
 
