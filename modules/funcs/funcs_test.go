@@ -55,6 +55,31 @@ func TestOneShot(t *testing.T) {
 		"Function is never called again")
 }
 
+func TestOnClick(t *testing.T) {
+	testBar.New(t)
+	assert := assert.New(t)
+	atomic.StoreInt64(&count, 0)
+
+	module := OnClick(doFunc)
+	assert.Equal(int64(0), atomic.LoadInt64(&count),
+		"Function isn't called until module starts streaming")
+
+	testBar.Run(module)
+	testBar.NextOutput().AssertText(
+		[]string{"1"}, "Function called when streaming")
+	testBar.AssertNoOutput("Function is not called again")
+	testBar.Tick()
+	testBar.AssertNoOutput("Function is not called again")
+
+	testBar.Click(0)
+	testBar.NextOutput().AssertText(
+		[]string{"2"}, "Function called again on click")
+
+	testBar.Click(0)
+	testBar.NextOutput().AssertText(
+		[]string{"3"}, "Function called again on click")
+}
+
 func TestRepeated(t *testing.T) {
 	assert := assert.New(t)
 	testBar.New(t)

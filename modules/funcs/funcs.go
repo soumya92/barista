@@ -62,6 +62,28 @@ func (o *once) Stream() <-chan bar.Output {
 	return ch
 }
 
+// OnClick constructs a bar module that runs the given function
+// when clicked. The function is given a Channel to allow
+// multiple outputs (e.g. Loading... Done), and when the function
+// returns, the next click will call it again.
+func OnClick(f Func) bar.Module {
+	return onclick(f)
+}
+
+type onclick Func
+
+func (o onclick) Stream() <-chan bar.Output {
+	ch := base.NewChannel()
+	go func() {
+		wrappedCh := &channel{Channel: ch}
+		o(wrappedCh)
+		if !wrappedCh.finished {
+			close(ch)
+		}
+	}()
+	return ch
+}
+
 // Every constructs a bar module that repeatedly runs the given function.
 // Useful if the function needs to poll a resource for output.
 func Every(d time.Duration, f Func) base.SimpleClickHandlerModule {
