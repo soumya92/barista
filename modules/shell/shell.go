@@ -97,6 +97,14 @@ func Once(cmd string, args ...string) *funcs.OnceModule {
 	})
 }
 
+// OnClick constructs a module that displays the output of the given
+// command in the bar, and refreshes the output on click.
+func OnClick(cmd string, args ...string) bar.Module {
+	return funcs.OnClick(func(ch funcs.Channel) {
+		commandOutput(ch, cmd, args...)
+	})
+}
+
 // commandOutput runs the command and sends the output or error to the channel.
 func commandOutput(ch funcs.Channel, cmd string, args ...string) {
 	out, err := exec.Command(cmd, args...).Output()

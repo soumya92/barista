@@ -92,3 +92,13 @@ func TestOnce(t *testing.T) {
 	testBar.NextOutput().AssertError("when starting an invalid command")
 	testBar.AssertNoOutput("after the first output")
 }
+
+func TestOnClick(t *testing.T) {
+	testBar.New(t)
+	testBar.Run(OnClick("echo", "foo"))
+	testBar.NextOutput().AssertText([]string{"foo"}, "on start")
+	testBar.AssertNoOutput("after the first output")
+	testBar.Click(0)
+	testBar.NextOutput().AssertText([]string{"foo"}, "on click")
+	testBar.AssertNoOutput("after the next output")
+}
