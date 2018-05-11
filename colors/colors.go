@@ -17,42 +17,27 @@ package colors
 
 import (
 	"bufio"
+	"image/color"
 	"strings"
 
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/spf13/afero"
-
-	"github.com/soumya92/barista/bar"
 )
 
 // Hex sanity-checks and constructs a color from a hex-string.
 // Any string that can be parsed by colorful is acceptable.
-func Hex(hex string) bar.Color {
+func Hex(hex string) color.Color {
 	c, err := colorful.Hex(hex)
 	if err != nil {
-		return Empty()
+		return nil
 	}
-	return Colorful(c)
-}
-
-// Colorful constructs an i3 color from a colorful color.
-func Colorful(c colorful.Color) bar.Color {
-	return bar.Color(c.Hex())
+	return c
 }
 
 // Scheme gets a color from the user-defined color scheme.
 // Some common names are 'good', 'bad', and 'degraded'.
-func Scheme(name string) bar.Color {
-	color, ok := scheme[name]
-	if !ok {
-		return Empty()
-	}
-	return color
-}
-
-// Empty returns an "empty" color, which will not be sent to i3.
-func Empty() bar.Color {
-	return bar.Color("")
+func Scheme(name string) color.Color {
+	return scheme[name]
 }
 
 // scheme holds the mapping of "name" to colour values.
@@ -60,7 +45,7 @@ func Empty() bar.Color {
 // by using the commonly accepted names "good", "bad", and "degraded".
 // Bar authors can also define arbitrary names, e.g. to load XResource based colours
 // from i3 using the "LoadFromArgs" method.
-var scheme = map[string]bar.Color{}
+var scheme = map[string]color.Color{}
 
 func splitAtLastEqual(s string) (string, string, bool) {
 	idx := strings.LastIndex(s, "=")
@@ -74,7 +59,7 @@ func splitAtLastEqual(s string) (string, string, bool) {
 func LoadFromArgs(args []string) {
 	for _, arg := range args {
 		if name, value, ok := splitAtLastEqual(arg); ok {
-			if color := Hex(value); color != "" {
+			if color := Hex(value); color != nil {
 				scheme[name] = color
 			}
 		}
@@ -84,7 +69,7 @@ func LoadFromArgs(args []string) {
 // LoadFromMap sets the colour scheme from code.
 func LoadFromMap(s map[string]string) {
 	for name, value := range s {
-		if color := Hex(value); color != "" {
+		if color := Hex(value); color != nil {
 			scheme[name] = color
 		}
 	}
@@ -118,7 +103,7 @@ func LoadFromConfig(filename string) error {
 		} else if value[0] == '\'' && value[len(value)-1] == '\'' {
 			value = value[1 : len(value)-1]
 		}
-		if color := Hex(value); color != "" {
+		if color := Hex(value); color != nil {
 			scheme[name] = color
 		}
 	}

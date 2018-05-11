@@ -15,6 +15,7 @@
 package outputs
 
 import (
+	"image/color"
 	"math"
 
 	"github.com/soumya92/barista/bar"
@@ -39,9 +40,9 @@ type groupData struct {
 	// To support addition of segments after construction, store
 	// attributes on the group, and apply them in Segments().
 	attrSet        int
-	color          bar.Color
-	background     bar.Color
-	border         bar.Color
+	color          color.Color
+	background     color.Color
+	border         color.Color
 	minWidth       int
 	align          bar.TextAlignment
 	urgent         bool
@@ -66,19 +67,19 @@ func newSegmentGroup() SegmentGroup {
 }
 
 // Color sets the color for all segments in the group.
-func (g SegmentGroup) Color(color bar.Color) SegmentGroup {
+func (g SegmentGroup) Color(color color.Color) SegmentGroup {
 	g.color = color
 	return g
 }
 
 // Background sets the background color for all segments in the group.
-func (g SegmentGroup) Background(background bar.Color) SegmentGroup {
+func (g SegmentGroup) Background(background color.Color) SegmentGroup {
 	g.background = background
 	return g
 }
 
 // Border sets the border color for all segments in the group.
-func (g SegmentGroup) Border(border bar.Color) SegmentGroup {
+func (g SegmentGroup) Border(border color.Color) SegmentGroup {
 	g.border = border
 	return g
 }
@@ -195,13 +196,13 @@ func (g SegmentGroup) Segments() []bar.Segment {
 				remainingWidth = remainingWidth - myWidth
 			}
 		}
-		if !isSet(s.GetColor()) && g.color != "" {
+		if !isSet(s.GetColor()) && g.color != nil {
 			c.Color(g.color)
 		}
-		if !isSet(s.GetBackground()) && g.background != "" {
+		if !isSet(s.GetBackground()) && g.background != nil {
 			c.Background(g.background)
 		}
-		if !isSet(s.GetBorder()) && g.border != "" {
+		if !isSet(s.GetBorder()) && g.border != nil {
 			c.Border(g.border)
 		}
 		if !isSet(s.GetAlignment()) && g.align != "" {

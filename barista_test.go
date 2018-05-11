@@ -17,6 +17,7 @@ package barista
 import (
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"os"
 	"os/signal"
 	"testing"
@@ -504,23 +505,24 @@ func TestI3Map(t *testing.T) {
 	a.Expected["short_text"] = "t"
 	a.AssertEqual("mutates in place")
 
-	segment.Color(bar.Color("red"))
-	a.Expected["color"] = "red"
+	segment.Color(color.RGBA{0xff, 0x00, 0x00, 0xff})
+	a.Expected["color"] = "#ff0000"
 	a.AssertEqual("sets color value")
 
-	segment.Color(bar.Color(""))
+	segment.Color(nil)
 	delete(a.Expected, "color")
 	a.AssertEqual("clears color value when blank")
 
-	segment.Background(bar.Color(""))
+	segment.Background(nil)
 	a.AssertEqual("clearing unset color works")
 
-	segment.Background(bar.Color("green"))
-	a.Expected["background"] = "green"
+	segment.Background(color.RGBA{0x00, 0x77, 0x00, 0x77})
+	a.Expected["background"] = "#00ff00"
 	a.AssertEqual("sets background color")
 
-	segment.Border(bar.Color("yellow"))
-	a.Expected["border"] = "yellow"
+	segment.Border(color.Transparent)
+	// i3 doesn't support alpha in colours yet.
+	a.Expected["border"] = "#000000"
 	a.AssertEqual("sets border color")
 
 	segment.Align(bar.AlignStart)

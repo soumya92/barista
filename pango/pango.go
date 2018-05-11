@@ -46,8 +46,8 @@ type Node interface {
 }
 
 // Attribute represents a pango attribute name and value.
-type Attribute interface {
-	PangoAttr() (name string, value string)
+type Attribute struct {
+	Name, Value string
 }
 
 // element represents a generic element.
@@ -69,11 +69,10 @@ func (e *element) Pango() string {
 		out.WriteString("<")
 		out.WriteString(e.tagName)
 		for _, attr := range e.attributes {
-			attrName, attrVal := attr.PangoAttr()
 			out.WriteString(" ")
-			out.WriteString(attrName)
+			out.WriteString(attr.Name)
 			out.WriteString("='")
-			out.WriteString(html.EscapeString(attrVal))
+			out.WriteString(html.EscapeString(attr.Value))
 			out.WriteString("'")
 		}
 		out.WriteString(">")
@@ -118,6 +117,8 @@ func Tag(tagName string, things ...interface{}) Node {
 		switch thing := thing.(type) {
 		case Attribute:
 			e.attributes = append(e.attributes, thing)
+		case []Attribute: // To support color attributes that also set alpha.
+			e.attributes = append(e.attributes, thing...)
 		case Node:
 			e.children = append(e.children, thing)
 		default:

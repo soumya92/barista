@@ -16,13 +16,14 @@ package cpuload
 
 import (
 	"errors"
+	"image/color"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchrcom/testify/assert"
 
-	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/scheduler"
 	testBar "github.com/soumya92/barista/testing/bar"
@@ -94,17 +95,17 @@ func TestCpuload(t *testing.T) {
 		outputs.Text("2.00").Urgent(true),
 		"on urgent function change")
 
-	load.OutputColor(func(l LoadAvg) bar.Color {
-		return bar.Color("red")
+	load.OutputColor(func(l LoadAvg) color.Color {
+		return colors.Hex("#f00")
 	})
 	testBar.NextOutput().AssertEqual(
-		outputs.Text("2.00").Urgent(true).Color(bar.Color("red")),
+		outputs.Text("2.00").Urgent(true).Color(colors.Hex("#f00")),
 		"on color function change")
 
 	shouldReturn(0, 0, 0)
 	testBar.Tick()
 	testBar.NextOutput().AssertEqual(
-		outputs.Text("0.00").Urgent(false).Color(bar.Color("red")),
+		outputs.Text("0.00").Urgent(false).Color(colors.Hex("#f00")),
 		"on next tick")
 
 	load.RefreshInterval(time.Minute)

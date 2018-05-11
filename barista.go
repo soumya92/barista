@@ -17,6 +17,7 @@ package barista
 import (
 	"bufio"
 	"encoding/json"
+	"image/color"
 	"io"
 	"os"
 	"os/signal"
@@ -25,6 +26,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/sys/unix"
 
 	"github.com/soumya92/barista/bar"
@@ -280,6 +282,14 @@ func (b *i3Bar) addModule(module bar.Module) {
 	b.i3Modules = append(b.i3Modules, &i3Module)
 }
 
+func colorString(c color.Color) string {
+	_, _, _, a := c.RGBA()
+	if a == 0 {
+		return "#000000"
+	}
+	return colorful.MakeColor(c).Hex()
+}
+
 // i3map serialises the attributes of the Segment in
 // the format used by i3bar.
 func i3map(s bar.Segment) map[string]interface{} {
@@ -289,13 +299,13 @@ func i3map(s bar.Segment) map[string]interface{} {
 		i3map["short_text"] = shortText
 	}
 	if color, ok := s.GetColor(); ok {
-		i3map["color"] = color
+		i3map["color"] = colorString(color)
 	}
 	if background, ok := s.GetBackground(); ok {
-		i3map["background"] = background
+		i3map["background"] = colorString(background)
 	}
 	if border, ok := s.GetBorder(); ok {
-		i3map["border"] = border
+		i3map["border"] = colorString(border)
 	}
 	if minWidth, ok := s.GetMinWidth(); ok {
 		i3map["min_width"] = minWidth

@@ -15,45 +15,52 @@
 package colors
 
 import (
+	"image/color"
 	"testing"
 
-	"github.com/lucasb-eyer/go-colorful"
 	"github.com/spf13/afero"
 	"github.com/stretchrcom/testify/assert"
-
-	"github.com/soumya92/barista/bar"
 )
+
+func assertColorEquals(t *testing.T, expected, actual color.Color, args ...interface{}) {
+	if expected == nil {
+		assert.Nil(t, actual, args...)
+		return
+	}
+	var e, a struct{ r, g, b, a uint32 }
+	e.r, e.g, e.b, e.a = expected.RGBA()
+	a.r, a.g, a.b, a.a = actual.RGBA()
+	assert.Equal(t, e, a, args...)
+}
 
 func TestCreation(t *testing.T) {
 	scheme["test"] = Hex("#abcdef")
-	scheme["empty"] = Empty()
+	scheme["empty"] = nil
 
 	creationTests := []struct {
 		desc     string
-		color    bar.Color
-		expected string
+		color    color.Color
+		expected color.Color
 	}{
-		{"empty color", Empty(), ""},
-		{"simple hex color", Hex("#001122"), "#001122"},
-		{"short hex color", Hex("#07f"), "#0077ff"},
-		{"invalid hex color", Hex("#ghi"), ""},
-		{"colorful color from RGB", Colorful(colorful.Color{R: 1, G: 0.5, B: 0}), "#ff8000"},
-		{"scheme empty", Scheme("empty"), ""},
-		{"scheme color", Scheme("test"), "#abcdef"},
-		{"scheme non-existent", Scheme("undefined"), ""},
+		{"simple hex color", Hex("#001122"), color.RGBA{0x00, 0x11, 0x22, 0xff}},
+		{"short hex color", Hex("#07f"), color.RGBA{0x00, 0x77, 0xff, 0xff}},
+		{"invalid hex color", Hex("#ghi"), nil},
+		{"scheme empty", Scheme("empty"), nil},
+		{"scheme color", Scheme("test"), color.RGBA{0xab, 0xcd, 0xef, 0xff}},
+		{"scheme non-existent", Scheme("undefined"), nil},
 	}
 
 	for _, tc := range creationTests {
-		assert.Equal(t, tc.expected, string(tc.color), tc.desc)
+		assertColorEquals(t, tc.expected, tc.color, tc.desc)
 	}
 }
 
-func assertSchemeEquals(t *testing.T, expected map[string]string, desc string) {
+func assertSchemeEquals(t *testing.T, expected map[string]color.Color, desc string) {
 	for name, expectedValue := range expected {
-		assert.Equal(t, expectedValue, string(Scheme(name)), desc)
+		assertColorEquals(t, expectedValue, Scheme(name), desc)
 	}
 	for name, value := range scheme {
-		assert.Equal(t, expected[name], string(value), desc)
+		assertColorEquals(t, expected[name], value, desc)
 	}
 }
 
@@ -68,7 +75,7 @@ func TestLoadFromArgs(t *testing.T) {
 	}
 
 	for _, tc := range emptySchemeTests {
-		scheme = map[string]bar.Color{}
+		scheme = map[string]color.Color{}
 		LoadFromArgs(tc.args)
 		assert.Empty(t, scheme, tc.desc)
 	}
@@ -76,27 +83,32 @@ func TestLoadFromArgs(t *testing.T) {
 	schemeTests := []struct {
 		desc     string
 		args     []string
-		expected map[string]string
+		expected map[string]color.Color
 	}{
 		{
 			"simple arg",
 			[]string{"color1=#ff0000"},
-			map[string]string{"color1": "#ff0000"},
+			map[string]color.Color{"color1": Hex("#ff0000")},
 		},
 		{
 			"multiple args",
 			[]string{"color1=#abcdef", "color2=#00ff00"},
-			map[string]string{"color1": "#abcdef", "color2": "#00ff00"},
+			map[string]color.Color{"color1": Hex("#abcdef"), "color2": Hex("#00ff00")},
 		},
 		{
 			"mixed args",
 			[]string{"color1=#abc", "color2=#00ff00", "color3=invalid"},
-			map[string]string{"color1": "#aabbcc", "color2": "#00ff00"},
+			map[string]color.Color{"color1": Hex("#aabbcc"), "color2": Hex("#00ff00")},
+		},
+		{
+			"non-color args",
+			[]string{"color1=#abc", "--debugmode", "--logtofile=/var/log/bar"},
+			map[string]color.Color{"color1": Hex("#aabbcc")},
 		},
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]bar.Color{}
+		scheme = map[string]color.Color{}
 		LoadFromArgs(tc.args)
 		assertSchemeEquals(t, tc.expected, tc.desc)
 	}
@@ -106,33 +118,39 @@ func TestLoadFromMap(t *testing.T) {
 	schemeTests := []struct {
 		desc     string
 		args     map[string]string
-		expected map[string]string
+		expected map[string]color.Color
 	}{
-		{"empty args", map[string]string{}, map[string]string{}},
+		{"empty args", map[string]string{}, map[string]color.Color{}},
 		{
 			"simple arg",
 			map[string]string{"color1": "#ff0000"},
-			map[string]string{"color1": "#ff0000"},
+			map[string]color.Color{"color1": Hex("#ff0000")},
 		},
 		{
 			"multiple args",
 			map[string]string{"color1": "#abcdef", "color2": "#00ff00"},
-			map[string]string{"color1": "#abcdef", "color2": "#00ff00"},
+			map[string]color.Color{
+				"color1": color.RGBA{0xab, 0xcd, 0xef, 0xff},
+				"color2": color.RGBA{0x00, 0xff, 0x00, 0xff},
+			},
 		},
 		{
 			"invalid args",
 			map[string]string{"color": "invalid", "other": "#ghi", "invalid": "vkdl32"},
-			map[string]string{},
+			map[string]color.Color{},
 		},
 		{
 			"mixed args",
 			map[string]string{"color1": "#abc", "color2": "#00ff00", "color3": "invalid"},
-			map[string]string{"color1": "#aabbcc", "color2": "#00ff00"},
+			map[string]color.Color{
+				"color1": color.RGBA{0xaa, 0xbb, 0xcc, 0xff},
+				"color2": color.RGBA{0x00, 0xff, 0x00, 0xff},
+			},
 		},
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]bar.Color{}
+		scheme = map[string]color.Color{}
 		LoadFromMap(tc.args)
 		assertSchemeEquals(t, tc.expected, tc.desc)
 	}
@@ -181,21 +199,21 @@ general {
 
 	schemeTests := []struct {
 		file     string
-		expected map[string]string
+		expected map[string]color.Color
 	}{
-		{"empty", map[string]string{}},
-		{"no-colors", map[string]string{}},
-		{"simple", map[string]string{"good": "#007700"}},
-		{"mixed", map[string]string{
-			"good": "#007700",
-			"bad":  "#ff0000",
-			"1":    "#0000ff",
-			"2":    "#abcdef",
+		{"empty", map[string]color.Color{}},
+		{"no-colors", map[string]color.Color{}},
+		{"simple", map[string]color.Color{"good": Hex("#007700")}},
+		{"mixed", map[string]color.Color{
+			"good": Hex("#007700"),
+			"bad":  Hex("#ff0000"),
+			"1":    Hex("#0000ff"),
+			"2":    Hex("#abcdef"),
 		}},
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]bar.Color{}
+		scheme = map[string]color.Color{}
 		err := LoadFromConfig(tc.file)
 		assert.Nil(t, err)
 		assertSchemeEquals(t, tc.expected, tc.file)

@@ -15,10 +15,18 @@
 package bar
 
 import (
+	"image/color"
 	"testing"
 
 	"github.com/stretchrcom/testify/assert"
 )
+
+func assertColorEqual(t *testing.T, expected, actual color.Color, args ...interface{}) {
+	var e, a struct{ r, g, b, a uint32 }
+	e.r, e.g, e.b, e.a = expected.RGBA()
+	a.r, a.g, a.b, a.a = actual.RGBA()
+	assert.Equal(t, e, a, args...)
+}
 
 func TestSegment(t *testing.T) {
 	assert := assert.New(t)
@@ -64,14 +72,17 @@ func TestSegment(t *testing.T) {
 	segment.ShortText("")
 	assert.Equal("", assertSet(segment.GetShortText()))
 
-	segment.Color(Color("red"))
-	assert.Equal(Color("red"), assertSet(segment.GetColor()))
+	segment.Color(color.Gray{0x77})
+	assertColorEqual(t, color.RGBA{0x77, 0x77, 0x77, 0xff},
+		assertSet(segment.GetColor()).(color.Color))
 
-	segment.Background(Color("green"))
-	assert.Equal(Color("green"), assertSet(segment.GetBackground()))
+	segment.Background(color.RGBA{0x00, 0xff, 0x00, 0xff})
+	assertColorEqual(t, color.RGBA{0x00, 0xff, 0x00, 0xff},
+		assertSet(segment.GetBackground()).(color.Color))
 
-	segment.Border(Color("yellow"))
-	assert.Equal(Color("yellow"), assertSet(segment.GetBorder()))
+	segment.Border(color.Transparent)
+	assertColorEqual(t, color.RGBA{0, 0, 0, 0},
+		assertSet(segment.GetBorder()).(color.Color))
 
 	segment.Urgent(true)
 	assert.True(assertSet(segment.IsUrgent()).(bool))
@@ -111,14 +122,14 @@ func TestClone(t *testing.T) {
 	b := a.Clone()
 
 	assert.Equal(a, b, "copied values are the same")
-	c := b.Background(Color("green"))
+	c := b.Background(color.White)
 
 	assert.NotEqual(a, b, "changes to b not reflected in a")
 	_, isSet := a.GetBackground()
 	assert.False(isSet)
 	bg, isSet := b.GetBackground()
 	assert.True(isSet)
-	assert.Equal(Color("green"), bg)
+	assertColorEqual(t, color.Gray{0xff}, bg)
 
 	c.ShortText("short")
 	assert.Equal(b, c, "chained methods still return same segment")

@@ -15,7 +15,10 @@
 // Package bar allows a user to create a go binary that follows the i3bar protocol.
 package bar
 
-import "time"
+import (
+	"image/color"
+	"time"
+)
 
 // TextAlignment defines the alignment of text within a block.
 // Using TextAlignment rather than string opens up the possibility of i18n without
@@ -30,9 +33,6 @@ const (
 	// AlignEnd aligns text to the end of the module, which is right for LTR languages.
 	AlignEnd = TextAlignment("right")
 )
-
-// Color represents a color string that will be handled by i3.
-type Color string
 
 /*
 Segment is a single "block" of output that conforms to the i3bar protocol.
@@ -68,9 +68,9 @@ type data struct {
 	shortText string
 	markup    string
 
-	color      Color
-	background Color
-	border     Color
+	color      color.Color
+	background color.Color
+	border     color.Color
 
 	// Minimum width can be specified as either a numeric pixel value
 	// or a string placeholder value. The unexported field is interface{}

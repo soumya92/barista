@@ -16,6 +16,7 @@ package cputemp
 
 import (
 	"fmt"
+	"image/color"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchrcom/testify/assert"
 
-	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 )
@@ -68,9 +69,9 @@ func TestCputemp(t *testing.T) {
 	urgent, _ := out.At(0).Segment().IsUrgent()
 	assert.True(t, urgent, "on urgent func change")
 
-	red := bar.Color("red")
-	green := bar.Color("green")
-	temp1.OutputColor(func(t unit.Temperature) bar.Color {
+	red := colors.Hex("#f00")
+	green := colors.Hex("#070")
+	temp1.OutputColor(func(t unit.Temperature) color.Color {
 		if t.Celsius() > 20 {
 			return red
 		}

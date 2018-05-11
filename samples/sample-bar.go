@@ -17,6 +17,7 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"os/exec"
 	"os/user"
 	"path/filepath"
@@ -89,7 +90,7 @@ func mediaFormatFunc(m media.Info) bar.Output {
 			formatMediaTime(m.Length),
 		)
 	} else {
-		iconAndPosition = fontawesome.Icon("music", colors.Hex("#f70"))
+		iconAndPosition = fontawesome.Icon("music", pango.Color(colors.Hex("#f70"))...)
 	}
 	return outputs.Pango(iconAndPosition, spacer, title, " - ", artist)
 }
@@ -125,9 +126,9 @@ func main() {
 	localtime := clock.Local().
 		OutputFunc(time.Second, func(now time.Time) bar.Output {
 			return outputs.Pango(
-				material.Icon("today", colors.Scheme("dim-icon")),
+				material.Icon("today", pango.Color(colors.Scheme("dim-icon"))...),
 				now.Format("Mon Jan 2 "),
-				material.Icon("access-time", colors.Scheme("dim-icon")),
+				material.Icon("access-time", pango.Color(colors.Scheme("dim-icon"))...),
 				now.Format("15:04:05"),
 			)
 		})
@@ -249,14 +250,14 @@ func main() {
 		UrgentWhen(func(temp unit.Temperature) bool {
 			return temp.Celsius() > 90
 		}).
-		OutputColor(func(temp unit.Temperature) bar.Color {
+		OutputColor(func(temp unit.Temperature) color.Color {
 			switch {
 			case temp.Celsius() > 70:
 				return colors.Scheme("bad")
 			case temp.Celsius() > 60:
 				return colors.Scheme("degraded")
 			default:
-				return colors.Empty()
+				return nil
 			}
 		}).
 		OutputFunc(func(temp unit.Temperature) bar.Output {

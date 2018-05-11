@@ -17,6 +17,7 @@ package battery
 import (
 	"bytes"
 	"fmt"
+	"image/color"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 )
@@ -186,8 +188,8 @@ func TestSimple(t *testing.T) {
 		OutputTemplate(outputs.TextTemplate(`{{.Status}}`))
 
 	bat1 := New("BAT1").
-		OutputColor(func(i Info) bar.Color {
-			return bar.Color("#ff0000")
+		OutputColor(func(i Info) color.Color {
+			return colors.Hex("#ff0000")
 		})
 
 	bat2 := New("BAT2").
@@ -200,7 +202,7 @@ func TestSimple(t *testing.T) {
 
 	testBar.LatestOutput().AssertEqual(outputs.Group(
 		outputs.Text("Charging").Urgent(false),
-		outputs.Text("BATT 100%").Color(bar.Color("#ff0000")),
+		outputs.Text("BATT 100%").Color(colors.Hex("#ff0000")),
 		outputs.Text("NiCd").Urgent(false),
 	), "on start")
 
@@ -227,7 +229,7 @@ func TestSimple(t *testing.T) {
 
 	bat1.OutputTemplate(outputs.TextTemplate(`{{.Capacity}}`))
 	testBar.NextOutput().At(1).AssertEqual(
-		bar.TextSegment("100").Color(bar.Color("#ff0000")),
+		bar.TextSegment("100").Color(colors.Hex("#ff0000")),
 		"when output template changes")
 
 	bat1.OutputColor(nil)

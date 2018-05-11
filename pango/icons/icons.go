@@ -69,13 +69,11 @@ func (p *Provider) Icon(name string, style ...pango.Attribute) pango.Node {
 	things := []interface{}{symbol}
 	overrides := make(map[string]bool)
 	for _, attr := range style {
-		attrName, _ := attr.PangoAttr()
 		things = append(things, attr)
-		overrides[attrName] = true
+		overrides[attr.Name] = true
 	}
 	for _, attr := range p.attrs {
-		attrName, _ := attr.PangoAttr()
-		if !overrides[attrName] {
+		if !overrides[attr.Name] {
 			things = append(things, attr)
 		}
 	}

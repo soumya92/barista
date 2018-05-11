@@ -16,214 +16,135 @@ package pango
 
 import (
 	"fmt"
+	"image/color"
 
-	"github.com/soumya92/barista/bar"
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 // Font sets the font face.
-type Font string
-
-// PangoAttr returns the font as a pango 'face' value.
-func (f Font) PangoAttr() (string, string) {
-	return "face", string(f)
+func Font(face string) Attribute {
+	return Attribute{"face", face}
 }
 
 // Size sets the font size, in points.
-type Size float64
-
-// PangoAttr returns the font size as a pango 'size' value.
-func (s Size) PangoAttr() (string, string) {
+func Size(size float64) Attribute {
 	// Pango size is 1/1024ths of a point.
-	return "size", fmt.Sprintf("%d", int(float64(s)*1024))
+	return Attribute{"size", fmt.Sprintf("%d", int(size*1024))}
 }
-
-type size string
 
 // Keyword sizes supported in Pango.
 var (
-	XXSmall Attribute = size("xx-small")
-	XSmall            = size("x-small")
-	Small             = size("small")
-	Medium            = size("medium")
-	Large             = size("large")
-	XLarge            = size("x-large")
-	XXLarge           = size("xx-large")
+	XXSmall = Attribute{"size", "xx-small"}
+	XSmall  = Attribute{"size", "x-small"}
+	Small   = Attribute{"size", "small"}
+	Medium  = Attribute{"size", "medium"}
+	Large   = Attribute{"size", "large"}
+	XLarge  = Attribute{"size", "x-large"}
+	XXLarge = Attribute{"size", "xx-large"}
 
-	Smaller = size("smaller")
-	Larger  = size("larger")
+	Smaller = Attribute{"size", "smaller"}
+	Larger  = Attribute{"size", "larger"}
 )
-
-// PangoAttr returns the font size as a pango 'size' keyword value.
-func (s size) PangoAttr() (string, string) {
-	return "size", string(s)
-}
-
-type style string
 
 // Font styles supported in Pango.
 var (
-	StyleNormal Attribute = style("normal")
-	Oblique               = style("oblique")
-	Italic                = style("italic")
+	StyleNormal = Attribute{"style", "normal"}
+	Oblique     = Attribute{"style", "oblique"}
+	Italic      = Attribute{"style", "italic"}
 )
 
-// PangoAttr returns the font as a pango 'style' value.
-func (s style) PangoAttr() (string, string) {
-	return "style", string(s)
-}
-
 // Weight sets the font weight in numeric form.
-type Weight int
-
-// PangoAttr returns the weight as a pango 'weight' value.
-func (w Weight) PangoAttr() (string, string) {
-	return "weight", fmt.Sprintf("%d", w)
+func Weight(weight int) Attribute {
+	return Attribute{"weight", fmt.Sprintf("%d", weight)}
 }
-
-type weight string
 
 // Keyword weights supported in Pango.
 var (
-	Ultralight   Attribute = weight("ultralight")
-	Light                  = weight("light")
-	WeightNormal           = weight("normal")
-	Bold                   = weight("bold")
-	UltraBold              = weight("ultrabold")
-	Heavy                  = weight("heavy")
+	Ultralight   = Attribute{"weight", "ultralight"}
+	Light        = Attribute{"weight", "light"}
+	WeightNormal = Attribute{"weight", "normal"}
+	Bold         = Attribute{"weight", "bold"}
+	UltraBold    = Attribute{"weight", "ultrabold"}
+	Heavy        = Attribute{"weight", "heavy"}
 )
-
-// PangoAttr returns the weight as a pango 'weight' value.
-func (w weight) PangoAttr() (string, string) {
-	return "weight", string(w)
-}
-
-type variant string
 
 // Pango font variants.
 var (
-	VariantNormal Attribute = variant("normal")
-	SmallCaps               = variant("smallcaps")
+	VariantNormal = Attribute{"variant", "normal"}
+	SmallCaps     = Attribute{"variant", "smallcaps"}
 )
-
-// PangoAttr returns the variant as a pango 'variant' value.
-func (v variant) PangoAttr() (string, string) {
-	return "variant", string(v)
-}
-
-type stretch string
 
 // Pango font stretch keywords.
 var (
-	StretchNormal  Attribute = stretch("normal")
-	UltraCondensed           = stretch("ultracondensed")
-	ExtraCondensed           = stretch("extracondensed")
-	Condensed                = stretch("condensed")
-	SemiCondensed            = stretch("semicondensed")
-	SemiExpanded             = stretch("semiexpanded")
-	Expanded                 = stretch("expanded")
-	ExtraExpanded            = stretch("extraexpanded")
-	UltraExpanded            = stretch("ultraexpanded")
+	StretchNormal  = Attribute{"stretch", "normal"}
+	UltraCondensed = Attribute{"stretch", "ultracondensed"}
+	ExtraCondensed = Attribute{"stretch", "extracondensed"}
+	Condensed      = Attribute{"stretch", "condensed"}
+	SemiCondensed  = Attribute{"stretch", "semicondensed"}
+	SemiExpanded   = Attribute{"stretch", "semiexpanded"}
+	Expanded       = Attribute{"stretch", "expanded"}
+	ExtraExpanded  = Attribute{"stretch", "extraexpanded"}
+	UltraExpanded  = Attribute{"stretch", "ultraexpanded"}
 )
 
-// PangoAttr returns the stretch as a pango 'stretch' value.
-func (s stretch) PangoAttr() (string, string) {
-	return "stretch", string(s)
+func colorAttrs(name, alpha string, value color.Color) (attrs []Attribute) {
+	_, _, _, a := value.RGBA()
+	if a == 0 {
+		if alpha != "" {
+			attrs = append(attrs, Attribute{alpha, "0"})
+		}
+		return // attrs
+	}
+	if a < 0xffff && alpha != "" {
+		attrs = append(attrs, Attribute{alpha, fmt.Sprintf("%d", a)})
+	}
+	attrs = append(attrs, Attribute{name, colorful.MakeColor(value).Hex()})
+	return // attrs
 }
 
-// Background wraps a bar color but applies it as a background
-// instead of the foreground.
-type Background bar.Color
-
-// PangoAttr delegates to bar.Color to return the pango color value.
-func (b Background) PangoAttr() (string, string) {
-	return "background", bar.Color(b).String()
+// Color applies a foreground color and alpha.
+func Color(c color.Color) []Attribute {
+	return colorAttrs("color", "alpha", c)
 }
 
-// Alpha sets the foreground opacity on a scale of 0 to 1.
-type Alpha float64
-
-// PangoAttr returns the fg alpha as a pango 'alpha' value.
-func (a Alpha) PangoAttr() (string, string) {
-	// Pango alpha ranges from 1 to 65535.
-	return "alpha", fmt.Sprintf("%d", int(float64(a)*65535))
+// Background applies a background color and alpha.
+func Background(c color.Color) []Attribute {
+	return colorAttrs("background", "background_alpha", c)
 }
-
-// BgAlpha sets the background opacity on a scale of 0 to 1.
-type BgAlpha float64
-
-// PangoAttr returns the bg alpha as a pango 'background_alpha' value.
-func (b BgAlpha) PangoAttr() (string, string) {
-	// Pango alpha ranges from 1 to 65535.
-	return "background_alpha", fmt.Sprintf("%d", int(float64(b)*65535))
-}
-
-type underline string
 
 // Pango underline keywords.
 var (
-	UnderlineNone   Attribute = underline("none")
-	UnderlineSingle           = underline("single")
-	UnderlineDouble           = underline("double")
-	UnderlineLow              = underline("low")
-	UnderlineError            = underline("error")
+	UnderlineNone   = Attribute{"underline", "none"}
+	UnderlineSingle = Attribute{"underline", "single"}
+	UnderlineDouble = Attribute{"underline", "double"}
+	UnderlineLow    = Attribute{"underline", "low"}
+	UnderlineError  = Attribute{"underline", "error"}
 )
 
-// PangoAttr returns the underline as a pango 'underline' value.
-func (u underline) PangoAttr() (string, string) {
-	return "underline", string(u)
-}
-
-// UnderlineColor wraps a bar color but applies it as the
-// underline color instead of the foreground.
-type UnderlineColor bar.Color
-
-// PangoAttr delegates to bar.Color to return the pango color value.
-func (u UnderlineColor) PangoAttr() (string, string) {
-	return "underline_color", bar.Color(u).String()
+// UnderlineColor applies an underline color.
+func UnderlineColor(c color.Color) []Attribute {
+	return colorAttrs("underline_color", "", c)
 }
 
 // Rise sets the font "rise" in pango units.
 // Negative for subscript, positive for superscript.
-type Rise int
-
-// PangoAttr returns the rise as a pango 'rise' value.
-func (r Rise) PangoAttr() (string, string) {
-	return "rise", fmt.Sprintf("%d", r)
+func Rise(rise int) Attribute {
+	return Attribute{"rise", fmt.Sprintf("%d", rise)}
 }
-
-type strikethrough bool
 
 // Whether to strike through the text.
 var (
-	Strikethrough   Attribute = strikethrough(true)
-	NoStrikethrough           = strikethrough(false)
+	Strikethrough   = Attribute{"strikethrough", "true"}
+	NoStrikethrough = Attribute{"strikethrough", "false"}
 )
 
-// PangoAttr returns true or false for the pango 'strikethrough' attribute.
-func (s strikethrough) PangoAttr() (name string, value string) {
-	name = "strikethrough"
-	if s {
-		value = "true"
-	} else {
-		value = "false"
-	}
-	return name, value
-}
-
-// StrikethroughColor wraps a bar color but applies it as the
-// strikethrough color instead of the foreground.
-type StrikethroughColor bar.Color
-
-// PangoAttr delegates to bar.Color to return the pango color value.
-func (s StrikethroughColor) PangoAttr() (string, string) {
-	return "strikethrough_color", bar.Color(s).String()
+// StrikethroughColor applies a strikethrough color.
+func StrikethroughColor(c color.Color) []Attribute {
+	return colorAttrs("strikethrough_color", "", c)
 }
 
 // LetterSpacing sets the letter spacing, in points.
-type LetterSpacing float64
-
-// PangoAttr returns the letter spacing as a pango 'letter_spacing' value.
-func (l LetterSpacing) PangoAttr() (string, string) {
+func LetterSpacing(spacing float64) Attribute {
 	// Pango spacing is 1/1024ths of a point.
-	return "letter_spacing", fmt.Sprintf("%d", int(float64(l)*1024))
+	return Attribute{"letter_spacing", fmt.Sprintf("%d", int(spacing*1024))}
 }

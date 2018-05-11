@@ -15,6 +15,7 @@
 package diskspace
 
 import (
+	"image/color"
 	"os"
 	"sync"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/scheduler"
 	testBar "github.com/soumya92/barista/testing/bar"
@@ -124,11 +126,11 @@ func TestDiskspace(t *testing.T) {
 	testBar.Tick()
 	testBar.NextOutput().Expect("on tick")
 
-	diskspace.OutputColor(func(i Info) bar.Color {
-		return bar.Color("red")
+	diskspace.OutputColor(func(i Info) color.Color {
+		return colors.Hex("#f00")
 	})
 	testBar.NextOutput().AssertEqual(
-		outputs.Text("1500.0").Urgent(false).Color(bar.Color("red")),
+		outputs.Text("1500.0").Urgent(false).Color(colors.Hex("#f00")),
 		"on color function change")
 
 	diskspace.RefreshInterval(time.Minute)

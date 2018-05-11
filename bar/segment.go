@@ -14,6 +14,8 @@
 
 package bar
 
+import "image/color"
+
 // TextSegment creates a new output segment with text content.
 func TextSegment(text string) Segment {
 	return Segment{&data{text: text, markup: "none"}}
@@ -51,39 +53,39 @@ func (s Segment) GetShortText() (string, bool) {
 }
 
 // Color sets the foreground color for the segment.
-func (s Segment) Color(color Color) Segment {
+func (s Segment) Color(color color.Color) Segment {
 	s.color = color
 	return s
 }
 
 // GetColor returns the foreground color of this segment.
 // The second value indicates whether it was explicitly set.
-func (s Segment) GetColor() (Color, bool) {
-	return s.color, s.color != ""
+func (s Segment) GetColor() (color.Color, bool) {
+	return s.color, s.color != nil
 }
 
 // Background sets the background color for the segment.
-func (s Segment) Background(background Color) Segment {
+func (s Segment) Background(background color.Color) Segment {
 	s.background = background
 	return s
 }
 
 // GetBackground returns the background color of this segment.
 // The second value indicates whether it was explicitly set.
-func (s Segment) GetBackground() (Color, bool) {
-	return s.background, s.background != ""
+func (s Segment) GetBackground() (color.Color, bool) {
+	return s.background, s.background != nil
 }
 
 // Border sets the border color for the segment.
-func (s Segment) Border(border Color) Segment {
+func (s Segment) Border(border color.Color) Segment {
 	s.border = border
 	return s
 }
 
 // GetBorder returns the border color of this segment.
 // The second value indicates whether it was explicitly set.
-func (s Segment) GetBorder() (Color, bool) {
-	return s.border, s.border != ""
+func (s Segment) GetBorder() (color.Color, bool) {
+	return s.border, s.border != nil
 }
 
 // MinWidth sets the minimum width for the segment.

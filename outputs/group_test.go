@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/colors"
 	"github.com/stretchrcom/testify/assert"
 )
 
@@ -57,8 +58,8 @@ func TestSegmentGroup(t *testing.T) {
 		}
 	}
 
-	out.Border(bar.Color("green"))
-	assertAllEqual(bar.Color("green"),
+	out.Border(colors.Hex("#070"))
+	assertAllEqual(colors.Hex("#070"),
 		func(s bar.Segment) (interface{}, bool) { return s.GetBorder() },
 		"sets border for all segments")
 
@@ -144,13 +145,13 @@ func TestSingleGroup(t *testing.T) {
 	assert.Equal("<b>only</b>", segment().Text())
 	assert.True(segment().IsPango())
 
-	single.Background(bar.Color("yellow"))
+	single.Background(colors.Hex("#ff0"))
 	bg, _ := segment().GetBackground()
-	assert.Equal(bar.Color("yellow"), bg)
+	assert.Equal(colors.Hex("#ff0"), bg)
 
-	single.Color(bar.Color("red"))
+	single.Color(colors.Hex("#f00"))
 	col, _ := segment().GetColor()
-	assert.Equal(bar.Color("red"), col)
+	assert.Equal(colors.Hex("#f00"), col)
 
 	single.Align(bar.AlignEnd)
 	align, _ := segment().GetAlignment()
@@ -171,7 +172,7 @@ func TestSingleGroup(t *testing.T) {
 	minW, _ := segment().GetMinWidth()
 	assert.Equal(100, minW)
 
-	newLast := Text("this is now the last one").Color(bar.Color("cyan"))
+	newLast := Text("this is now the last one").Color(colors.Hex("#0ff"))
 	// If another segment is added, some properties must be adjusted.
 	single.Append(newLast)
 
@@ -188,11 +189,11 @@ func TestSingleGroup(t *testing.T) {
 
 	// The new segment should inherit any unset properties.
 	bg, _ = segment().GetBackground()
-	assert.Equal(bar.Color("yellow"), bg)
+	assert.Equal(colors.Hex("#ff0"), bg)
 
 	// But retain previously set properties.
 	col, _ = segment().GetColor()
-	assert.Equal(bar.Color("cyan"), col)
+	assert.Equal(colors.Hex("#0ff"), col)
 
 	// And not set properties that weren't set on either.
 	_, isSet = segment().GetBorder()

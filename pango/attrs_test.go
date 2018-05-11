@@ -15,11 +15,10 @@
 package pango
 
 import (
+	"image/color"
 	"testing"
 
 	"github.com/stretchrcom/testify/assert"
-
-	"github.com/soumya92/barista/bar"
 )
 
 func TestBasicAttributes(t *testing.T) {
@@ -27,8 +26,6 @@ func TestBasicAttributes(t *testing.T) {
 		Font("monospace"),
 		Size(10),
 		Weight(500),
-		Alpha(0.5),
-		BgAlpha(1.0),
 		Rise(-100),
 		LetterSpacing(0.5),
 	).Pango()
@@ -36,8 +33,6 @@ func TestBasicAttributes(t *testing.T) {
 		` face='monospace'`+
 		` size='10240'`+
 		` weight='500'`+
-		` alpha='32767'`+
-		` background_alpha='65535'`+
 		` rise='-100'`+
 		` letter_spacing='512'`+
 		`></span>`, out)
@@ -66,15 +61,16 @@ func TestKeywordAttributes(t *testing.T) {
 
 func TestColorAttributes(t *testing.T) {
 	out := Span(
-		bar.Color("red"),
-		Background(bar.Color("yellow")),
-		UnderlineColor(bar.Color("green")),
-		StrikethroughColor(bar.Color("black")),
+		Color(color.RGBA{0x7f, 0x7f, 0x00, 0x7f}),
+		Background(color.Transparent),
+		UnderlineColor(color.RGBA{0x00, 0x7f, 0x00, 0x7f}),
+		StrikethroughColor(color.RGBA{0x00, 0x00, 0x7f, 0x7f}),
 	).Pango()
 	assert.Equal(t, `<span`+
-		` color='red'`+
-		` background='yellow'`+
-		` underline_color='green'`+
-		` strikethrough_color='black'`+
+		` alpha='32639'`+
+		` color='#ffff00'`+
+		` background_alpha='0'`+
+		` underline_color='#00ff00'`+
+		` strikethrough_color='#0000ff'`+
 		`></span>`, out)
 }

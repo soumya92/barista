@@ -15,25 +15,10 @@
 package pango
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchrcom/testify/assert"
 )
-
-type intAttribute int
-
-func (m intAttribute) PangoAttr() (string, string) {
-	return "int", fmt.Sprintf("%d", int(m))
-}
-
-type customAttribute struct {
-	name, value string
-}
-
-func (c customAttribute) PangoAttr() (string, string) {
-	return c.name, c.value
-}
 
 var stringifyingTests = []struct {
 	desc     string
@@ -59,8 +44,7 @@ var stringifyingTests = []struct {
 		"<span face='monospace' strikethrough='true'><span weight='bold'></span></span>",
 	},
 
-	{"int attribute", Tag("tt", intAttribute(5)), "<tt int='5'></tt>"},
-	{"custom attribute", Tag("b", customAttribute{"name", "value"}), "<b name='value'></b>"},
+	{"custom attribute", Tag("b", Attribute{"name", "value"}), "<b name='value'></b>"},
 
 	{"tag with text", Tag("b", "bold"), "<b>bold</b>"},
 	{"tag with non-string child", Tag("b", 4.5), "<b>4.5</b>"},

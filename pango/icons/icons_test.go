@@ -71,12 +71,12 @@ func TestIconProvider(t *testing.T) {
 
 	assert.Equal(t,
 		"<span color='#ff0000' face='testfont' weight='200'>a</span>",
-		testIcons.Icon("test", colors.Hex("#f00")).Pango(),
+		testIcons.Icon("test", pango.Color(colors.Hex("#f00"))...).Pango(),
 		"Additional attributes when requesting an icon",
 	)
 
 	assert.Equal(t,
-		"", testIcons.Icon("notfound", colors.Hex("#f00")).Pango(),
+		"", testIcons.Icon("notfound", pango.Color(colors.Hex("#f00"))...).Pango(),
 		"Empty even with additional attributes when requesting a non-existent icon",
 	)
 

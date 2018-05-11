@@ -22,6 +22,7 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/testing/mockio"
@@ -46,9 +47,9 @@ func TestOutput(t *testing.T) {
 		"Pango text is passed through")
 
 	s := bar.TextSegment("foo")
-	s.Color(bar.Color("red"))
-	s.Background(bar.Color("yellow"))
-	s.Border(bar.Color("green"))
+	s.Color(colors.Hex("#f00"))
+	s.Background(colors.Hex("#ff0"))
+	s.Border(colors.Hex("#070"))
 	s.MinWidthPlaceholder("##.###")
 	s.Urgent(true)
 	s.Padding(10)

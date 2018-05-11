@@ -17,6 +17,7 @@ package cputemp
 
 import (
 	"fmt"
+	"image/color"
 	"strconv"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ type Module struct {
 
 type format struct {
 	outputFunc func(unit.Temperature) bar.Output
-	colorFunc  func(unit.Temperature) bar.Color
+	colorFunc  func(unit.Temperature) color.Color
 	urgentFunc func(unit.Temperature) bool
 }
 
@@ -102,7 +103,7 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 // OutputColor configures a module to change the colour of its output based on a
 // user-defined function. This allows you to set up color thresholds, or even
 // blend between two colours based on the current temperature.
-func (m *Module) OutputColor(colorFunc func(unit.Temperature) bar.Color) *Module {
+func (m *Module) OutputColor(colorFunc func(unit.Temperature) color.Color) *Module {
 	c := m.getFormat()
 	c.colorFunc = colorFunc
 	m.format.Set(c)

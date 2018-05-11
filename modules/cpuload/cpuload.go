@@ -20,6 +20,7 @@ package cpuload
 import "C"
 import (
 	"fmt"
+	"image/color"
 	"time"
 
 	"github.com/soumya92/barista/bar"
@@ -55,7 +56,7 @@ type Module struct {
 
 type format struct {
 	outputFunc func(LoadAvg) bar.Output
-	colorFunc  func(LoadAvg) bar.Color
+	colorFunc  func(LoadAvg) color.Color
 	urgentFunc func(LoadAvg) bool
 }
 
@@ -110,7 +111,7 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 // OutputColor configures a module to change the colour of its output based on a
 // user-defined function. This allows you to set up color thresholds, or even
 // blend between two colours based on the current load average.
-func (m *Module) OutputColor(colorFunc func(LoadAvg) bar.Color) *Module {
+func (m *Module) OutputColor(colorFunc func(LoadAvg) color.Color) *Module {
 	c := m.getFormat()
 	c.colorFunc = colorFunc
 	m.format.Set(c)

@@ -26,6 +26,7 @@ import (
 
 	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/scheduler"
 	"github.com/soumya92/barista/testing/mockio"
 	"github.com/soumya92/barista/testing/output"
@@ -115,13 +116,13 @@ func parseOutput(jsonStr string) (names []string, output bar.Output, err error) 
 			s.ShortText(shortText.(string))
 		}
 		if color, ok := i3map["color"]; ok {
-			s.Color(bar.Color(color.(string)))
+			s.Color(colors.Hex(color.(string)))
 		}
 		if background, ok := i3map["background"]; ok {
-			s.Background(bar.Color(background.(string)))
+			s.Background(colors.Hex(background.(string)))
 		}
 		if border, ok := i3map["border"]; ok {
-			s.Border(bar.Color(border.(string)))
+			s.Border(colors.Hex(border.(string)))
 		}
 		if minWidth, ok := i3map["min_width"]; ok {
 			switch w := minWidth.(type) {
