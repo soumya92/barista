@@ -1,12 +1,14 @@
 language: go
 go: "1.10"
+sudo: false
 
-before_install:
-        - sudo apt-get -qq update
-        - sudo apt-get install -y libasound2-dev
+addons:
+  apt:
+    packages:
+      - libasound2-dev
 
 script:
-        - ./travis.sh
+  - ./travis.sh
 
 after_success:
-        - bash <(curl -s https://codecov.io/bash)
+  - bash <(curl -s https://codecov.io/bash)
