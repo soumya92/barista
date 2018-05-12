@@ -6,7 +6,7 @@ echo "" > coverage.txt
 
 # Run tests with coverage for all barista packages
 for d in $(go list ./... | grep -v barista/samples); do
-	go test -coverprofile=profile.out -covermode=count $d
+	go test -coverprofile=profile.out -race -covermode=atomic $d
 	if [ -f profile.out ]; then
 		cat profile.out >> coverage.txt
 		rm profile.out
