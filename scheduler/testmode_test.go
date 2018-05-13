@@ -136,10 +136,10 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 	AdvanceBy(time.Minute)
 
 	// If fewer than 60 ticks are received, this will never finish.
-	doneChan := make(chan interface{})
+	doneChan := make(chan struct{})
 	go func() {
 		waited.Wait()
-		doneChan <- nil
+		doneChan <- struct{}{}
 	}()
 
 	select {

@@ -25,10 +25,10 @@ import (
 )
 
 func finishedWithin(f func(), timeout time.Duration) bool {
-	doneChan := make(chan interface{})
+	doneChan := make(chan struct{})
 	go func() {
 		f()
-		doneChan <- nil
+		doneChan <- struct{}{}
 	}()
 	select {
 	case <-doneChan:

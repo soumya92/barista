@@ -68,7 +68,7 @@ type i3Bar struct {
 	// The list of modules that make up this bar.
 	i3Modules []*i3Module
 	// The channel that receives a signal on module updates.
-	update chan interface{}
+	update chan struct{}
 	// The channel that aggregates all events from i3.
 	events chan i3Event
 	// The Reader to read events from (e.g. stdin)
@@ -119,7 +119,7 @@ var instanceInit sync.Once
 func construct() {
 	instanceInit.Do(func() {
 		instance = &i3Bar{
-			update: make(chan interface{}, 1),
+			update: make(chan struct{}, 1),
 			events: make(chan i3Event),
 			reader: os.Stdin,
 			writer: os.Stdout,
@@ -437,7 +437,7 @@ func (b *i3Bar) refresh() {
 // maybeUpdate signals the update channel unless already signalled.
 func (b *i3Bar) maybeUpdate() {
 	select {
-	case b.update <- nil:
+	case b.update <- struct{}{}:
 	default:
 		// Since b.update has a buffer of 1, a failure to send to it
 		// implies that an update is already queued. Since refresh

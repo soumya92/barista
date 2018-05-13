@@ -90,10 +90,10 @@ func TestWait(t *testing.T) {
 	fn()
 
 	// Already notified, <- should return immediately.
-	doneChan := make(chan interface{})
+	doneChan := make(chan struct{})
 	go func() {
 		<-n
-		doneChan <- nil
+		doneChan <- struct{}{}
 	}()
 
 	select {

@@ -38,12 +38,12 @@ func TestStdout(t *testing.T) {
 	assert.Equal(t, "tes", val, "read joins output from multiple writes")
 	assert.Equal(t, "t", stdout.ReadNow(), "remaining string after ReadUntil returned by ReadNow")
 
-	wait := make(chan *interface{})
+	wait := make(chan struct{})
 
 	go (func(w io.Writer) {
 		io.WriteString(w, "ab")
 		io.WriteString(w, "cdef")
-		wait <- nil
+		wait <- struct{}{}
 	})(stdout)
 
 	<-wait
@@ -54,10 +54,10 @@ func TestStdout(t *testing.T) {
 
 	go (func(w io.Writer) {
 		io.WriteString(w, "ab")
-		wait <- nil
+		wait <- struct{}{}
 		<-wait
 		io.WriteString(w, "cd")
-		wait <- nil
+		wait <- struct{}{}
 	})(stdout)
 
 	<-wait
@@ -65,7 +65,7 @@ func TestStdout(t *testing.T) {
 	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
 	assert.Equal(t, "ab", val, "returns content written before timeout")
 
-	wait <- nil
+	wait <- struct{}{}
 	<-wait
 	assert.Equal(t, "cd", stdout.ReadNow(), "continues normally after timeout")
 
@@ -74,7 +74,7 @@ func TestStdout(t *testing.T) {
 		// This is a test of data races, the assertions are not very important.
 		assert.Equal(t, err, io.EOF)
 		assert.Equal(t, 50, len(val))
-		wait <- nil
+		wait <- struct{}{}
 	}()
 	for i := 0; i < 50; i++ {
 		go (func(w io.Writer) {
@@ -86,7 +86,7 @@ func TestStdout(t *testing.T) {
 	bytes := []byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}
 	for i := 0; i < 20; i++ {
 		go (func(w io.Writer) {
-			wait <- nil
+			wait <- struct{}{}
 			for _, b := range bytes {
 				w.Write([]byte{b})
 			}
@@ -111,7 +111,7 @@ func TestTiming(t *testing.T) {
 	}
 
 	stdout := Stdout()
-	wait := make(chan *interface{})
+	wait := make(chan struct{})
 
 	go (func(w io.Writer) {
 		<-wait
@@ -124,10 +124,10 @@ func TestTiming(t *testing.T) {
 		io.WriteString(w, "gh")
 		time.Sleep(4 * time.Second)
 		io.WriteString(w, "ij")
-		wait <- nil
+		wait <- struct{}{}
 	})(stdout)
 
-	wait <- nil
+	wait <- struct{}{}
 	val, err := stdout.ReadUntil('i', 10*time.Second)
 	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
 	assert.Equal(t, "abcdef", val, "returns content written before timeout")
@@ -150,7 +150,7 @@ func TestWaiting(t *testing.T) {
 	assert.False(t, stdout.WaitForWrite(time.Second),
 		"wait when buffer is empty")
 
-	wait := make(chan *interface{})
+	wait := make(chan struct{})
 
 	go (func(w io.Writer) {
 		<-wait
@@ -160,14 +160,14 @@ func TestWaiting(t *testing.T) {
 		io.WriteString(w, "cd")
 	})(stdout)
 
-	wait <- nil
+	wait <- struct{}{}
 	assert.True(t, stdout.WaitForWrite(time.Second),
 		"wait when buffer is not empty")
 	assert.True(t, stdout.WaitForWrite(time.Second),
 		"wait when buffer is still not empty")
 
 	stdout.ReadNow()
-	wait <- nil
+	wait <- struct{}{}
 	assert.False(t, stdout.WaitForWrite(time.Second),
 		"wait after buffer is emptied")
 

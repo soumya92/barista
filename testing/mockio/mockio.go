@@ -28,7 +28,7 @@ type Writable struct {
 	// The buffer that holds all non-consumed output.
 	buffer bytes.Buffer
 	// A channel that signals any time new output is available.
-	signal chan *interface{}
+	signal chan struct{}
 	// Mutex to prevent data races in buffer.
 	mutex sync.Mutex
 	// For simulation, if this is set the next write will return
@@ -48,7 +48,7 @@ func (w *Writable) Write(out []byte) (n int, e error) {
 	n, e = w.buffer.Write(out)
 	w.mutex.Unlock()
 	select {
-	case w.signal <- nil:
+	case w.signal <- struct{}{}:
 	default:
 	}
 	return
@@ -122,7 +122,7 @@ func (w *Writable) ShouldError(e error) {
 // against what was written to stdout.
 func Stdout() *Writable {
 	return &Writable{
-		signal: make(chan *interface{}, 1),
+		signal: make(chan struct{}, 1),
 	}
 }
 
@@ -132,9 +132,9 @@ type Readable struct {
 	// The buffer that holds all non-consumed output.
 	buffer bytes.Buffer
 	// A channel that signals any time new output is available.
-	available chan *interface{}
+	available chan struct{}
 	// A channel that signals any time output is consumed.
-	consumed chan *interface{}
+	consumed chan struct{}
 	// Mutex to prevent data races in buffer.
 	mutex sync.Mutex
 	// For simulation, if this is set the next read will return
@@ -163,7 +163,7 @@ func (r *Readable) Read(out []byte) (n int, e error) {
 		// len == 0 means that we got a signal from available.
 		// Which means that signalWrite() is now waiting
 		// for a signal on consumed.
-		r.consumed <- nil
+		r.consumed <- struct{}{}
 	}
 	if e == io.EOF {
 		e = nil
@@ -202,7 +202,7 @@ func (r *Readable) ShouldError(e error) {
 // signalWrite signals that data was written, and waits for it to be consumed.
 func (r *Readable) signalWrite() {
 	select {
-	case r.available <- nil:
+	case r.available <- struct{}{}:
 		<-r.consumed
 	default:
 	}
@@ -212,15 +212,15 @@ func (r *Readable) signalWrite() {
 func Stdin() *Readable {
 	return &Readable{
 		buffer:    bytes.Buffer{},
-		available: make(chan *interface{}),
-		consumed:  make(chan *interface{}),
+		available: make(chan struct{}),
+		consumed:  make(chan struct{}),
 	}
 }
 
 // nonBlockingConsume consumes a value from the channel if it is available.
 // Useful to ensure the signal buffered channel is empty, so that false positive
 // signals are eliminated.
-func nonBlockingConsume(ch <-chan *interface{}) {
+func nonBlockingConsume(ch <-chan struct{}) {
 	select {
 	case <-ch:
 	default:
