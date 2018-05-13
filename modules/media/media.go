@@ -272,7 +272,7 @@ func (m *Module) worker(ch base.Channel) {
 
 	for {
 		select {
-		case <-sOutputFunc.Tick():
+		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 			ch.Output(outputFunc(info))
 		case v := <-dbusCh:

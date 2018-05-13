@@ -19,44 +19,43 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soumya92/barista/bar"
 	"github.com/stretchrcom/testify/assert"
 )
 
-func assertTick(t *testing.T, n bar.Notifier, message string) {
+func assertTick(t *testing.T, n <-chan struct{}, message string) {
 	select {
-	case <-n.Tick():
+	case <-n:
 	case <-time.After(time.Second):
 		assert.Fail(t, "notifier did not update", message)
 	}
 }
 
-func assertNoTick(t *testing.T, n bar.Notifier, message string) {
+func assertNoTick(t *testing.T, n <-chan struct{}, message string) {
 	select {
-	case <-n.Tick():
+	case <-n:
 		assert.Fail(t, "notifier updated", message)
 	case <-time.After(10 * time.Millisecond):
 	}
 }
 
 func TestSimpleNotify(t *testing.T) {
-	n := New()
-	n.Notify()
+	fn, n := New()
+	fn()
 	assertTick(t, n, "when notified")
 	assertNoTick(t, n, "when not notified")
 }
 
 func TestMultipleNotify(t *testing.T) {
-	n := New()
+	fn, n := New()
 	for i := 0; i < 5; i++ {
-		n.Notify()
+		fn()
 	}
 	assertTick(t, n, "when notified")
 	assertNoTick(t, n, "multiple notifications are merged")
 }
 
 func TestNotifyWithWaiting(t *testing.T) {
-	n := New()
+	fn, n := New()
 
 	var launched sync.WaitGroup
 	var waited sync.WaitGroup
@@ -65,18 +64,18 @@ func TestNotifyWithWaiting(t *testing.T) {
 		waited.Add(1)
 		go func() {
 			launched.Done()
-			n.Wait()
+			<-n
 			waited.Done()
 		}()
 	}
 	launched.Wait()
 	for i := 0; i < 5; i++ {
-		n.Notify()
+		fn()
 	}
-	doneChan := make(chan interface{})
+	doneChan := make(chan struct{})
 	go func() {
 		waited.Wait()
-		doneChan <- nil
+		doneChan <- struct{}{}
 	}()
 
 	select {
@@ -87,14 +86,13 @@ func TestNotifyWithWaiting(t *testing.T) {
 }
 
 func TestWait(t *testing.T) {
-	n := New()
-	n.Notify()
+	fn, n := New()
+	fn()
 
-	// Notify was already called,
-	// Wait() should return immediately.
+	// Already notified, <- should return immediately.
 	doneChan := make(chan interface{})
 	go func() {
-		n.Wait()
+		<-n
 		doneChan <- nil
 	}()
 

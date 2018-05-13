@@ -57,7 +57,7 @@ func construct() {
 		go func(updater bar.Scheduler) {
 			for {
 				update()
-				updater.Wait()
+				<-updater.Tick()
 			}
 		}(updater)
 	})
@@ -72,7 +72,7 @@ func RefreshInterval(interval time.Duration) {
 // Module represents a bar.Module that displays memory information.
 type Module struct {
 	base.SimpleClickHandler
-	ticker     bar.Ticker
+	ticker     <-chan struct{}
 	outputFunc base.Value
 }
 
@@ -119,9 +119,9 @@ func (m *Module) worker(ch base.Channel) {
 			ch.Output(outputFunc(info))
 		}
 		select {
-		case <-sOutputFunc.Tick():
+		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
-		case <-m.ticker.Tick():
+		case <-m.ticker:
 			i, err = currentInfo.Get()
 		}
 	}

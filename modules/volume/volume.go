@@ -271,9 +271,9 @@ func (m *Module) outputLoop(ch base.Channel) {
 			ch.Output(outputFunc(vol))
 		}
 		select {
-		case <-sVol.Tick():
+		case <-sVol:
 			v, err = m.currentVolume.Get()
-		case <-sOutputFunc.Tick():
+		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Volume) bar.Output)
 		}
 	}

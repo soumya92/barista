@@ -123,7 +123,7 @@ func (r *RepeatingModule) Stream() <-chan bar.Output {
 				sch.Stop()
 				return
 			}
-			sch.Wait()
+			<-sch.Tick()
 		}
 	}()
 	return ch

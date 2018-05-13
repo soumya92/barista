@@ -68,9 +68,9 @@ func (m *Module) worker(ch base.Channel) {
 	for {
 		ch.Output(outputs.Textf(format, count))
 		select {
-		case <-sCount.Tick():
+		case <-sCount:
 			count = m.count.Get().(int)
-		case <-sFormat.Tick():
+		case <-sFormat:
 			format = m.format.Get().(string)
 		}
 	}

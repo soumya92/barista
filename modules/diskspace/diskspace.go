@@ -169,7 +169,7 @@ func (m *Module) worker(ch base.Channel) {
 		select {
 		case <-m.scheduler.Tick():
 			info, err = getStatFsInfo(m.path)
-		case <-sFormat.Tick():
+		case <-sFormat:
 			format = m.getFormat()
 		}
 	}

@@ -164,21 +164,12 @@ type Clickable interface {
 	Click(Event)
 }
 
-// Ticker represents anything that can 'tick', and provides two ways to wait for updates.
-// Tick() can be used in select {...}, while Wait() can be used in a for {...} loop.
-type Ticker interface {
-	// Tick returns a channel that sends nil each time the ticker "ticks".
-	Tick() <-chan interface{}
-
-	// Wait blocks until the ticker ticks. This is basically <-Tick().
-	Wait()
-}
-
 // Scheduler represents a potentially repeating trigger and
 // provides an interface to modify the trigger schedule.
 type Scheduler interface {
-	// The ticker ticks based on the trigger schedule set below.
-	Ticker
+	// Tick returns a channel that receives an empty value
+	// when the scheduler is triggered.
+	Tick() <-chan struct{}
 
 	// At sets the scheduler to trigger a specific time.
 	// This will replace any pending triggers.
@@ -194,17 +185,4 @@ type Scheduler interface {
 
 	// Stop cancels all further triggers for the scheduler.
 	Stop()
-}
-
-// Notifier provides a simple interface to handle notifying waiting
-// clients that at least one update has occurred.
-type Notifier interface {
-	// The ticker ticks whenever the Notifier is marked as updated.
-	Ticker
-
-	// Notify marks this notifier as updated. If a listener is currently
-	// waiting on the Ticker, it will immediately tick, otherwise the
-	// next listener to start listening will receive the tick.
-	// If no listeners are waiting, calling notify again is a nop.
-	Notify()
 }

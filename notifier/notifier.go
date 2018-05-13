@@ -22,28 +22,16 @@ is preferable to apply just the final format, ignoring the intermediate ones.
 */
 package notifier
 
-import (
-	"github.com/soumya92/barista/bar"
-)
-
-type notifier chan interface{}
-
-// New constructs a new notifier.
-func New() bar.Notifier {
-	return notifier(make(chan interface{}, 1))
+// New constructs a new notifier. It returns a func that triggers a notification,
+// and a <-chan that consumes these notifications.
+func New() (func(), <-chan struct{}) {
+	ch := make(chan struct{}, 1)
+	return func() { notify(ch) }, ch
 }
 
-func (n notifier) Notify() {
+func notify(ch chan<- struct{}) {
 	select {
-	case n <- nil:
+	case ch <- struct{}{}:
 	default:
 	}
-}
-
-func (n notifier) Tick() <-chan interface{} {
-	return n
-}
-
-func (n notifier) Wait() {
-	<-n
 }

@@ -137,7 +137,7 @@ func (m *Module) worker(ch base.Channel) {
 
 		select {
 		case <-sch.At(next).Tick():
-		case <-sCfg.Tick():
+		case <-sCfg:
 			cfg = m.getConfig()
 		}
 	}

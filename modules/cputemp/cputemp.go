@@ -140,7 +140,7 @@ func (m *Module) worker(ch base.Channel) {
 		select {
 		case <-m.scheduler.Tick():
 			temp, err = getTemperature(m.thermalFile)
-		case <-sFormat.Tick():
+		case <-sFormat:
 			format = m.getFormat()
 		}
 	}

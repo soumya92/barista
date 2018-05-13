@@ -186,7 +186,7 @@ func (m *Module) worker(ch base.Channel) {
 		select {
 		case <-m.scheduler.Tick():
 			info = batteryInfo(m.batteryName)
-		case <-sFormat.Tick():
+		case <-sFormat:
 			format = m.getFormat()
 		}
 	}

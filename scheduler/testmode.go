@@ -51,8 +51,9 @@ func ExitTestMode() {
 
 // testScheduler implements bar.Scheduler for test mode.
 type testScheduler struct {
-	bar.Notifier
 	sync.Mutex
+	notifyFn     func()
+	notifyCh     <-chan struct{}
 	nextTrigger  time.Time
 	interval     time.Duration
 	paused       bool
@@ -60,7 +61,8 @@ type testScheduler struct {
 }
 
 func testNew() Controller {
-	s := &testScheduler{Notifier: notifier.New()}
+	fn, ch := notifier.New()
+	s := &testScheduler{notifyFn: fn, notifyCh: ch}
 	testMutex.Lock()
 	defer testMutex.Unlock()
 	testSchedulers = append(testSchedulers, s)
@@ -72,6 +74,10 @@ func (s *testScheduler) setTrigger(next time.Time, interval time.Duration) {
 	defer s.Unlock()
 	s.nextTrigger = next
 	s.interval = interval
+}
+
+func (s *testScheduler) Tick() <-chan struct{} {
+	return s.notifyCh
 }
 
 func (s *testScheduler) At(when time.Time) bar.Scheduler {
@@ -105,7 +111,7 @@ func (s *testScheduler) Resume() {
 	s.paused = false
 	if s.fireOnResume {
 		s.fireOnResume = false
-		s.Notifier.Notify()
+		s.notifyFn()
 	}
 }
 
@@ -188,7 +194,7 @@ func AdvanceTo(newTime time.Time) {
 			if s.paused {
 				s.fireOnResume = true
 			} else {
-				s.Notifier.Notify()
+				s.notifyFn()
 			}
 			s.Unlock()
 		}

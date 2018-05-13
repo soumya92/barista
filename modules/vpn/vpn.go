@@ -134,7 +134,7 @@ func (m *Module) worker(ch base.Channel) {
 				}
 				ch.Output(outputFunc(state))
 			}
-		case <-sOutputFunc.Tick():
+		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 			ch.Output(outputFunc(state))
 		}

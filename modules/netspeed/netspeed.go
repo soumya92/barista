@@ -107,7 +107,7 @@ func (m *Module) worker(ch base.Channel) {
 			ch.Output(outputFunc(speeds))
 		}
 		select {
-		case <-sOutputFunc.Tick():
+		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Speeds) bar.Output)
 		case <-m.scheduler.Tick():
 			rx, tx, err := linkRxTx(m.iface)

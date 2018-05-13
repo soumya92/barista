@@ -62,10 +62,12 @@ type Controller interface {
 // scheduler implements bar.Scheduler using a timer for fixed delays
 // and a ticker for fixed intervals.
 type scheduler struct {
-	bar.Notifier
-	timer        *time.Timer
-	ticker       *time.Ticker
+	timer  *time.Timer
+	ticker *time.Ticker
+
 	mutex        sync.Mutex
+	notifyFn     func()
+	notifyCh     <-chan struct{}
 	paused       bool
 	fireOnResume bool
 }
@@ -78,7 +80,8 @@ var Now = time.Now
 
 // realNew returns a real scheduler.
 func realNew() Controller {
-	return &scheduler{Notifier: notifier.New()}
+	fn, ch := notifier.New()
+	return &scheduler{notifyFn: fn, notifyCh: ch}
 }
 
 func (s *scheduler) maybeTick() {
@@ -87,8 +90,12 @@ func (s *scheduler) maybeTick() {
 	if s.paused {
 		s.fireOnResume = true
 	} else {
-		s.Notifier.Notify()
+		s.notifyFn()
 	}
+}
+
+func (s *scheduler) Tick() <-chan struct{} {
+	return s.notifyCh
 }
 
 func (s *scheduler) At(when time.Time) bar.Scheduler {
@@ -148,6 +155,6 @@ func (s *scheduler) Resume() {
 	s.paused = false
 	if s.fireOnResume {
 		s.fireOnResume = false
-		s.Notifier.Notify()
+		s.notifyFn()
 	}
 }

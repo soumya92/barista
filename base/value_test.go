@@ -48,7 +48,7 @@ func TestValueSubscription(t *testing.T) {
 		listening.Add(1)
 		go func() {
 			listening.Done()
-			subI.Wait()
+			<-subI
 			notified.Done()
 		}()
 		notified.Add(1)
@@ -71,7 +71,7 @@ func TestValueSubscription(t *testing.T) {
 
 	newSub := v.Subscribe()
 	select {
-	case <-newSub.Tick():
+	case <-newSub:
 		assert.Fail("Newly created subscription notified")
 	case <-time.After(10 * time.Millisecond):
 		// Test passed, subscriptions only notify of values
@@ -80,7 +80,7 @@ func TestValueSubscription(t *testing.T) {
 
 	v.Set("...")
 	select {
-	case <-newSub.Tick():
+	case <-newSub:
 		// Test passed, should notify since value was set.
 	case <-time.After(time.Second):
 		assert.Fail("New subscription was not notified of value")
@@ -128,7 +128,7 @@ func TestErrorValueSubscription(t *testing.T) {
 	subChan := make(chan error)
 	sub := v.Subscribe()
 	go func() {
-		for range sub.Tick() {
+		for range sub {
 			_, err := v.Get()
 			subChan <- err
 		}

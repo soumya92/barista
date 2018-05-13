@@ -151,7 +151,7 @@ func (m *Module) worker(ch base.Channel) {
 		select {
 		case <-m.scheduler.Tick():
 			count, err = getloadavg(&loads, 3)
-		case <-sFormat.Tick():
+		case <-sFormat:
 			format = m.getFormat()
 		}
 	}

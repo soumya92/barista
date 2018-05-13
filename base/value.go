@@ -19,7 +19,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/notifier"
 )
 
@@ -28,16 +27,16 @@ type Value struct {
 	value atomic.Value
 
 	subM sync.RWMutex
-	subs []bar.Notifier
+	subs []func()
 }
 
 // Subscribe creates a new ticker for value updates.
-func (v *Value) Subscribe() bar.Ticker {
-	n := notifier.New()
+func (v *Value) Subscribe() <-chan struct{} {
+	notifyFn, ch := notifier.New()
 	v.subM.Lock()
 	defer v.subM.Unlock()
-	v.subs = append(v.subs, n)
-	return n
+	v.subs = append(v.subs, notifyFn)
+	return ch
 }
 
 // Get returns the currently stored value.
@@ -50,8 +49,8 @@ func (v *Value) Set(value interface{}) {
 	v.value.Store(value)
 	v.subM.RLock()
 	defer v.subM.RUnlock()
-	for _, n := range v.subs {
-		n.Notify()
+	for _, notifyFn := range v.subs {
+		notifyFn()
 	}
 }
 
@@ -67,7 +66,7 @@ type ErrorValue struct {
 }
 
 // Subscribe creates a new ticker for value/error updates.
-func (e *ErrorValue) Subscribe() bar.Ticker {
+func (e *ErrorValue) Subscribe() <-chan struct{} {
 	return e.v.Subscribe()
 }
 

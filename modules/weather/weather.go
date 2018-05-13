@@ -168,7 +168,7 @@ func (m *Module) worker(ch base.Channel) {
 			ch.Output(outputFunc(*weather))
 		}
 		select {
-		case <-sOutputFunc.Tick():
+		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Weather) bar.Output)
 		case <-m.scheduler.Tick():
 			weather, err = m.provider.GetWeather()

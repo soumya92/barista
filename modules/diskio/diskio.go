@@ -67,7 +67,7 @@ func construct() {
 		go func(updater bar.Scheduler) {
 			for {
 				update()
-				updater.Wait()
+				<-updater.Tick()
 			}
 		}(updater)
 	})
@@ -134,7 +134,7 @@ func (m *Module) worker(ch base.Channel) {
 	for {
 		select {
 		case i = <-m.ioChan:
-		case <-sOutputFunc.Tick():
+		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(IO) bar.Output)
 		}
 		if i.err != nil {
