@@ -21,10 +21,10 @@ import (
 
 	"github.com/godbus/dbus"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // PlaybackStatus represents the state of the media player.
@@ -257,7 +257,7 @@ func (m *Module) worker(ch base.Channel) {
 	}
 	m.info.Set(info)
 
-	positionUpdater := barista.NewScheduler()
+	positionUpdater := timing.NewScheduler()
 	// If currently playing, also start the position updater.
 	if info.Playing() {
 		positionUpdater.Every(time.Second)

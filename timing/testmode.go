@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scheduler
+package timing
 
 import (
 	"sort"
@@ -20,7 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/notifier"
 )
 
@@ -30,7 +29,7 @@ import (
 func TestMode() {
 	testMutex.Lock()
 	defer testMutex.Unlock()
-	New = testNew
+	schedulerMaker = newTestScheduler
 	Now = testNow
 	// Set to non-zero time when entering test mode so that any IsZero
 	// checks don't unexpectedly pass.
@@ -45,11 +44,11 @@ func TestMode() {
 func ExitTestMode() {
 	testMutex.Lock()
 	defer testMutex.Unlock()
-	New = realNew
+	schedulerMaker = newScheduler
 	Now = time.Now
 }
 
-// testScheduler implements bar.Scheduler for test mode.
+// testScheduler implements Scheduler for test mode.
 type testScheduler struct {
 	sync.Mutex
 	notifyFn     func()
@@ -60,7 +59,7 @@ type testScheduler struct {
 	fireOnResume bool
 }
 
-func testNew() Controller {
+func newTestScheduler() Scheduler {
 	fn, ch := notifier.New()
 	s := &testScheduler{notifyFn: fn, notifyCh: ch}
 	testMutex.Lock()
@@ -80,17 +79,17 @@ func (s *testScheduler) Tick() <-chan struct{} {
 	return s.notifyCh
 }
 
-func (s *testScheduler) At(when time.Time) bar.Scheduler {
+func (s *testScheduler) At(when time.Time) Scheduler {
 	s.setTrigger(when, time.Duration(0))
 	return s
 }
 
-func (s *testScheduler) After(delay time.Duration) bar.Scheduler {
+func (s *testScheduler) After(delay time.Duration) Scheduler {
 	s.setTrigger(Now().Add(delay), time.Duration(0))
 	return s
 }
 
-func (s *testScheduler) Every(interval time.Duration) bar.Scheduler {
+func (s *testScheduler) Every(interval time.Duration) Scheduler {
 	s.setTrigger(Now(), interval)
 	return s
 }
@@ -99,13 +98,13 @@ func (s *testScheduler) Stop() {
 	s.setTrigger(time.Time{}, time.Duration(0))
 }
 
-func (s *testScheduler) Pause() {
+func (s *testScheduler) pause() {
 	s.Lock()
 	defer s.Unlock()
 	s.paused = true
 }
 
-func (s *testScheduler) Resume() {
+func (s *testScheduler) resume() {
 	s.Lock()
 	defer s.Unlock()
 	s.paused = false

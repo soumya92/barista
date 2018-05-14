@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scheduler
+package timing
 
 import (
 	"sync"
@@ -25,9 +25,9 @@ import (
 func TestTiming_TestMode(t *testing.T) {
 	TestMode()
 
-	sch1 := New()
-	sch2 := New()
-	sch3 := New()
+	sch1 := NewScheduler()
+	sch2 := NewScheduler()
+	sch3 := NewScheduler()
 
 	startTime := Now()
 	assert.Equal(t, startTime, NextTick(),
@@ -65,8 +65,8 @@ func TestTiming_TestMode(t *testing.T) {
 
 func TestRepeating_TestMode(t *testing.T) {
 	TestMode()
-	sch1 := New()
-	sch2 := New()
+	sch1 := NewScheduler()
+	sch2 := NewScheduler()
 	now := Now()
 
 	sch1.Every(time.Minute)
@@ -92,9 +92,9 @@ func TestRepeating_TestMode(t *testing.T) {
 
 func TestMultipleTriggers_TestMode(t *testing.T) {
 	TestMode()
-	sch1 := New()
-	sch2 := New()
-	sch3 := New()
+	sch1 := NewScheduler()
+	sch2 := NewScheduler()
+	sch3 := NewScheduler()
 	now := Now()
 
 	sch1.Every(time.Minute)
@@ -115,7 +115,7 @@ func TestMultipleTriggers_TestMode(t *testing.T) {
 func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 	TestMode()
 
-	sch := New()
+	sch := NewScheduler()
 	sch.Every(time.Second)
 
 	var launched sync.WaitGroup
@@ -152,7 +152,7 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 func TestCoalescedUpdates_TestMode(t *testing.T) {
 	TestMode()
 
-	sch := New()
+	sch := NewScheduler()
 	sch.Every(15 * time.Millisecond)
 	AdvanceBy(45 * time.Millisecond)
 	assertTriggered(t, sch, "after multiple intervals")
@@ -162,19 +162,23 @@ func TestCoalescedUpdates_TestMode(t *testing.T) {
 func TestPauseResume_TestMode(t *testing.T) {
 	TestMode()
 
-	sch := New()
+	sch := NewScheduler()
 	start := Now()
 	expected := start
 
-	sch.Pause()
+	Pause()
 	sch.Every(time.Minute)
-	expected = expected.Add(time.Minute)
-	assert.Equal(t, expected, NextTick(), "with paused scheduler")
-	assertNotTriggered(t, sch, "while paused")
+	sch2 := NewScheduler().Every(time.Minute)
 
 	expected = expected.Add(time.Minute)
 	assert.Equal(t, expected, NextTick(), "with paused scheduler")
 	assertNotTriggered(t, sch, "while paused")
+	assertNotTriggered(t, sch2, "created while paused")
+
+	expected = expected.Add(time.Minute)
+	assert.Equal(t, expected, NextTick(), "with paused scheduler")
+	assertNotTriggered(t, sch, "while paused")
+	assertNotTriggered(t, sch2, "while paused")
 
 	expected = expected.Add(time.Minute)
 	assert.Equal(t, expected, NextTick(), "with paused scheduler")
@@ -183,18 +187,21 @@ func TestPauseResume_TestMode(t *testing.T) {
 	AdvanceBy(30 * time.Second)
 	assertNotTriggered(t, sch, "while paused")
 
-	sch.Resume()
+	Resume()
 	assertTriggered(t, sch, "when resumed")
+	assertTriggered(t, sch2, "when resumed")
 	assertNotTriggered(t, sch, "only once when resumed")
+	assertNotTriggered(t, sch2, "only once when resumed")
 
 	expected = expected.Add(time.Minute)
 	assert.Equal(t, expected, NextTick(), "with resumed scheduler")
 	assertTriggered(t, sch, "tick after resuming")
+	assertTriggered(t, sch2, "tick after resuming")
 }
 
 func TestTestModeReset(t *testing.T) {
 	TestMode()
-	sch1 := New().Every(time.Second)
+	sch1 := NewScheduler().Every(time.Second)
 
 	startTime := Now()
 	assert.Equal(t, startTime.Add(time.Second), NextTick())
@@ -204,7 +211,7 @@ func TestTestModeReset(t *testing.T) {
 	assertTriggered(t, sch1, "triggers every second")
 
 	TestMode()
-	sch2 := New().Every(time.Minute)
+	sch2 := NewScheduler().Every(time.Minute)
 
 	startTime = Now()
 	assert.Equal(t, startTime.Add(time.Minute), NextTick())

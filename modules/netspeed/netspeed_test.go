@@ -24,8 +24,8 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/scheduler"
 	testBar "github.com/soumya92/barista/testing/bar"
+	"github.com/soumya92/barista/timing"
 )
 
 type testLink netlink.LinkStatistics
@@ -108,10 +108,10 @@ func TestNetspeed(t *testing.T) {
 	testBar.NextOutput().AssertEqual(
 		outputs.Text("0 B/s"), "on tick after output function change")
 
-	beforeTick := scheduler.Now()
+	beforeTick := timing.Now()
 	n.RefreshInterval(time.Minute)
 	testBar.Tick()
-	assert.Equal(time.Minute, scheduler.Now().Sub(beforeTick),
+	assert.Equal(time.Minute, timing.Now().Sub(beforeTick),
 		"RefreshInterval change")
 	testBar.NextOutput().Expect("RefreshInterval change")
 }

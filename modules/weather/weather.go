@@ -23,6 +23,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // Weather represents the current weather conditions.
@@ -90,7 +91,7 @@ type Provider interface {
 // which allows click handlers to get the current weather.
 type Module struct {
 	provider       Provider
-	scheduler      bar.Scheduler
+	scheduler      timing.Scheduler
 	outputFunc     base.Value // of func(Weather) bar.Output
 	clickHandler   base.Value // of func(Weather, bar.Event)
 	currentWeather base.Value // of Weather
@@ -104,7 +105,7 @@ func defaultOutputFunc(w Weather) bar.Output {
 func New(provider Provider) *Module {
 	m := &Module{
 		provider:  provider,
-		scheduler: base.Schedule().Every(10 * time.Minute),
+		scheduler: timing.NewScheduler().Every(10 * time.Minute),
 	}
 	// Default output template is just the temperature and conditions.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`))

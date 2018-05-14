@@ -20,8 +20,8 @@ import (
 
 	"github.com/stretchrcom/testify/assert"
 
-	"github.com/soumya92/barista/scheduler"
 	testBar "github.com/soumya92/barista/testing/bar"
+	"github.com/soumya92/barista/timing"
 )
 
 func TestTail(t *testing.T) {
@@ -60,8 +60,8 @@ func TestEvery(t *testing.T) {
 
 	testBar.NextOutput().AssertText([]string{"foo"}, "on start")
 
-	then := scheduler.Now()
-	now := scheduler.NextTick()
+	then := timing.Now()
+	now := timing.NextTick()
 	assert.InDelta(t, float64(time.Second), float64(now.Sub(then)),
 		float64(time.Millisecond))
 

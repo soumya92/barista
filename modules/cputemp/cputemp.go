@@ -28,6 +28,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // Module represents a cputemp bar module. It supports setting the output
@@ -35,7 +36,7 @@ import (
 type Module struct {
 	base.SimpleClickHandler
 	thermalFile string
-	scheduler   bar.Scheduler
+	scheduler   timing.Scheduler
 	format      base.Value
 }
 
@@ -65,7 +66,7 @@ func (m *Module) getFormat() format {
 func Zone(thermalZone string) *Module {
 	m := &Module{
 		thermalFile: fmt.Sprintf("/sys/class/thermal/%s/temp", thermalZone),
-		scheduler:   base.Schedule().Every(3 * time.Second),
+		scheduler:   timing.NewScheduler().Every(3 * time.Second),
 	}
 	m.format.Set(format{})
 	// Default output template, if no template/function was specified.

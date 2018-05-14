@@ -22,32 +22,32 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/scheduler"
 	testBar "github.com/soumya92/barista/testing/bar"
+	"github.com/soumya92/barista/timing"
 )
 
 var fixedTime = time.Date(2017, time.March, 1, 0, 0, 0, 0, time.Local)
 
 func TestSimpleTicking(t *testing.T) {
 	testBar.New(t)
-	scheduler.AdvanceTo(fixedTime)
+	timing.AdvanceTo(fixedTime)
 
 	testBar.Run(Local())
 	testBar.LatestOutput().AssertText(
 		[]string{"00:00"}, "on start")
 
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"00:01"}, "on next tick")
 
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"00:02"}, "on next tick")
 }
 
 func TestAutoGranularities(t *testing.T) {
 	testBar.New(t)
-	scheduler.AdvanceTo(fixedTime)
+	timing.AdvanceTo(fixedTime)
 	assert := assert.New(t)
 
 	local := Local().OutputFormat("15:04:05")
@@ -55,16 +55,16 @@ func TestAutoGranularities(t *testing.T) {
 	testBar.LatestOutput().AssertText(
 		[]string{"00:00:00"}, "on start")
 
-	now := scheduler.NextTick()
+	now := timing.NextTick()
 	testBar.LatestOutput().AssertText(
 		[]string{"00:00:01"}, "on next tick")
 	assert.Equal(1, now.Second(), "increases by granularity")
 	assert.Equal(0, now.Nanosecond(), "triggers at exact granularity")
 
-	scheduler.AdvanceBy(500 * time.Millisecond)
+	timing.AdvanceBy(500 * time.Millisecond)
 	testBar.AssertNoOutput("less than granularity")
 
-	now = scheduler.NextTick()
+	now = timing.NextTick()
 	assert.Equal(2, now.Second(), "increases by granularity")
 	assert.Equal(0, now.Nanosecond(), "triggers at exact granularity")
 	testBar.NextOutput().AssertText(
@@ -74,7 +74,7 @@ func TestAutoGranularities(t *testing.T) {
 	testBar.NextOutput().AssertText(
 		[]string{"00:00"}, "on output format change")
 
-	now = scheduler.NextTick()
+	now = timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"00:01"}, "on next tick")
 	assert.Equal(1, now.Minute(), "triggers on exact granularity")
@@ -83,21 +83,21 @@ func TestAutoGranularities(t *testing.T) {
 	local.OutputFormat("15:04:05.0")
 	testBar.NextOutput().AssertText(
 		[]string{"00:01:00.0"}, "on output format change")
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"00:01:00.1"}, "on next tick")
 
 	local.OutputFormat("15:04:05.000")
 	testBar.NextOutput().AssertText(
 		[]string{"00:01:00.100"}, "on output format change")
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"00:01:00.101"}, "on next tick")
 
 	local.OutputFormat("15:04:05.00")
 	testBar.NextOutput().AssertText(
 		[]string{"00:01:00.10"}, "on output format change")
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"00:01:00.11"}, "on next tick")
 
@@ -106,7 +106,7 @@ func TestAutoGranularities(t *testing.T) {
 
 func TestManualGranularities(t *testing.T) {
 	testBar.New(t)
-	scheduler.AdvanceTo(fixedTime)
+	timing.AdvanceTo(fixedTime)
 
 	local := Local().OutputFunc(time.Hour, func(now time.Time) bar.Output {
 		return outputs.Text(now.Format("15:04:05"))
@@ -115,11 +115,11 @@ func TestManualGranularities(t *testing.T) {
 	testBar.LatestOutput().AssertText(
 		[]string{"00:00:00"}, "on start")
 
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"01:00:00"}, "on tick")
 
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"02:00:00"}, "on tick")
 
@@ -129,14 +129,14 @@ func TestManualGranularities(t *testing.T) {
 	testBar.NextOutput().AssertText(
 		[]string{"02:00:00.00"}, "on format function + granularity change")
 
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"02:01:00.00"}, "on tick")
 }
 
 func TestZones(t *testing.T) {
 	testBar.New(t)
-	scheduler.AdvanceTo(
+	timing.AdvanceTo(
 		time.Date(2017, time.March, 1, 13, 15, 0, 0, time.UTC))
 
 	la, _ := time.LoadLocation("America/Los_Angeles")
@@ -159,7 +159,7 @@ func TestZones(t *testing.T) {
 		[]string{"05:15:00", "14:15:00", "22:15:00"},
 		"on start")
 
-	scheduler.NextTick()
+	timing.NextTick()
 	testBar.LatestOutput().AssertText(
 		[]string{"05:15:01", "14:15:01", "22:15:01"},
 		"on tick")

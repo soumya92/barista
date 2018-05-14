@@ -27,6 +27,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // Info wraps disk space information.
@@ -66,7 +67,7 @@ func (i Info) AvailPct() int {
 type Module struct {
 	base.SimpleClickHandler
 	path      string
-	scheduler bar.Scheduler
+	scheduler timing.Scheduler
 	format    base.Value
 }
 
@@ -95,7 +96,7 @@ func (m *Module) getFormat() format {
 func New(path string) *Module {
 	m := &Module{
 		path:      path,
-		scheduler: base.Schedule().Every(3 * time.Second),
+		scheduler: timing.NewScheduler().Every(3 * time.Second),
 	}
 	m.format.Set(format{})
 	// Construct a simple template that's just 2 decimals of the used disk space.

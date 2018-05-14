@@ -25,8 +25,8 @@ import (
 
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/scheduler"
 	testBar "github.com/soumya92/barista/testing/bar"
+	"github.com/soumya92/barista/timing"
 )
 
 var syncMutex sync.Mutex
@@ -111,8 +111,8 @@ func TestCpuload(t *testing.T) {
 	load.RefreshInterval(time.Minute)
 	testBar.AssertNoOutput("on refresh interval change")
 
-	beforeTick := scheduler.Now()
-	afterTick := scheduler.NextTick()
+	beforeTick := timing.Now()
+	afterTick := timing.NextTick()
 	testBar.NextOutput().Expect("on next tick")
 	assert.Equal(time.Minute, afterTick.Sub(beforeTick))
 

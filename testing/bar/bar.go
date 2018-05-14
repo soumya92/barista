@@ -27,9 +27,9 @@ import (
 	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
-	"github.com/soumya92/barista/scheduler"
 	"github.com/soumya92/barista/testing/mockio"
 	"github.com/soumya92/barista/testing/output"
+	"github.com/soumya92/barista/timing"
 )
 
 // TestBar represents a "test" barista instance that runs on mockio streams.
@@ -45,7 +45,7 @@ type TestBar struct {
 var instance atomic.Value // of TestBar
 
 // New creates a new TestBar. This must be called before any modules
-// are constructed, to ensure globals like barista.NewScheduler() are
+// are constructed, to ensure globals like timing.NewScheduler() are
 // associated with the test instance.
 func New(t assert.TestingT) {
 	b := &TestBar{
@@ -56,7 +56,7 @@ func New(t assert.TestingT) {
 	b.eventEncoder = json.NewEncoder(b.stdin)
 	instance.Store(b)
 	barista.TestMode(b.stdin, b.stdout)
-	scheduler.TestMode()
+	timing.TestMode()
 }
 
 // Run starts the TestBar with the given modules.
@@ -232,9 +232,9 @@ func Click(i int) {
 	SendEvent(i, bar.Event{Button: bar.ButtonLeft})
 }
 
-// Tick calls scheduler.NextTick() under the covers, allowing
+// Tick calls timing.NextTick() under the covers, allowing
 // some tests that don't need fine grained scheduling control
-// to treat scheduler as an implementation detail.
+// to treat timing's test mode as an implementation detail.
 func Tick() {
-	scheduler.NextTick()
+	timing.NextTick()
 }

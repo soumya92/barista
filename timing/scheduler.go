@@ -13,13 +13,13 @@
 // limitations under the License.
 
 /*
-Package scheduler provides a testable interface for scheduling tasks.
+Package timing provides a testable interface for timing and scheduling.
 
 This makes it simple to update a module at a fixed interval or
 at a fixed point in time.
 
 Typically, modules will make a scheduler:
-    mod.sch = scheduler.New()
+    mod.sch = timing.NewScheduler()
 and use the scheduling calls to control the update timing:
     mod.sch.Every(time.Second)
 
@@ -30,36 +30,21 @@ the module with fresh information:
     }
 
 This will automatically suspend processing when the bar is hidden.
+
+Modules should also use timing.Now() instead of time.Now() to control time
+during tests.
 */
-package scheduler
+package timing
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/notifier"
 )
 
-// Controller extends a Scheduler with pause/resume/stop.
-// This allows a Controller to be provided as just a Scheduler
-// when only the scheduling capabilities are required.
-type Controller interface {
-	bar.Scheduler
-
-	// Pause suspends calling the Do function until resumed.
-	// The scheduler will still tick as normal (if repeating),
-	// but multiple ticks will still only result in a single
-	// call to the Do function when resumed.
-	Pause()
-
-	// Resume restores the scheduler's ticking behaviour,
-	// and calls Do function if it was originally scheduled to
-	// be called while the scheduler was paused.
-	Resume()
-}
-
-// scheduler implements bar.Scheduler using a timer for fixed delays
+// scheduler implements timing.Scheduler using a timer for fixed delays
 // and a ticker for fixed intervals.
 type scheduler struct {
 	timer  *time.Timer
@@ -72,14 +57,52 @@ type scheduler struct {
 	fireOnResume bool
 }
 
-// New creates a new scheduler.
-var New = realNew
+var (
+	// Keeps track of all schedulers, to allow timing.Pause and timing.Resume.
+	schedulers   []Scheduler
+	schedulersMu sync.RWMutex
+)
 
-// Now returns the current time.
-var Now = time.Now
+// Whether new schedulers are created paused.
+var paused atomic.Value // of bool
 
-// realNew returns a real scheduler.
-func realNew() Controller {
+// NewScheduler creates a new scheduler.
+func NewScheduler() Scheduler {
+	s := schedulerMaker()
+	if p, ok := paused.Load().(bool); ok && p {
+		s.pause()
+	}
+	schedulersMu.Lock()
+	defer schedulersMu.Unlock()
+	schedulers = append(schedulers, s)
+	return s
+}
+
+// Pause timing.
+func Pause() {
+	paused.Store(true)
+	schedulersMu.RLock()
+	defer schedulersMu.RUnlock()
+	for _, sch := range schedulers {
+		sch.pause()
+	}
+}
+
+// Resume timing.
+func Resume() {
+	paused.Store(false)
+	schedulersMu.RLock()
+	defer schedulersMu.RUnlock()
+	for _, sch := range schedulers {
+		sch.resume()
+	}
+}
+
+// schedulerMaker creates a scheduler, replaced in test mode.
+var schedulerMaker = newScheduler
+
+// newScheduler returns a new real scheduler.
+func newScheduler() Scheduler {
 	fn, ch := notifier.New()
 	return &scheduler{notifyFn: fn, notifyCh: ch}
 }
@@ -98,11 +121,11 @@ func (s *scheduler) Tick() <-chan struct{} {
 	return s.notifyCh
 }
 
-func (s *scheduler) At(when time.Time) bar.Scheduler {
+func (s *scheduler) At(when time.Time) Scheduler {
 	return s.After(when.Sub(Now()))
 }
 
-func (s *scheduler) After(delay time.Duration) bar.Scheduler {
+func (s *scheduler) After(delay time.Duration) Scheduler {
 	s.Stop()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -110,7 +133,7 @@ func (s *scheduler) After(delay time.Duration) bar.Scheduler {
 	return s
 }
 
-func (s *scheduler) Every(interval time.Duration) bar.Scheduler {
+func (s *scheduler) Every(interval time.Duration) Scheduler {
 	s.Stop()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -143,13 +166,13 @@ func (s *scheduler) Stop() {
 	}
 }
 
-func (s *scheduler) Pause() {
+func (s *scheduler) pause() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.paused = true
 }
 
-func (s *scheduler) Resume() {
+func (s *scheduler) resume() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.paused = false

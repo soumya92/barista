@@ -26,6 +26,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // LoadAvg represents the CPU load average for the past 1, 5, and 15 minutes.
@@ -50,7 +51,7 @@ func (l LoadAvg) Min15() float64 {
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
 	base.SimpleClickHandler
-	scheduler bar.Scheduler
+	scheduler timing.Scheduler
 	format    base.Value
 }
 
@@ -77,7 +78,7 @@ func (m *Module) getFormat() format {
 
 // New constructs an instance of the cpuload module.
 func New() *Module {
-	m := &Module{scheduler: base.Schedule().Every(3 * time.Second)}
+	m := &Module{scheduler: timing.NewScheduler().Every(3 * time.Second)}
 	m.format.Set(format{})
 	// Construct a simple template that's just 2 decimals of the 1-minute load average.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Min1 | printf "%.2f"}}`))

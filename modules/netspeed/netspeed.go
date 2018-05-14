@@ -24,7 +24,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/scheduler"
+	"github.com/soumya92/barista/timing"
 )
 
 // Speeds represents bidirectional network traffic.
@@ -45,7 +45,7 @@ func (s Speeds) Total() unit.Datarate {
 type Module struct {
 	base.SimpleClickHandler
 	iface      string
-	scheduler  bar.Scheduler
+	scheduler  timing.Scheduler
 	outputFunc base.Value // of func(Speeds) bar.Output
 }
 
@@ -53,7 +53,7 @@ type Module struct {
 func New(iface string) *Module {
 	m := &Module{
 		iface:     iface,
-		scheduler: base.Schedule().Every(3 * time.Second),
+		scheduler: timing.NewScheduler().Every(3 * time.Second),
 	}
 	// Default output template that's just the up and down speeds in SI.
 	m.OutputTemplate(outputs.TextTemplate("{{.Tx | ibyterate}} up | {{.Rx | ibyterate}} down"))
@@ -96,7 +96,7 @@ func (m *Module) worker(ch base.Channel) {
 	if ch.Error(err) {
 		return
 	}
-	lastRead := scheduler.Now()
+	lastRead := timing.Now()
 
 	var speeds Speeds
 	outputFunc := m.outputFunc.Get().(func(Speeds) bar.Output)
@@ -114,7 +114,7 @@ func (m *Module) worker(ch base.Channel) {
 			if ch.Error(err) {
 				return
 			}
-			now := scheduler.Now()
+			now := timing.Now()
 			duration := now.Sub(lastRead).Seconds()
 
 			speeds.available = true

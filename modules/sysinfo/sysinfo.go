@@ -26,6 +26,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // Info wraps the result of sysinfo and makes it more useful.
@@ -48,13 +49,13 @@ type Info struct {
 var currentInfo base.ErrorValue // of Info
 
 var once sync.Once
-var updater bar.Scheduler
+var updater timing.Scheduler
 
 // construct initialises sysinfo's global updating.
 func construct() {
 	once.Do(func() {
-		updater = base.Schedule().Every(3 * time.Second)
-		go func(updater bar.Scheduler) {
+		updater = timing.NewScheduler().Every(3 * time.Second)
+		go func(updater timing.Scheduler) {
 			for {
 				update()
 				<-updater.Tick()

@@ -29,6 +29,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // Info represents the current battery information.
@@ -88,7 +89,7 @@ func (i Info) PluggedIn() bool {
 type Module struct {
 	base.SimpleClickHandler
 	batteryName string
-	scheduler   bar.Scheduler
+	scheduler   timing.Scheduler
 	format      base.Value
 }
 
@@ -117,7 +118,7 @@ func (m *Module) getFormat() format {
 func New(name string) *Module {
 	m := &Module{
 		batteryName: name,
-		scheduler:   base.Schedule().Every(3 * time.Second),
+		scheduler:   timing.NewScheduler().Every(3 * time.Second),
 	}
 	m.format.Set(format{})
 	// Construct a simple template that's just the available battery percent.

@@ -30,7 +30,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/scheduler"
+	"github.com/soumya92/barista/timing"
 )
 
 // i3Output is sent to i3bar.
@@ -87,8 +87,6 @@ type i3Bar struct {
 	// whether it needs to be refreshed on resume.
 	paused          bool
 	refreshOnResume bool
-	// Schedulers to pause/resume when the bar is paused/resumed.
-	schedulers []scheduler.Controller
 }
 
 // output converts the module's output to i3Output by adding the name (position),
@@ -145,22 +143,6 @@ func SuppressSignals(suppressSignals bool) {
 		panic("Cannot change signal handling after .Run()")
 	}
 	instance.suppressSignals = suppressSignals
-}
-
-// NewScheduler creates a Scheduler tied to the bar, automatically
-// pausing and resuming it with the bar. Modules should use
-// the scheduler as a signal for performing work, so they can
-// be automatically suspended when the bar is not running.
-func NewScheduler() bar.Scheduler {
-	construct()
-	sch := scheduler.New()
-	instance.Lock()
-	defer instance.Unlock()
-	instance.schedulers = append(instance.schedulers, sch)
-	if instance.paused {
-		sch.Pause()
-	}
-	return sch
 }
 
 // Run sets up all the streams and enters the main loop.
@@ -403,19 +385,15 @@ func (b *i3Bar) pause() {
 	b.Lock()
 	defer b.Unlock()
 	b.paused = true
-	for _, sch := range b.schedulers {
-		sch.Pause()
-	}
+	timing.Pause()
 }
 
 // resume instructs all pausable modules to continue processing.
 func (b *i3Bar) resume() {
 	b.Lock()
 	defer b.Unlock()
-	for _, sch := range b.schedulers {
-		sch.Resume()
-	}
 	b.paused = false
+	timing.Resume()
 	if b.refreshOnResume {
 		b.refreshOnResume = false
 		b.maybeUpdate()

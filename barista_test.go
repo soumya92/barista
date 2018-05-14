@@ -31,6 +31,7 @@ import (
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/testing/mockio"
 	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/timing"
 )
 
 func TestHeader(t *testing.T) {
@@ -260,7 +261,7 @@ func TestPauseResume(t *testing.T) {
 	module1.OutputText("1")
 	out := readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"1"}, out, "Outputs before pause")
-	sch1 := NewScheduler().After(time.Millisecond)
+	sch1 := timing.NewScheduler().After(time.Millisecond)
 	time.Sleep(2 * time.Millisecond)
 	select {
 	case <-sch1.Tick():
@@ -276,7 +277,7 @@ func TestPauseResume(t *testing.T) {
 		"No output while paused")
 
 	sch1.After(time.Millisecond)
-	sch2 := NewScheduler().After(time.Millisecond)
+	sch2 := timing.NewScheduler().After(time.Millisecond)
 	time.Sleep(2 * time.Millisecond)
 	select {
 	case <-sch1.Tick():

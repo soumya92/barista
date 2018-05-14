@@ -20,6 +20,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/timing"
 )
 
 // Channel provides methods for functions to send output to the bar.
@@ -112,7 +113,7 @@ type RepeatingModule struct {
 func (r *RepeatingModule) Stream() <-chan bar.Output {
 	ch := base.NewChannel()
 	wrappedCh := &channel{Channel: ch}
-	sch := base.Schedule().Every(r.duration)
+	sch := timing.NewScheduler().Every(r.duration)
 	go func() {
 		for {
 			r.fn(wrappedCh)

@@ -15,10 +15,7 @@
 // Package bar allows a user to create a go binary that follows the i3bar protocol.
 package bar
 
-import (
-	"image/color"
-	"time"
-)
+import "image/color"
 
 // TextAlignment defines the alignment of text within a block.
 // Using TextAlignment rather than string opens up the possibility of i18n without
@@ -162,27 +159,4 @@ type Clickable interface {
 	// Click will be called by the bar when it receives a mouse event from i3 that is
 	// meant for this module.
 	Click(Event)
-}
-
-// Scheduler represents a potentially repeating trigger and
-// provides an interface to modify the trigger schedule.
-type Scheduler interface {
-	// Tick returns a channel that receives an empty value
-	// when the scheduler is triggered.
-	Tick() <-chan struct{}
-
-	// At sets the scheduler to trigger a specific time.
-	// This will replace any pending triggers.
-	At(time.Time) Scheduler
-
-	// After sets the scheduler to trigger after a delay.
-	// This will replace any pending triggers.
-	After(time.Duration) Scheduler
-
-	// Every sets the scheduler to trigger at an interval.
-	// This will replace any pending triggers.
-	Every(time.Duration) Scheduler
-
-	// Stop cancels all further triggers for the scheduler.
-	Stop()
 }

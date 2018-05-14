@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scheduler
+package timing
 
 import (
 	"testing"
 	"time"
 
-	"github.com/soumya92/barista/bar"
 	"github.com/stretchrcom/testify/assert"
 )
 
-func assertTriggered(t *testing.T, s bar.Scheduler, message string) {
+func assertTriggered(t *testing.T, s Scheduler, message string) {
 	select {
 	case <-s.Tick():
 	case <-time.After(time.Second):
@@ -30,7 +29,7 @@ func assertTriggered(t *testing.T, s bar.Scheduler, message string) {
 	}
 }
 
-func assertNotTriggered(t *testing.T, s bar.Scheduler, message string) {
+func assertNotTriggered(t *testing.T, s Scheduler, message string) {
 	select {
 	case <-s.Tick():
 		assert.Fail(t, "scheduler was triggered", message)
@@ -41,7 +40,7 @@ func assertNotTriggered(t *testing.T, s bar.Scheduler, message string) {
 func TestStop(t *testing.T) {
 	ExitTestMode()
 
-	sch := New()
+	sch := NewScheduler()
 	assertNotTriggered(t, sch, "when not scheduled")
 
 	sch.After(5 * time.Millisecond)
@@ -68,33 +67,37 @@ func TestStop(t *testing.T) {
 
 func TestPauseResume(t *testing.T) {
 	ExitTestMode()
-	sch := New()
+	sch := NewScheduler()
 
 	sch.At(Now().Add(5 * time.Millisecond))
-	sch.Pause()
+	Pause()
+	schWhilePaused := NewScheduler().After(2 * time.Millisecond)
+
 	assertNotTriggered(t, sch, "when paused")
+	assertNotTriggered(t, schWhilePaused, "scheduler created while paused")
 
-	sch.Resume()
+	Resume()
 	assertTriggered(t, sch, "when resumed")
+	assertTriggered(t, schWhilePaused, "when resumed")
 
-	sch.Resume()
+	Resume()
 	assertNotTriggered(t, sch, "repeated resume is nop")
 }
 
 func TestRepeating(t *testing.T) {
 	ExitTestMode()
-	sch := New()
+	sch := NewScheduler()
 
 	sch.Every(5 * time.Millisecond)
 	assertTriggered(t, sch, "after interval elapses")
 	assertTriggered(t, sch, "after interval elapses")
 	assertTriggered(t, sch, "after interval elapses")
 
-	sch.Pause()
+	Pause()
 	assertNotTriggered(t, sch, "when paused")
 	time.Sleep(15 * time.Millisecond) // > 2 intervals.
 
-	sch.Resume()
+	Resume()
 	assertTriggered(t, sch, "when resumed")
 
 	sch.Stop()
@@ -107,7 +110,7 @@ func TestRepeating(t *testing.T) {
 
 func TestCoalescedUpdates(t *testing.T) {
 	ExitTestMode()
-	sch := New()
+	sch := NewScheduler()
 	sch.Every(15 * time.Millisecond)
 	time.Sleep(31 * time.Millisecond)
 	assertTriggered(t, sch, "after multiple intervals")

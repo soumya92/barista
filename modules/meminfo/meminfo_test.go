@@ -25,8 +25,8 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/scheduler"
 	testBar "github.com/soumya92/barista/testing/bar"
+	"github.com/soumya92/barista/timing"
 )
 
 type meminfo map[string]int
@@ -80,10 +80,10 @@ func TestMeminfo(t *testing.T) {
 	testBar.LatestOutput().AssertText(
 		[]string{"2048", "0.125"}, "on tick")
 
-	beforeTick := scheduler.Now()
+	beforeTick := timing.Now()
 	RefreshInterval(time.Minute)
 	testBar.Tick()
-	assert.Equal(time.Minute, scheduler.Now().Sub(beforeTick), "RefreshInterval change")
+	assert.Equal(time.Minute, timing.Now().Sub(beforeTick), "RefreshInterval change")
 
 	testBar.LatestOutput().Expect("on refresh interval change")
 }

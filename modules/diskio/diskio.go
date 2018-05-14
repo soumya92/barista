@@ -28,7 +28,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/scheduler"
+	"github.com/soumya92/barista/timing"
 )
 
 // IO represents input and output rates for a disk.
@@ -56,15 +56,15 @@ var once sync.Once
 
 var lock sync.Mutex
 var modules map[string]*diskInfo
-var updater bar.Scheduler
+var updater timing.Scheduler
 
 // construct initialises diskio's global updating. All diskio
 // modules are updated with just one read of /proc/diskstats.
 func construct() {
 	once.Do(func() {
 		modules = make(map[string]*diskInfo)
-		updater = base.Schedule().Every(3 * time.Second)
-		go func(updater bar.Scheduler) {
+		updater = timing.NewScheduler().Every(3 * time.Second)
+		go func(updater timing.Scheduler) {
 			for {
 				update()
 				<-updater.Tick()
@@ -152,7 +152,7 @@ func (m *Module) worker(ch base.Channel) {
 // update updates the last read information, and returns
 // the delta read and written since the last update in bytes/sec.
 func (m *diskInfo) update(read, write uint64) (readRate, writeRate int) {
-	duration := scheduler.Now().Sub(m.updateTime).Seconds()
+	duration := timing.Now().Sub(m.updateTime).Seconds()
 	if read != m.lastRead {
 		readRate = int(float64(read-m.lastRead) / duration)
 	}
@@ -161,7 +161,7 @@ func (m *diskInfo) update(read, write uint64) (readRate, writeRate int) {
 	}
 	m.lastRead = read
 	m.lastWrite = write
-	m.updateTime = scheduler.Now()
+	m.updateTime = timing.Now()
 	return // readRate, writeRate
 }
 

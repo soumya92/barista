@@ -19,11 +19,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/scheduler"
+	"github.com/soumya92/barista/timing"
 )
 
 // Module represents a clock bar module. It supports setting the click handler,
@@ -127,11 +126,11 @@ func (m *Module) Stream() <-chan bar.Output {
 }
 
 func (m *Module) worker(ch base.Channel) {
-	sch := barista.NewScheduler()
+	sch := timing.NewScheduler()
 	cfg := m.getConfig()
 	sCfg := m.config.Subscribe()
 	for {
-		now := scheduler.Now()
+		now := timing.Now()
 		ch.Output(cfg.outputFunc(now.In(cfg.timezone)))
 		next := now.Add(cfg.granularity).Truncate(cfg.granularity)
 
