@@ -25,8 +25,11 @@ package volume
 import "C"
 import (
 	"fmt"
+	"os"
 	"time"
 	"unsafe"
+
+	"github.com/godbus/dbus"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
@@ -344,4 +347,231 @@ func (m *alsaModule) worker(update func(Volume)) error {
 			return fmt.Errorf("snd_mixer_handle_events: %d", err)
 		}
 	}
+}
+
+// PulseAudio implementation.
+
+type paModule struct {
+	conn     *dbus.Conn
+	core     dbus.BusObject
+	sink     dbus.BusObject
+	sinkName string
+}
+
+func dialAndAuth(addr string) (*dbus.Conn, error) {
+	conn, err := dbus.Dial(addr)
+	if err != nil {
+		return nil, err
+	}
+	err = conn.Auth(nil)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
+func openPulseAudio() (*dbus.Conn, error) {
+	// Pulse defaults to creating its socket in a well-known place under
+	// XDG_RUNTIME_DIR. For Pulse instances created by systemd, this is the
+	// only reliable way to contact Pulse via D-Bus, since Pulse is created
+	// on a per-user basis, but the session bus is created once for every
+	// session, and a user can have multiple sessions.
+	xdgDir := os.Getenv("XDG_RUNTIME_DIR")
+	if xdgDir != "" {
+		addr := fmt.Sprintf("unix:path=%s/pulse/dbus-socket", xdgDir)
+		return dialAndAuth(addr)
+	}
+
+	// Couldn't find the PulseAudio bus on the fast path, so look for it
+	// by querying the session bus.
+	bus, err := dbus.SessionBusPrivate()
+	if err != nil {
+		return nil, err
+	}
+	defer bus.Close()
+	err = bus.Auth(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	locator := bus.Object("org.PulseAudio1", "/org/pulseaudio/server_lookup1")
+	path, err := locator.GetProperty("org.PulseAudio.ServerLookup1.Address")
+	if err != nil {
+		return nil, err
+	}
+
+	return dialAndAuth(path.Value().(string))
+}
+
+func createPulseModule(sinkName string) *Module {
+	impl := &paModule{
+		sinkName: sinkName,
+	}
+	m := createModule(impl)
+
+	label := sinkName
+	if label == "" {
+		label = "default"
+	}
+	l.Labelf(m, "pulse:%s", label)
+
+	return m
+}
+
+// Create a PulseAudio volume module that follows the default sink.
+func DefaultSink() *Module {
+	return createPulseModule("")
+}
+
+// Create a PulseAudio volume module for a named sink.
+func Sink(sinkName string) *Module {
+	return createPulseModule(sinkName)
+}
+
+func (m *paModule) setVolume(newVol int64) error {
+	if m.sink == nil {
+		return fmt.Errorf("Sink not ready")
+	}
+
+	call := m.sink.Call("org.freedesktop.DBus.Properties.Set", 0,
+		"org.PulseAudio.Core1.Device", "Volume", dbus.MakeVariant([]uint32{uint32(newVol)}))
+	return call.Err
+}
+
+func (m *paModule) setMuted(muted bool) error {
+	if m.sink == nil {
+		return fmt.Errorf("Sink not ready")
+	}
+
+	call := m.sink.Call("org.freedesktop.DBus.Properties.Set", 0,
+		"org.PulseAudio.Core1.Device", "Mute", dbus.MakeVariant(muted))
+	return call.Err
+}
+
+func (m *paModule) listen(signal string, objects ...dbus.ObjectPath) error {
+	call := m.core.Call("org.PulseAudio.Core1.ListenForSignal", 0, "org.PulseAudio.Core1."+signal, objects)
+	return call.Err
+}
+
+func (m *paModule) openSink(sink dbus.ObjectPath) error {
+	m.sink = m.conn.Object("org.PulseAudio.Core1.Sink", sink)
+
+	if err := m.listen("Device.VolumeUpdated", sink); err != nil {
+		return err
+	}
+	if err := m.listen("Device.MuteUpdated", sink); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *paModule) openSinkByName(name string) error {
+	var path dbus.ObjectPath
+
+	err := m.core.Call("org.PulseAudio.Core1.GetSinkByName", 0, name).Store(&path)
+	if err != nil {
+		return err
+	}
+
+	return m.openSink(path)
+}
+
+func (m *paModule) openFallbackSink() error {
+	path, err := m.core.GetProperty("org.PulseAudio.Core1.FallbackSink")
+	if err != nil {
+		return err
+	}
+
+	return m.openSink(path.Value().(dbus.ObjectPath))
+}
+
+func (m *paModule) refresh(update func(Volume)) error {
+	v := Volume{}
+	v.Min = 0
+
+	max, err := m.sink.GetProperty("org.PulseAudio.Core1.Device.BaseVolume")
+	if err != nil {
+		return err
+	}
+	v.Max = int64(max.Value().(uint32))
+
+	vol, err := m.sink.GetProperty("org.PulseAudio.Core1.Device.Volume")
+	if err != nil {
+		return err
+	}
+
+	// Take the volume as the average across all channels.
+	var totalVol int64
+	channels := vol.Value().([]uint32)
+	for _, ch := range channels {
+		totalVol += int64(ch)
+	}
+	v.Vol = totalVol / int64(len(channels))
+
+	mute, err := m.sink.GetProperty("org.PulseAudio.Core1.Device.Mute")
+	if err != nil {
+		return err
+	}
+	v.Mute = mute.Value().(bool)
+
+	update(v)
+	return nil
+}
+
+func (m *paModule) worker(update func(Volume)) error {
+	conn, err := openPulseAudio()
+	if err != nil {
+		return err
+	}
+	m.conn = conn
+	defer func() {
+		conn.Close()
+		m.conn = nil
+	}()
+
+	m.core = conn.Object("org.PulseAudio.Core1", "/org/pulseaudio/core1")
+	defer func() {
+		m.core = nil
+	}()
+
+	if m.sinkName != "" {
+		if err = m.openSinkByName(m.sinkName); err != nil {
+			return err
+		}
+	} else {
+		if err = m.openFallbackSink(); err != nil {
+			return err
+		}
+
+		if err = m.listen("FallbackSinkUpdated"); err != nil {
+			return err
+		}
+	}
+
+	defer func() {
+		m.sink = nil
+	}()
+
+	if err = m.refresh(update); err != nil {
+		return err
+	}
+
+	signals := make(chan *dbus.Signal, 10)
+	conn.Signal(signals)
+
+	// Listen for signals from D-Bus, and update appropriately.
+	for signal := range signals {
+		// If the fallback sink changed, open the new one.
+		if m.sinkName == "" && signal.Path == m.core.Path() {
+			if err = m.openFallbackSink(); err != nil {
+				return err
+			}
+		}
+		if err = m.refresh(update); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
