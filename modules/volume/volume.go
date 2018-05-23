@@ -308,18 +308,22 @@ func (m *alsaModule) worker(update func(Volume)) error {
 	if err := int(C.snd_mixer_selem_id_malloc(&sid)); err < 0 {
 		return fmt.Errorf("snd_mixer_selem_id_malloc: %d", err)
 	}
+	defer C.snd_mixer_selem_id_free(sid)
 	C.snd_mixer_selem_id_set_index(sid, 0)
 	C.snd_mixer_selem_id_set_name(sid, mixerName)
 	// Connect to alsa
 	if err := int(C.snd_mixer_open(&handle, 0)); err < 0 {
 		return fmt.Errorf("snd_mixer_open: %d", err)
 	}
+	defer C.snd_mixer_close(handle)
 	if err := int(C.snd_mixer_attach(handle, cardName)); err < 0 {
 		return fmt.Errorf("snd_mixer_attach: %d", err)
 	}
+	defer C.snd_mixer_detach(handle, cardName)
 	if err := int(C.snd_mixer_load(handle)); err < 0 {
 		return fmt.Errorf("snd_mixer_load: %d", err)
 	}
+	defer C.snd_mixer_free(handle)
 	if err := int(C.snd_mixer_selem_register(handle, nil, nil)); err < 0 {
 		return fmt.Errorf("snd_mixer_selem_register: %d", err)
 	}
