@@ -22,6 +22,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -105,10 +106,12 @@ func defaultOutputFunc(w Weather) bar.Output {
 func New(provider Provider) *Module {
 	m := &Module{
 		provider:  provider,
-		scheduler: timing.NewScheduler().Every(10 * time.Minute),
+		scheduler: timing.NewScheduler(),
 	}
+	l.Register(m, "outputFunc", "clickHandler", "currentWeather", "scheduler")
 	// Default output template is just the temperature and conditions.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`))
+	m.RefreshInterval(10 * time.Minute)
 	m.OnClick(nil)
 	return m
 }

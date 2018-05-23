@@ -27,6 +27,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -69,7 +70,10 @@ var updater timing.Scheduler
 // modules are updated with just one read of /proc/meminfo.
 func construct() {
 	once.Do(func() {
-		updater = timing.NewScheduler().Every(3 * time.Second)
+		updater = timing.NewScheduler()
+		l.Attach(nil, &currentInfo, "meminfo.currentInfo")
+		l.Attach(nil, updater, "meminfo.updater")
+		updater.Every(3 * time.Second)
 		go func(updater timing.Scheduler) {
 			for {
 				update()
@@ -100,6 +104,7 @@ func defaultOutputFunc(i Info) bar.Output {
 func New() *Module {
 	construct()
 	m := &Module{ticker: currentInfo.Subscribe()}
+	l.Register(m, "outputFunc")
 	m.OutputFunc(defaultOutputFunc)
 	return m
 }

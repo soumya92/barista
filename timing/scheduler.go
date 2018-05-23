@@ -41,6 +41,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/notifier"
 )
 
@@ -104,7 +105,9 @@ var schedulerMaker = newScheduler
 // newScheduler returns a new real scheduler.
 func newScheduler() Scheduler {
 	fn, ch := notifier.New()
-	return &scheduler{notifyFn: fn, notifyCh: ch}
+	s := &scheduler{notifyFn: fn, notifyCh: ch}
+	l.Attach(s, ch, "")
+	return s
 }
 
 func (s *scheduler) maybeTick() {
@@ -122,21 +125,28 @@ func (s *scheduler) Tick() <-chan struct{} {
 }
 
 func (s *scheduler) At(when time.Time) Scheduler {
-	return s.After(when.Sub(Now()))
+	l.Fine("%s At(%v)", l.ID(s), when)
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.stop()
+	s.timer = time.AfterFunc(when.Sub(Now()), s.maybeTick)
+	return s
 }
 
 func (s *scheduler) After(delay time.Duration) Scheduler {
-	s.Stop()
+	l.Fine("%s After(%v)", l.ID(s), delay)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	s.stop()
 	s.timer = time.AfterFunc(delay, s.maybeTick)
 	return s
 }
 
 func (s *scheduler) Every(interval time.Duration) Scheduler {
-	s.Stop()
+	l.Fine("%s Every(%v)", l.ID(s), interval)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	s.stop()
 	s.ticker = time.NewTicker(interval)
 	go func() {
 		s.mutex.Lock()
@@ -154,8 +164,13 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 }
 
 func (s *scheduler) Stop() {
+	l.Fine("%s Stop", l.ID(s))
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	s.stop()
+}
+
+func (s *scheduler) stop() {
 	if s.timer != nil {
 		s.timer.Stop()
 		s.timer = nil

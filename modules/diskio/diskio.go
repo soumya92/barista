@@ -27,6 +27,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -63,7 +64,9 @@ var updater timing.Scheduler
 func construct() {
 	once.Do(func() {
 		modules = make(map[string]*diskInfo)
-		updater = timing.NewScheduler().Every(3 * time.Second)
+		updater = timing.NewScheduler()
+		l.Attach(nil, updater, "diskio.updater")
+		updater.Every(3 * time.Second)
 		go func(updater timing.Scheduler) {
 			for {
 				update()
@@ -102,6 +105,8 @@ func New(disk string) *Module {
 		modules[disk] = mInfo
 	}
 	m := &Module{ioChan: mInfo.makeChannel()}
+	l.Label(m, disk)
+	l.Register(m, "ioChan", "outputFunc")
 	m.OutputFunc(defaultOutputFunc)
 	return m
 }

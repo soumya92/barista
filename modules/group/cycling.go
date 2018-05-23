@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/soumya92/barista/bar"
+	l "github.com/soumya92/barista/logging"
 )
 
 // Cyclic is a group that supports cyclic between its modules.
@@ -69,6 +70,9 @@ func (g *cyclic) Add(original bar.Module) WrappedModule {
 		Module:  original,
 		visible: g.current == index,
 	}
+	l.Attachf(g, m, "[%d]", len(g.modules))
+	l.Label(m, l.ID(m.Module))
+	l.Attach(m, m.Module, "")
 	g.modules = append(g.modules, m)
 	return m
 }
@@ -88,6 +92,7 @@ func (g *cyclic) Next() {
 }
 
 func (g *cyclic) Show(index int) {
+	l.Log("%s: show %d", l.ID(g), index)
 	count := g.Count()
 	if count == 0 {
 		index = 0

@@ -22,6 +22,10 @@ is preferable to apply just the final format, ignoring the intermediate ones.
 */
 package notifier
 
+import (
+	l "github.com/soumya92/barista/logging"
+)
+
 // New constructs a new notifier. It returns a func that triggers a notification,
 // and a <-chan that consumes these notifications.
 func New() (func(), <-chan struct{}) {
@@ -30,6 +34,7 @@ func New() (func(), <-chan struct{}) {
 }
 
 func notify(ch chan<- struct{}) {
+	l.Fine("Notify %s", l.ID(ch))
 	select {
 	case ch <- struct{}{}:
 	default:

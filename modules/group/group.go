@@ -36,6 +36,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -98,6 +99,7 @@ func (m *module) Stream() <-chan bar.Output {
 func (m *module) Click(e bar.Event) {
 	m.Lock()
 	if m.finished && isRestartableClick(e) {
+		l.Log("%s restarted by wrapper", l.ID(m.Module))
 		go m.pipeWhenVisible(m.Module.Stream(), m.channel)
 		m.finished = false
 	}
@@ -123,6 +125,7 @@ func (m *module) SetVisible(visible bool) {
 	if m.visible == visible {
 		return
 	}
+	l.Fine("%s: visible %v", l.ID(m), visible)
 	m.visible = visible
 	if visible {
 		m.channel <- m.lastOutput

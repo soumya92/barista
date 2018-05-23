@@ -25,6 +25,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -54,7 +55,10 @@ var updater timing.Scheduler
 // construct initialises sysinfo's global updating.
 func construct() {
 	once.Do(func() {
-		updater = timing.NewScheduler().Every(3 * time.Second)
+		updater = timing.NewScheduler()
+		l.Attach(nil, updater, "sysinfo.updater")
+		l.Attach(nil, &currentInfo, "sysinfo.currentInfo")
+		updater.Every(3 * time.Second)
 		go func(updater timing.Scheduler) {
 			for {
 				update()
@@ -86,6 +90,7 @@ func New() *Module {
 	construct()
 	m := &Module{ticker: currentInfo.Subscribe()}
 	m.OutputFunc(defaultOutputFunc)
+	l.Register(m, "outputFunc")
 	return m
 }
 

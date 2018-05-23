@@ -30,6 +30,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -81,6 +82,8 @@ type Module struct {
 // specific card and mixer on that card.
 func Mixer(card, mixer string) *Module {
 	m := &Module{cardName: card, mixerName: mixer}
+	l.Labelf(m, "%s,%s", card, mixer)
+	l.Register(m, "outputFunc", "currentVolume", "clickHandler")
 	m.OnClick(DefaultClickHandler)
 	// Default output template is just the volume %, "MUT" when muted.
 	m.OutputTemplate(outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`))

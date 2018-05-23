@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/soumya92/barista/bar"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/timing"
 )
 
@@ -103,6 +104,7 @@ func (m *i3Module) output(bar *i3Bar) {
 			}
 		}
 		m.lastOutput.Store(i3out)
+		l.Fine("New output from %s", l.ID(m.Module))
 		bar.refresh()
 	}
 	// If we got here, the channel was closed, so we mark the module
@@ -166,11 +168,13 @@ func Run(modules ...bar.Module) error {
 
 	// Mark the bar as started.
 	b.started = true
+	l.Log("Bar started")
 
 	// Read events from the input stream, pipe them to the events channel.
 	go b.readEvents()
 	for _, m := range b.i3Modules {
 		go m.output(b)
+		l.Log("Module %s started", l.ID(m.Module))
 	}
 
 	// Write header.
@@ -211,12 +215,14 @@ func Run(modules ...bar.Module) error {
 			// Events are stripped of the name before being dispatched to the
 			// correct module.
 			if module, ok := b.get(event.Name); ok {
+				l.Fine("Clicked on module %s", l.ID(module.Module))
 				// If the module is pending a restart, check that the event is
 				// left/middle/right button, and restart the module if so.
 				if val, ok := module.restartable.Load().(bool); val && ok {
 					if isRestartableClick(event) {
 						module.restartable.Store(false)
 						go module.output(b)
+						l.Log("Module %s restarted", l.ID(module.Module))
 					}
 					continue
 				}
@@ -225,6 +231,8 @@ func Run(modules ...bar.Module) error {
 					// Goroutine to prevent click handlers from blocking the bar.
 					go clickable.Click(event.Event)
 				}
+			} else {
+				l.Log("Could not find module '%s'", event.Name)
 			}
 		case sig := <-signalChan:
 			switch sig {
@@ -255,6 +263,7 @@ func (b *i3Bar) addModule(module bar.Module) {
 	// Use the position of the module in the list as the "name", so when i3bar
 	// sends us events, we can use atoi(name) to get the correct module.
 	name := strconv.Itoa(len(b.i3Modules))
+	l.Log("Module '%s' -> %s", name, l.ID(module))
 	i3Module := i3Module{
 		Module: module,
 		name:   name,
@@ -382,6 +391,7 @@ func (b *i3Bar) readEvents() {
 
 // pause instructs all pausable modules to suspend processing.
 func (b *i3Bar) pause() {
+	l.Log("Bar paused")
 	b.Lock()
 	defer b.Unlock()
 	b.paused = true
@@ -390,6 +400,7 @@ func (b *i3Bar) pause() {
 
 // resume instructs all pausable modules to continue processing.
 func (b *i3Bar) resume() {
+	l.Log("Bar resumed")
 	b.Lock()
 	defer b.Unlock()
 	b.paused = false
@@ -406,6 +417,7 @@ func (b *i3Bar) refresh() {
 	defer b.Unlock()
 	// If paused, defer the refresh until the bar resumes.
 	if b.paused {
+		l.Fine("Refresh on next resume")
 		b.refreshOnResume = true
 		return
 	}

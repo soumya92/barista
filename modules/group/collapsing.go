@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/soumya92/barista/bar"
+	l "github.com/soumya92/barista/logging"
 )
 
 // Collapsable is a group that supports expanding/collapsable.
@@ -66,6 +67,9 @@ func (g *collapsable) Add(original bar.Module) WrappedModule {
 		Module:  original,
 		visible: !g.collapsed,
 	}
+	l.Attachf(g, m, "[%d]", len(g.modules))
+	l.Label(m, l.ID(m.Module))
+	l.Attach(m, m.Module, "")
 	g.modules = append(g.modules, m)
 	return m
 }
@@ -107,6 +111,7 @@ func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
 }
 
 func (g *collapsable) setCollapsed(collapsed bool) {
+	l.Log("%s: set collapsed = %v", l.ID(g), collapsed)
 	g.Lock()
 	defer g.Unlock()
 	g.collapsed = collapsed

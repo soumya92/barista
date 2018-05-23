@@ -21,6 +21,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -49,6 +50,7 @@ func defaultOutputFunc(now time.Time) bar.Output {
 // Zone constructs a clock module for the given timezone.
 func Zone(timezone *time.Location) *Module {
 	m := &Module{}
+	l.Register(m, "config")
 	m.config.Set(config{
 		timezone:    timezone,
 		granularity: time.Minute,
@@ -127,6 +129,7 @@ func (m *Module) Stream() <-chan bar.Output {
 
 func (m *Module) worker(ch base.Channel) {
 	sch := timing.NewScheduler()
+	l.Attach(m, sch, "scheduler")
 	cfg := m.getConfig()
 	sCfg := m.config.Subscribe()
 	for {

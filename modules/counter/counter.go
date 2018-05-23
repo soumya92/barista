@@ -20,6 +20,7 @@ package counter
 import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -34,6 +35,7 @@ type Module struct {
 // New constructs a new counter module.
 func New(format string) *Module {
 	m := &Module{}
+	l.Register(m, "format", "count")
 	m.count.Set(0)
 	m.format.Set(format)
 	return m

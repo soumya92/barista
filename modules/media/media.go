@@ -23,6 +23,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -167,6 +168,8 @@ type Module struct {
 // New constructs an instance of the media module for the given player.
 func New(player string) *Module {
 	m := &Module{playerName: player}
+	l.Label(m, player)
+	l.Register(m, "outputFunc", "clickHandler", "info")
 	// Set default click handler in New(), can be overridden later.
 	m.OnClick(DefaultClickHandler)
 	// Default output template that's just the currently playing track.
@@ -258,6 +261,7 @@ func (m *Module) worker(ch base.Channel) {
 	m.info.Set(info)
 
 	positionUpdater := timing.NewScheduler()
+	l.Attach(m, positionUpdater, "positionUpdater")
 	// If currently playing, also start the position updater.
 	if info.Playing() {
 		positionUpdater.Every(time.Second)
@@ -280,6 +284,7 @@ func (m *Module) worker(ch base.Channel) {
 			if ch.Error(err) {
 				return
 			}
+			l.Log("%s: updated %#v from dbus signal", l.ID(m), updates)
 			if updates.playingState {
 				if info.Playing() {
 					positionUpdater.Every(time.Second)

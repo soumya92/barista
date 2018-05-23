@@ -28,6 +28,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -118,9 +119,12 @@ func (m *Module) getFormat() format {
 func New(name string) *Module {
 	m := &Module{
 		batteryName: name,
-		scheduler:   timing.NewScheduler().Every(3 * time.Second),
+		scheduler:   timing.NewScheduler(),
 	}
+	l.Label(m, name)
+	l.Register(m, "scheduler", "format")
 	m.format.Set(format{})
+	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just the available battery percent.
 	m.OutputTemplate(outputs.TextTemplate(`BATT {{.RemainingPct}}%`))
 	return m
@@ -228,8 +232,10 @@ var fs = afero.NewOsFs()
 
 func batteryInfo(name string) Info {
 	batteryPath := fmt.Sprintf("/sys/class/power_supply/%s/uevent", name)
+	l.Fine("Reading from %s", batteryPath)
 	f, err := fs.Open(batteryPath)
 	if err != nil {
+		l.Log("Failed to read stats for %s: %s", name, err)
 		return Info{Status: "Disconnected"}
 	}
 	defer f.Close()

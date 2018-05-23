@@ -27,6 +27,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -66,9 +67,12 @@ func (m *Module) getFormat() format {
 func Zone(thermalZone string) *Module {
 	m := &Module{
 		thermalFile: fmt.Sprintf("/sys/class/thermal/%s/temp", thermalZone),
-		scheduler:   timing.NewScheduler().Every(3 * time.Second),
+		scheduler:   timing.NewScheduler(),
 	}
+	l.Label(m, thermalZone)
+	l.Register(m, "scheduler", "format")
 	m.format.Set(format{})
+	m.RefreshInterval(3 * time.Second)
 	// Default output template, if no template/function was specified.
 	m.OutputTemplate(outputs.TextTemplate(`{{.Celsius | printf "%.1f"}}℃`))
 	return m

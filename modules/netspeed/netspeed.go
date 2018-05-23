@@ -23,6 +23,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
@@ -53,8 +54,11 @@ type Module struct {
 func New(iface string) *Module {
 	m := &Module{
 		iface:     iface,
-		scheduler: timing.NewScheduler().Every(3 * time.Second),
+		scheduler: timing.NewScheduler(),
 	}
+	l.Label(m, iface)
+	l.Register(m, "scheduler", "outputFunc")
+	m.RefreshInterval(3 * time.Second)
 	// Default output template that's just the up and down speeds in SI.
 	m.OutputTemplate(outputs.TextTemplate("{{.Tx | ibyterate}} up | {{.Rx | ibyterate}} down"))
 	return m

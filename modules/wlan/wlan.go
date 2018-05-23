@@ -29,6 +29,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 )
 
@@ -71,6 +72,8 @@ type Module struct {
 // New constructs an instance of the wlan module for the specified interface.
 func New(iface string) *Module {
 	m := &Module{intf: iface}
+	l.Label(m, iface)
+	l.Register(m, "outputFunc")
 	// Default output template is just the SSID when connected.
 	m.OutputTemplate(outputs.TextTemplate("{{if .Connected}}{{.SSID}}{{end}}"))
 	return m
