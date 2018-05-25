@@ -50,7 +50,7 @@ func (v Volume) Frac() float64 {
 
 // Pct returns the current volume in the range 0-100.
 func (v Volume) Pct() int {
-	return int(v.Frac() * 100)
+	return int((v.Frac()*100) + 0.5)
 }
 
 // Controller provides an interface to change the system volume from the click handler.
