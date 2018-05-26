@@ -90,21 +90,28 @@ func TestEvents(t *testing.T) {
 	m1.AssertClicked("When test bar clicks module")
 	m2.AssertNotClicked("When a different module is clicked")
 
-	e := bar.Event{X: 10, Y: 10, SegmentID: "foo"}
+	e := bar.Event{X: 10, Y: 10}
 	SendEvent(1, e)
 	actual := m2.AssertClicked()
 	assert.Equal(t, e, actual, "event properties pass through")
 
 	m1.Output(outputs.Empty())
-	m2.Output(outputs.Group(outputs.Text("a"), outputs.Text("b"), outputs.Text("c")))
+	m2.Output(outputs.Group(
+		outputs.Text("a").Identifier("foo"),
+		outputs.Text("b").Identifier("bar"),
+		outputs.Text("c").Identifier("baz"),
+	))
 	LatestOutput().Expect("on update")
 	Click(0)
 	m1.AssertNotClicked("when module has no output")
-	m2.AssertClicked("events based on output positions")
+	evt := m2.AssertClicked("events based on output positions")
+	assert.Equal(t, "foo", evt.SegmentID, "SegmentID is propagated")
 	Click(1)
-	m2.AssertClicked("multiple segments from the same module")
+	evt = m2.AssertClicked("multiple segments from the same module")
+	assert.Equal(t, "bar", evt.SegmentID)
 	Click(2)
-	m2.AssertClicked("multiple segments from the same module")
+	evt = m2.AssertClicked()
+	assert.Equal(t, "baz", evt.SegmentID)
 }
 
 func TestRestartingModule(t *testing.T) {

@@ -39,7 +39,7 @@ type TestBar struct {
 	stdin        *mockio.Readable
 	stdout       *mockio.Writable
 	eventEncoder *json.Encoder
-	names        []string
+	segmentIDs   []segmentID
 }
 
 var instance atomic.Value // of TestBar
@@ -90,6 +90,10 @@ func (t *TestBar) readJSONOutput(timeout time.Duration) (out string, err error) 
 	return
 }
 
+// segmentID stores the 'name' and 'instance', which together identify
+// a segment when dispatching events.
+type segmentID struct{ name, instance string }
+
 // outputFromSegments creates a bar.Output from a slice of bar.Segments.
 type outputFromSegments []bar.Segment
 
@@ -97,7 +101,7 @@ func (o outputFromSegments) Segments() []bar.Segment {
 	return o
 }
 
-func parseOutput(jsonStr string) (names []string, output bar.Output, err error) {
+func parseOutput(jsonStr string) (ids []segmentID, output bar.Output, err error) {
 	var jsonOutputs []map[string]interface{}
 	err = json.Unmarshal([]byte(jsonStr), &jsonOutputs)
 	if err != nil {
@@ -105,8 +109,10 @@ func parseOutput(jsonStr string) (names []string, output bar.Output, err error) 
 	}
 	var segments []bar.Segment
 	for _, i3map := range jsonOutputs {
+		var sID segmentID
 		var s bar.Segment
-		text, _ := i3map["full_text"].(string)
+		sID.name = i3map["name"].(string)
+		text := i3map["full_text"].(string)
 		if markup, ok := i3map["markup"]; ok && markup.(string) == "pango" {
 			s = bar.PangoSegment(text)
 		} else {
@@ -136,6 +142,7 @@ func parseOutput(jsonStr string) (names []string, output bar.Output, err error) 
 			s.Align(bar.TextAlignment(align.(string)))
 		}
 		if id, ok := i3map["instance"]; ok {
+			sID.instance = id.(string)
 			s.Identifier(id.(string))
 		}
 		if urgent, ok := i3map["urgent"]; ok {
@@ -147,7 +154,7 @@ func parseOutput(jsonStr string) (names []string, output bar.Output, err error) 
 		if padding, ok := i3map["separator_block_width"]; ok {
 			s.Padding(int(padding.(float64)))
 		}
-		names = append(names, i3map["name"].(string))
+		ids = append(ids, sID)
 		segments = append(segments, s)
 	}
 	output = outputFromSegments(segments)
@@ -171,7 +178,7 @@ func NextOutput() output.Assertions {
 		return output.New(t, nil)
 	}
 	var out bar.Output
-	t.names, out, err = parseOutput(json)
+	t.segmentIDs, out, err = parseOutput(json)
 	if err != nil {
 		assert.Fail(t, "Error in next output", "Failed to parse: %s", err)
 	}
@@ -198,7 +205,7 @@ func LatestOutput() output.Assertions {
 		return output.New(t, nil)
 	}
 	var out bar.Output
-	t.names, out, err = parseOutput(json)
+	t.segmentIDs, out, err = parseOutput(json)
 	if err != nil {
 		assert.Fail(t, "Error in latest output", "Failed to parse: %s", err)
 	}
@@ -211,18 +218,19 @@ func LatestOutput() output.Assertions {
 // mapping is up to date.
 func SendEvent(i int, e bar.Event) {
 	t := instance.Load().(*TestBar)
-	if i >= len(t.names) {
+	if i >= len(t.segmentIDs) {
 		assert.Fail(t, "Cannot send event",
 			"Clicked on segment %d, but only have %d",
-			i, len(t.names))
+			i, len(t.segmentIDs))
 		return
 	}
+	e.SegmentID = t.segmentIDs[i].instance
 	t.eventEncoder.Encode(struct {
 		bar.Event
 		Name string `json:"name"`
 	}{
 		Event: e,
-		Name:  t.names[i],
+		Name:  t.segmentIDs[i].name,
 	})
 	t.stdin.WriteString(",\n")
 }
