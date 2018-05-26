@@ -98,7 +98,8 @@ func colorAttrs(name, alpha string, value color.Color) (attrs []Attribute) {
 	if a < 0xffff && alpha != "" {
 		attrs = append(attrs, Attribute{alpha, fmt.Sprintf("%d", a)})
 	}
-	attrs = append(attrs, Attribute{name, colorful.MakeColor(value).Hex()})
+	cful, _ := colorful.MakeColor(value)
+	attrs = append(attrs, Attribute{name, cful.Hex()})
 	return // attrs
 }
 

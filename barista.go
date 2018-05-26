@@ -274,11 +274,8 @@ func (b *i3Bar) addModule(module bar.Module) {
 }
 
 func colorString(c color.Color) string {
-	_, _, _, a := c.RGBA()
-	if a == 0 {
-		return "#000000"
-	}
-	return colorful.MakeColor(c).Hex()
+	cful, _ := colorful.MakeColor(c)
+	return cful.Hex()
 }
 
 // i3map serialises the attributes of the Segment in
