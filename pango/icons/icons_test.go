@@ -24,6 +24,7 @@ import (
 
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/pango"
+	pangoTesting "github.com/soumya92/barista/testing/pango"
 )
 
 func TestSymbolFromHex(t *testing.T) {
@@ -36,7 +37,7 @@ func TestSymbolFromHex(t *testing.T) {
 	}
 	for _, tc := range tests {
 		value, err := SymbolFromHex(tc.input)
-		assert.Nil(t, err, "No error decoding a valid symbol from hex")
+		assert.NoError(t, err, "Decoding a valid symbol from hex")
 		assert.Equal(t, tc.expected, value, "Symbol is decoded correctly")
 	}
 
@@ -66,21 +67,21 @@ func TestIconProvider(t *testing.T) {
 		{"ligature", "ligature-font", "<span face='testfont' weight='200'>home</span>"},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, testIcons.Icon(tc.icon).Pango(), tc.desc)
+		pangoTesting.AssertEqual(t, tc.expected, testIcons.Icon(tc.icon).Pango(), tc.desc)
 	}
 
-	assert.Equal(t,
+	pangoTesting.AssertEqual(t,
 		"<span color='#ff0000' face='testfont' weight='200'>a</span>",
 		testIcons.Icon("test", pango.Color(colors.Hex("#f00"))...).Pango(),
 		"Additional attributes when requesting an icon",
 	)
 
-	assert.Equal(t,
+	pangoTesting.AssertEqual(t,
 		"", testIcons.Icon("notfound", pango.Color(colors.Hex("#f00"))...).Pango(),
 		"Empty even with additional attributes when requesting a non-existent icon",
 	)
 
-	assert.Equal(t,
+	pangoTesting.AssertEqual(t,
 		"<span weight='bold' face='testfont'>a</span>",
 		testIcons.Icon("test", pango.Bold).Pango(),
 		"Override default attributes when named the same",

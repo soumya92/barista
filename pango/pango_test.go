@@ -17,7 +17,7 @@ package pango
 import (
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/soumya92/barista/testing/pango"
 )
 
 var stringifyingTests = []struct {
@@ -89,7 +89,7 @@ var stringifyingTests = []struct {
 
 func TestStringifying(t *testing.T) {
 	for _, tc := range stringifyingTests {
-		assert.Equal(t, tc.expected, tc.node.Pango(), tc.desc)
+		pango.AssertEqual(t, tc.expected, tc.node.Pango(), tc.desc)
 	}
 }
 
