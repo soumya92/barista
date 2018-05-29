@@ -50,11 +50,17 @@ func setLink(name string, stats netlink.LinkStatistics) {
 	ifaces[name] = testLink(stats)
 }
 
+var signalChan = make(chan struct{})
+
 func init() {
 	linkByName = func(name string) (netlink.Link, error) {
 		ifacesLock.Lock()
 		link, ok := ifaces[name]
 		ifacesLock.Unlock()
+		select {
+		case signalChan <- struct{}{}:
+		default:
+		}
 		if !ok {
 			return nil, fmt.Errorf("No such link: %s", name)
 		}
@@ -128,8 +134,10 @@ func TestErrors(t *testing.T) {
 		RxBytes: 0,
 		TxBytes: 0,
 	})
-	testBar.Click(0)
-	testBar.AssertNoOutput("on click after interface is available")
+	go testBar.Click(0)
+	<-signalChan
+	testBar.NextOutput().AssertText([]string{},
+		"clears error on click after interface is available")
 
 	setLink("if0", netlink.LinkStatistics{
 		RxBytes: 4096,

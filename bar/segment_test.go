@@ -15,6 +15,7 @@
 package bar
 
 import (
+	"errors"
 	"image/color"
 	"testing"
 
@@ -92,6 +93,12 @@ func TestSegment(t *testing.T) {
 
 	segment.Padding(3)
 	assert.Equal(3, assertSet(segment.GetPadding()))
+
+	segment.Error(errors.New("foo"))
+	assert.Error(segment.GetError())
+
+	segment.Error(nil)
+	assert.NoError(segment.GetError())
 
 	segment.MinWidth(40)
 	assert.Equal(40, assertSet(segment.GetMinWidth()))

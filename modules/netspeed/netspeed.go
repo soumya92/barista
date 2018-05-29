@@ -96,11 +96,11 @@ func (m *Module) Stream() <-chan bar.Output {
 var linkByName = netlink.LinkByName
 
 func (m *Module) worker(ch base.Channel) {
+	lastRead := timing.Now()
 	lastRx, lastTx, err := linkRxTx(m.iface)
 	if ch.Error(err) {
 		return
 	}
-	lastRead := timing.Now()
 
 	var speeds Speeds
 	outputFunc := m.outputFunc.Get().(func(Speeds) bar.Output)

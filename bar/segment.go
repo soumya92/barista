@@ -52,6 +52,21 @@ func (s Segment) GetShortText() (string, bool) {
 	return s.shortText, s.attrSet&saShortText != 0
 }
 
+// Error associates an error with the segment. Setting an error
+// changes event handling to display the full error text on left
+// click, and restart the module on right/middle click.
+// (If the module is still running, right/middle click is a no-op).
+func (s Segment) Error(err error) Segment {
+	s.data.err = err
+	return s
+}
+
+// GetError returns any error associated with this segment
+// or nil if no error is associated with this segment.
+func (s Segment) GetError() error {
+	return s.data.err
+}
+
 // Color sets the foreground color for the segment.
 func (s Segment) Color(color color.Color) Segment {
 	s.color = color

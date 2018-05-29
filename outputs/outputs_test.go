@@ -118,9 +118,12 @@ func TestErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		assert.Contains(t, textOf(tc.output), tc.expected, tc.desc)
+		err := tc.output.Segments()[0].GetError()
+		assert.Error(t, err, "Segment has associated error")
+		assert.Contains(t, err.Error(), tc.expected)
+		assert.Equal(t, textOf(tc.output), "Error", "Text is set to 'Error'")
 		shortText, _ := tc.output.Segments()[0].GetShortText()
-		assert.Equal(t, shortText, "Error", "Short text is set to 'Error'")
+		assert.Equal(t, shortText, "!", "Short text is set to '!'")
 		urgent, _ := tc.output.Segments()[0].IsUrgent()
 		assert.True(t, urgent, "error is marked urgent")
 	}

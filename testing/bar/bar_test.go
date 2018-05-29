@@ -128,7 +128,17 @@ func TestRestartingModule(t *testing.T) {
 	assert.Panics(t, func() { m.OutputText("bar") },
 		"module is not streaming")
 
+	// Died with an error, so right click will nag,
+	RightClick(0)
+	m.AssertNotStarted("on right click with error")
+	err := AssertNagbar("on right click with error")
+	assert.Equal(t, "something went wrong", err)
+
+	// but left click will restart,
 	Click(0)
+	// and clear the error'd segment.
+	NextOutput().AssertText([]string{})
+
 	m.AssertStarted()
 	assert.NotPanics(t, func() { m.OutputText("baz") },
 		"module has restarted")
@@ -295,4 +305,12 @@ func TestSegmentErrors(t *testing.T) {
 	}, "out of range segment")
 	assert.Equal(t, bar.Segment{}, seg,
 		"zero value on out of range segment")
+}
+
+func TestNagbarError(t *testing.T) {
+	assertFails(t, func(m *module.TestModule) {
+		m.OutputText("test")
+		RightClick(0)
+		AssertNagbar("on right-click")
+	}, "Asserting nagbar on non-error segment")
 }

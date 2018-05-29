@@ -89,13 +89,11 @@ func TestCputemp(t *testing.T) {
 	shouldReturn("22222", "22222")
 	testBar.Tick()
 
-	testBar.LatestOutput().AssertEqual(
-		outputs.Group(
-			outputs.Text("22.2℃").Urgent(false),
-			outputs.Text("72").Color(red),
-			outputs.Errorf("open /sys/class/thermal/thermal_zone2/temp: file does not exist"),
-		),
-		"on next tick")
+	out = testBar.LatestOutput()
+	out.At(0).AssertEqual(outputs.Text("22.2℃").Urgent(false))
+	out.At(1).AssertEqual(outputs.Text("72").Color(red))
+	errStr := out.At(2).AssertError()
+	assert.Equal(t, "open /sys/class/thermal/thermal_zone2/temp: file does not exist", errStr)
 
 	temp2.RefreshInterval(time.Second)
 	testBar.AssertNoOutput("on refresh interval change")

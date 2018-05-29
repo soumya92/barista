@@ -18,6 +18,7 @@ package bar
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"sync/atomic"
 	"time"
@@ -40,6 +41,7 @@ type TestBar struct {
 	stdout       *mockio.Writable
 	eventEncoder *json.Encoder
 	segmentIDs   []segmentID
+	nagbars      chan string
 }
 
 var instance atomic.Value // of TestBar
@@ -52,10 +54,14 @@ func New(t assert.TestingT) {
 		TestingT: t,
 		stdin:    mockio.Stdin(),
 		stdout:   mockio.Stdout(),
+		nagbars:  make(chan string, 10),
 	}
 	b.eventEncoder = json.NewEncoder(b.stdin)
 	instance.Store(b)
 	barista.TestMode(b.stdin, b.stdout)
+	barista.SetErrorHandler(func(e bar.ErrorEvent) {
+		b.nagbars <- e.Error.Error()
+	})
 	timing.TestMode()
 }
 
@@ -120,6 +126,9 @@ func parseOutput(jsonStr string) (ids []segmentID, output bar.Output, err error)
 		}
 		if shortText, ok := i3map["short_text"]; ok {
 			s.ShortText(shortText.(string))
+		}
+		if err, ok := i3map["error"]; ok {
+			s.Error(errors.New(err.(string)))
 		}
 		if color, ok := i3map["color"]; ok {
 			s.Color(colors.Hex(color.(string)))
@@ -240,9 +249,29 @@ func Click(i int) {
 	SendEvent(i, bar.Event{Button: bar.ButtonLeft})
 }
 
+// RightClick sends a right click event to the segment at position i.
+// This triggers the nagbar for output segments with an error.
+func RightClick(i int) {
+	SendEvent(i, bar.Event{Button: bar.ButtonRight})
+}
+
 // Tick calls timing.NextTick() under the covers, allowing
 // some tests that don't need fine grained scheduling control
 // to treat timing's test mode as an implementation detail.
 func Tick() {
 	timing.NextTick()
+}
+
+// AssertNagbar asserts that the global error handler was triggered.
+// (The default behaviour is to show i3-nagbar). It returns the full
+// text of the error that was used to trigger.
+func AssertNagbar(args ...interface{}) string {
+	t := instance.Load().(*TestBar)
+	select {
+	case e := <-t.nagbars:
+		return e
+	case <-time.After(positiveTimeout):
+		assert.Fail(t, "Expected a nagbar error", args...)
+	}
+	return ""
 }

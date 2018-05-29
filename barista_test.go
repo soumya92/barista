@@ -16,6 +16,7 @@ package barista
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image/color"
 	"os"
@@ -369,7 +370,7 @@ func TestClickEvents(t *testing.T) {
 	assert.Equal(t, bar.Event{X: 9, Y: 7}, evt, "event values are passed through")
 	module1.AssertNotClicked("only target module receives the event")
 
-	mockStdin.WriteString("{\"name\":\"blah\",\"x\":9},")
+	mockStdin.WriteString("{\"name\":\"m/foo/bar\",\"x\":9},")
 	module1.AssertNotClicked("with weird module name")
 	module2.AssertNotClicked("with weird module name")
 
@@ -379,11 +380,11 @@ func TestClickEvents(t *testing.T) {
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2Name))
 	module2.AssertClicked("events are received after the weird name")
 
-	mockStdin.WriteString("{\"name\":\"8\",\"x\":9},")
+	mockStdin.WriteString("{\"name\":\"m/8\",\"x\":9},")
 	module1.AssertNotClicked("with weird module name")
 	module2.AssertNotClicked("with weird module name")
 
-	mockStdin.WriteString("{\"name\":\"-45\",\"x\":9},")
+	mockStdin.WriteString("{\"name\":\"e/2/-45\",\"x\":9},")
 	module1.AssertNotClicked("with weird module name")
 	module2.AssertNotClicked("with weird module name")
 
@@ -463,6 +464,77 @@ func TestSignalHandlingSuppression(t *testing.T) {
 		func() { SuppressSignals(false) },
 		"Cannot suppress signal handling after Run")
 	signal.Stop(signalChan)
+}
+
+func TestErrorHandling(t *testing.T) {
+	mockStdin := mockio.Stdin()
+	mockStdout := mockio.Stdout()
+	TestMode(mockStdin, mockStdout)
+	errChan := make(chan bar.ErrorEvent)
+	SetErrorHandler(func(e bar.ErrorEvent) { errChan <- e })
+
+	module := testModule.New(t)
+	go Run(module)
+
+	module.AssertStarted()
+	mockStdin.WriteString("[")
+	mockStdout.ReadUntil('[', time.Second)
+
+	outputsWithError := outputs.Group().
+		Append(outputs.Errorf("foo")).
+		Append(outputs.Text("regular")).
+		Append(outputs.Text("other").Error(errors.New("bar")))
+
+	module.Output(outputsWithError)
+	out := readOutput(t, mockStdout)
+	assert.Equal(t, 3, len(out), "All segments in output")
+
+	errorSegmentName := out[0]["name"].(string)
+	regularSegmentName := out[1]["name"].(string)
+
+	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s"},`, regularSegmentName))
+	module.AssertClicked("on click of regular segment")
+
+	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s"},`, errorSegmentName))
+	module.AssertClicked("on click of error segment")
+
+	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "x": 4, "button": 3},`, errorSegmentName))
+	module.AssertNotClicked("on right click of error segment")
+	select {
+	case e := <-errChan:
+		assert.Equal(t, "foo", e.Error.Error())
+		assert.Equal(t, bar.Event{ScreenX: 4, Button: bar.ButtonRight}, e.Event)
+	case <-time.After(time.Second):
+		assert.Fail(t, "should trigger error handler on right click")
+	}
+
+	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+		"click events do not cause any updates")
+
+	module.Close()
+
+	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 3},`, errorSegmentName))
+	module.AssertNotClicked("on right click of error segment")
+	select {
+	case e := <-errChan:
+		assert.Equal(t, "foo", e.Error.Error())
+	case <-time.After(time.Second):
+		assert.Fail(t, "should trigger error handler even after close")
+	}
+
+	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 1},`, errorSegmentName))
+	assert.Equal(t, []string{"regular"}, readOutputTexts(t, mockStdout),
+		"restarting clears error outputs immediately")
+
+	module.Output(outputsWithError)
+	module.Close()
+	out = readOutput(t, mockStdout)
+	assert.Equal(t, 3, len(out), "All segments in output")
+
+	regularSegmentName = out[1]["name"].(string)
+	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 1},`, regularSegmentName))
+	assert.Equal(t, []string{"regular"}, readOutputTexts(t, mockStdout),
+		"restarting from regular segment also clears errors")
 }
 
 type segmentAssertions struct {

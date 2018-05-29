@@ -157,12 +157,12 @@ func (a SegmentAssertions) AssertError(args ...interface{}) string {
 	if a.segment == nil {
 		return ""
 	}
-	urgent, _ := a.segment.IsUrgent()
-	shortText, _ := a.segment.GetShortText()
-	if !urgent || shortText != "Error" {
+	err := a.segment.GetError()
+	if err == nil {
 		a.assert.Fail("expected an error", args...)
+		return ""
 	}
-	return a.segment.Text()
+	return err.Error()
 }
 
 // Segment returns the actual segment to allow fine-grained assertions.

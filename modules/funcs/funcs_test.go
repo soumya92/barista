@@ -106,7 +106,7 @@ func TestRepeated(t *testing.T) {
 
 	atomic.StoreInt64(&count, 0)
 	testBar.Click(0)
-	testBar.NextOutput().AssertText(
+	testBar.LatestOutput().AssertText(
 		[]string{"1"}, "Function is called again on click")
 	testBar.Tick()
 	testBar.NextOutput().AssertText(

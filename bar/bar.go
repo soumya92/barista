@@ -64,6 +64,7 @@ type data struct {
 	text      string
 	shortText string
 	markup    string
+	err       error
 
 	color      color.Color
 	background color.Color
@@ -143,6 +144,21 @@ type Event struct {
 	Height    int    `json:"height,omitempty"`
 	ScreenX   int    `json:"x,omitempty"`
 	ScreenY   int    `json:"y,omitempty"`
+}
+
+/*
+ErrorEvent represents a mouse event that triggered the error handler.
+This is fired when an error segment is right clicked. The default handler
+for ErrorEvents simply shows an i3-nagbar with the full error text.
+
+Since the Event that triggered the error handler is also embedded,
+error handlers have information about the position of the module and can
+choose to display more contextual messages than a simple bar across the
+entire screen.
+*/
+type ErrorEvent struct {
+	Error error
+	Event
 }
 
 // Module represents a single bar module. A bar is just a list of modules.

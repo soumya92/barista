@@ -20,6 +20,7 @@ import (
 	"image/color"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -34,8 +35,14 @@ import (
 	"github.com/soumya92/barista/timing"
 )
 
-// i3Output is sent to i3bar.
-type i3Output []map[string]interface{}
+type i3Segment map[string]interface{}
+
+type i3SegmentWithError struct {
+	i3Segment
+	error
+}
+
+type i3Output []i3SegmentWithError
 
 // i3Event instances are received from i3bar on stdin.
 type i3Event struct {
@@ -68,6 +75,14 @@ type i3Bar struct {
 	sync.Mutex
 	// The list of modules that make up this bar.
 	i3Modules []*i3Module
+	// To allow error outputs to show the full error using i3-nagbar without
+	// forcing the bar into compact mode on long errors, store the full error
+	// text for the last set of segments, and send error IDs to i3bar.
+	// When a click event comes back with an error ID, intercept right-clicks
+	// to show the error string instead of dispatching the event to the module.
+	errors map[string]error
+	// The function to call when an error segment is right-clicked.
+	errorHandler func(bar.ErrorEvent)
 	// The channel that receives a signal on module updates.
 	update chan struct{}
 	// The channel that aggregates all events from i3.
@@ -88,6 +103,9 @@ type i3Bar struct {
 	// whether it needs to be refreshed on resume.
 	paused          bool
 	refreshOnResume bool
+	// For testing, output the associated error in the json as well.
+	// This allows output tester to accurately check for errors.
+	includeErrorsInOutput bool
 }
 
 // output converts the module's output to i3Output by adding the name (position),
@@ -98,9 +116,10 @@ func (m *i3Module) output(bar *i3Bar) {
 		var i3out i3Output
 		if o != nil {
 			for _, segment := range o.Segments() {
-				segmentOut := i3map(segment)
-				segmentOut["name"] = m.name
-				i3out = append(i3out, segmentOut)
+				i3out = append(i3out, i3SegmentWithError{
+					i3map(segment),
+					segment.GetError(),
+				})
 			}
 		}
 		m.lastOutput.Store(i3out)
@@ -111,6 +130,51 @@ func (m *i3Module) output(bar *i3Bar) {
 	// as "restartable" and the next click event (Button1/2/3) will
 	// call the output() method again.
 	m.restartable.Store(true)
+}
+
+// handleRestart checks if the module needs to be restarted, and restarts
+// the module if the event is a left, right, or middle click. It clears
+// the restartable flag and calls Stream on the module to resume output
+// to the bar. It also clears any error segments.
+// Returns true if the event was swallowed (i.e. should not be dispatched)
+// to the underlying module.
+func (m *i3Module) handleRestart(bar *i3Bar, e bar.Event) bool {
+	needsRestart, _ := m.restartable.Load().(bool)
+	if !needsRestart {
+		// Process event normally.
+		return false
+	}
+	if !isRestartableClick(e) {
+		// Swallow event, but do not restart the module.
+		return true
+	}
+	// Restart the module.
+	lastOut := m.lastOutput.Load().(i3Output)
+	var newOut i3Output
+	for _, segment := range lastOut {
+		if segment.error == nil {
+			newOut = append(newOut, segment)
+		}
+	}
+	if len(lastOut) != len(newOut) {
+		l.Fine("Module %s cleared %d error output(s)",
+			l.ID(m.Module), len(lastOut)-len(newOut))
+		m.lastOutput.Store(newOut)
+		bar.refresh()
+	}
+	m.restartable.Store(false)
+	go m.output(bar)
+	l.Log("Module %s restarted", l.ID(m.Module))
+	// Swallow the event.
+	return true
+}
+
+// isRestartableClick checks whether an event is allowed to restart
+// a pending module. Only left/middle/right clicks restart a module.
+func isRestartableClick(e bar.Event) bool {
+	return e.Button == bar.ButtonLeft ||
+		e.Button == bar.ButtonRight ||
+		e.Button == bar.ButtonMiddle
 }
 
 var instance *i3Bar
@@ -125,6 +189,8 @@ func construct() {
 			writer: os.Stdout,
 			// bar starts paused, will be resumed on Run().
 			paused: true,
+			// Default to i3-nagbar when right-clicking errors.
+			errorHandler: DefaultErrorHandler,
 		}
 	})
 }
@@ -145,6 +211,15 @@ func SuppressSignals(suppressSignals bool) {
 		panic("Cannot change signal handling after .Run()")
 	}
 	instance.suppressSignals = suppressSignals
+}
+
+// SetErrorHandler sets the function to be called when an error segment
+// is right clicked. This replaces the DefaultErrorHandler.
+func SetErrorHandler(handler func(bar.ErrorEvent)) {
+	construct()
+	instance.Lock()
+	defer instance.Unlock()
+	instance.errorHandler = handler
 }
 
 // Run sets up all the streams and enters the main loop.
@@ -212,27 +287,35 @@ func Run(modules ...bar.Module) error {
 				return err
 			}
 		case event := <-b.events:
+			l.Fine("Clicked on '%s'", event.Name)
+			moduleID, errorID := idFromName(event.Name)
+			// If the clicked segment has an error, intercept right clicks
+			// and show nagbar. Everything else is handled as normal.
+			if errorID != "" && event.Button == bar.ButtonRight {
+				if err, ok := b.errors[errorID]; ok {
+					go b.errorHandler(bar.ErrorEvent{
+						Error: err,
+						Event: event.Event,
+					})
+				}
+				continue
+			}
 			// Events are stripped of the name before being dispatched to the
 			// correct module.
-			if module, ok := b.get(event.Name); ok {
-				l.Fine("Clicked on module %s", l.ID(module.Module))
-				// If the module is pending a restart, check that the event is
-				// left/middle/right button, and restart the module if so.
-				if val, ok := module.restartable.Load().(bool); val && ok {
-					if isRestartableClick(event) {
-						module.restartable.Store(false)
-						go module.output(b)
-						l.Log("Module %s restarted", l.ID(module.Module))
-					}
-					continue
-				}
-				// Check that the module actually supports click events.
-				if clickable, ok := module.Module.(bar.Clickable); ok {
-					// Goroutine to prevent click handlers from blocking the bar.
-					go clickable.Click(event.Event)
-				}
-			} else {
-				l.Log("Could not find module '%s'", event.Name)
+			module, ok := b.get(moduleID)
+			if !ok {
+				continue
+			}
+			l.Fine("Clicked on module %s", l.ID(module.Module))
+			// If the module swallows the event to potentially restart,
+			// do not dispatch it to the click handler.
+			if module.handleRestart(b, event.Event) {
+				continue
+			}
+			// Check that the module actually supports click events.
+			if clickable, ok := module.Module.(bar.Clickable); ok {
+				// Goroutine to prevent click handlers from blocking the bar.
+				go clickable.Click(event.Event)
 			}
 		case sig := <-signalChan:
 			switch sig {
@@ -245,12 +328,33 @@ func Run(modules ...bar.Module) error {
 	}
 }
 
-// isRestartableClick checks whether an event is allowed to restart
-// a pending module. Only left/middle/right clicks restart a module.
-func isRestartableClick(e i3Event) bool {
-	return e.Button == bar.ButtonLeft ||
-		e.Button == bar.ButtonRight ||
-		e.Button == bar.ButtonMiddle
+func idFromName(name string) (moduleID, errorID string) {
+	parts := strings.Split(name, "/")
+	assertLen := func(expected int) bool {
+		if len(parts) != expected {
+			l.Log("Unexpected name: %s", name)
+			return false
+		}
+		return true
+	}
+	// name format: m/$mod or e/$err/$mod.
+	switch parts[0] {
+	case "m":
+		if assertLen(2) {
+			moduleID = parts[1]
+		}
+	case "e":
+		if assertLen(3) {
+			errorID = parts[1]
+			moduleID = parts[2]
+		}
+	}
+	return moduleID, errorID
+}
+
+// DefaultErrorHandler invokes i3-nagbar to show the full error message.
+func DefaultErrorHandler(e bar.ErrorEvent) {
+	exec.Command("i3-nagbar", "-m", e.Error.Error()).Run()
 }
 
 // addModule adds a single module to the bar.
@@ -327,15 +431,29 @@ func (b *i3Bar) print() error {
 	// last cached value for each module and construct the current bar.
 	// The bar will update any modules before calling this method, so the
 	// lastOutput property of each module will represent the current state.
-	outputs := make([]map[string]interface{}, 0)
+	b.errors = map[string]error{}
+	output := make([]i3Segment, 0)
 	for _, m := range b.i3Modules {
-		if lastOut, ok := m.lastOutput.Load().(i3Output); ok {
-			for _, segment := range lastOut {
-				outputs = append(outputs, segment)
+		lastOut, ok := m.lastOutput.Load().(i3Output)
+		if !ok {
+			continue
+		}
+		for _, segment := range lastOut {
+			out := segment.i3Segment
+			if segment.error != nil {
+				errorID := strconv.Itoa(len(b.errors))
+				b.errors[errorID] = segment.error
+				out["name"] = "e/" + errorID + "/" + m.name
+				if b.includeErrorsInOutput {
+					out["error"] = segment.Error()
+				}
+			} else {
+				out["name"] = "m/" + m.name
 			}
+			output = append(output, out)
 		}
 	}
-	if err := b.encoder.Encode(outputs); err != nil {
+	if err := b.encoder.Encode(output); err != nil {
 		return err
 	}
 	_, err := io.WriteString(b.writer, ",\n")
@@ -346,9 +464,11 @@ func (b *i3Bar) print() error {
 func (b *i3Bar) get(name string) (*i3Module, bool) {
 	index, err := strconv.Atoi(name)
 	if err != nil {
+		l.Log("Malformed module id '%s'", name)
 		return nil, false
 	}
 	if index < 0 || len(b.i3Modules) <= index {
+		l.Log("Could not find module '%s'", name)
 		return nil, false
 	}
 	return b.i3Modules[index], true
@@ -443,4 +563,5 @@ func TestMode(reader io.Reader, writer io.Writer) {
 	defer instance.Unlock()
 	instance.reader = reader
 	instance.writer = writer
+	instance.includeErrorsInOutput = true
 }
