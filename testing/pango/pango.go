@@ -55,12 +55,10 @@ func equalMarkup(a, b *html.Node) bool {
 	}
 	aAttrMap := map[string]string{}
 	for _, aAttr := range a.Attr {
-		key := aAttr.Namespace + ":" + aAttr.Key
-		aAttrMap[key] = aAttr.Val
+		aAttrMap[aAttr.Key] = aAttr.Val
 	}
 	for _, bAttr := range b.Attr {
-		key := bAttr.Namespace + ":" + bAttr.Key
-		if aAttrMap[key] != bAttr.Val {
+		if aAttrMap[bAttr.Key] != bAttr.Val {
 			return false
 		}
 	}

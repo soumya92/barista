@@ -53,6 +53,11 @@ func TestEqual(t *testing.T) {
 			"<u title='&lt;-- this way'>look</u>",
 			"attribute escaping",
 		},
+		{
+			"<u title = 'test'>thing</u>",
+			"<u     title='test'>thing</u>",
+			"non-display spacing",
+		},
 	}
 
 	for _, tc := range cases {
@@ -69,6 +74,7 @@ func TestUnequal(t *testing.T) {
 		{"&#61;b> foo", "&lt;b&lt; foo", "basic entities"},
 		{"<b>foo</b>bar", "<b>foo</b>", "truncated content"},
 		{"<abbr>HTML</abbr>", "<abbr>XML</abbr>", "text content"},
+		{"<u>test</u>", "<u>  test  </u>", "content spacing"},
 		{"<u title='<-- this way'>look</u>", "<u>look</u>", "missing attribute"},
 		{
 			"<span attr='value'>content</span>",
