@@ -539,7 +539,7 @@ func TestErrorHandling(t *testing.T) {
 
 type segmentAssertions struct {
 	*testing.T
-	actual   bar.Segment
+	actual   *bar.Segment
 	Expected map[string]string
 }
 

@@ -295,7 +295,7 @@ func TestSegmentErrors(t *testing.T) {
 		LatestOutput().At(0).AssertError()
 	}, "Asserting error with non-error output")
 
-	var seg bar.Segment
+	var seg *bar.Segment
 	assertFails(t, func(m *module.TestModule) {
 		m.Output(outputs.Group(
 			outputs.Text("1234"),
@@ -303,8 +303,7 @@ func TestSegmentErrors(t *testing.T) {
 		))
 		seg = LatestOutput().At(2).Segment()
 	}, "out of range segment")
-	assert.Equal(t, bar.Segment{}, seg,
-		"zero value on out of range segment")
+	assert.Nil(t, seg, "nil value on out of range segment")
 }
 
 func TestNagbarError(t *testing.T) {

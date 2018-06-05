@@ -384,7 +384,7 @@ func colorString(c color.Color) string {
 
 // i3map serialises the attributes of the Segment in
 // the format used by i3bar.
-func i3map(s bar.Segment) map[string]interface{} {
+func i3map(s *bar.Segment) map[string]interface{} {
 	i3map := make(map[string]interface{})
 	i3map["full_text"] = s.Text()
 	if shortText, ok := s.GetShortText(); ok {

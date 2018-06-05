@@ -30,7 +30,7 @@ type TemplateFunc func(interface{}) bar.Output
 type empty struct{}
 
 // Segments implements bar.Output for empty by returning an empty list.
-func (e empty) Segments() []bar.Segment {
+func (e empty) Segments() []*bar.Segment {
 	return nil
 }
 
@@ -41,12 +41,12 @@ func Empty() bar.Output {
 
 // Errorf constructs a bar output that indicates an error,
 // using the given format string and arguments.
-func Errorf(format string, args ...interface{}) bar.Segment {
+func Errorf(format string, args ...interface{}) *bar.Segment {
 	return Error(fmt.Errorf(format, args...))
 }
 
 // Error constructs a bar output that indicates an error.
-func Error(e error) bar.Segment {
+func Error(e error) *bar.Segment {
 	return Text("Error").
 		Error(e).
 		ShortText("!").
@@ -54,17 +54,17 @@ func Error(e error) bar.Segment {
 }
 
 // Textf constructs simple text output from a format string and arguments.
-func Textf(format string, args ...interface{}) bar.Segment {
+func Textf(format string, args ...interface{}) *bar.Segment {
 	return Text(fmt.Sprintf(format, args...))
 }
 
 //Text constructs a simple text output from the given string.
-func Text(text string) bar.Segment {
+func Text(text string) *bar.Segment {
 	return bar.TextSegment(text)
 }
 
 // Pango constructs a bar output from a list of things.
-func Pango(things ...interface{}) bar.Segment {
+func Pango(things ...interface{}) *bar.Segment {
 	// The extra span tag will be collapsed if no attributes were added.
 	return bar.PangoSegment(pango.Span(things...).Pango())
 }
@@ -72,7 +72,7 @@ func Pango(things ...interface{}) bar.Segment {
 // Group concatenates several outputs into a single SegmentGroup,
 // to facilitate easier manipulation of output properties.
 // For example, setting a colour or urgency for all segments together.
-func Group(outputs ...bar.Output) SegmentGroup {
+func Group(outputs ...bar.Output) *SegmentGroup {
 	group := newSegmentGroup()
 	for _, o := range outputs {
 		group.Append(o.Segments()...)

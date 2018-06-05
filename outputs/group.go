@@ -24,19 +24,7 @@ import (
 // SegmentGroup represents a group of Segments to be
 // displayed together on the bar.
 type SegmentGroup struct {
-	*groupData
-}
-
-// We should support both chaining (e.g. Group(...).MinWidth(10).Append(...))
-// and sequential calls (e.g. g.InnerSeparators(true); g.Append(...);).
-// To do so, SegmentGroup needs to be mutable in-place, but making it
-// a reference type will disallow `return Group(...).Padding(...)'.
-// To work around this, we wrap a reference type that holds all the data,
-// and have each method act on the inner field.
-
-// groupData stores the data required by a SegmentGroup.
-type groupData struct {
-	segments []bar.Segment
+	segments []*bar.Segment
 	// To support addition of segments after construction, store
 	// attributes on the group, and apply them in Segments().
 	attrSet        int
@@ -62,36 +50,36 @@ const (
 )
 
 // newSegmentGroup constructs an empty SegmentGroup
-func newSegmentGroup() SegmentGroup {
-	return SegmentGroup{&groupData{}}
+func newSegmentGroup() *SegmentGroup {
+	return &SegmentGroup{}
 }
 
 // Color sets the color for all segments in the group.
-func (g SegmentGroup) Color(color color.Color) SegmentGroup {
+func (g *SegmentGroup) Color(color color.Color) *SegmentGroup {
 	g.color = color
 	return g
 }
 
 // Background sets the background color for all segments in the group.
-func (g SegmentGroup) Background(background color.Color) SegmentGroup {
+func (g *SegmentGroup) Background(background color.Color) *SegmentGroup {
 	g.background = background
 	return g
 }
 
 // Border sets the border color for all segments in the group.
-func (g SegmentGroup) Border(border color.Color) SegmentGroup {
+func (g *SegmentGroup) Border(border color.Color) *SegmentGroup {
 	g.border = border
 	return g
 }
 
 // Align sets the text alignment for all segments in the group.
-func (g SegmentGroup) Align(align bar.TextAlignment) SegmentGroup {
+func (g *SegmentGroup) Align(align bar.TextAlignment) *SegmentGroup {
 	g.align = align
 	return g
 }
 
 // Urgent sets the urgency flag for all segments in the group.
-func (g SegmentGroup) Urgent(urgent bool) SegmentGroup {
+func (g *SegmentGroup) Urgent(urgent bool) *SegmentGroup {
 	g.attrSet |= sgaUrgent
 	g.urgent = urgent
 	return g
@@ -111,47 +99,47 @@ last segment.
 
 // MinWidth sets the minimum width for the output, by (mostly) equally
 // distributing the given minWidth amongst all segments in the group.
-func (g SegmentGroup) MinWidth(minWidth int) SegmentGroup {
+func (g *SegmentGroup) MinWidth(minWidth int) *SegmentGroup {
 	g.attrSet |= sgaMinWidth
 	g.minWidth = minWidth
 	return g
 }
 
 // Separator sets the separator visibility of the last segment in the group.
-func (g SegmentGroup) Separator(separator bool) SegmentGroup {
+func (g *SegmentGroup) Separator(separator bool) *SegmentGroup {
 	g.attrSet |= sgaOuterSeparator
 	g.outerSeparator = separator
 	return g
 }
 
 // Padding sets the padding of the last segment in the group.
-func (g SegmentGroup) Padding(separatorWidth int) SegmentGroup {
+func (g *SegmentGroup) Padding(separatorWidth int) *SegmentGroup {
 	g.attrSet |= sgaOuterPadding
 	g.outerPadding = separatorWidth
 	return g
 }
 
 // InnerSeparators sets the separator visibility between segments of this group.
-func (g SegmentGroup) InnerSeparators(separator bool) SegmentGroup {
+func (g *SegmentGroup) InnerSeparators(separator bool) *SegmentGroup {
 	g.attrSet |= sgaInnerSeparators
 	g.innerSeparator = separator
 	return g
 }
 
 // InnerPadding sets the padding between segments of this group.
-func (g SegmentGroup) InnerPadding(separatorWidth int) SegmentGroup {
+func (g *SegmentGroup) InnerPadding(separatorWidth int) *SegmentGroup {
 	g.attrSet |= sgaInnerPadding
 	g.innerPadding = separatorWidth
 	return g
 }
 
 // Glue is a shortcut to remove the inner separators and padding.
-func (g SegmentGroup) Glue() SegmentGroup {
+func (g *SegmentGroup) Glue() *SegmentGroup {
 	return g.InnerSeparators(false).InnerPadding(0)
 }
 
 // Append adds additional segments to this group.
-func (g SegmentGroup) Append(segments ...bar.Segment) SegmentGroup {
+func (g *SegmentGroup) Append(segments ...*bar.Segment) *SegmentGroup {
 	g.segments = append(g.segments, segments...)
 	return g
 }
@@ -165,8 +153,8 @@ func isSet(_ interface{}, isSet bool) bool {
 // This method is responsible for computing all attributes so that
 // all segments, even those added after attributes were set on the group
 // correctly reflect those attributes in the final output.
-func (g SegmentGroup) Segments() []bar.Segment {
-	segments := make([]bar.Segment, 0)
+func (g *SegmentGroup) Segments() []*bar.Segment {
+	segments := make([]*bar.Segment, 0)
 	remainingWidth := float64(g.minWidth)
 	if g.attrSet&sgaMinWidth != 0 {
 		remainingWidth -= g.existingMinWidth()
@@ -219,7 +207,7 @@ func (g SegmentGroup) Segments() []bar.Segment {
 // existingMinWidth sums all integral minimum widths from the segments.
 // This allows us to distribute the minWidth amongst the other segments
 // while keeping the total min width the same as what was given.
-func (g SegmentGroup) existingMinWidth() (result float64) {
+func (g *SegmentGroup) existingMinWidth() (result float64) {
 	for _, s := range g.segments {
 		minWidth, isSet := s.GetMinWidth()
 		if !isSet {

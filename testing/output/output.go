@@ -108,7 +108,7 @@ func (a Assertions) At(i int) SegmentAssertions {
 			"want #%d, have %d", i, len(segments))
 		return SegmentAssertions{assert: a.assert}
 	}
-	return SegmentAssertions{segment: &segments[i], assert: a.assert}
+	return SegmentAssertions{segment: segments[i], assert: a.assert}
 }
 
 // Len returns the number of segments in the actual output.
@@ -120,9 +120,12 @@ func (a Assertions) Len() int {
 }
 
 // Segment provides text, error, and equality assertions for a bar.Segment
-func Segment(t assert.TestingT, segment bar.Segment) SegmentAssertions {
+func Segment(t assert.TestingT, segment *bar.Segment) SegmentAssertions {
+	if segment == nil {
+		assert.Fail(t, "Asserting against nil segment")
+	}
 	return SegmentAssertions{
-		segment: &segment,
+		segment: segment,
 		assert:  assert.New(t),
 	}
 }
@@ -135,12 +138,11 @@ type SegmentAssertions struct {
 }
 
 // AssertEqual asserts that the actual segment is equal to the expecte segment.
-func (a SegmentAssertions) AssertEqual(expected bar.Segment, args ...interface{}) {
+func (a SegmentAssertions) AssertEqual(expected *bar.Segment, args ...interface{}) {
 	if a.segment == nil {
 		return
 	}
-	segment := *a.segment
-	a.assert.Equal(expected, segment, args...)
+	a.assert.Equal(expected, a.segment, args...)
 }
 
 // AssertText asserts that the segment's text matches the expected string.
@@ -170,9 +172,6 @@ func (a SegmentAssertions) AssertError(args ...interface{}) string {
 // allowing code like:
 //     urgent, _ := out.At(2).Segment().IsUrgent()
 //     assert.True(t, urgent, "segment #3 is urgent")
-func (a SegmentAssertions) Segment() bar.Segment {
-	if a.segment == nil {
-		return bar.Segment{}
-	}
-	return *a.segment
+func (a SegmentAssertions) Segment() *bar.Segment {
+	return a.segment
 }

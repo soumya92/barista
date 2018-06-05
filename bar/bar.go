@@ -45,16 +45,6 @@ See segment.go for supported methods. All fields are unexported to make sure
 that when setting a field, the attrSet mask is also updated.
 */
 type Segment struct {
-	// We should support both chaining (e.g. segment.Urgent(true).Color(red))
-	// and sequential calls (e.g. segment.Urgent(true); segment.Color(red);).
-	// To do so, Segment needs to be mutable in-place, but making Segment
-	// a reference type will disallow `return TextSegment("bad").Color(red)'.
-	// To work around this, we wrap a reference type that holds all the data,
-	// and have each method act on the inner field.
-	*data
-}
-
-type data struct {
 	// A bitmask of attributes that are set. Needed because the go default
 	// for some attributes behave differently from unset values when sent to
 	// i3bar. (e.g. the default separatorWidth is not 0).
@@ -92,7 +82,7 @@ const (
 
 // Output is an interface for displaying objects on the bar.
 type Output interface {
-	Segments() []Segment
+	Segments() []*Segment
 }
 
 // Button represents an X11 mouse button.

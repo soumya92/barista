@@ -101,9 +101,9 @@ func (t *TestBar) readJSONOutput(timeout time.Duration) (out string, err error) 
 type segmentID struct{ name, instance string }
 
 // outputFromSegments creates a bar.Output from a slice of bar.Segments.
-type outputFromSegments []bar.Segment
+type outputFromSegments []*bar.Segment
 
-func (o outputFromSegments) Segments() []bar.Segment {
+func (o outputFromSegments) Segments() []*bar.Segment {
 	return o
 }
 
@@ -113,10 +113,10 @@ func parseOutput(jsonStr string) (ids []segmentID, output bar.Output, err error)
 	if err != nil {
 		return
 	}
-	var segments []bar.Segment
+	var segments []*bar.Segment
 	for _, i3map := range jsonOutputs {
 		var sID segmentID
-		var s bar.Segment
+		var s *bar.Segment
 		sID.name = i3map["name"].(string)
 		text := i3map["full_text"].(string)
 		if markup, ok := i3map["markup"]; ok && markup.(string) == "pango" {

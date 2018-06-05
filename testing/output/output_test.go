@@ -145,11 +145,10 @@ func TestSegmentAssertions(t *testing.T) {
 	err := a.AssertError("with error output")
 	assert.Equal(t, "something", err, "error description")
 
-	// TODO: Fix this?
-	assert.Panics(t, func() {
-		a = Segment(t, bar.Segment{})
-		a.AssertText("")
-	}, "uninitialised segment")
+	fakeT := &testing.T{}
+	assert.False(t, fakeT.Failed())
+	a = Segment(fakeT, nil)
+	assert.True(t, fakeT.Failed(), "Trying to assert on nil segment")
 }
 
 func TestEmptySegmentAssertions(t *testing.T) {
@@ -159,8 +158,8 @@ func TestEmptySegmentAssertions(t *testing.T) {
 	err := s.AssertError("AssertError without segment is nop")
 	assert.Empty(t, err, "AssertError returns empty result")
 	s.AssertText("whatever", "AssertText without segment is nop")
-	assert.Equal(t, bar.Segment{}, s.Segment(),
-		"Segment() returns unintialised without segment")
+	assert.Nil(t, s.Segment(),
+		"Segment() returns nil without segment")
 }
 
 func TestSegmentAssertionErrors(t *testing.T) {
@@ -174,7 +173,7 @@ func TestSegmentAssertionErrors(t *testing.T) {
 	}
 
 	textSegment := bar.TextSegment("test segment")
-	segment = &textSegment
+	segment = textSegment
 
 	assertFail(func(s SegmentAssertions) {
 		s.AssertError()
@@ -187,7 +186,7 @@ func TestSegmentAssertionErrors(t *testing.T) {
 	}, "AssertEqual with different segment")
 
 	errorSegments := outputs.Errorf("404").Segments()
-	segment = &errorSegments[0]
+	segment = errorSegments[0]
 	assertFail(func(s SegmentAssertions) {
 		s.AssertText("not it")
 	}, "AssertText with wrong text")

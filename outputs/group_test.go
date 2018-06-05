@@ -35,9 +35,9 @@ func TestSegmentGroup(t *testing.T) {
 
 	// Since property changes don't propagate to the backing segments,
 	// we'll fetch a new instance for each assertion.
-	first := func() bar.Segment { return out.Segments()[0] }
-	mid := func() bar.Segment { return out.Segments()[3] }
-	last := func() bar.Segment { return out.Segments()[5] }
+	first := func() *bar.Segment { return out.Segments()[0] }
+	mid := func() *bar.Segment { return out.Segments()[3] }
+	last := func() *bar.Segment { return out.Segments()[5] }
 
 	assert.Equal("1", first().Text())
 	assert.False(first().IsPango())
@@ -49,7 +49,7 @@ func TestSegmentGroup(t *testing.T) {
 	assert.True(last().IsPango())
 
 	assertAllEqual := func(expected interface{},
-		getFunc func(s bar.Segment) (interface{}, bool),
+		getFunc func(s *bar.Segment) (interface{}, bool),
 		message string) {
 		for _, segment := range out.Segments() {
 			val, isSet := getFunc(segment)
@@ -60,17 +60,17 @@ func TestSegmentGroup(t *testing.T) {
 
 	out.Border(colors.Hex("#070"))
 	assertAllEqual(colors.Hex("#070"),
-		func(s bar.Segment) (interface{}, bool) { return s.GetBorder() },
+		func(s *bar.Segment) (interface{}, bool) { return s.GetBorder() },
 		"sets border for all segments")
 
 	out.Urgent(true)
 	assertAllEqual(true,
-		func(s bar.Segment) (interface{}, bool) { return s.IsUrgent() },
+		func(s *bar.Segment) (interface{}, bool) { return s.IsUrgent() },
 		"sets border for all segments")
 
 	out.Urgent(false)
 	assertAllEqual(false,
-		func(s bar.Segment) (interface{}, bool) { return s.IsUrgent() },
+		func(s *bar.Segment) (interface{}, bool) { return s.IsUrgent() },
 		"sets border for all segments")
 
 	sumMinWidth := func() int {
@@ -84,7 +84,7 @@ func TestSegmentGroup(t *testing.T) {
 
 	out.MinWidth(60)
 	assertAllEqual(10,
-		func(s bar.Segment) (interface{}, bool) { return s.GetMinWidth() },
+		func(s *bar.Segment) (interface{}, bool) { return s.GetMinWidth() },
 		"min_width when equally distributed")
 	assert.Equal(60, sumMinWidth(), "min_width when equally distributed")
 
@@ -97,7 +97,7 @@ func TestSegmentGroup(t *testing.T) {
 
 	out.MinWidth(0)
 	assertAllEqual(0,
-		func(s bar.Segment) (interface{}, bool) { return s.GetMinWidth() },
+		func(s *bar.Segment) (interface{}, bool) { return s.GetMinWidth() },
 		"min_width when 0")
 	assert.Equal(0, sumMinWidth(), "min_width when 0")
 
@@ -141,7 +141,7 @@ func TestSingleGroup(t *testing.T) {
 	single := Group(bar.PangoSegment("<b>only</b>"))
 	assert.Equal(1, len(single.Segments()))
 
-	segment := func() bar.Segment { return single.Segments()[0] }
+	segment := func() *bar.Segment { return single.Segments()[0] }
 	assert.Equal("<b>only</b>", segment().Text())
 	assert.True(segment().IsPango())
 
@@ -185,7 +185,7 @@ func TestSingleGroup(t *testing.T) {
 	_, isSet = segment().HasSeparator()
 	assert.True(isSet)
 
-	segment = func() bar.Segment { return single.Segments()[1] }
+	segment = func() *bar.Segment { return single.Segments()[1] }
 
 	// The new segment should inherit any unset properties.
 	bg, _ = segment().GetBackground()
