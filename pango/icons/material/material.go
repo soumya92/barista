@@ -31,9 +31,9 @@ import (
 
 var provider *icons.Provider
 
-// Icon returns a pango node for the given icon name and styles.
-func Icon(name string, style ...pango.Attribute) pango.Node {
-	return provider.Icon(name, style...)
+// Icon returns a pango node for the given icon name.
+func Icon(name string) *pango.Node {
+	return provider.Icon(name)
 }
 
 // Load initialises the material design icon provider from the given repo.
@@ -42,11 +42,8 @@ func Load(repoPath string) error {
 		RepoPath: repoPath,
 		FilePath: "iconfont/codepoints",
 		Font:     "Material Icons",
+		Styler:   func(n *pango.Node) { n.UltraLight().Rise(-1600) },
 	}
-	c.Styles(
-		pango.Ultralight,
-		pango.Rise(-1600),
-	)
 	var err error
 	provider, err = c.LoadByLines(func(line string, add func(string, string)) error {
 		components := strings.Split(line, " ")

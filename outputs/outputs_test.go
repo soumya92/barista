@@ -23,6 +23,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/pango"
+	pangoTesting "github.com/soumya92/barista/testing/pango"
 )
 
 func TestEmpty(t *testing.T) {
@@ -77,11 +78,15 @@ func TestPango(t *testing.T) {
 		{"empty", Pango(), ""},
 		{"empty string", Pango(""), ""},
 		{"simple string", Pango("test"), "test"},
-		{"with attribute", Pango(pango.Bold, "test"), "<span weight='bold'>test</span>"},
-		{"with tag", Pango(pango.Tag("b", "test")), "<b>test</b>"},
+		{"with attribute", Pango(pango.Text("test").Bold()), "<span weight='bold'>test</span>"},
+		{
+			"with pango node, string, and other",
+			Pango(pango.Text("<").Heavy(), 3.14159, " ", true, pango.Text(">").Heavy()),
+			"<span weight='heavy'>&lt;</span>3.14159 true<span weight='heavy'>&gt;</span>",
+		},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, textOf(tc.output), tc.desc)
+		pangoTesting.AssertEqual(t, tc.expected, textOf(tc.output), tc.desc)
 	}
 }
 

@@ -15,75 +15,132 @@
 package pango
 
 import (
+	"image/color"
 	"testing"
 
+	"github.com/stretchrcom/testify/assert"
+
+	"github.com/soumya92/barista/colors"
+	"github.com/soumya92/barista/testing/output"
 	"github.com/soumya92/barista/testing/pango"
 )
 
 var stringifyingTests = []struct {
 	desc     string
-	node     Node
+	node     *Node
 	expected string
 }{
-	{"empty span", Span(), ""},
-	{"empty not-span tag", Tag("b"), "<b></b>"},
-	{"empty span with attribute", Tag("span", Weight(400)), "<span weight='400'></span>"},
-
-	{"empty span()", Span(), ""},
-	{"span() with attribute and text", Span(Bold, "text"), "<span weight='bold'>text</span>"},
-
-	{"nested tags", Tag("i", Tag("b")), "<i><b></b></i>"},
+	{"empty element", New(), ""},
+	{"append text", Text("foo").AppendText("bar"), "foobar"},
 	{
-		"nested repeated tag",
-		Tag("small", Tag("small", Tag("small"))),
-		"<small><small><small></small></small></small>",
+		"empty element with attribute",
+		New().Weight(400),
+		"<span weight='400'></span>",
 	},
 	{
-		"nested tags with attributes",
-		Tag("span", Font("monospace"), Span(Bold), Strikethrough),
-		"<span face='monospace' strikethrough='true'><span weight='bold'></span></span>",
+		"text with attribute",
+		Text("text").UltraBold(),
+		"<span weight='ultrabold'>text</span>",
+	},
+	{
+		"append text and set attribute",
+		Text("foo").AppendText("bar").UltraLight().Italic(),
+		"<span weight='ultralight' style='italic'>foobar</span>",
+	},
+	{
+		"append styled text",
+		Text("foo").Append(Text("bar").XXLarge().StyleNormal()),
+		"foo<span size='xx-large' style='normal'>bar</span>",
+	},
+	{
+		"repeated relative size",
+		Text("tiny").Smaller().Smaller().Smaller().Append(Text(" tot").SmallCaps()),
+		"<small><small><small>tiny<span variant='smallcaps'> tot</span></small></small></small>",
+	},
+	{
+		"append styled text with attributes",
+		Text("foo").Font("monospace").Append(Text("bar").Heavy().Strikethrough()).AppendText("baz"),
+		"<span face='monospace'>foo<span strikethrough='true' weight='heavy'>bar</span>baz</span>",
 	},
 
-	{"custom attribute", Tag("b", Attribute{"name", "value"}), "<b name='value'></b>"},
-
-	{"tag with text", Tag("b", "bold"), "<b>bold</b>"},
-	{"tag with non-string child", Tag("b", 4.5), "<b>4.5</b>"},
 	{
-		"tag with text and attributes",
-		Tag("span", Rise(400), "some text", Font("monospace")),
-		"<span rise='400' face='monospace'>some text</span>",
-	},
-	{
-		"tag with fmt-formatted text",
-		Span(SemiExpanded, Textf("%03d", 4)),
-		"<span stretch='semiexpanded'>004</span>",
-	},
-	{
-		"tag with multiple children",
-		Tag("b", "con", "cat", Font("monospace"), ": ", 3.141, Tag("u", "underline")),
-		"<b face='monospace'>concat: 3.141<u>underline</u></b>",
+		"multiple append",
+		Text("").
+			Light().
+			AppendText("con", "cat").
+			Append(Textf(": %.3f", 3.141)).
+			Append(Text("u").UnderlineSingle()).LetterSpacing(1),
+		"<span weight='light' letter_spacing='1024'>concat: 3.141<span underline='single'>u</u></b>",
 	},
 
 	{
 		"text with special characters",
-		Tag("b", "<>&amp;'\"="),
-		"<b>&lt;&gt;&amp;amp;&#39;&#34;=</b>",
+		Text("<>&amp;'\"=").Expanded(),
+		"<span stretch='expanded'>&lt;&gt;&amp;amp;&#39;&#34;=</span>",
 	},
 	{
 		"text with 'valid' html",
-		Tag("i", "<b color='red'>bold</b>"),
-		"<i>&lt;b color=&#39;red&#39;&gt;bold&lt;/b&gt;</i>",
+		Text("<b color='red'>bold</b>").Oblique(),
+		"<span style='oblique'>&lt;b color=&#39;red&#39;&gt;bold&lt;/b&gt;</span>",
 	},
 
 	{
-		"simple span collapsing",
-		Span("string-1", " ", "string-2", " ", 2.718),
+		"unnamed tag collapsing",
+		New(Text("string-1"), Text(" "), Text("string-2")).AppendTextf(" %.3f", 2.718),
 		"string-1 string-2 2.718",
 	},
 	{
-		"span collapsing with child nodes",
-		Span(Textf("%s-%d", "string", 1), Tag("u", " "), Span(Tag("b", "e="), 2.718, "..."), Span()),
-		"string-1<u> </u><b>e=</b>2.718...",
+		"mixing fixed and relative sizes",
+		Text("foo").Size(10.0).Larger().Larger().Font("monospace").AppendText("bar"),
+		"<span size='10240' face='monospace'><big><big>foobar</big></big></span>",
+	},
+	{
+		"package example #0",
+		New(
+			Text("Red "),
+			Text("Bold Text").Bold()).
+			Color(colors.Hex("#ff0000")),
+		`<span color="#ff0000">Red <span weight="bold">Bold Text</span></span>`,
+	},
+	{
+		"package example #1",
+		Text("Red ").
+			Color(colors.Hex("#ff0000")).
+			Append(Text("Bold Text").Bold()),
+		`<span color="#ff0000">Red <span weight="bold">Bold Text</span></span>`,
+	},
+	{
+		"parent example #0",
+		Text("c").Condensed().Color(colors.Hex("#ff0000")).
+			Parent().AppendText("foo").UnderlineError(),
+		"<span underline='error'><span stretch='condensed' color='#ff0000'>c</span>foo</span>",
+	},
+	{
+		"complex",
+		complex(),
+		`<span weight='600' rise='400' size='14336' face='monospace'
+		><span face='serif' weight='ultrabold'>Number 42</span
+		><span underline='double' size='small'>small underline</span
+		><span stretch='ultraexpanded' size='x-large' style='oblique' variant='smallcaps'
+		>all the styles!</span></span>`,
+	},
+	{
+		"different values for same style",
+		Text("normal").Bold().UltraLight().Weight(40).WeightNormal().
+			SmallCaps().VariantNormal().
+			UnderlineError().UnderlineLow().UnderlineNone().
+			Italic().Oblique().StyleNormal().
+			Strikethrough().NoStrikethrough().
+			UltraCondensed().ExtraExpanded().ExtraCondensed().SemiCondensed().SemiExpanded().StretchNormal().
+			XSmall().XXSmall().Medium().Large().Size(10.0),
+		`<span
+			weight='normal'
+			variant='normal'
+			underline='none'
+			style='normal'
+			strikethrough='false'
+			stretch='normal'
+			size='10240'>normal</span>`,
 	},
 }
 
@@ -93,18 +150,106 @@ func TestStringifying(t *testing.T) {
 	}
 }
 
-var result string
-var resultNode Node
+var transparent = color.Transparent
+var solid = color.White
+var partial = color.RGBA64{0x7fff, 0x0, 0x0, 0x7fff}
 
-func benchmarkConstructOnly(b *testing.B, fn func() Node) {
-	var r Node
+var colorAttrTests = []struct {
+	desc     string
+	node     *Node
+	expected string
+}{
+	{
+		"fg, transparent",
+		Text("color").Color(transparent),
+		"<span alpha='0'>color</span>",
+	},
+	{
+		"bg, transparent",
+		Text("color").Background(transparent),
+		"<span background_alpha='0'>color</span>",
+	},
+	{
+		"underline, transparent",
+		Text("color").UnderlineColor(transparent),
+		"<span>color</span>",
+	},
+	{
+		"strikethrough, transparent",
+		Text("color").StrikethroughColor(transparent),
+		"<span>color</span>",
+	},
+
+	{
+		"fg, with alpha",
+		Text("color").Color(partial),
+		"<span alpha='32767' color='#ff0000'>color</span>",
+	},
+	{
+		"bg, with alpha",
+		Text("color").Background(partial),
+		"<span background_alpha='32767' background='#ff0000'>color</span>",
+	},
+	{
+		"underline, with alpha",
+		Text("color").UnderlineColor(partial),
+		"<span underline_color='#ff0000'>color</span>",
+	},
+	{
+		"strikethrough, with alpha",
+		Text("color").StrikethroughColor(partial),
+		"<span strikethrough_color='#ff0000'>color</span>",
+	},
+
+	{
+		"fg, solid",
+		Text("color").Color(solid),
+		"<span color='#ffffff'>color</span>",
+	},
+	{
+		"bg, solid",
+		Text("color").Background(solid),
+		"<span background='#ffffff'>color</span>",
+	},
+	{
+		"underline, solid",
+		Text("color").UnderlineColor(solid),
+		"<span underline_color='#ffffff'>color</span>",
+	},
+	{
+		"strikethrough, solid",
+		Text("color").StrikethroughColor(solid),
+		"<span strikethrough_color='#ffffff'>color</span>",
+	},
+}
+
+func TestColorAttrs(t *testing.T) {
+	for _, tc := range colorAttrTests {
+		pango.AssertEqual(t, tc.expected, tc.node.Pango(), tc.desc)
+	}
+}
+
+func TestBarOutput(t *testing.T) {
+	node := Text("something went wrong").Color(colors.Hex("#f00")).UnderlineError()
+	segment := output.New(t, node).At(0).Segment()
+	pango.AssertEqual(t,
+		"<span color='#ff0000' underline='error'>something went wrong</span>",
+		segment.Text())
+	assert.True(t, segment.IsPango())
+}
+
+var result string
+var resultNode *Node
+
+func benchmarkConstructOnly(b *testing.B, fn func() *Node) {
+	var r *Node
 	for n := 0; n < b.N; n++ {
 		r = fn()
 	}
 	resultNode = r
 }
 
-func benchmarkConstructAndStringify(b *testing.B, fn func() Node) {
+func benchmarkConstructAndStringify(b *testing.B, fn func() *Node) {
 	var s string
 	for n := 0; n < b.N; n++ {
 		s = fn().Pango()
@@ -112,7 +257,7 @@ func benchmarkConstructAndStringify(b *testing.B, fn func() Node) {
 	result = s
 }
 
-func benchmarkStringifyOnly(b *testing.B, fn func() Node) {
+func benchmarkStringifyOnly(b *testing.B, fn func() *Node) {
 	var s string
 	node := fn()
 	for n := 0; n < b.N; n++ {
@@ -121,28 +266,27 @@ func benchmarkStringifyOnly(b *testing.B, fn func() Node) {
 	result = s
 }
 
-func empty() Node                          { return Span() }
+func empty() *Node                         { return New() }
 func BenchmarkEmpty(b *testing.B)          { benchmarkConstructAndStringify(b, empty) }
 func BenchmarkEmptyConstruct(b *testing.B) { benchmarkConstructOnly(b, empty) }
 func BenchmarkEmptyStringify(b *testing.B) { benchmarkStringifyOnly(b, empty) }
 
-func simple() Node                          { return Tag("b") }
+func simple() *Node                         { return Text("text").Heavy() }
 func BenchmarkSimple(b *testing.B)          { benchmarkConstructAndStringify(b, simple) }
 func BenchmarkSimpleConstruct(b *testing.B) { benchmarkConstructOnly(b, simple) }
 func BenchmarkSimpleStringify(b *testing.B) { benchmarkStringifyOnly(b, simple) }
 
-func textonly() Node                      { return Textf("%s-%d", "test", 1024) }
+func textonly() *Node                     { return Textf("%s-%d", "test", 1024) }
 func BenchmarkText(b *testing.B)          { benchmarkConstructAndStringify(b, textonly) }
 func BenchmarkTextConstruct(b *testing.B) { benchmarkConstructOnly(b, textonly) }
 func BenchmarkTextStringify(b *testing.B) { benchmarkStringifyOnly(b, textonly) }
 
-func complex() Node {
-	return Span(
-		Font("monospace"), Weight(600), Rise(400), Size(14.0),
-		Tag("b", Font("serif"), Textf("Number %d", 42)),
-		Tag("small", Tag("u", "small underline")),
-		Tag("i", Tag("b", Tag("u", Tag("small", Textf("%s %s %s!", "all", "the", "tags"))))),
-	)
+func complex() *Node {
+	return New(
+		Textf("Number %d", 42).UltraBold().Font("serif"),
+		Textf("small underline").UnderlineDouble().Small(),
+		Textf("%s %s %s!", "all", "the", "styles").UltraExpanded().Oblique().XLarge().SmallCaps(),
+	).Font("monospace").Weight(600).Rise(400).Size(14.0)
 }
 func BenchmarkComplex(b *testing.B)          { benchmarkConstructAndStringify(b, complex) }
 func BenchmarkComplexConstruct(b *testing.B) { benchmarkConstructOnly(b, complex) }

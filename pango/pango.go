@@ -21,14 +21,15 @@ For example, to construct pango markup for:
  <span color="#ff0000">Red <span weight="bold">Bold Text</span></span>
 
 the go code would be:
- pango.Span(
-   colors.Hex("#ff0000"),
-   "Red ",
-   pango.Span(
-     pango.Weight("bold"),
-     "Bold Text",
-   ),
- )
+ pango.New(
+   pango.Text("Red "),
+   pango.Text("Bold Text").Bold()).
+ Color(colors.Hex("#ff0000"))
+
+or:
+ pango.Text("Red ").
+   Color(colors.Hex("#ff0000")).
+   Append(pango.Text("Bold Text").Bold())
 */
 package pango
 
@@ -36,64 +37,134 @@ import (
 	"bytes"
 	"fmt"
 	"html"
-	"strings"
+
+	"github.com/soumya92/barista/bar"
 )
 
-// Node represents nodes in a pango "document".
-type Node interface {
-	// Pango returns a pango-formatted version of the element.
-	Pango() string
+type nodeType int
+
+const (
+	// ntElement is an element node with attributes and/or children.
+	ntElement nodeType = iota
+	// ntText is a text node with no markup or children.
+	ntText
+	// ntSizer is a <big> or <small> tag. It has no attributes,
+	// and must be the only child of its parent.
+	// It exists to support calls like:
+	//   Text("x").Size(10.0).Smaller().Smaller().AppendText("y")
+	// which would otherwise produce:
+	//   <span size="smaller">xy</span>
+	// but should actually produce:
+	//   <span size="10240"><small><small>xy</small></small></span>
+	ntSizer
+)
+
+// Node represents a node in a pango "document".
+type Node struct {
+	nodeType nodeType
+	// For element nodes, this holds the tag name ("" = 'markup' node).
+	// For text nodes, this holds the text content.
+	content    string
+	children   []*Node
+	attributes map[string]string
 }
 
-// Attribute represents a pango attribute name and value.
-type Attribute struct {
-	Name, Value string
+// Append adds one or more nodes as children of the current node.
+// The new nodes will inherit styles by virtue of being descendants,
+// to insert them *adjacent* to the current node, use .Parent().Append(...).
+func (n *Node) Append(nodes ...*Node) *Node {
+	var insertPoint = n
+	for len(insertPoint.children) == 1 &&
+		insertPoint.children[0].nodeType == ntSizer {
+		insertPoint = insertPoint.children[0]
+	}
+	for _, node := range nodes {
+		if node.nodeType == ntElement && node.content == "" {
+			// Collapse empty element nodes when appending, to reduce nesting.
+			insertPoint.children = append(insertPoint.children, node.children...)
+		} else {
+			insertPoint.children = append(insertPoint.children, node)
+		}
+	}
+	return n
 }
 
-// element represents a generic element.
-type element struct {
-	tagName    string
-	attributes []Attribute
-	children   []Node
+// AppendText is a shortcut for Append(pango.Text(...), pango.Text(...), ...)
+func (n *Node) AppendText(texts ...string) *Node {
+	nodes := make([]*Node, len(texts))
+	for i, t := range texts {
+		nodes[i] = &Node{nodeType: ntText, content: t}
+	}
+	return n.Append(nodes...)
 }
 
-// collapse returns true if the element is "useless", i.e. an empty Span.
-func (e *element) collapse() bool {
-	return strings.EqualFold(e.tagName, "span") && len(e.attributes) == 0
+// AppendTextf is a shortcut for Append(pango.Textf(...))
+func (n *Node) AppendTextf(format string, args ...interface{}) *Node {
+	return n.Append(&Node{
+		nodeType: ntText,
+		content:  fmt.Sprintf(format, args...),
+	})
 }
 
-func (e *element) Pango() string {
-	printTag := !e.collapse()
+// Parent creates a new node wrapping the current node,
+// and returns the new parent node for further operations.
+//
+// For example,
+//   Text("c").Condensed().Color(red).Parent().AppendText("foo").UnderlineError()
+// will create
+//   <span underline='error'><span stretch='condensed' color='#ff0000'>c</span>foo</span>
+// where the appended "foo" is not condensed or red, and everything is underlined.
+func (n *Node) Parent() *Node {
+	existingNode := *n
+	n.nodeType = ntElement
+	n.attributes = nil
+	n.content = ""
+	n.children = []*Node{&existingNode}
+	return n
+}
+
+// Pango returns a pango-formatted version of the node.
+func (n *Node) Pango() string {
+	if n.nodeType == ntText {
+		return html.EscapeString(n.content)
+	}
 	var out bytes.Buffer
-	if printTag {
+	if n.content != "" {
 		out.WriteString("<")
-		out.WriteString(e.tagName)
-		for _, attr := range e.attributes {
+		out.WriteString(n.content)
+		for attrName, attrVal := range n.attributes {
 			out.WriteString(" ")
-			out.WriteString(attr.Name)
+			out.WriteString(attrName)
 			out.WriteString("='")
-			out.WriteString(html.EscapeString(attr.Value))
+			out.WriteString(html.EscapeString(attrVal))
 			out.WriteString("'")
 		}
 		out.WriteString(">")
 	}
-	for _, c := range e.children {
+	for _, c := range n.children {
 		out.WriteString(c.Pango())
 	}
-	if printTag {
+	if n.content != "" {
 		out.WriteString("</")
-		out.WriteString(e.tagName)
+		out.WriteString(n.content)
 		out.WriteString(">")
 	}
 	return out.String()
 }
 
-// Text represents a plaintext section of text.
-type Text string
+// Segments implements bar.Output for a single pango Node.
+func (n *Node) Segments() []*bar.Segment {
+	return []*bar.Segment{bar.PangoSegment(n.Pango())}
+}
 
-// Pango returns html-escaped text.
-func (t Text) Pango() string {
-	return html.EscapeString(string(t))
+// New constructs a markup node that wraps the given Nodes.
+func New(children ...*Node) *Node {
+	return &Node{nodeType: ntElement, children: children}
+}
+
+// Text constructs a text node.
+func Text(s string) *Node {
+	return New(&Node{nodeType: ntText, content: s})
 }
 
 // Textf constructs a text node by interpolating arguments.
@@ -102,33 +173,6 @@ func (t Text) Pango() string {
 // i.e.,
 //  Textf("<span color='%s'>%s</span>", "red", "text")
 // won't give you red text.
-func Textf(format string, args ...interface{}) Node {
+func Textf(format string, args ...interface{}) *Node {
 	return Text(fmt.Sprintf(format, args...))
-}
-
-// Tag constructs a pango element with the given name, with any children and/or attributes.
-// The interface varargs are used as below:
-//  - A pango.Attribute is added to the tag directly
-//  - A pango.Element is added as a child node
-//  - Any other object is added as a text node using the %v format.
-func Tag(tagName string, things ...interface{}) Node {
-	e := &element{tagName: tagName}
-	for _, thing := range things {
-		switch thing := thing.(type) {
-		case Attribute:
-			e.attributes = append(e.attributes, thing)
-		case []Attribute: // To support color attributes that also set alpha.
-			e.attributes = append(e.attributes, thing...)
-		case Node:
-			e.children = append(e.children, thing)
-		default:
-			e.children = append(e.children, Textf("%v", thing))
-		}
-	}
-	return e
-}
-
-// Span constructs a new span with the given attributes and segments.
-func Span(things ...interface{}) Node {
-	return Tag("span", things...)
 }

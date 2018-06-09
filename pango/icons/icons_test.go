@@ -54,9 +54,8 @@ func TestIconProvider(t *testing.T) {
 			"lgtm":          "👍",
 			"ligature-font": "home",
 		},
-		attrs: []pango.Attribute{
-			pango.Font("testfont"),
-			pango.Weight(200),
+		styler: func(n *pango.Node) {
+			n.Font("testfont").Weight(200)
 		},
 	}
 
@@ -71,20 +70,16 @@ func TestIconProvider(t *testing.T) {
 	}
 
 	pangoTesting.AssertEqual(t,
-		"<span color='#ff0000' face='testfont' weight='200'>a</span>",
-		testIcons.Icon("test", pango.Color(colors.Hex("#f00"))...).Pango(),
-		"Additional attributes when requesting an icon",
+		"<span color='#ff0000'><span face='testfont' weight='200'>a</span></span>",
+		testIcons.Icon("test").Color(colors.Hex("#f00")).Pango(),
+		"Attributes are added to a wrapping <span>",
 	)
 
 	pangoTesting.AssertEqual(t,
-		"", testIcons.Icon("notfound", pango.Color(colors.Hex("#f00"))...).Pango(),
-		"Empty even with additional attributes when requesting a non-existent icon",
-	)
-
-	pangoTesting.AssertEqual(t,
-		"<span weight='bold' face='testfont'>a</span>",
-		testIcons.Icon("test", pango.Bold).Pango(),
-		"Override default attributes when named the same",
+		`<span style='italic'><span weight='200' face='testfont'>a</span
+		><span weight='bold'>foobar</span></span>`,
+		testIcons.Icon("test").Italic().Append(pango.Text("foobar").Bold()).Pango(),
+		"Append adds new elements without icon font styling",
 	)
 }
 
@@ -119,7 +114,7 @@ icon2
 	})
 
 	assert.Nil(t, err, "no error when file is read and parse doesn't return one")
-	assert.Equal(t,
+	pangoTesting.AssertEqual(t,
 		"<span face='test'>random1</span>",
 		provider.Icon("icon1").Pango(),
 		"icon added in parseFile is correctly returned",
@@ -139,7 +134,7 @@ icon2
 	})
 
 	assert.Nil(t, err, "no error when file is read and parse doesn't return one")
-	assert.Equal(t,
+	pangoTesting.AssertEqual(t,
 		"<span face='test'>filler</span>",
 		provider.Icon("icon2").Pango(),
 		"icon added in parseLine is correctly returned",
@@ -153,12 +148,12 @@ icon2
 	})
 	assert.Error(t, err, "error from parse is propagated")
 
-	c.Styles(pango.Bold, pango.Small)
+	c.Styler = func(n *pango.Node) { n.Bold().Small() }
 	provider, _ = c.LoadByLines(func(line string, addFunc func(string, string)) error {
 		addFunc(line, "filler")
 		return nil
 	})
-	assert.Equal(t,
+	pangoTesting.AssertEqual(t,
 		"<span weight='bold' size='small' face='test'>filler</span>",
 		provider.Icon("icon1").Pango(),
 		"additional attributes in Config are added to provider's output",

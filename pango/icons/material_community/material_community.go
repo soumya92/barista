@@ -33,9 +33,9 @@ import (
 
 var provider *icons.Provider
 
-// Icon returns a pango node for the given icon name and styles.
-func Icon(name string, style ...pango.Attribute) pango.Node {
-	return provider.Icon(name, style...)
+// Icon returns a pango node for the given icon name.
+func Icon(name string) *pango.Node {
+	return provider.Icon(name)
 }
 
 // Load initialises the material design (community) icon provider
@@ -45,8 +45,8 @@ func Load(repoPath string) error {
 		RepoPath: repoPath,
 		FilePath: "scss/_variables.scss",
 		Font:     "Material Design Icons",
+		Styler:   func(n *pango.Node) { n.UltraLight() },
 	}
-	c.Styles(pango.Ultralight)
 	started := false
 	var err error
 	provider, err = c.LoadByLines(func(line string, add func(string, string)) error {

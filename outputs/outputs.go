@@ -63,10 +63,20 @@ func Text(text string) *bar.Segment {
 	return bar.TextSegment(text)
 }
 
-// Pango constructs a bar output from a list of things.
+// Pango constructs a pango bar segment from a list of pango Nodes and strings.
 func Pango(things ...interface{}) *bar.Segment {
-	// The extra span tag will be collapsed if no attributes were added.
-	return bar.PangoSegment(pango.Span(things...).Pango())
+	nodes := []*pango.Node{}
+	for _, thing := range things {
+		switch t := thing.(type) {
+		case *pango.Node:
+			nodes = append(nodes, t)
+		case string:
+			nodes = append(nodes, pango.Text(t))
+		default:
+			nodes = append(nodes, pango.Textf("%v", t))
+		}
+	}
+	return bar.PangoSegment(pango.New(nodes...).Pango())
 }
 
 // Group concatenates several outputs into a single SegmentGroup,

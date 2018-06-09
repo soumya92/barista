@@ -41,7 +41,7 @@ func TestOutput(t *testing.T) {
 	NextOutput().AssertText([]string{"foo"},
 		"When module outputs")
 
-	m.Output(outputs.Pango("bold", pango.Bold))
+	m.Output(pango.Text("bold").Bold())
 	NextOutput().AssertText(
 		[]string{"<span weight='bold'>bold</span>"},
 		"Pango text is passed through")

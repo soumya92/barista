@@ -46,7 +46,7 @@ import (
 	"github.com/soumya92/barista/pango/icons/typicons"
 )
 
-var spacer = pango.Span(" ", pango.XXSmall)
+var spacer = pango.Text(" ").XXSmall()
 
 func truncate(in string, l int) string {
 	if len([]rune(in)) <= l {
@@ -79,18 +79,13 @@ func mediaFormatFunc(m media.Info) bar.Output {
 	if len(title) < 20 {
 		artist = truncate(m.Artist, 40-len(title))
 	}
-	var iconAndPosition pango.Node
+	iconAndPosition := fontawesome.Icon("music").Color(colors.Hex("#f70"))
 	if m.PlaybackStatus == media.Playing {
-		iconAndPosition = pango.Span(
-			colors.Hex("#f70"),
-			fontawesome.Icon("music"),
-			spacer,
-			formatMediaTime(m.Position()),
-			"/",
-			formatMediaTime(m.Length),
+		iconAndPosition.Append(
+			spacer, pango.Textf("%s/%s",
+				formatMediaTime(m.Position()),
+				formatMediaTime(m.Length)),
 		)
-	} else {
-		iconAndPosition = fontawesome.Icon("music", pango.Color(colors.Hex("#f70"))...)
 	}
 	return outputs.Pango(iconAndPosition, spacer, title, " - ", artist)
 }
@@ -126,9 +121,9 @@ func main() {
 	localtime := clock.Local().
 		OutputFunc(time.Second, func(now time.Time) bar.Output {
 			return outputs.Pango(
-				material.Icon("today", pango.Color(colors.Scheme("dim-icon"))...),
+				material.Icon("today").Color(colors.Scheme("dim-icon")),
 				now.Format("Mon Jan 2 "),
-				material.Icon("access-time", pango.Color(colors.Scheme("dim-icon"))...),
+				material.Icon("access-time").Color(colors.Scheme("dim-icon")),
 				now.Format("15:04:05"),
 			)
 		})
@@ -185,7 +180,7 @@ func main() {
 		return outputs.Pango(
 			typicons.Icon(iconName), spacer,
 			pango.Textf("%.1f℃", w.Temperature.Celsius()),
-			pango.Span(" (provided by ", w.Attribution, ")", pango.XSmall),
+			pango.Textf(" (provided by %s)", w.Attribution).XSmall(),
 		)
 	})
 
@@ -272,7 +267,7 @@ func main() {
 		OutputFunc(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
 				fontawesome.Icon("upload"), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
-				pango.Span(" ", pango.Small),
+				pango.Text(" ").Small(),
 				fontawesome.Icon("download"), spacer, pango.Textf("%7s", outputs.Byterate(s.Rx)),
 			)
 		})

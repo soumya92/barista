@@ -34,9 +34,9 @@ import (
 
 var provider *icons.Provider
 
-// Icon returns a pango node for the given icon name and styles.
-func Icon(name string, style ...pango.Attribute) pango.Node {
-	return provider.Icon(name, style...)
+// Icon returns a pango node for the given icon name.
+func Icon(name string) *pango.Node {
+	return provider.Icon(name)
 }
 
 type typiconsConfig struct {

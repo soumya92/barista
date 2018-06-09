@@ -29,9 +29,9 @@ Compatible icon fonts:
 Example usage:
   material.Load("/Users/me/Github/google/material-design-icons")
   ...
-  return pango.Span(
-    material.Icon("today", colors.Hex("#ddd")),
-    now.Sprintf("%H:%M"),
+  return pango.New(
+    material.Icon("today").Color(colors.Hex("#ddd")),
+    pango.Text(now.Sprintf("%H:%M")),
   )
 */
 package icons
@@ -50,52 +50,38 @@ import (
 
 // Provider provides pango nodes for icons
 type Provider struct {
+	font    string
 	symbols map[string]string
-	attrs   []pango.Attribute
+	styler  func(*pango.Node)
 }
 
-// Icon creates a pango span that renders the named icon.
-// It looks up the name in the loaded mapping, and if found,
-// merges the default styles with the user provided styles (if any)
-// to produce a <span> that will render the requested icon.
-func (p *Provider) Icon(name string, style ...pango.Attribute) pango.Node {
+// Icon creates a pango node that renders the named icon.
+func (p *Provider) Icon(name string) *pango.Node {
 	if p == nil {
-		return pango.Span()
+		return pango.New()
 	}
 	symbol, ok := p.symbols[name]
 	if !ok {
-		return pango.Span()
+		return pango.New()
 	}
-	things := []interface{}{symbol}
-	overrides := make(map[string]bool)
-	for _, attr := range style {
-		things = append(things, attr)
-		overrides[attr.Name] = true
+	n := pango.Text(symbol).Font(p.font)
+	if p.styler != nil {
+		p.styler(n)
 	}
-	for _, attr := range p.attrs {
-		if !overrides[attr.Name] {
-			things = append(things, attr)
-		}
-	}
-	return pango.Span(things...)
+	return pango.New(n)
 }
 
-// Config stores Configuration options
-// for building an IconProvider.
+// Config stores Configuration options for building an IconProvider.
 type Config struct {
+	// Path to a git repository, typically supplied by the user.
 	RepoPath string
+	// Path to the file within the repository.
 	FilePath string
-	Font     string
-	attrs    []pango.Attribute
-}
-
-// Styles sets any default pango styles (e.g. weight, baseline)
-// that should apply to all icons. User-defined styles will override
-// any styles provided here.
-func (c *Config) Styles(attrs ...pango.Attribute) {
-	for _, attr := range attrs {
-		c.attrs = append(c.attrs, attr)
-	}
+	// Name of the font face.
+	Font string
+	// An optional function that adds any required pango styling,
+	// in addition to the font. (e.g. light/ultralight weight)
+	Styler func(*pango.Node)
 }
 
 var fs = afero.NewOsFs()
@@ -110,8 +96,9 @@ func (c *Config) LoadFromFile(parseFile func(io.Reader, func(string, string)) er
 	}
 	defer f.Close()
 	i := Provider{
-		symbols: make(map[string]string),
-		attrs:   append(c.attrs, pango.Font(c.Font)),
+		symbols: map[string]string{},
+		font:    c.Font,
+		styler:  c.Styler,
 	}
 	err = parseFile(f, func(name, symbol string) {
 		i.symbols[name] = symbol
