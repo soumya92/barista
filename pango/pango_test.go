@@ -30,12 +30,18 @@ var stringifyingTests = []struct {
 	node     *Node
 	expected string
 }{
+	{"zero value", &Node{}, ""},
 	{"empty element", New(), ""},
 	{"append text", Text("foo").AppendText("bar"), "foobar"},
 	{
 		"empty element with attribute",
 		New().Weight(400),
 		"<span weight='400'></span>",
+	},
+	{
+		"zero value can add attributes and content",
+		(&Node{}).Oblique().AppendText("foo", "bar"),
+		"<span style='oblique'>foobar</span>",
 	},
 	{
 		"text with attribute",
@@ -112,7 +118,7 @@ var stringifyingTests = []struct {
 	{
 		"parent example #0",
 		Text("c").Condensed().Color(colors.Hex("#ff0000")).
-			Parent().AppendText("foo").UnderlineError(),
+			Concat(Text("foo")).UnderlineError(),
 		"<span underline='error'><span stretch='condensed' color='#ff0000'>c</span>foo</span>",
 	},
 	{

@@ -106,21 +106,23 @@ func (n *Node) AppendTextf(format string, args ...interface{}) *Node {
 	})
 }
 
-// Parent creates a new node wrapping the current node,
-// and returns the new parent node for further operations.
+// Concat adds the given nodes as siblings rather than children of the
+// current node, and returns a wrapping node for further operations.
 //
 // For example,
-//   Text("c").Condensed().Color(red).Parent().AppendText("foo").UnderlineError()
+//   Text("c").Condensed().Color(red).Concat(Text("foo")).UnderlineError()
 // will create
 //   <span underline='error'><span stretch='condensed' color='#ff0000'>c</span>foo</span>
 // where the appended "foo" is not condensed or red, and everything is underlined.
-func (n *Node) Parent() *Node {
-	existingNode := *n
-	n.nodeType = ntElement
-	n.attributes = nil
-	n.content = ""
-	n.children = []*Node{&existingNode}
-	return n
+func (n *Node) Concat(nodes ...*Node) *Node {
+	if n.nodeType != ntElement || n.content != "" {
+		existingNode := *n
+		n.nodeType = ntElement
+		n.attributes = nil
+		n.content = ""
+		n.children = []*Node{&existingNode}
+	}
+	return n.Append(nodes...)
 }
 
 // Pango returns a pango-formatted version of the node.
@@ -159,11 +161,13 @@ func (n *Node) Segments() []*bar.Segment {
 
 // New constructs a markup node that wraps the given Nodes.
 func New(children ...*Node) *Node {
-	return &Node{nodeType: ntElement, children: children}
+	return &Node{children: children}
 }
 
 // Text constructs a text node.
 func Text(s string) *Node {
+	// Wrapped in a node to allow formatting, since formatting methods
+	// don't work directly on text nodes.
 	return New(&Node{nodeType: ntText, content: s})
 }
 
