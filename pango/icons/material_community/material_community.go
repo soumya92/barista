@@ -31,25 +31,16 @@ import (
 	"github.com/soumya92/barista/pango/icons"
 )
 
-var provider *icons.Provider
-
-// Icon returns a pango node for the given icon name.
-func Icon(name string) *pango.Node {
-	return provider.Icon(name)
-}
-
 // Load initialises the material design (community) icon provider
 // from the given repo.
 func Load(repoPath string) error {
-	c := icons.Config{
+	started := false
+	return icons.NewProvider("mdi", icons.Config{
 		RepoPath: repoPath,
 		FilePath: "scss/_variables.scss",
 		Font:     "Material Design Icons",
 		Styler:   func(n *pango.Node) { n.UltraLight() },
-	}
-	started := false
-	var err error
-	provider, err = c.LoadByLines(func(line string, add func(string, string)) error {
+	}).LoadByLines(func(line string, add func(string, string)) error {
 		if !started {
 			if strings.Contains(line, "$mdi-icons:") {
 				started = true
@@ -73,5 +64,4 @@ func Load(repoPath string) error {
 		add(name, sym)
 		return nil
 	})
-	return err
 }

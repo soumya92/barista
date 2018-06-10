@@ -29,23 +29,14 @@ import (
 	"github.com/soumya92/barista/pango/icons"
 )
 
-var provider *icons.Provider
-
-// Icon returns a pango node for the given icon name.
-func Icon(name string) *pango.Node {
-	return provider.Icon(name)
-}
-
 // Load initialises the material design icon provider from the given repo.
 func Load(repoPath string) error {
-	c := icons.Config{
+	return icons.NewProvider("material", icons.Config{
 		RepoPath: repoPath,
 		FilePath: "iconfont/codepoints",
 		Font:     "Material Icons",
 		Styler:   func(n *pango.Node) { n.UltraLight().Rise(-1600) },
-	}
-	var err error
-	provider, err = c.LoadByLines(func(line string, add func(string, string)) error {
+	}).LoadByLines(func(line string, add func(string, string)) error {
 		components := strings.Split(line, " ")
 		if len(components) != 2 {
 			return fmt.Errorf("Unexpected line in 'iconfont/codepoints'")
@@ -60,5 +51,4 @@ func Load(repoPath string) error {
 		add(name, symbol)
 		return nil
 	})
-	return err
 }

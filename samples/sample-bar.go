@@ -79,7 +79,7 @@ func mediaFormatFunc(m media.Info) bar.Output {
 	if len(title) < 20 {
 		artist = truncate(m.Artist, 40-len(title))
 	}
-	iconAndPosition := fontawesome.Icon("music").Color(colors.Hex("#f70"))
+	iconAndPosition := pango.Icon("fa-music").Color(colors.Hex("#f70"))
 	if m.PlaybackStatus == media.Playing {
 		iconAndPosition.Append(
 			spacer, pango.Textf("%s/%s",
@@ -121,9 +121,9 @@ func main() {
 	localtime := clock.Local().
 		OutputFunc(time.Second, func(now time.Time) bar.Output {
 			return outputs.Pango(
-				material.Icon("today").Color(colors.Scheme("dim-icon")),
+				pango.Icon("material-today").Color(colors.Scheme("dim-icon")),
 				now.Format("Mon Jan 2 "),
-				material.Icon("access-time").Color(colors.Scheme("dim-icon")),
+				pango.Icon("material-access-time").Color(colors.Scheme("dim-icon")),
 				now.Format("15:04:05"),
 			)
 		})
@@ -178,7 +178,7 @@ func main() {
 			iconName = "weather-" + iconName
 		}
 		return outputs.Pango(
-			typicons.Icon(iconName), spacer,
+			pango.Icon("typecn-"+iconName), spacer,
 			pango.Textf("%.1f℃", w.Temperature.Celsius()),
 			pango.Textf(" (provided by %s)", w.Attribution).XSmall(),
 		)
@@ -187,7 +187,7 @@ func main() {
 	vol := volume.DefaultMixer().OutputFunc(func(v volume.Volume) bar.Output {
 		if v.Mute {
 			return outputs.
-				Pango(ionicons.Icon("volume-mute"), "MUT").
+				Pango(pango.Icon("ion-volume-mute"), "MUT").
 				Color(colors.Scheme("degraded"))
 		}
 		iconName := "low"
@@ -198,7 +198,7 @@ func main() {
 			iconName = "medium"
 		}
 		return outputs.Pango(
-			ionicons.Icon("volume-"+iconName),
+			pango.Icon("ion-volume-"+iconName),
 			spacer,
 			pango.Textf("%2d%%", pct),
 		)
@@ -224,7 +224,7 @@ func main() {
 	loadAvg.OnClick(startTaskManager)
 
 	freeMem := meminfo.New().OutputFunc(func(m meminfo.Info) bar.Output {
-		out := outputs.Pango(material.Icon("memory"), outputs.IBytesize(m.Available()))
+		out := outputs.Pango(pango.Icon("material-memory"), outputs.IBytesize(m.Available()))
 		freeGigs := m.Available().Gigabytes()
 		switch {
 		case freeGigs < 0.5:
@@ -257,7 +257,7 @@ func main() {
 		}).
 		OutputFunc(func(temp unit.Temperature) bar.Output {
 			return outputs.Pango(
-				materialCommunity.Icon("fan"), spacer,
+				pango.Icon("mdi-fan"), spacer,
 				pango.Textf("%2d℃", int(temp.Celsius())),
 			)
 		})
@@ -266,9 +266,9 @@ func main() {
 		RefreshInterval(2 * time.Second).
 		OutputFunc(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
-				fontawesome.Icon("upload"), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
+				pango.Icon("fa-upload"), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
 				pango.Text(" ").Small(),
-				fontawesome.Icon("download"), spacer, pango.Textf("%7s", outputs.Byterate(s.Rx)),
+				pango.Icon("fa-download"), spacer, pango.Textf("%7s", outputs.Byterate(s.Rx)),
 			)
 		})
 

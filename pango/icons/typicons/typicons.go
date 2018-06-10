@@ -28,16 +28,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/pango/icons"
 )
-
-var provider *icons.Provider
-
-// Icon returns a pango node for the given icon name.
-func Icon(name string) *pango.Node {
-	return provider.Icon(name)
-}
 
 type typiconsConfig struct {
 	Glyphs []struct {
@@ -48,13 +40,11 @@ type typiconsConfig struct {
 
 // Load initialises the typicons icon provider from the given repo.
 func Load(repoPath string) error {
-	c := icons.Config{
+	return icons.NewProvider("typecn", icons.Config{
 		RepoPath: repoPath,
 		FilePath: "config.yml",
 		Font:     "Typicons",
-	}
-	var err error
-	provider, err = c.LoadFromFile(func(f io.Reader, add func(string, string)) error {
+	}).LoadFromFile(func(f io.Reader, add func(string, string)) error {
 		yml, err := ioutil.ReadAll(f)
 		if err != nil {
 			return err
@@ -74,5 +64,4 @@ func Load(repoPath string) error {
 		}
 		return nil
 	})
-	return err
 }

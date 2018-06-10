@@ -48,15 +48,14 @@ func TestSymbolFromHex(t *testing.T) {
 }
 
 func TestIconProvider(t *testing.T) {
-	testIcons := Provider{
-		symbols: map[string]string{
-			"test":          "a",
-			"lgtm":          "👍",
-			"ligature-font": "home",
-		},
-		styler: func(n *pango.Node) {
-			n.Font("testfont").Weight(200)
-		},
+	p := NewProvider("test", Config{})
+	p.symbols = map[string]string{
+		"test":          "a",
+		"lgtm":          "👍",
+		"ligature-font": "home",
+	}
+	p.styler = func(n *pango.Node) {
+		n.Font("testfont").Weight(200)
 	}
 
 	tests := []struct{ desc, icon, expected string }{
@@ -66,19 +65,19 @@ func TestIconProvider(t *testing.T) {
 		{"ligature", "ligature-font", "<span face='testfont' weight='200'>home</span>"},
 	}
 	for _, tc := range tests {
-		pangoTesting.AssertEqual(t, tc.expected, testIcons.Icon(tc.icon).Pango(), tc.desc)
+		pangoTesting.AssertEqual(t, tc.expected, pango.Icon("test-"+tc.icon).Pango(), tc.desc)
 	}
 
 	pangoTesting.AssertEqual(t,
 		"<span color='#ff0000'><span face='testfont' weight='200'>a</span></span>",
-		testIcons.Icon("test").Color(colors.Hex("#f00")).Pango(),
+		pango.Icon("test-test").Color(colors.Hex("#f00")).Pango(),
 		"Attributes are added to a wrapping <span>",
 	)
 
 	pangoTesting.AssertEqual(t,
-		`<span style='italic'><span weight='200' face='testfont'>a</span
+		`<span style='italic'><span weight='200' face='testfont'>home</span
 		><span weight='bold'>foobar</span></span>`,
-		testIcons.Icon("test").Italic().Append(pango.Text("foobar").Bold()).Pango(),
+		pango.Icon("test-ligature-font").Italic().Append(pango.Text("foobar").Bold()).Pango(),
 		"Append adds new elements without icon font styling",
 	)
 }
@@ -92,70 +91,73 @@ icon2
 
 `), 0644)
 
-	c := &Config{Font: "test"}
-
-	c.FilePath = "non-existent"
-	provider, err := c.LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
-		assert.Fail(t, "parseFunc is not called when file can't be opened")
-		return nil
-	})
+	err := NewProvider("test", Config{Font: "testfont", FilePath: "non-existent"}).
+		LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
+			assert.Fail(t, "parseFunc is not called when file can't be opened")
+			return nil
+		})
 
 	assert.Error(t, err, "error from reading file is propagated")
 	assert.Empty(t,
-		provider.Icon("icon1").Pango(),
+		pango.Icon("test-icon1").Pango(),
 		"empty pango markup returned for icon when file can't be opened",
 	)
 
-	c.FilePath = "empty"
-	provider, err = c.LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
-		addFunc("icon1", "random1")
-		addFunc("icon2", "random2")
-		return nil
-	})
+	err = NewProvider("test", Config{Font: "testfont", FilePath: "empty"}).
+		LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
+			addFunc("icon1", "random1")
+			addFunc("icon2", "random2")
+			return nil
+		})
 
 	assert.Nil(t, err, "no error when file is read and parse doesn't return one")
 	pangoTesting.AssertEqual(t,
-		"<span face='test'>random1</span>",
-		provider.Icon("icon1").Pango(),
+		"<span face='testfont'>random1</span>",
+		pango.Icon("test-icon1").Pango(),
 		"icon added in parseFile is correctly returned",
 	)
 
-	provider, err = c.LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
-		return fmt.Errorf("some error")
-	})
+	err = NewProvider("test", Config{Font: "testfont", FilePath: "empty"}).
+		LoadFromFile(func(r io.Reader, addFunc func(string, string)) error {
+			return fmt.Errorf("some error")
+		})
 	assert.Error(t, err, "error from parse is propagated")
 
 	var lines []string
-	c.FilePath = "twoline"
-	provider, err = c.LoadByLines(func(line string, addFunc func(string, string)) error {
-		lines = append(lines, line)
-		addFunc(line, "filler")
-		return nil
-	})
+	err = NewProvider("test", Config{Font: "testfont", FilePath: "twoline"}).
+		LoadByLines(func(line string, addFunc func(string, string)) error {
+			lines = append(lines, line)
+			addFunc(line, "filler")
+			return nil
+		})
 
 	assert.Nil(t, err, "no error when file is read and parse doesn't return one")
 	pangoTesting.AssertEqual(t,
-		"<span face='test'>filler</span>",
-		provider.Icon("icon2").Pango(),
+		"<span face='testfont'>filler</span>",
+		pango.Icon("test-icon2").Pango(),
 		"icon added in parseLine is correctly returned",
 	)
 	assert.Contains(t, lines, "icon1", "all lines are parsed")
 	assert.Contains(t, lines, "icon2", "all lines are parsed")
 	assert.Equal(t, 2, len(lines), "Blank lines are ignored")
 
-	provider, err = c.LoadByLines(func(line string, addFunc func(string, string)) error {
-		return fmt.Errorf("some error")
-	})
+	err = NewProvider("test", Config{Font: "testfont", FilePath: "twoline"}).
+		LoadByLines(func(line string, addFunc func(string, string)) error {
+			return fmt.Errorf("some error")
+		})
 	assert.Error(t, err, "error from parse is propagated")
 
-	c.Styler = func(n *pango.Node) { n.Bold().Small() }
-	provider, _ = c.LoadByLines(func(line string, addFunc func(string, string)) error {
+	NewProvider("test", Config{
+		Font:     "testfont",
+		FilePath: "twoline",
+		Styler:   func(n *pango.Node) { n.Bold().Small() },
+	}).LoadByLines(func(line string, addFunc func(string, string)) error {
 		addFunc(line, "filler")
 		return nil
 	})
 	pangoTesting.AssertEqual(t,
-		"<span weight='bold' size='small' face='test'>filler</span>",
-		provider.Icon("icon1").Pango(),
+		"<span weight='bold' size='small' face='testfont'>filler</span>",
+		pango.Icon("test-icon1").Pango(),
 		"additional attributes in Config are added to provider's output",
 	)
 }

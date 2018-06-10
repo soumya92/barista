@@ -53,22 +53,34 @@ type Provider struct {
 	font    string
 	symbols map[string]string
 	styler  func(*pango.Node)
+	file    string
 }
 
 // Icon creates a pango node that renders the named icon.
 func (p *Provider) Icon(name string) *pango.Node {
-	if p == nil {
-		return pango.New()
-	}
 	symbol, ok := p.symbols[name]
 	if !ok {
-		return pango.New()
+		return nil
 	}
 	n := pango.Text(symbol).Font(p.font)
 	if p.styler != nil {
 		p.styler(n)
 	}
-	return pango.New(n)
+	return n
+}
+
+// NewProvider creates a new icon provider with the given name,
+// registers it with pango.Icon, and returns it so that an appropriate
+// Load method can be used.
+func NewProvider(name string, c Config) *Provider {
+	p := &Provider{
+		font:    c.Font,
+		symbols: map[string]string{},
+		styler:  c.Styler,
+		file:    filepath.Join(c.RepoPath, c.FilePath),
+	}
+	pango.AddIconProvider(name, p)
+	return p
 }
 
 // Config stores Configuration options for building an IconProvider.
@@ -89,28 +101,22 @@ var fs = afero.NewOsFs()
 // LoadFromFile creates an IconProvider by passing to the parse
 // function an io.Reader for the source file, and a function to add
 // icons to the provider's map.
-func (c *Config) LoadFromFile(parseFile func(io.Reader, func(string, string)) error) (*Provider, error) {
-	f, err := fs.Open(filepath.Join(c.RepoPath, c.FilePath))
+func (p *Provider) LoadFromFile(parseFile func(io.Reader, func(string, string)) error) error {
+	f, err := fs.Open(p.file)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer f.Close()
-	i := Provider{
-		symbols: map[string]string{},
-		font:    c.Font,
-		styler:  c.Styler,
-	}
-	err = parseFile(f, func(name, symbol string) {
-		i.symbols[name] = symbol
+	return parseFile(f, func(name, symbol string) {
+		p.symbols[name] = symbol
 	})
-	return &i, err
 }
 
 // LoadByLines creates an IconProvider by passing to the parse
 // function each line of the source file, and a function to add
 // icons to the provider's map.
-func (c *Config) LoadByLines(parseLine func(string, func(string, string)) error) (*Provider, error) {
-	return c.LoadFromFile(func(f io.Reader, add func(string, string)) error {
+func (p *Provider) LoadByLines(parseLine func(string, func(string, string)) error) error {
+	return p.LoadFromFile(func(f io.Reader, add func(string, string)) error {
 		s := bufio.NewScanner(f)
 		s.Split(bufio.ScanLines)
 		for s.Scan() {
