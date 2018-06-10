@@ -40,6 +40,14 @@ func AssertEqual(t *testing.T, expected, actual string, args ...interface{}) {
 	}
 }
 
+// AssertText asserts that the markup string has the expected text content.
+// Text content ignores any tags and attributes, using only rendered text.
+func AssertText(t *testing.T, expected string, markup string, args ...interface{}) {
+	markupR, err := html.Parse(strings.NewReader(markup))
+	assert.NoError(t, err, args...)
+	assert.Equal(t, expected, textOf(markupR), args...)
+}
+
 func equalMarkup(a, b *html.Node) bool {
 	if a == nil && b == nil {
 		return true
@@ -69,4 +77,16 @@ func equalMarkup(a, b *html.Node) bool {
 		return false
 	}
 	return true
+}
+
+func textOf(n *html.Node) (text string) {
+	if n == nil {
+		return text
+	}
+	if n.Type == html.TextNode {
+		text += n.Data
+	}
+	text += textOf(n.FirstChild)
+	text += textOf(n.NextSibling)
+	return text
 }

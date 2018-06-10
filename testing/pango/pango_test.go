@@ -106,3 +106,58 @@ func TestUnequal(t *testing.T) {
 		}
 	}
 }
+
+func TestText(t *testing.T) {
+	positiveCases := []struct {
+		markup string
+		text   string
+		desc   string
+	}{
+		{"<b>foo</b>", "foo", "simple"},
+		{"&#60;b> foo", "<b> foo", "basic entities"},
+		{"foo<b>bar</b>baz", "foobarbaz", "content outside tag"},
+		{
+			"<span attr='value'>content</span>",
+			"content",
+			"with attribute",
+		},
+		{
+			"b<span attr1='1' attr2='2'><b>a</b><tt><u>z</u></tt></span>",
+			"baz",
+			"nested tags",
+		},
+		{
+			"<u title='<-- this way'>look</u>",
+			"look",
+			"attribute escaping",
+		},
+	}
+
+	for _, tc := range positiveCases {
+		AssertText(t, tc.text, tc.markup, tc.desc)
+	}
+
+	negativeCases := []struct {
+		markup string
+		text   string
+		desc   string
+	}{
+		{"<b>foo</b>", "foobar", "simple"},
+		{"&#61;b> foo", "<b< foo", "basic entities"},
+		{"<b>foo</b>bar", "foo", "truncated content"},
+		{"<u>test</u>", "  test  ", "spacing"},
+		{
+			"<span attr1='1' attr2='2'><b>a</b><tt><i>z</i></tt></span>",
+			"baz",
+			"nested tags",
+		},
+	}
+
+	for _, tc := range negativeCases {
+		fakeT := &testing.T{}
+		AssertEqual(fakeT, tc.text, tc.markup)
+		if !fakeT.Failed() {
+			assert.Fail(t, fmt.Sprintf("Expected Text(%s) = %s to fail", tc.markup, tc.text), tc.desc)
+		}
+	}
+}
