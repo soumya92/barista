@@ -525,6 +525,7 @@ func TestErrorHandling(t *testing.T) {
 	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 1},`, errorSegmentName))
 	assert.Equal(t, []string{"regular"}, readOutputTexts(t, mockStdout),
 		"restarting clears error outputs immediately")
+	module.AssertStarted()
 
 	module.Output(outputsWithError)
 	module.Close()
