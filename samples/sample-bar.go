@@ -108,7 +108,7 @@ func main() {
 	material.Load(home("Github/material-design-icons"))
 	materialCommunity.Load(home("Github/MaterialDesign-Webfont"))
 	typicons.Load(home("Github/typicons.font"))
-	ionicons.Load(home("Github/ionicons"))
+	ionicons.LoadMd(home("Github/ionicons"))
 	fontawesome.Load(home("Github/Font-Awesome"))
 
 	colors.LoadFromMap(map[string]string{
@@ -187,15 +187,15 @@ func main() {
 	vol := volume.DefaultMixer().OutputFunc(func(v volume.Volume) bar.Output {
 		if v.Mute {
 			return outputs.
-				Pango(pango.Icon("ion-volume-mute"), "MUT").
+				Pango(pango.Icon("ion-volume-off"), "MUT").
 				Color(colors.Scheme("degraded"))
 		}
-		iconName := "low"
+		iconName := "mute"
 		pct := v.Pct()
 		if pct > 66 {
 			iconName = "high"
 		} else if pct > 33 {
-			iconName = "medium"
+			iconName = "low"
 		}
 		return outputs.Pango(
 			pango.Icon("ion-volume-"+iconName),
