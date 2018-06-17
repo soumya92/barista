@@ -22,18 +22,19 @@ import (
 
 	"github.com/stretchrcom/testify/assert"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 )
 
 var count = int64(0)
 
-func doFunc(ch Channel) {
+func doFunc(s bar.Sink) {
 	newCount := atomic.AddInt64(&count, 1)
 	if newCount < 4 {
-		ch.Output(outputs.Textf("%d", newCount))
+		s.Output(outputs.Textf("%d", newCount))
 	} else {
-		ch.Error(fmt.Errorf("something"))
+		s.Error(fmt.Errorf("something"))
 	}
 }
 
@@ -101,13 +102,10 @@ func TestRepeated(t *testing.T) {
 		[]string{"3"}, "Function is called on next tick")
 	testBar.Tick()
 	testBar.NextOutput().AssertError("When function calls Error(...)")
-	testBar.Tick()
-	testBar.AssertNoOutput("No output after error")
-
 	atomic.StoreInt64(&count, 0)
-	testBar.Click(0)
+	testBar.Tick()
 	testBar.LatestOutput().AssertText(
-		[]string{"1"}, "Function is called again on click")
+		[]string{"1"}, "Function is called on tick after Error")
 	testBar.Tick()
 	testBar.NextOutput().AssertText(
 		[]string{"2"}, "Function is called on next tick")

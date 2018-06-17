@@ -42,10 +42,22 @@ func New(format string) *Module {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
+func (m *Module) Stream(s bar.Sink) {
+	count := m.count.Get().(int)
+	sCount := m.count.Subscribe()
+
+	format := m.format.Get().(string)
+	sFormat := m.format.Subscribe()
+
+	for {
+		s.Output(outputs.Textf(format, count))
+		select {
+		case <-sCount:
+			count = m.count.Get().(int)
+		case <-sFormat:
+			format = m.format.Get().(string)
+		}
+	}
 }
 
 // Click handles clicks on the module output.
@@ -58,22 +70,4 @@ func (m *Module) Click(e bar.Event) {
 		current++
 	}
 	m.count.Set(current)
-}
-
-func (m *Module) worker(ch base.Channel) {
-	count := m.count.Get().(int)
-	sCount := m.count.Subscribe()
-
-	format := m.format.Get().(string)
-	sFormat := m.format.Subscribe()
-
-	for {
-		ch.Output(outputs.Textf(format, count))
-		select {
-		case <-sCount:
-			count = m.count.Get().(int)
-		case <-sFormat:
-			format = m.format.Get().(string)
-		}
-	}
 }

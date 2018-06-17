@@ -50,7 +50,7 @@ func (v Volume) Frac() float64 {
 
 // Pct returns the current volume in the range 0-100.
 func (v Volume) Pct() int {
-	return int((v.Frac()*100) + 0.5)
+	return int((v.Frac() * 100) + 0.5)
 }
 
 // Controller provides an interface to change the system volume from the click handler.
@@ -146,11 +146,29 @@ func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
+func (m *Module) Stream(s bar.Sink) {
 	go m.runWorker()
-	go m.outputLoop(ch)
-	return ch
+
+	v, err := m.currentVolume.Get()
+	sVol := m.currentVolume.Subscribe()
+
+	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
+	sOutputFunc := m.outputFunc.Subscribe()
+
+	for {
+		if s.Error(err) {
+			return
+		}
+		if vol, ok := v.(Volume); ok {
+			s.Output(outputFunc(vol))
+		}
+		select {
+		case <-sVol:
+			v, err = m.currentVolume.Get()
+		case <-sOutputFunc:
+			outputFunc = m.outputFunc.Get().(func(Volume) bar.Output)
+		}
+	}
 }
 
 // SetVolume tells the implementation to update the volume, and
@@ -222,32 +240,6 @@ func createModule(impl moduleImpl) *Module {
 func (m *Module) runWorker() {
 	err := m.impl.worker(func(v Volume) { m.currentVolume.Set(v) })
 	m.currentVolume.Error(err)
-}
-
-// outputLoop listens for updates to the volume, as well as the output
-// function,
-// and updates the module output.
-func (m *Module) outputLoop(ch base.Channel) {
-	v, err := m.currentVolume.Get()
-	sVol := m.currentVolume.Subscribe()
-
-	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
-	sOutputFunc := m.outputFunc.Subscribe()
-
-	for {
-		if ch.Error(err) {
-			return
-		}
-		if vol, ok := v.(Volume); ok {
-			ch.Output(outputFunc(vol))
-		}
-		select {
-		case <-sVol:
-			v, err = m.currentVolume.Get()
-		case <-sOutputFunc:
-			outputFunc = m.outputFunc.Get().(func(Volume) bar.Output)
-		}
-	}
 }
 
 // ALSA implementation.

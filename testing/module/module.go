@@ -57,7 +57,7 @@ func (t *TestModule) getState() testModuleState {
 }
 
 // Stream conforms to bar.Module.
-func (t *TestModule) Stream() <-chan bar.Output {
+func (t *TestModule) Stream(sink bar.Sink) {
 	s := t.getState()
 	if s.started {
 		panic("already streaming!")
@@ -75,9 +75,11 @@ func (t *TestModule) Stream() <-chan bar.Output {
 	t.Unlock()
 
 	if onStart != nil {
-		defer func() { onStart <- true }()
+		go func() { onStart <- true }()
 	}
-	return newS.outputs
+	for out := range newS.outputs {
+		sink.Output(out)
+	}
 }
 
 // Click conforms to bar.Clickable.

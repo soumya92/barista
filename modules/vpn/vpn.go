@@ -85,13 +85,7 @@ func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	// Initial state.
 	state := Disconnected
 	if link, err := netlink.LinkByName(m.intf); err == nil {
@@ -103,7 +97,7 @@ func (m *Module) worker(ch base.Channel) {
 	}
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
 	sOutputFunc := m.outputFunc.Subscribe()
-	ch.Output(outputFunc(state))
+	s.Output(outputFunc(state))
 
 	// Watch for changes.
 	linkCh := make(chan netlink.LinkUpdate)
@@ -135,11 +129,11 @@ func (m *Module) worker(ch base.Channel) {
 				} else {
 					state = Disconnected
 				}
-				ch.Output(outputFunc(state))
+				s.Output(outputFunc(state))
 			}
 		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
-			ch.Output(outputFunc(state))
+			s.Output(outputFunc(state))
 		}
 	}
 }

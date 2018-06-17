@@ -1,0 +1,71 @@
+// Copyright 2018 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package sink
+
+import (
+	"io"
+	"testing"
+	"time"
+
+	"github.com/stretchrcom/testify/assert"
+
+	"github.com/soumya92/barista/outputs"
+)
+
+func TestNewSink(t *testing.T) {
+	ch, s := New()
+	s(outputs.Text("foo"))
+	s(outputs.Text("bar"))
+
+	out := <-ch
+	assert.Equal(t, "foo", out.Segments()[0].Text())
+
+	out = <-ch
+	assert.Equal(t, "bar", out.Segments()[0].Text())
+
+	assert.False(t, s.Error(nil))
+	select {
+	case <-ch:
+		assert.Fail(t, "unexpected output on channel")
+	default:
+		// test passed
+	}
+
+	assert.True(t, s.Error(io.EOF))
+	select {
+	case out := <-ch:
+		assert.Error(t, out.Segments()[0].GetError())
+	default:
+		assert.Fail(t, "expected error output on channel")
+	}
+}
+
+func TestNullSink(t *testing.T) {
+	n := Null()
+	doneChan := make(chan bool)
+	go func(done chan<- bool) {
+		for i := 0; i < 1000; i++ {
+			n.Output(outputs.Text("foo"))
+		}
+		done <- true
+	}(doneChan)
+
+	select {
+	case <-doneChan:
+		// test passed.
+	case <-time.After(time.Second):
+		assert.Fail(t, "Null sink failed to dump 1000 entries in 1s")
+	}
+}

@@ -124,24 +124,18 @@ func (m *Module) UrgentWhen(urgentFunc func(unit.Temperature) bool) *Module {
 	return m
 }
 
-// Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
 var fs = afero.NewOsFs()
 
-func (m *Module) worker(ch base.Channel) {
+// Stream starts the module.
+func (m *Module) Stream(s bar.Sink) {
 	temp, err := getTemperature(m.thermalFile)
 	format := m.getFormat()
 	sFormat := m.format.Subscribe()
 	for {
-		if ch.Error(err) {
+		if s.Error(err) {
 			return
 		}
-		ch.Output(format.output(temp))
+		s.Output(format.output(temp))
 		select {
 		case <-m.scheduler.Tick():
 			temp, err = getTemperature(m.thermalFile)

@@ -16,6 +16,7 @@ package bar
 
 import (
 	"errors"
+	"fmt"
 	"image/color"
 	"testing"
 
@@ -112,6 +113,15 @@ func TestSegment(t *testing.T) {
 
 	segment.Identifier("test")
 	assert.Equal("test", assertSet(segment.GetID()))
+
+	segment = ErrorSegment(fmt.Errorf("something went wrong"))
+	assert.Equal("Error", segment.Text())
+	assert.Equal("!", assertSet(segment.GetShortText()))
+	assert.True(assertSet(segment.IsUrgent()).(bool))
+	assert.Error(segment.GetError())
+	assertUnset(segment.GetMinWidth())
+	segment.MinWidthPlaceholder("error")
+	assert.Equal("error", assertSet(segment.GetMinWidth()))
 }
 
 func TestBarOutput(t *testing.T) {

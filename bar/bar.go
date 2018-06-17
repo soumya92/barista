@@ -151,13 +151,18 @@ type ErrorEvent struct {
 	Event
 }
 
+// Sink represents a destination for module output.
+type Sink func(Output)
+
 // Module represents a single bar module. A bar is just a list of modules.
 type Module interface {
-	// Stream will be called when the bar is started. The bar will then use the returned
-	// output channel to update the module output, and use the last received output to
-	// refresh the display when needed. Each new item on this channel will immediately
-	// update the module output.
-	Stream() <-chan Output
+	// Stream runs the main loop of a module, pushing updated outputs to
+	// the provided Sink.
+	// A module is considered active until Stream() returns, at which point
+	// a click will restart the module by calling Stream() again.
+	// The Sink passed to Stream is only valid for the one call to Stream;
+	// subsequent calls may receive different instances.
+	Stream(Sink)
 }
 
 // Clickable is an additional interface modules may implement if they handle click events.

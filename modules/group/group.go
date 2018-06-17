@@ -37,7 +37,6 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
 )
 
 // Group is the common interface for all kinds of module "groups".
@@ -57,23 +56,24 @@ type Button interface {
 // groups can use to control its behaviour.
 type button struct {
 	base.SimpleClickHandler
-	base.Channel
+	base.Value // of bar.Output
 }
 
-func (b *button) Stream() <-chan bar.Output {
-	return b.Channel
-}
-
-func newButton() *button {
-	return &button{Channel: base.NewChannel()}
+func (b *button) Stream(s bar.Sink) {
+	sub := b.Subscribe()
+	for {
+		s.Output(b.Get().(bar.Output))
+		<-sub
+	}
 }
 
 // module wraps a bar.Module with a "visibility" modifier, and only
 // sends output when it's visible. Otherwise it outputs nothing.
 type module struct {
 	bar.Module
+	bar.Sink
 	sync.Mutex
-	channel    chan bar.Output
+	restarted  chan bool
 	lastOutput bar.Output
 	visible    bool
 	finished   bool
@@ -86,13 +86,27 @@ type WrappedModule interface {
 	bar.Clickable
 }
 
+func newWrappedModule(m bar.Module, visible bool) *module {
+	return &module{
+		Module:    m,
+		restarted: make(chan bool),
+		visible:   visible,
+	}
+}
+
 // Stream sets up the output pipeline to filter outputs when hidden.
-func (m *module) Stream() <-chan bar.Output {
+func (m *module) Stream(s bar.Sink) {
 	m.Lock()
-	m.channel = make(chan bar.Output, 10)
-	go m.pipeWhenVisible(m.Module.Stream(), m.channel)
+	m.Sink = s
 	m.Unlock()
-	return m.channel
+	wSink := wrappedSink(m, s)
+	for {
+		m.Module.Stream(wSink)
+		m.Lock()
+		m.finished = true
+		m.Unlock()
+		<-m.restarted
+	}
 }
 
 // Click passes through the click event if supported by the wrapped module.
@@ -100,8 +114,10 @@ func (m *module) Click(e bar.Event) {
 	m.Lock()
 	if m.finished && isRestartableClick(e) {
 		l.Log("%s restarted by wrapper", l.ID(m.Module))
-		go m.pipeWhenVisible(m.Module.Stream(), m.channel)
 		m.finished = false
+		m.restarted <- true
+		m.Unlock()
+		return
 	}
 	m.Unlock()
 	if clickable, ok := m.Module.(bar.Clickable); ok {
@@ -128,23 +144,20 @@ func (m *module) SetVisible(visible bool) {
 	l.Fine("%s: visible %v", l.ID(m), visible)
 	m.visible = visible
 	if visible {
-		m.channel <- m.lastOutput
+		m.Output(m.lastOutput)
 	} else {
-		m.channel <- outputs.Empty()
+		m.Output(nil)
 	}
 }
 
-func (m *module) pipeWhenVisible(input <-chan bar.Output, output chan<- bar.Output) {
-	for out := range input {
+func wrappedSink(m *module, s bar.Sink) bar.Sink {
+	return func(o bar.Output) {
 		m.Lock()
-		m.lastOutput = out
+		m.lastOutput = o
 		visible := m.visible
 		m.Unlock()
 		if visible {
-			output <- out
+			s.Output(o)
 		}
 	}
-	m.Lock()
-	m.finished = true
-	m.Unlock()
 }

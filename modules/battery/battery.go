@@ -176,18 +176,12 @@ func (m *Module) UrgentWhen(urgentFunc func(Info) bool) *Module {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	info := batteryInfo(m.batteryName)
 	format := m.getFormat()
 	sFormat := m.format.Subscribe()
 	for {
-		ch.Output(format.output(info))
+		s.Output(format.output(info))
 		select {
 		case <-m.scheduler.Tick():
 			info = batteryInfo(m.batteryName)

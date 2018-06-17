@@ -149,13 +149,7 @@ func (m *Module) UrgentWhen(urgentFunc func(Info) bool) *Module {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	info, err := getStatFsInfo(m.path)
 	format := m.getFormat()
 	sFormat := m.format.Subscribe()
@@ -164,12 +158,12 @@ func (m *Module) worker(ch base.Channel) {
 			// Disk is not mounted, hide the module.
 			// But continue regular updates so that the
 			// disk is picked up on remount.
-			ch.Output(outputs.Empty())
+			s.Output(nil)
 		} else {
-			if ch.Error(err) {
+			if s.Error(err) {
 				return
 			}
-			ch.Output(format.output(info))
+			s.Output(format.output(info))
 		}
 		select {
 		case <-m.scheduler.Tick():

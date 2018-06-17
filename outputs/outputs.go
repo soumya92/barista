@@ -26,19 +26,6 @@ import (
 // bar output from it.
 type TemplateFunc func(interface{}) bar.Output
 
-// empty represents an empty output.
-type empty struct{}
-
-// Segments implements bar.Output for empty by returning an empty list.
-func (e empty) Segments() []*bar.Segment {
-	return nil
-}
-
-// Empty constructs an empty output, which will hide a module from the bar.
-func Empty() bar.Output {
-	return empty{}
-}
-
 // Errorf constructs a bar output that indicates an error,
 // using the given format string and arguments.
 func Errorf(format string, args ...interface{}) *bar.Segment {
@@ -47,10 +34,7 @@ func Errorf(format string, args ...interface{}) *bar.Segment {
 
 // Error constructs a bar output that indicates an error.
 func Error(e error) *bar.Segment {
-	return Text("Error").
-		Error(e).
-		ShortText("!").
-		Urgent(true)
+	return bar.ErrorSegment(e)
 }
 
 // Textf constructs simple text output from a format string and arguments.
@@ -85,7 +69,9 @@ func Pango(things ...interface{}) *bar.Segment {
 func Group(outputs ...bar.Output) *SegmentGroup {
 	group := newSegmentGroup()
 	for _, o := range outputs {
-		group.Append(o.Segments()...)
+		if o != nil {
+			group.Append(o.Segments()...)
+		}
 	}
 	return group
 }

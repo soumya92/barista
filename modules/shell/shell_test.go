@@ -78,7 +78,7 @@ func TestEvery(t *testing.T) {
 	testBar.Run(rep)
 	testBar.NextOutput().AssertError("when starting an invalid command")
 	testBar.Tick()
-	testBar.AssertNoOutput("on tick with error")
+	testBar.NextOutput().AssertError("new error output on next tick")
 }
 
 func TestOnce(t *testing.T) {

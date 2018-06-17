@@ -153,23 +153,17 @@ func (m *Module) Click(e bar.Event) {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	weather, err := m.provider.GetWeather()
 	outputFunc := m.outputFunc.Get().(func(Weather) bar.Output)
 	sOutputFunc := m.outputFunc.Subscribe()
 	for {
-		if ch.Error(err) {
+		if s.Error(err) {
 			return
 		}
 		if weather != nil {
 			m.currentWeather.Set(*weather)
-			ch.Output(outputFunc(*weather))
+			s.Output(outputFunc(*weather))
 		}
 		select {
 		case <-sOutputFunc:

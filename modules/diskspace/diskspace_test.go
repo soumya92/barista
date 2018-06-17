@@ -158,7 +158,7 @@ func TestDiskspaceInfo(t *testing.T) {
 	diskspace := New("/")
 	diskspace.OutputFunc(func(i Info) bar.Output {
 		infos <- i
-		return outputs.Empty()
+		return nil
 	})
 
 	shouldReturn("/", unix.Statfs_t{

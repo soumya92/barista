@@ -22,6 +22,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/testing/sink"
 )
 
 func finishedWithin(f func(), timeout time.Duration) bool {
@@ -47,9 +48,10 @@ func TestSimple(t *testing.T) {
 		"Panics when output without stream")
 	assert.Panics(t, func() { m.Click(bar.Event{}) },
 		"Panics when clicked without stream")
-	ch := m.Stream()
+	ch, s := sink.New()
+	go m.Stream(s)
 	m.AssertStarted("Started when streaming starts")
-	assert.Panics(t, func() { m.Stream() }, "Panics when streamed again")
+	assert.Panics(t, func() { m.Stream(sink.Null()) }, "Panics when streamed again")
 	assert.True(t,
 		finishedWithin(func() { m.Output(initialOutput) }, time.Second),
 		"Output does not block")
@@ -74,7 +76,9 @@ func TestOutputBuffer(t *testing.T) {
 	out1 := outputs.Text("1")
 	out2 := outputs.Text("2")
 	out3 := outputs.Text("3")
-	ch := m.Stream()
+	ch, s := sink.New()
+	go m.Stream(s)
+	m.AssertStarted()
 	m.Output(out1)
 	m.Output(out2)
 	actual1 := <-ch
@@ -93,7 +97,8 @@ func TestClick(t *testing.T) {
 	evt1 := bar.Event{X: 2}
 	evt2 := bar.Event{Y: 2}
 	evt3 := bar.Event{X: 1, Y: 1}
-	m.Stream()
+	go m.Stream(sink.Null())
+	m.AssertStarted()
 
 	m.AssertNotClicked("no events initially")
 	m.Click(evt1)
@@ -116,7 +121,8 @@ func TestClick(t *testing.T) {
 
 	fakeT = &testing.T{}
 	m = New(fakeT)
-	m.Stream()
+	go m.Stream(sink.Null())
+	m.AssertStarted()
 	m.Click(evt1)
 	m.AssertNotClicked("fails when clicked")
 	assert.True(t, fakeT.Failed(), "AssertNotClicked when clicked")
@@ -124,14 +130,17 @@ func TestClick(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	m := New(t)
-	m.Stream()
-	assert.Panics(t, func() { m.Stream() },
+	go m.Stream(sink.Null())
+	m.AssertStarted()
+
+	assert.Panics(t, func() { m.Stream(sink.Null()) },
 		"already streaming")
 	m.Close()
 	assert.Panics(t, func() { m.OutputText("foo") },
 		"output after close")
-	assert.NotPanics(t, func() { m.Stream() },
+	assert.NotPanics(t, func() { go m.Stream(sink.Null()) },
 		"after closing module")
+	m.AssertStarted()
 	assert.NotPanics(t, func() { m.OutputText("foo") },
 		"output after restarting")
 }
@@ -140,7 +149,9 @@ func TestStarted(t *testing.T) {
 	positiveTimeout = time.Second
 
 	m := New(t)
-	m.Stream()
+	go m.Stream(sink.Null())
+	assert.True(t, finishedWithin(func() { m.AssertStarted() }, time.Second),
+		"AssertStarted when module starts streaming")
 	assert.True(t, finishedWithin(func() { m.AssertStarted() }, time.Second),
 		"AssertStarted when module is already streaming")
 
@@ -153,7 +164,7 @@ func TestStarted(t *testing.T) {
 		doneChan <- true
 	}()
 	<-signalChan
-	m2.Stream()
+	go m2.Stream(sink.Null())
 	assert.True(t,
 		finishedWithin(func() { <-doneChan }, time.Second),
 		"AssertStarted after streaming")

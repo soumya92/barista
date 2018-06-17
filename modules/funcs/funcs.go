@@ -23,28 +23,8 @@ import (
 	"github.com/soumya92/barista/timing"
 )
 
-// Channel provides methods for functions to send output to the bar.
-type Channel interface {
-	// Output updates the module's output.
-	Output(bar.Output)
-	// Clear hides the module from the bar.
-	Clear()
-	// Error shows an error and restarts the module on click.
-	Error(error) bool
-}
-
-type channel struct {
-	base.Channel
-	finished bool
-}
-
-func (c *channel) Error(err error) bool {
-	c.finished = c.Channel.Error(err)
-	return c.finished
-}
-
-// Func receives a Channel and uses it for output.
-type Func func(Channel)
+// Func receives a bar.Sink and uses it for output.
+type Func func(bar.Sink)
 
 // Once constructs a bar module that runs the given function once.
 // Useful if the function loops internally.
@@ -61,10 +41,10 @@ type OnceModule struct {
 }
 
 // Stream starts the module.
-func (o *OnceModule) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go o.Func(ch)
-	return ch
+func (o *OnceModule) Stream(s bar.Sink) {
+	forever := make(chan struct{})
+	o.Func(s)
+	<-forever
 }
 
 // OnClick constructs a bar module that runs the given function
@@ -83,16 +63,8 @@ type OnclickModule struct {
 }
 
 // Stream starts the module.
-func (o OnclickModule) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go func() {
-		wrappedCh := &channel{Channel: ch}
-		o.Func(wrappedCh)
-		if !wrappedCh.finished {
-			close(ch)
-		}
-	}()
-	return ch
+func (o OnclickModule) Stream(s bar.Sink) {
+	o.Func(s)
 }
 
 // Every constructs a bar module that repeatedly runs the given function.
@@ -110,22 +82,10 @@ type RepeatingModule struct {
 }
 
 // Stream starts the module.
-func (r *RepeatingModule) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	wrappedCh := &channel{Channel: ch}
+func (r *RepeatingModule) Stream(s bar.Sink) {
 	sch := timing.NewScheduler().Every(r.duration)
-	go func() {
-		for {
-			r.fn(wrappedCh)
-			if wrappedCh.finished {
-				// The next click will call stream again, so return
-				// from this goroutine so that the other instance can
-				// run normally.
-				sch.Stop()
-				return
-			}
-			<-sch.Tick()
-		}
-	}()
-	return ch
+	for {
+		r.fn(s)
+		<-sch.Tick()
+	}
 }

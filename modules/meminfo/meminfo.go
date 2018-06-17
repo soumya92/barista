@@ -123,23 +123,15 @@ func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 }
 
 // Stream subscribes to meminfo and updates the module's output accordingly.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	i, err := currentInfo.Get()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
 	sOutputFunc := m.outputFunc.Subscribe()
 	for {
 		if err != nil {
-			// Do not use ch.Error because that will close the channel,
-			// leaving further updates to deadlock.
-			ch.Output(outputs.Error(err))
+			s.Error(err)
 		} else if info, ok := i.(Info); ok {
-			ch.Output(outputFunc(info))
+			s.Output(outputFunc(info))
 		}
 		select {
 		case <-sOutputFunc:

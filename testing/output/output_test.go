@@ -23,6 +23,13 @@ import (
 	"github.com/soumya92/barista/outputs"
 )
 
+// An empty output for testing, different from 'nil'.
+type empty struct{}
+
+func (e empty) Segments() []*bar.Segment {
+	return nil
+}
+
 func TestAssertions(t *testing.T) {
 	a := New(t, outputs.Text("a"))
 	a.AssertEqual(bar.TextSegment("a"), "same output")
@@ -52,7 +59,7 @@ func TestAssertions(t *testing.T) {
 	assert.Equal(t, []string{"something", "other thing"}, errs,
 		"error descriptions with multiple segments")
 
-	a = New(t, outputs.Empty())
+	a = New(t, empty{})
 	assert.True(t, a.Expect("should pass"))
 	a.AssertEmpty("empty output")
 	assert.Equal(t, 0, a.Len())
@@ -97,7 +104,7 @@ func TestAssertionErrors(t *testing.T) {
 	}, "AssertError with no output")
 	assert.Empty(t, errStrings, "AssertError returns empty result")
 
-	out = outputs.Empty()
+	out = empty{}
 
 	assertFail(func(a Assertions) {
 		a.AssertError()

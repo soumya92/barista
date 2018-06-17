@@ -85,20 +85,14 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	return m
 }
 
-// Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
 // For tests.
 var linkByName = netlink.LinkByName
 
-func (m *Module) worker(ch base.Channel) {
+// Stream starts the module.
+func (m *Module) Stream(s bar.Sink) {
 	lastRead := timing.Now()
 	lastRx, lastTx, err := linkRxTx(m.iface)
-	if ch.Error(err) {
+	if s.Error(err) {
 		return
 	}
 
@@ -108,14 +102,14 @@ func (m *Module) worker(ch base.Channel) {
 
 	for {
 		if speeds.available {
-			ch.Output(outputFunc(speeds))
+			s.Output(outputFunc(speeds))
 		}
 		select {
 		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Speeds) bar.Output)
 		case <-m.scheduler.Tick():
 			rx, tx, err := linkRxTx(m.iface)
-			if ch.Error(err) {
+			if s.Error(err) {
 				return
 			}
 			now := timing.Now()

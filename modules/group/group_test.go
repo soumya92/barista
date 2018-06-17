@@ -20,25 +20,26 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
+	testSink "github.com/soumya92/barista/testing/sink"
 )
 
-type simpleModule chan bar.Output
+type simpleModule struct{}
 
-func (s simpleModule) Stream() <-chan bar.Output { return (<-chan bar.Output)(s) }
+func (s simpleModule) Stream(bar.Sink) {}
 
-type clickableModule chan bar.Output
+type clickableModule struct{}
 
-func (c clickableModule) Stream() <-chan bar.Output { return (<-chan bar.Output)(c) }
-func (c clickableModule) Click(e bar.Event)         {}
+func (c clickableModule) Stream(bar.Sink)   {}
+func (c clickableModule) Click(e bar.Event) {}
 
 func TestWrappedModule(t *testing.T) {
 	evt := bar.Event{X: 1, Y: 1}
 	for _, m := range []bar.Module{
-		make(simpleModule),
-		make(clickableModule),
+		simpleModule{},
+		clickableModule{},
 	} {
 		var wrapped WrappedModule = &module{Module: m}
-		wrapped.Stream()
+		go wrapped.Stream(testSink.Null())
 		assert.NotPanics(t, func() { wrapped.Click(evt) })
 	}
 }

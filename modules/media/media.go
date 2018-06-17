@@ -223,30 +223,20 @@ func DefaultClickHandler(i Info, c Controller, e bar.Event) {
 	}
 }
 
-// Stream sets up d-bus connections and then returns the output
-// channel from the base module. This allows us to skip error
-// checking in the update function since we're guaranteed that
-// the update function will only be called if there were no errors
-// during startup.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+// Stream sets up d-bus connections and starts the module.
+func (m *Module) Stream(s bar.Sink) {
 	// Need a private bus in-case other modules (or other instances of media) are
 	// using dbus as well. Since we rely on (Add|Remove)Match and Signal,
 	// we cannot share the session bus.
 	sessionBus, err := dbus.SessionBusPrivate()
-	if ch.Error(err) {
+	if s.Error(err) {
 		return
 	}
 	// Need to handle auth and handshake ourselves for private sessions buses.
-	if err := sessionBus.Auth(nil); ch.Error(err) {
+	if err := sessionBus.Auth(nil); s.Error(err) {
 		return
 	}
-	if err := sessionBus.Hello(); ch.Error(err) {
+	if err := sessionBus.Hello(); s.Error(err) {
 		return
 	}
 
@@ -255,7 +245,7 @@ func (m *Module) worker(ch base.Channel) {
 	sOutputFunc := m.outputFunc.Subscribe()
 
 	m.player = newMprisPlayer(sessionBus, m.playerName, &info)
-	if ch.Error(m.player.err) {
+	if s.Error(m.player.err) {
 		return
 	}
 	m.info.Set(info)
@@ -278,10 +268,10 @@ func (m *Module) worker(ch base.Channel) {
 		select {
 		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
-			ch.Output(outputFunc(info))
+			s.Output(outputFunc(info))
 		case v := <-dbusCh:
 			updates, err := m.player.handleDbusSignal(v)
-			if ch.Error(err) {
+			if s.Error(err) {
 				return
 			}
 			l.Log("%s: updated %#v from dbus signal", l.ID(m), updates)
@@ -294,10 +284,10 @@ func (m *Module) worker(ch base.Channel) {
 			}
 			if updates.any() {
 				m.info.Set(info)
-				ch.Output(outputFunc(info))
+				s.Output(outputFunc(info))
 			}
 		case <-positionUpdater.Tick():
-			ch.Output(outputFunc(info))
+			s.Output(outputFunc(info))
 		}
 	}
 }

@@ -63,10 +63,7 @@ type collapsable struct {
 func (g *collapsable) Add(original bar.Module) WrappedModule {
 	g.Lock()
 	defer g.Unlock()
-	m := &module{
-		Module:  original,
-		visible: !g.collapsed,
-	}
+	m := newWrappedModule(original, !g.collapsed)
 	l.Attachf(g, m, "[%d]", len(g.modules))
 	l.Label(m, l.ID(m.Module))
 	l.Attach(m, m.Module, "")
@@ -99,12 +96,12 @@ func (g *collapsable) Button(collapsed, expanded bar.Output) Button {
 		}
 		return expanded
 	}
-	b := newButton()
-	b.Output(outputFunc())
+	b := &button{}
+	b.Set(outputFunc())
 	b.OnClick(func(e bar.Event) {
 		if e.Button == bar.ButtonLeft {
 			g.Toggle()
-			b.Output(outputFunc())
+			b.Set(outputFunc())
 		}
 	})
 	return b

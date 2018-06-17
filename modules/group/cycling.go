@@ -66,10 +66,7 @@ func (g *cyclic) Add(original bar.Module) WrappedModule {
 	g.Lock()
 	defer g.Unlock()
 	index := len(g.modules)
-	m := &module{
-		Module:  original,
-		visible: g.current == index,
-	}
+	m := newWrappedModule(original, g.current == index)
 	l.Attachf(g, m, "[%d]", len(g.modules))
 	l.Label(m, l.ID(m.Module))
 	l.Attach(m, m.Module, "")
@@ -115,8 +112,8 @@ func (g *cyclic) Count() int {
 }
 
 func (g *cyclic) Button(output bar.Output) Button {
-	b := newButton()
-	b.Output(output)
+	b := &button{}
+	b.Set(output)
 	b.OnClick(func(e bar.Event) {
 		switch e.Button {
 		case bar.ButtonLeft, bar.ScrollDown, bar.ScrollRight, bar.ButtonForward:

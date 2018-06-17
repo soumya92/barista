@@ -138,12 +138,12 @@ func TestEmptyOutputs(t *testing.T) {
 	assert.Error(t, err, "no output until module updates")
 
 	module1.AssertStarted()
-	module1.Output(outputs.Empty())
+	module1.Output(nil)
 	out := readOutputTexts(t, mockStdout)
 	assert.Empty(t, out, "all modules are empty")
 
 	module2.AssertStarted()
-	module2.Output(outputs.Empty())
+	module2.Output(nil)
 	out = readOutputTexts(t, mockStdout)
 	assert.Empty(t, out, "all modules are empty")
 }
@@ -191,7 +191,7 @@ func TestMultipleModules(t *testing.T) {
 	assert.Equal(t, []string{"test", "middle", "new value"}, out,
 		"newly updated module correctly repositions other modules")
 
-	module1.Output(outputs.Empty())
+	module1.Output(nil)
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"middle", "new value"}, out,
 		"nil output correctly repositions other modules")

@@ -49,13 +49,7 @@ func Tail(cmd string, args ...string) *TailModule {
 }
 
 // Stream starts the module.
-func (m *TailModule) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *TailModule) worker(ch base.Channel) {
+func (m *TailModule) Stream(s bar.Sink) {
 	cmd := exec.Command(m.cmd, m.args...)
 	// Prevent SIGUSR for bar pause/resume from propagating to the
 	// child process. Some commands don't play nice with signals.
@@ -64,53 +58,50 @@ func (m *TailModule) worker(ch base.Channel) {
 		Pgid:    0,
 	}
 	stdout, err := cmd.StdoutPipe()
-	if ch.Error(err) {
+	if s.Error(err) {
 		return
 	}
-	if ch.Error(cmd.Start()) {
+	if s.Error(cmd.Start()) {
 		return
 	}
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		txt := scanner.Text()
-		ch.Output(outputs.Text(txt))
+		s.Output(outputs.Text(txt))
 	}
-	if ch.Error(cmd.Wait()) {
-		return
-	}
-	close(ch)
+	s.Error(cmd.Wait())
 }
 
 // Every constructs a module that runs the given command at the
 // specified interval and displays the commands output in the bar.
 func Every(interval time.Duration, cmd string, args ...string) *funcs.RepeatingModule {
-	return funcs.Every(interval, func(ch funcs.Channel) {
-		commandOutput(ch, cmd, args...)
+	return funcs.Every(interval, func(s bar.Sink) {
+		commandOutput(s, cmd, args...)
 	})
 }
 
 // Once constructs a static module that displays the output of
 // the given command in the bar.
 func Once(cmd string, args ...string) *funcs.OnceModule {
-	return funcs.Once(func(ch funcs.Channel) {
-		commandOutput(ch, cmd, args...)
+	return funcs.Once(func(s bar.Sink) {
+		commandOutput(s, cmd, args...)
 	})
 }
 
 // OnClick constructs a module that displays the output of the given
 // command in the bar, and refreshes the output on click.
 func OnClick(cmd string, args ...string) bar.Module {
-	return funcs.OnClick(func(ch funcs.Channel) {
-		commandOutput(ch, cmd, args...)
+	return funcs.OnClick(func(s bar.Sink) {
+		commandOutput(s, cmd, args...)
 	})
 }
 
-// commandOutput runs the command and sends the output or error to the channel.
-func commandOutput(ch funcs.Channel, cmd string, args ...string) {
+// commandOutput runs the command and sends the output or error to the sink.
+func commandOutput(s bar.Sink, cmd string, args ...string) {
 	out, err := exec.Command(cmd, args...).Output()
-	if ch.Error(err) {
+	if s.Error(err) {
 		return
 	}
 	strOut := strings.TrimSpace(string(out))
-	ch.Output(outputs.Text(strOut))
+	s.Output(outputs.Text(strOut))
 }

@@ -111,8 +111,8 @@ type i3Bar struct {
 // output converts the module's output to i3Output by adding the name (position),
 // sets the module's last output to the converted i3Output, and signals the bar
 // to update its output.
-func (m *i3Module) output(bar *i3Bar) {
-	for o := range m.Stream() {
+func (m *i3Module) output(b *i3Bar) {
+	m.Stream(func(o bar.Output) {
 		var i3out i3Output
 		if o != nil {
 			for _, segment := range o.Segments() {
@@ -124,9 +124,9 @@ func (m *i3Module) output(bar *i3Bar) {
 		}
 		m.lastOutput.Store(i3out)
 		l.Fine("New output from %s", l.ID(m.Module))
-		bar.refresh()
-	}
-	// If we got here, the channel was closed, so we mark the module
+		b.refresh()
+	})
+	// If we got here, the module is finished, so we mark the module
 	// as "restartable" and the next click event (Button1/2/3) will
 	// call the output() method again.
 	m.restartable.Store(true)

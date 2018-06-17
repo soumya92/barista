@@ -121,20 +121,14 @@ func (m *Module) Timezone(timezone *time.Location) *Module {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	sch := timing.NewScheduler()
 	l.Attach(m, sch, "scheduler")
 	cfg := m.getConfig()
 	sCfg := m.config.Subscribe()
 	for {
 		now := timing.Now()
-		ch.Output(cfg.outputFunc(now.In(cfg.timezone)))
+		s.Output(cfg.outputFunc(now.In(cfg.timezone)))
 		next := now.Add(cfg.granularity).Truncate(cfg.granularity)
 
 		select {

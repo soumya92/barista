@@ -72,7 +72,7 @@ func formatMediaTime(d time.Duration) string {
 
 func mediaFormatFunc(m media.Info) bar.Output {
 	if m.PlaybackStatus == media.Stopped || m.PlaybackStatus == media.Disconnected {
-		return outputs.Empty()
+		return nil
 	}
 	artist := truncate(m.Artist, 20)
 	title := truncate(m.Title, 40-len(artist))

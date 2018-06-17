@@ -26,10 +26,6 @@ import (
 	pangoTesting "github.com/soumya92/barista/testing/pango"
 )
 
-func TestEmpty(t *testing.T) {
-	assert.Empty(t, Empty().Segments(), "empty output")
-}
-
 func textOf(out bar.Output) string {
 	str := ""
 	for _, segment := range out.Segments() {

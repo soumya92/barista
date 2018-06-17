@@ -93,22 +93,16 @@ func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	// Initial state.
 	link, err := netlink.LinkByName(m.intf)
-	if ch.Error(err) {
+	if s.Error(err) {
 		return
 	}
 	var info Info
 	if link.Attrs().Flags&net.FlagUp == net.FlagUp {
 		info, err = m.getWifiInfo()
-		if ch.Error(err) {
+		if s.Error(err) {
 			return
 		}
 		if info.SSID == "" {
@@ -117,7 +111,7 @@ func (m *Module) worker(ch base.Channel) {
 	}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
 	sOutputFunc := m.outputFunc.Subscribe()
-	ch.Output(outputFunc(info))
+	s.Output(outputFunc(info))
 
 	// Watch for changes.
 	linkCh := make(chan netlink.LinkUpdate)
@@ -149,15 +143,15 @@ func (m *Module) worker(ch base.Channel) {
 					info.State = Disconnected
 				} else {
 					info, err = m.getWifiInfo()
-					if ch.Error(err) {
+					if s.Error(err) {
 						return
 					}
 				}
-				ch.Output(outputFunc(info))
+				s.Output(outputFunc(info))
 			}
 		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
-			ch.Output(outputFunc(info))
+			s.Output(outputFunc(info))
 		}
 	}
 }

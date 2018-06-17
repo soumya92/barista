@@ -132,26 +132,20 @@ func (m *Module) UrgentWhen(urgentFunc func(LoadAvg) bool) *Module {
 }
 
 // Stream starts the module.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	var loads LoadAvg
 	count, err := getloadavg(&loads, 3)
 	format := m.getFormat()
 	sFormat := m.format.Subscribe()
 	for {
-		if ch.Error(err) {
+		if s.Error(err) {
 			return
 		}
 		if count != 3 {
-			ch.Error(fmt.Errorf("getloadavg: %d", count))
+			s.Error(fmt.Errorf("getloadavg: %d", count))
 			return
 		}
-		ch.Output(format.output(loads))
+		s.Output(format.output(loads))
 		select {
 		case <-m.scheduler.Tick():
 			count, err = getloadavg(&loads, 3)

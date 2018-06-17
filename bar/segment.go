@@ -28,6 +28,14 @@ func PangoSegment(text string) *Segment {
 	return &Segment{text: text, markup: "pango"}
 }
 
+// ErrorSegment creates a new output segment that displays an error.
+// On the bar itself, it's an urgent segment showing 'Error' or '!'
+// based on available space, but the full error will be shown using
+// i3-nagbar when the segment is right-clicked.
+func ErrorSegment(e error) *Segment {
+	return TextSegment("Error").Error(e).ShortText("!").Urgent(true)
+}
+
 // Text returns the text content of this segment.
 func (s *Segment) Text() string {
 	return s.text

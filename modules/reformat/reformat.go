@@ -44,11 +44,10 @@ func New(original bar.Module, formatFunc FormatFunc) bar.Module {
 	return &module{original, formatFunc}
 }
 
-// Stream sets up the formatting pipeline and returns a channel for the bar.
-func (m *module) Stream() <-chan bar.Output {
-	reformatted := make(chan bar.Output)
-	go format(m.Module.Stream(), m.Formatter, reformatted)
-	return reformatted
+// Stream starts the wrapped module and formats the output before sending
+// it to the original bar.Sink.
+func (m *module) Stream(s bar.Sink) {
+	m.Module.Stream(reformatSink(s, m.Formatter))
 }
 
 // Click passes through the click event if supported by the wrapped module.
@@ -58,11 +57,8 @@ func (m *module) Click(e bar.Event) {
 	}
 }
 
-// format takes input from a channel, formats it using the format function,
-// and outputs it to a different channel.
-func format(input <-chan bar.Output, f FormatFunc, output chan<- bar.Output) {
-	for out := range input {
-		output <- f(out)
+func reformatSink(orig bar.Sink, formatter FormatFunc) bar.Sink {
+	return func(o bar.Output) {
+		orig.Output(formatter(o))
 	}
-	close(output)
 }

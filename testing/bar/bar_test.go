@@ -67,7 +67,7 @@ func TestOutput(t *testing.T) {
 	m.OutputText("baz")
 	LatestOutput().Expect("when output")
 
-	m.Output(outputs.Empty())
+	m.Output(nil)
 	NextOutput().AssertEmpty("on empty output")
 }
 
@@ -95,7 +95,7 @@ func TestEvents(t *testing.T) {
 	actual := m2.AssertClicked()
 	assert.Equal(t, e, actual, "event properties pass through")
 
-	m1.Output(outputs.Empty())
+	m1.Output(nil)
 	m2.Output(outputs.Group(
 		outputs.Text("a").Identifier("foo"),
 		outputs.Text("b").Identifier("bar"),
@@ -250,7 +250,7 @@ func TestOutputErrors(t *testing.T) {
 	}, "Asserting error with non-error output")
 
 	assertFails(t, func(m *module.TestModule) {
-		m.Output(outputs.Empty())
+		m.Output(nil)
 		LatestOutput().AssertError()
 	}, "Asserting error with empty output")
 

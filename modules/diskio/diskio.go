@@ -126,13 +126,7 @@ func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 
 // Stream starts the module. Note that diskio updates begin as soon as the
 // first module is constructed, even if no modules are streaming.
-func (m *Module) Stream() <-chan bar.Output {
-	ch := base.NewChannel()
-	go m.worker(ch)
-	return ch
-}
-
-func (m *Module) worker(ch base.Channel) {
+func (m *Module) Stream(s bar.Sink) {
 	var i IO
 	outputFunc := m.outputFunc.Get().(func(IO) bar.Output)
 	sOutputFunc := m.outputFunc.Subscribe()
@@ -142,14 +136,13 @@ func (m *Module) worker(ch base.Channel) {
 		case <-sOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(IO) bar.Output)
 		}
-		if i.err != nil {
-			// Do not use ch.Error because that will close the channel,
-			// leaving further updates to deadlock.
-			ch.Output(outputs.Error(i.err))
-		} else if i.shouldOutput {
-			ch.Output(outputFunc(i))
+		if s.Error(i.err) {
+			continue
+		}
+		if i.shouldOutput {
+			s.Output(outputFunc(i))
 		} else {
-			ch.Clear()
+			s.Output(nil)
 		}
 	}
 }
