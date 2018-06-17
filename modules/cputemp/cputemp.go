@@ -130,7 +130,6 @@ var fs = afero.NewOsFs()
 func (m *Module) Stream(s bar.Sink) {
 	temp, err := getTemperature(m.thermalFile)
 	format := m.getFormat()
-	sFormat := m.format.Subscribe()
 	for {
 		if s.Error(err) {
 			return
@@ -139,7 +138,7 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-m.scheduler.Tick():
 			temp, err = getTemperature(m.thermalFile)
-		case <-sFormat:
+		case <-m.format.Update():
 			format = m.getFormat()
 		}
 	}

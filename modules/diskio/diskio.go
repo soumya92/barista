@@ -129,11 +129,10 @@ func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	var i IO
 	outputFunc := m.outputFunc.Get().(func(IO) bar.Output)
-	sOutputFunc := m.outputFunc.Subscribe()
 	for {
 		select {
 		case i = <-m.ioChan:
-		case <-sOutputFunc:
+		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(IO) bar.Output)
 		}
 		if s.Error(i.err) {

@@ -152,7 +152,6 @@ func (m *Module) UrgentWhen(urgentFunc func(Info) bool) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	info, err := getStatFsInfo(m.path)
 	format := m.getFormat()
-	sFormat := m.format.Subscribe()
 	for {
 		if os.IsNotExist(err) {
 			// Disk is not mounted, hide the module.
@@ -168,7 +167,7 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-m.scheduler.Tick():
 			info, err = getStatFsInfo(m.path)
-		case <-sFormat:
+		case <-m.format.Update():
 			format = m.getFormat()
 		}
 	}

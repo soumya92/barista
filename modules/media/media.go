@@ -242,7 +242,6 @@ func (m *Module) Stream(s bar.Sink) {
 
 	info := Info{}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	sOutputFunc := m.outputFunc.Subscribe()
 
 	m.player = newMprisPlayer(sessionBus, m.playerName, &info)
 	if s.Error(m.player.err) {
@@ -266,7 +265,7 @@ func (m *Module) Stream(s bar.Sink) {
 
 	for {
 		select {
-		case <-sOutputFunc:
+		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 			s.Output(outputFunc(info))
 		case v := <-dbusCh:

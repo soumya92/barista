@@ -156,7 +156,6 @@ func (m *Module) Click(e bar.Event) {
 func (m *Module) Stream(s bar.Sink) {
 	weather, err := m.provider.GetWeather()
 	outputFunc := m.outputFunc.Get().(func(Weather) bar.Output)
-	sOutputFunc := m.outputFunc.Subscribe()
 	for {
 		if s.Error(err) {
 			return
@@ -166,7 +165,7 @@ func (m *Module) Stream(s bar.Sink) {
 			s.Output(outputFunc(*weather))
 		}
 		select {
-		case <-sOutputFunc:
+		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Weather) bar.Output)
 		case <-m.scheduler.Tick():
 			weather, err = m.provider.GetWeather()

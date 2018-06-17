@@ -125,7 +125,6 @@ func (m *Module) Stream(s bar.Sink) {
 	sch := timing.NewScheduler()
 	l.Attach(m, sch, "scheduler")
 	cfg := m.getConfig()
-	sCfg := m.config.Subscribe()
 	for {
 		now := timing.Now()
 		s.Output(cfg.outputFunc(now.In(cfg.timezone)))
@@ -133,7 +132,7 @@ func (m *Module) Stream(s bar.Sink) {
 
 		select {
 		case <-sch.At(next).Tick():
-		case <-sCfg:
+		case <-m.config.Update():
 			cfg = m.getConfig()
 		}
 	}

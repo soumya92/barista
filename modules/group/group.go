@@ -60,10 +60,9 @@ type button struct {
 }
 
 func (b *button) Stream(s bar.Sink) {
-	sub := b.Subscribe()
-	for {
+	s.Output(b.Get().(bar.Output))
+	for range b.Update() {
 		s.Output(b.Get().(bar.Output))
-		<-sub
 	}
 }
 

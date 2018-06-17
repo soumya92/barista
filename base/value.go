@@ -26,19 +26,22 @@ import (
 // Value provides atomic value storage with update notifications.
 type Value struct {
 	value atomic.Value
-
-	subM sync.RWMutex
-	subs []func()
+	// A ticker that notifies whenever the value changes.
+	tickInit sync.Once
+	tickMu   sync.RWMutex
+	tickFn   func()
+	ticker   <-chan struct{}
 }
 
-// Subscribe creates a new ticker for value updates.
-func (v *Value) Subscribe() <-chan struct{} {
-	notifyFn, ch := notifier.New()
-	v.subM.Lock()
-	defer v.subM.Unlock()
-	l.Attachf(v, ch, "$%d", len(v.subs))
-	v.subs = append(v.subs, notifyFn)
-	return ch
+// Update returns a ticker for value updates.
+func (v *Value) Update() <-chan struct{} {
+	v.tickInit.Do(func() {
+		v.tickMu.Lock()
+		v.tickFn, v.ticker = notifier.New()
+		v.tickMu.Unlock()
+		l.Attach(v, v.ticker, "$")
+	})
+	return v.ticker
 }
 
 // Get returns the currently stored value.
@@ -50,10 +53,10 @@ func (v *Value) Get() interface{} {
 func (v *Value) Set(value interface{}) {
 	v.value.Store(value)
 	l.Fine("%s: Store %#v", l.ID(v), value)
-	v.subM.RLock()
-	defer v.subM.RUnlock()
-	for _, notifyFn := range v.subs {
-		notifyFn()
+	v.tickMu.RLock()
+	defer v.tickMu.RUnlock()
+	if v.tickFn != nil {
+		v.tickFn()
 	}
 }
 
@@ -73,10 +76,10 @@ func (e *ErrorValue) initLogging() {
 	e.logInit.Do(func() { l.Attach(e, &e.v, "") })
 }
 
-// Subscribe creates a new ticker for value/error updates.
-func (e *ErrorValue) Subscribe() <-chan struct{} {
+// Update returns a ticker for value/error updates.
+func (e *ErrorValue) Update() <-chan struct{} {
 	e.initLogging()
-	return e.v.Subscribe()
+	return e.v.Update()
 }
 
 // Get returns the currently stored value or error.

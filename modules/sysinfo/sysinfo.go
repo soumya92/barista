@@ -48,6 +48,9 @@ type Info struct {
 // currentInfo stores the last value read by the updater.
 // This allows newly created modules to start with data.
 var currentInfo base.ErrorValue // of Info
+// infoEmitter informs all registered modules about updates
+// to currentInfo.
+var infoEmitter *base.Emitter
 
 var once sync.Once
 var updater timing.Scheduler
@@ -56,8 +59,10 @@ var updater timing.Scheduler
 func construct() {
 	once.Do(func() {
 		updater = timing.NewScheduler()
+		infoEmitter = base.Multicast(currentInfo.Update())
 		l.Attach(nil, updater, "sysinfo.updater")
 		l.Attach(nil, &currentInfo, "sysinfo.currentInfo")
+		l.Attach(&currentInfo, &infoEmitter, ".emitter")
 		updater.Every(3 * time.Second)
 		go func(updater timing.Scheduler) {
 			for {
@@ -88,7 +93,7 @@ func defaultOutputFunc(i Info) bar.Output {
 // New creates a new sysinfo module.
 func New() *Module {
 	construct()
-	m := &Module{ticker: currentInfo.Subscribe()}
+	m := &Module{ticker: infoEmitter.Subscribe()}
 	m.OutputFunc(defaultOutputFunc)
 	l.Register(m, "outputFunc")
 	return m
@@ -111,7 +116,6 @@ func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	i, err := currentInfo.Get()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	sOutputFunc := m.outputFunc.Subscribe()
 	for {
 		if err != nil {
 			s.Error(err)
@@ -119,7 +123,7 @@ func (m *Module) Stream(s bar.Sink) {
 			s.Output(outputFunc(info))
 		}
 		select {
-		case <-sOutputFunc:
+		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		case <-m.ticker:
 			i, err = currentInfo.Get()

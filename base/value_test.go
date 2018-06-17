@@ -16,7 +16,6 @@ package base
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -37,53 +36,42 @@ func TestValue(t *testing.T) {
 		"Setting value of different type panics")
 }
 
-func TestValueSubscription(t *testing.T) {
+func TestValueUpdate(t *testing.T) {
 	assert := assert.New(t)
 	var v Value
-	var listening sync.WaitGroup
-	var notified sync.WaitGroup
+	listening := make(chan bool)
+	notified := make(chan bool)
 
-	for i := 0; i < 25; i++ {
-		subI := v.Subscribe()
-		listening.Add(1)
-		go func() {
-			listening.Done()
-			<-subI
-			notified.Done()
-		}()
-		notified.Add(1)
-	}
-	listening.Wait()
-	doneChan := make(chan bool)
 	go func() {
-		listening.Wait()
-		doneChan <- true
+		<-listening
+		<-v.Update()
+		notified <- true
 	}()
+	listening <- true
 
 	v.Set("test")
 
 	select {
-	case <-doneChan:
-	// Test passed, all 25 subscriptions were notified.
+	case <-notified:
+	// Test passed, channel from v.Update was notified.
 	case <-time.After(time.Second):
-		assert.Fail("Subscriptions not notified within 1s")
+		assert.Fail("<-Update() not notified within 1s")
 	}
 
-	newSub := v.Subscribe()
 	select {
-	case <-newSub:
-		assert.Fail("Newly created subscription notified")
+	case <-v.Update():
+		assert.Fail("<-Update() triggered without a Set(...)")
 	case <-time.After(10 * time.Millisecond):
-		// Test passed, subscriptions only notify of values
-		// set after the call to Subscribe.
+		// Test passed, Update() only notify of values
+		// set after the call to Update.
 	}
 
 	v.Set("...")
 	select {
-	case <-newSub:
+	case <-v.Update():
 		// Test passed, should notify since value was set.
 	case <-time.After(time.Second):
-		assert.Fail("New subscription was not notified of value")
+		assert.Fail("<-Update() notified of value")
 	}
 }
 
@@ -126,9 +114,8 @@ func TestErrorValueSubscription(t *testing.T) {
 	var v ErrorValue
 
 	subChan := make(chan error)
-	sub := v.Subscribe()
 	go func() {
-		for range sub {
+		for range v.Update() {
 			_, err := v.Get()
 			subChan <- err
 		}
@@ -136,7 +123,7 @@ func TestErrorValueSubscription(t *testing.T) {
 
 	select {
 	case <-subChan:
-		assert.Fail("Received subscription with no value set")
+		assert.Fail("Received update with no value set")
 	case <-time.After(10 * time.Millisecond):
 		// Test passed.
 	}
@@ -146,13 +133,13 @@ func TestErrorValueSubscription(t *testing.T) {
 	case err := <-subChan:
 		assert.NoError(err, "On value set")
 	case <-time.After(time.Second):
-		assert.Fail("Subscription not notified within 1s")
+		assert.Fail("<-Update() not notified within 1s")
 	}
 
 	v.Error(nil)
 	select {
 	case <-subChan:
-		assert.Fail("Received subscription after Error(nil)")
+		assert.Fail("Received update after Error(nil)")
 	case <-time.After(10 * time.Millisecond):
 		// Test passed, Error(nil) does not change the value,
 		// so should not notify.
@@ -163,6 +150,6 @@ func TestErrorValueSubscription(t *testing.T) {
 	case err := <-subChan:
 		assert.Error(err, "On Error(non-nil)")
 	case <-time.After(time.Second):
-		assert.Fail("Subscription not notified within 1s")
+		assert.Fail("<-Update() not notified within 1s")
 	}
 }

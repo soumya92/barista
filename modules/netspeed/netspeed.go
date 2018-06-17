@@ -98,14 +98,13 @@ func (m *Module) Stream(s bar.Sink) {
 
 	var speeds Speeds
 	outputFunc := m.outputFunc.Get().(func(Speeds) bar.Output)
-	sOutputFunc := m.outputFunc.Subscribe()
 
 	for {
 		if speeds.available {
 			s.Output(outputFunc(speeds))
 		}
 		select {
-		case <-sOutputFunc:
+		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Speeds) bar.Output)
 		case <-m.scheduler.Tick():
 			rx, tx, err := linkRxTx(m.iface)

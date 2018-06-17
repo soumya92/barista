@@ -148,13 +148,8 @@ func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	go m.runWorker()
-
 	v, err := m.currentVolume.Get()
-	sVol := m.currentVolume.Subscribe()
-
 	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
-	sOutputFunc := m.outputFunc.Subscribe()
-
 	for {
 		if s.Error(err) {
 			return
@@ -163,9 +158,9 @@ func (m *Module) Stream(s bar.Sink) {
 			s.Output(outputFunc(vol))
 		}
 		select {
-		case <-sVol:
+		case <-m.currentVolume.Update():
 			v, err = m.currentVolume.Get()
-		case <-sOutputFunc:
+		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Volume) bar.Output)
 		}
 	}

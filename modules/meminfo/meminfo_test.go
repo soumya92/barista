@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchrcom/testify/assert"
 
+	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
@@ -43,6 +44,7 @@ func TestMeminfo(t *testing.T) {
 	assert := assert.New(t)
 	fs = afero.NewMemMapFs()
 	testBar.New(t)
+	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
 
 	shouldReturn(meminfo{
@@ -91,6 +93,7 @@ func TestMeminfo(t *testing.T) {
 func TestErrors(t *testing.T) {
 	fs = afero.NewMemMapFs()
 	testBar.New(t)
+	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
 
 	availFrac := New().OutputTemplate(outputs.TextTemplate(`{{.AvailFrac}}`))

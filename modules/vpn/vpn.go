@@ -96,7 +96,6 @@ func (m *Module) Stream(s bar.Sink) {
 		}
 	}
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
-	sOutputFunc := m.outputFunc.Subscribe()
 	s.Output(outputFunc(state))
 
 	// Watch for changes.
@@ -131,7 +130,7 @@ func (m *Module) Stream(s bar.Sink) {
 				}
 				s.Output(outputFunc(state))
 			}
-		case <-sOutputFunc:
+		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 			s.Output(outputFunc(state))
 		}

@@ -179,13 +179,12 @@ func (m *Module) UrgentWhen(urgentFunc func(Info) bool) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	info := batteryInfo(m.batteryName)
 	format := m.getFormat()
-	sFormat := m.format.Subscribe()
 	for {
 		s.Output(format.output(info))
 		select {
 		case <-m.scheduler.Tick():
 			info = batteryInfo(m.batteryName)
-		case <-sFormat:
+		case <-m.format.Update():
 			format = m.getFormat()
 		}
 	}
