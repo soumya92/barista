@@ -12,28 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package timing provides a testable interface for timing and scheduling.
-
-This makes it simple to update a module at a fixed interval or
-at a fixed point in time.
-
-Typically, modules will make a scheduler:
-    mod.sch = timing.NewScheduler()
-and use the scheduling calls to control the update timing:
-    mod.sch.Every(time.Second)
-
-The Stream() goroutine will then loop over the ticker, and update
-the module with fresh information:
-    for range mod.sch.Tick() {
-	  // update code.
-    }
-
-This will automatically suspend processing when the bar is hidden.
-
-Modules should also use timing.Now() instead of time.Now() to control time
-during tests.
-*/
 package timing
 
 import (
