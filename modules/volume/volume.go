@@ -69,12 +69,11 @@ type moduleImpl interface {
 	setMuted(muted bool) error
 	setVolume(volume int64) error
 
-	// Infinite loop - wait for updates, and call the update function
-	// with new volumes. In the event of an error, return it.
-	worker(update func(Volume)) error
+	// Infinite loop: push updates and errors to the provided s.
+	worker(s *base.ErrorValue)
 }
 
-// Module represents a bar.Module that displays alsa volume information.
+// Module represents a bar.Module that displays volume information.
 // In addition to bar.Module, it also provides an expanded OnClick,
 // which allows click handlers to control the system volume, and the
 // usual output formatting options.
@@ -84,8 +83,6 @@ type Module struct {
 	currentVolume base.ErrorValue // of Volume
 	impl          moduleImpl
 }
-
-// Common parts between all implementations.
 
 // OutputFunc configures a module to display the output of a user-defined
 // function.
@@ -147,7 +144,7 @@ func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	go m.runWorker()
+	go m.impl.worker(&m.currentVolume)
 	v, err := m.currentVolume.Get()
 	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
 	for {
@@ -166,9 +163,8 @@ func (m *Module) Stream(s bar.Sink) {
 	}
 }
 
-// SetVolume tells the implementation to update the volume, and
-// updates the stored volume if the implementation-specific call
-// was successful.
+// SetVolume sets the system volume.
+// It does not change the mute status.
 func (m *Module) SetVolume(volume int64) {
 	vol, _ := m.currentVolume.Get()
 	if vol == nil {
@@ -194,9 +190,7 @@ func (m *Module) SetVolume(volume int64) {
 	}
 }
 
-// SetVolume tells the implementation to update the mute state, and
-// updates the stored volume if the implementation-specific call
-// was successful.
+// SetMuted controls whether the system volume is muted.
 func (m *Module) SetMuted(muted bool) {
 	vol, _ := m.currentVolume.Get()
 	if vol == nil {
@@ -216,29 +210,17 @@ func (m *Module) SetMuted(muted bool) {
 	}
 }
 
-// init initializes the Module struct to usable default values.
+// createModule creates a new module with the given backing implementation.
 func createModule(impl moduleImpl) *Module {
-	m := &Module{
-		impl: impl,
-	}
-
-	l.Register(m, "outputFunc", "currentVolume", "clickHandler")
+	m := &Module{impl: impl}
+	l.Register(m, "outputFunc", "currentVolume", "clickHandler", "impl")
 	m.OnClick(DefaultClickHandler)
 	// Default output template is just the volume %, "MUT" when muted.
 	m.OutputTemplate(outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`))
-
 	return m
 }
 
-// runWorker runs the worker from the moduleImpl interface, and sets
-// the error on currentVolume if an error results.
-func (m *Module) runWorker() {
-	err := m.impl.worker(func(v Volume) { m.currentVolume.Set(v) })
-	m.currentVolume.Error(err)
-}
-
 // ALSA implementation.
-
 type alsaModule struct {
 	cardName  string
 	mixerName string
@@ -248,15 +230,21 @@ type alsaModule struct {
 	elem *C.snd_mixer_elem_t
 }
 
+func alsaError(result C.int, desc string) error {
+	if int(result) < 0 {
+		return fmt.Errorf("%s: %d", desc, result)
+	}
+	return nil
+}
+
 // Mixer constructs an instance of the volume module for a
 // specific card and mixer on that card.
 func Mixer(card, mixer string) *Module {
-	impl := &alsaModule{
+	m := createModule(&alsaModule{
 		cardName:  card,
 		mixerName: mixer,
-	}
-	m := createModule(impl)
-	l.Labelf(m, "%s,%s", card, mixer)
+	})
+	l.Labelf(m, "alsa:%s,%s", card, mixer)
 	return m
 }
 
@@ -265,25 +253,26 @@ func DefaultMixer() *Module {
 	return Mixer("default", "Master")
 }
 
-// SetVolume sets the system volume.
-// It does not change the mute status.
 func (m *alsaModule) setVolume(newVol int64) error {
-	C.snd_mixer_selem_set_playback_volume_all(m.elem, C.long(newVol))
-	return nil
+	return alsaError(
+		C.snd_mixer_selem_set_playback_volume_all(m.elem, C.long(newVol)),
+		"snd_mixer_selem_set_playback_volume_all")
 }
 
-// SetMuted controls whether the system volume is muted.
 func (m *alsaModule) setMuted(muted bool) error {
+	var muteInt C.int
 	if muted {
-		C.snd_mixer_selem_set_playback_switch_all(m.elem, C.int(0))
+		muteInt = C.int(0)
 	} else {
-		C.snd_mixer_selem_set_playback_switch_all(m.elem, C.int(1))
+		muteInt = C.int(1)
 	}
-	return nil
+	return alsaError(
+		C.snd_mixer_selem_set_playback_switch_all(m.elem, muteInt),
+		"snd_mixer_selem_set_playback_switch_all")
 }
 
 // worker waits for signals from alsa and updates the stored volume.
-func (m *alsaModule) worker(update func(Volume)) error {
+func (m *alsaModule) worker(s *base.ErrorValue) {
 	cardName := C.CString(m.cardName)
 	defer C.free(unsafe.Pointer(cardName))
 	mixerName := C.CString(m.mixerName)
@@ -291,33 +280,38 @@ func (m *alsaModule) worker(update func(Volume)) error {
 	// Structs for querying ALSA.
 	var handle *C.snd_mixer_t
 	var sid *C.snd_mixer_selem_id_t
+	// Shortcut for error handling
+	var err = func(result C.int, desc string) bool {
+		return s.Error(alsaError(result, desc))
+	}
 	// Set up query for master mixer.
-	if err := int(C.snd_mixer_selem_id_malloc(&sid)); err < 0 {
-		return fmt.Errorf("snd_mixer_selem_id_malloc: %d", err)
+	if err(C.snd_mixer_selem_id_malloc(&sid), "snd_mixer_selem_id_malloc") {
+		return
 	}
 	defer C.snd_mixer_selem_id_free(sid)
 	C.snd_mixer_selem_id_set_index(sid, 0)
 	C.snd_mixer_selem_id_set_name(sid, mixerName)
 	// Connect to alsa
-	if err := int(C.snd_mixer_open(&handle, 0)); err < 0 {
-		return fmt.Errorf("snd_mixer_open: %d", err)
+	if err(C.snd_mixer_open(&handle, 0), "snd_mixer_open") {
+		return
 	}
 	defer C.snd_mixer_close(handle)
-	if err := int(C.snd_mixer_attach(handle, cardName)); err < 0 {
-		return fmt.Errorf("snd_mixer_attach: %d", err)
+	if err(C.snd_mixer_attach(handle, cardName), "snd_mixer_attach") {
+		return
 	}
 	defer C.snd_mixer_detach(handle, cardName)
-	if err := int(C.snd_mixer_load(handle)); err < 0 {
-		return fmt.Errorf("snd_mixer_load: %d", err)
+	if err(C.snd_mixer_load(handle), "snd_mixer_load") {
+		return
 	}
 	defer C.snd_mixer_free(handle)
-	if err := int(C.snd_mixer_selem_register(handle, nil, nil)); err < 0 {
-		return fmt.Errorf("snd_mixer_selem_register: %d", err)
+	if err(C.snd_mixer_selem_register(handle, nil, nil), "snd_mixer_selem_register") {
+		return
 	}
 	// Get master default thing
 	m.elem = C.snd_mixer_find_selem(handle, sid)
 	if m.elem == nil {
-		return fmt.Errorf("snd_mixer_find_selem NULL")
+		s.Error(fmt.Errorf("snd_mixer_find_selem NULL"))
+		return
 	}
 	var min, max, vol C.long
 	var mute C.int
@@ -325,23 +319,22 @@ func (m *alsaModule) worker(update func(Volume)) error {
 	for {
 		C.snd_mixer_selem_get_playback_volume(m.elem, C.SND_MIXER_SCHN_MONO, &vol)
 		C.snd_mixer_selem_get_playback_switch(m.elem, C.SND_MIXER_SCHN_MONO, &mute)
-		update(Volume{
+		s.Set(Volume{
 			Min:  int64(min),
 			Max:  int64(max),
 			Vol:  int64(vol),
 			Mute: (int(mute) == 0),
 		})
-		if err := int(C.snd_mixer_wait(handle, -1)); err < 0 {
-			return fmt.Errorf("snd_mixer_wait: %d", err)
+		if err(C.snd_mixer_wait(handle, -1), "snd_mixer_wait") {
+			return
 		}
-		if err := int(C.snd_mixer_handle_events(handle)); err < 0 {
-			return fmt.Errorf("snd_mixer_handle_events: %d", err)
+		if err(C.snd_mixer_handle_events(handle), "snd_mixer_handle_events") {
+			return
 		}
 	}
 }
 
 // PulseAudio implementation.
-
 type paModule struct {
 	conn     *dbus.Conn
 	core     dbus.BusObject
@@ -394,29 +387,19 @@ func openPulseAudio() (*dbus.Conn, error) {
 	return dialAndAuth(path.Value().(string))
 }
 
-func createPulseModule(sinkName string) *Module {
-	impl := &paModule{
-		sinkName: sinkName,
+// Sink creates a PulseAudio volume module for a named sink.
+func Sink(sinkName string) *Module {
+	m := createModule(&paModule{sinkName: sinkName})
+	if sinkName == "" {
+		sinkName = "default"
 	}
-	m := createModule(impl)
-
-	label := sinkName
-	if label == "" {
-		label = "default"
-	}
-	l.Labelf(m, "pulse:%s", label)
-
+	l.Labelf(m, "pulse:%s", sinkName)
 	return m
 }
 
-// Create a PulseAudio volume module that follows the default sink.
+// DefaultSink creates a PulseAudio volume module that follows the default sink.
 func DefaultSink() *Module {
-	return createPulseModule("")
-}
-
-// Create a PulseAudio volume module for a named sink.
-func Sink(sinkName string) *Module {
-	return createPulseModule(sinkName)
+	return Sink("")
 }
 
 func (m *paModule) setVolume(newVol int64) error {
@@ -446,25 +429,18 @@ func (m *paModule) listen(signal string, objects ...dbus.ObjectPath) error {
 
 func (m *paModule) openSink(sink dbus.ObjectPath) error {
 	m.sink = m.conn.Object("org.PulseAudio.Core1.Sink", sink)
-
 	if err := m.listen("Device.VolumeUpdated", sink); err != nil {
 		return err
 	}
-	if err := m.listen("Device.MuteUpdated", sink); err != nil {
-		return err
-	}
-
-	return nil
+	return m.listen("Device.MuteUpdated", sink)
 }
 
 func (m *paModule) openSinkByName(name string) error {
 	var path dbus.ObjectPath
-
 	err := m.core.Call("org.PulseAudio.Core1.GetSinkByName", 0, name).Store(&path)
 	if err != nil {
 		return err
 	}
-
 	return m.openSink(path)
 }
 
@@ -473,23 +449,22 @@ func (m *paModule) openFallbackSink() error {
 	if err != nil {
 		return err
 	}
-
 	return m.openSink(path.Value().(dbus.ObjectPath))
 }
 
-func (m *paModule) refresh(update func(Volume)) error {
+func (m *paModule) updateVolume(s *base.ErrorValue) {
 	v := Volume{}
 	v.Min = 0
 
 	max, err := m.sink.GetProperty("org.PulseAudio.Core1.Device.BaseVolume")
-	if err != nil {
-		return err
+	if s.Error(err) {
+		return
 	}
 	v.Max = int64(max.Value().(uint32))
 
 	vol, err := m.sink.GetProperty("org.PulseAudio.Core1.Device.Volume")
-	if err != nil {
-		return err
+	if s.Error(err) {
+		return
 	}
 
 	// Take the volume as the average across all channels.
@@ -501,19 +476,17 @@ func (m *paModule) refresh(update func(Volume)) error {
 	v.Vol = totalVol / int64(len(channels))
 
 	mute, err := m.sink.GetProperty("org.PulseAudio.Core1.Device.Mute")
-	if err != nil {
-		return err
+	if s.Error(err) {
+		return
 	}
 	v.Mute = mute.Value().(bool)
-
-	update(v)
-	return nil
+	s.Set(v)
 }
 
-func (m *paModule) worker(update func(Volume)) error {
+func (m *paModule) worker(s *base.ErrorValue) {
 	conn, err := openPulseAudio()
-	if err != nil {
-		return err
+	if s.Error(err) {
+		return
 	}
 	m.conn = conn
 	defer func() {
@@ -522,31 +495,23 @@ func (m *paModule) worker(update func(Volume)) error {
 	}()
 
 	m.core = conn.Object("org.PulseAudio.Core1", "/org/pulseaudio/core1")
-	defer func() {
-		m.core = nil
-	}()
+	defer func() { m.core = nil }()
 
 	if m.sinkName != "" {
-		if err = m.openSinkByName(m.sinkName); err != nil {
-			return err
+		if s.Error(m.openSinkByName(m.sinkName)) {
+			return
 		}
 	} else {
-		if err = m.openFallbackSink(); err != nil {
-			return err
+		if s.Error(m.openFallbackSink()) {
+			return
 		}
-
-		if err = m.listen("FallbackSinkUpdated"); err != nil {
-			return err
+		if s.Error(m.listen("FallbackSinkUpdated")) {
+			return
 		}
 	}
+	defer func() { m.sink = nil }()
 
-	defer func() {
-		m.sink = nil
-	}()
-
-	if err = m.refresh(update); err != nil {
-		return err
-	}
+	m.updateVolume(s)
 
 	signals := make(chan *dbus.Signal, 10)
 	conn.Signal(signals)
@@ -555,14 +520,10 @@ func (m *paModule) worker(update func(Volume)) error {
 	for signal := range signals {
 		// If the fallback sink changed, open the new one.
 		if m.sinkName == "" && signal.Path == m.core.Path() {
-			if err = m.openFallbackSink(); err != nil {
-				return err
+			if s.Error(m.openFallbackSink()) {
+				return
 			}
 		}
-		if err = m.refresh(update); err != nil {
-			return err
-		}
+		m.updateVolume(s)
 	}
-
-	return nil
 }
