@@ -71,7 +71,7 @@ type Node struct {
 
 // Append adds one or more nodes as children of the current node.
 // The new nodes will inherit styles by virtue of being descendants,
-// to insert them *adjacent* to the current node, use .Parent().Append(...).
+// to insert them *adjacent* to the current node, use .Concat(...).
 func (n *Node) Append(nodes ...*Node) *Node {
 	var insertPoint = n
 	for len(insertPoint.children) == 1 &&
