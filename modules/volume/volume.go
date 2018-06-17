@@ -30,6 +30,7 @@ import (
 	"unsafe"
 
 	"github.com/godbus/dbus"
+	"golang.org/x/time/rate"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
@@ -114,18 +115,16 @@ func (m *Module) Click(e bar.Event) {
 	}
 }
 
-// Throttle volume updates to a ~20ms to prevent alsa breakage.
-var lastVolumeChangeTime time.Time
+// Throttle volume updates to once every ~20ms to prevent alsa breakage.
+var alsaLimiter = rate.NewLimiter(rate.Every(20*time.Millisecond), 1)
 
 // DefaultClickHandler provides a simple example of the click handler capabilities.
 // It toggles mute on left click, and raises/lowers the volume on scroll.
 func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
-	now := time.Now()
-	if lastVolumeChangeTime.Add(20 * time.Millisecond).After(now) {
+	if !alsaLimiter.Allow() {
 		// Don't update the volume if it was updated <20ms ago.
 		return
 	}
-	lastVolumeChangeTime = now
 	if e.Button == bar.ButtonLeft {
 		c.SetMuted(!v.Mute)
 		return

@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/godbus/dbus"
 
 	"github.com/soumya92/barista/bar"
@@ -206,6 +208,10 @@ func (m *Module) Click(e bar.Event) {
 	clickHandler(info, m.player, e)
 }
 
+// Throttle seek calls to once every ~50ms to allow more control
+// and work around some programs that cannot handle rapid updates.
+var seekLimiter = rate.NewLimiter(rate.Every(50*time.Millisecond), 1)
+
 // DefaultClickHandler provides useful behaviour out of the box,
 // Click to play/pause, scroll to seek, and back/forward to switch tracks.
 func DefaultClickHandler(i Info, c Controller, e bar.Event) {
@@ -213,11 +219,15 @@ func DefaultClickHandler(i Info, c Controller, e bar.Event) {
 	case bar.ButtonLeft:
 		c.PlayPause()
 	case bar.ScrollDown, bar.ScrollRight:
-		c.Seek(time.Second)
+		if seekLimiter.Allow() {
+			c.Seek(time.Second)
+		}
 	case bar.ButtonBack:
 		c.Previous()
 	case bar.ScrollUp, bar.ScrollLeft:
-		c.Seek(-time.Second)
+		if seekLimiter.Allow() {
+			c.Seek(-time.Second)
+		}
 	case bar.ButtonForward:
 		c.Next()
 	}
