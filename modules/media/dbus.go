@@ -16,6 +16,7 @@ package media
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/godbus/dbus"
@@ -86,66 +87,30 @@ var (
 // TODO: See if this is a solved problem.
 
 func getLong(l interface{}) int64 {
-	switch l := l.(type) {
-	case int64:
-		return l
-	case int:
-		return int64(l)
-	case int8:
-		return int64(l)
-	case int16:
-		return int64(l)
-	case int32:
-		return int64(l)
-	case uint:
-		return int64(l)
-	case uint8:
-		return int64(l)
-	case uint16:
-		return int64(l)
-	case uint32:
-		return int64(l)
-	case uint64:
-		return int64(l)
-	case float32:
-		return int64(l)
-	case float64:
-		return int64(l)
+	switch l.(type) {
+	case int, int8, int16, int32, int64:
+		return reflect.ValueOf(l).Int()
+	case uint, uint8, uint16, uint32, uint64:
+		return int64(reflect.ValueOf(l).Uint())
+	case float32, float64:
+		return int64(reflect.ValueOf(l).Float())
 	case dbus.Variant:
-		return getLong(l.Value())
+		return getLong(l.(dbus.Variant).Value())
 	default:
 		return 0
 	}
 }
 
 func getDouble(d interface{}) float64 {
-	switch d := d.(type) {
-	case float64:
-		return d
-	case int:
-		return float64(d)
-	case int8:
-		return float64(d)
-	case int16:
-		return float64(d)
-	case int32:
-		return float64(d)
-	case int64:
-		return float64(d)
-	case uint:
-		return float64(d)
-	case uint8:
-		return float64(d)
-	case uint16:
-		return float64(d)
-	case uint32:
-		return float64(d)
-	case uint64:
-		return float64(d)
-	case float32:
-		return float64(d)
+	switch d.(type) {
+	case int, int8, int16, int32, int64:
+		return float64(reflect.ValueOf(d).Int())
+	case uint, uint8, uint16, uint32, uint64:
+		return float64(reflect.ValueOf(d).Uint())
+	case float32, float64:
+		return reflect.ValueOf(d).Float()
 	case dbus.Variant:
-		return getDouble(d.Value())
+		return getDouble(d.(dbus.Variant).Value())
 	default:
 		return 0.0
 	}
