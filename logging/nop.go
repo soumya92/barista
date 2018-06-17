@@ -14,6 +14,9 @@
 
 // +build !debuglog
 
+// Package logging provides logging functions for use in the bar and modules.
+// It uses build tags to provide nop functions in the default case, and
+// actual logging functions when built with `-tags debuglog`.
 package logging
 
 import "io"
