@@ -13,15 +13,15 @@
 // limitations under the License.
 
 /*
-Package materialCommunity provides support for the community
-fork "Material Design Icons" from https://materialdesignicons.com/
+Package mdi provides support for "Material Design Icons" from
+https://materialdesignicons.com/, a fork and extension of Material.
 
 It requires cloning the webfont repo
 https://github.com/Templarian/MaterialDesign-Webfont,
 uses scss/_variables.scss to get the list of icons,
 and requires fonts/materialdesignicons-webfont.ttf to be installed.
 */
-package materialCommunity
+package mdi
 
 import (
 	"strings"

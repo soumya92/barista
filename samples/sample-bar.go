@@ -42,7 +42,7 @@ import (
 	"github.com/soumya92/barista/pango/icons/fontawesome"
 	"github.com/soumya92/barista/pango/icons/ionicons"
 	"github.com/soumya92/barista/pango/icons/material"
-	"github.com/soumya92/barista/pango/icons/material_community"
+	"github.com/soumya92/barista/pango/icons/mdi"
 	"github.com/soumya92/barista/pango/icons/typicons"
 )
 
@@ -106,7 +106,7 @@ func home(path string) string {
 
 func main() {
 	material.Load(home("Github/material-design-icons"))
-	materialCommunity.Load(home("Github/MaterialDesign-Webfont"))
+	mdi.Load(home("Github/MaterialDesign-Webfont"))
 	typicons.Load(home("Github/typicons.font"))
 	ionicons.LoadMd(home("Github/ionicons"))
 	fontawesome.Load(home("Github/Font-Awesome"))
