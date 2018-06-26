@@ -36,6 +36,9 @@ func (n *Node) setAttr(name, value string) *Node {
 }
 
 func colorAndAlpha(value color.Color) (color, alpha string) {
+	if value == nil {
+		return "", ""
+	}
 	_, _, _, a := value.RGBA()
 	if a == 0 {
 		return "", "0"

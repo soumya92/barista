@@ -227,6 +227,21 @@ var colorAttrTests = []struct {
 		Text("color").StrikethroughColor(solid),
 		"<span strikethrough_color='#ffffff'>color</span>",
 	},
+	{
+		"fg, nil",
+		Text("color").Color(nil),
+		"<span>color</span>",
+	},
+	{
+		"bg, nil",
+		Text("color").Background(nil),
+		"<span>color</span>",
+	},
+	{
+		"underline, nil",
+		Text("color").UnderlineColor(nil),
+		"<span>color</span>",
+	},
 }
 
 func TestColorAttrs(t *testing.T) {
