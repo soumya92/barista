@@ -33,11 +33,12 @@ type simpleClockModule struct {
 }
 
 func (s simpleClockModule) Stream(sink bar.Sink) {
+	sch := timing.NewScheduler()
 	for {
 		now := timing.Now()
 		sink.Output(bar.TextSegment(now.Format(s.format)))
 		next := now.Add(s.interval).Truncate(s.interval)
-		time.Sleep(next.Sub(now))
+		<-sch.At(next).Tick()
 	}
 }
 
