@@ -9,7 +9,13 @@ Barista is an i3 status bar written in golang.
 
 **This is not an official Google product**
 
-*This project is currently not stable, updating may randomly break modules and/or bars. See the [stable-api milestone](https://github.com/soumya92/barista/milestone/1) for progress towards a stable API.*
+*This project is in progress. The core API is stable, but user bars may still
+break on updates. See the [Release (v1) Project](https://github.com/soumya92/barista/projects/3)
+for progress towards a stable release.*
+
+Also look at the [stable-api sample](https://github.com/soumya92/barista/tree/master/samples/stable-api)
+to see what APIs are considered stable. As a general rule, any code in the
+stable-api sample will continue to work across updates.
 
 ## Features
 
@@ -33,7 +39,7 @@ Barista is an i3 status bar written in golang.
 See samples/sample-bar.go for a sample bar.
 
 To build your own bar, simply create a `package main` go file,
-import and configure the modules you wish to use, and call `barista/bar.Run(...)`.
+import and configure the modules you wish to use, and call `barista.Run()`.
 
 To show your bar in i3, set the `status_command` of a `bar { ... }` section
 to be the newly built bar binary, e.g.
