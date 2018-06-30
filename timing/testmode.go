@@ -108,7 +108,7 @@ func NextTick() time.Time {
 	now := Now()
 	for _, s := range sortedSchedulers() {
 		nextTick := s.tickAfter(now)
-		if nextTick.After(now) {
+		if !now.After(nextTick) {
 			AdvanceTo(nextTick)
 			return nextTick
 		}
@@ -129,7 +129,7 @@ func AdvanceTo(newTime time.Time) {
 	found := false
 	for _, s := range sortedSchedulers() {
 		nextTick := s.tickAfter(now)
-		if nextTick.After(now) && !nextTick.After(newTime) {
+		if !now.After(nextTick) && !nextTick.After(newTime) {
 			found = true
 			nowInTest.Store(nextTick)
 			s.maybeTrigger()
@@ -139,7 +139,7 @@ func AdvanceTo(newTime time.Time) {
 		nowInTest.Store(newTime)
 		return
 	}
-	if Now() != newTime {
+	if newTime.After(Now()) {
 		AdvanceTo(newTime)
 	}
 }

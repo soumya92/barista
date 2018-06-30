@@ -15,6 +15,7 @@
 package timing
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -103,8 +104,14 @@ func (s *Scheduler) At(when time.Time) *Scheduler {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if inTestMode() {
+		testMutex.RLock()
+		now := Now()
+		testMutex.RUnlock()
+		if when.Before(now) {
+			when = now
+		}
 		s.nextTrigger = when
-		s.interval = time.Duration(0)
+		s.interval = 0
 		return s
 	}
 	s.stop()
@@ -119,8 +126,11 @@ func (s *Scheduler) After(delay time.Duration) *Scheduler {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if inTestMode() {
+		if delay < 0 {
+			delay = 0
+		}
 		s.nextTrigger = Now().Add(delay)
-		s.interval = time.Duration(0)
+		s.interval = 0
 		return s
 	}
 	s.stop()
@@ -129,9 +139,13 @@ func (s *Scheduler) After(delay time.Duration) *Scheduler {
 }
 
 // Every sets the scheduler to trigger at an interval.
+// The interval must be greater than zero; if not, Every will panic.
 // This will replace any pending triggers.
 func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 	l.Fine("%s Every(%v)", l.ID(s), interval)
+	if interval <= 0 {
+		panic(errors.New("non-positive interval for Scheduler#Every"))
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if inTestMode() {
@@ -163,7 +177,7 @@ func (s *Scheduler) Stop() {
 	defer s.mutex.Unlock()
 	if inTestMode() {
 		s.nextTrigger = time.Time{}
-		s.interval = time.Duration(0)
+		s.interval = 0
 		return
 	}
 	s.stop()
@@ -176,6 +190,14 @@ func (s *Scheduler) maybeTrigger() {
 		s.fireOnResume = true
 	} else {
 		s.notifyFn()
+	}
+	if !inTestMode() {
+		return
+	}
+	// If this is not a repeating scheduler,
+	// 'consume' the trigger to avoid firing again.
+	if s.interval == 0 {
+		s.nextTrigger = time.Time{}
 	}
 }
 

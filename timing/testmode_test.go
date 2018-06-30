@@ -199,6 +199,34 @@ func TestPauseResume_TestMode(t *testing.T) {
 	assertTriggered(t, sch2, "tick after resuming")
 }
 
+func TestPastTriggers_TestMode(t *testing.T) {
+	TestMode()
+	sch := NewScheduler()
+	now := Now()
+	sch.After(-1 * time.Minute)
+	assert.Equal(t, now, NextTick())
+	assertTriggered(t, sch, "negative delay notifies immediately")
+	sch.At(Now().Add(-1 * time.Minute))
+	assert.Equal(t, now, NextTick())
+	assertTriggered(t, sch, "past trigger notifies immediately")
+
+	Pause()
+	sch.After(-1 * time.Minute)
+	NextTick()
+	assertNotTriggered(t, sch, "when paused")
+	Resume()
+	NextTick()
+	assertTriggered(t, sch, "on resume")
+
+	Pause()
+	sch.At(Now().Add(-1 * time.Minute))
+	NextTick()
+	assertNotTriggered(t, sch, "when paused")
+	Resume()
+	NextTick()
+	assertTriggered(t, sch, "on resume")
+}
+
 func TestTestModeReset(t *testing.T) {
 	TestMode()
 	sch1 := NewScheduler().Every(time.Second)

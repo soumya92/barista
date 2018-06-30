@@ -116,3 +116,24 @@ func TestCoalescedUpdates(t *testing.T) {
 	assertTriggered(t, sch, "after multiple intervals")
 	assertNotTriggered(t, sch, "multiple updates coalesced")
 }
+
+func TestPastTriggers(t *testing.T) {
+	ExitTestMode()
+	sch := NewScheduler()
+	sch.After(-1 * time.Minute)
+	assertTriggered(t, sch, "negative delay notifies immediately")
+	sch.At(Now().Add(-1 * time.Minute))
+	assertTriggered(t, sch, "past trigger notifies immediately")
+
+	Pause()
+	sch.After(-1 * time.Minute)
+	assertNotTriggered(t, sch, "when paused")
+	Resume()
+	assertTriggered(t, sch, "on resume")
+
+	Pause()
+	sch.At(Now().Add(-1 * time.Minute))
+	assertNotTriggered(t, sch, "when paused")
+	Resume()
+	assertTriggered(t, sch, "on resume")
+}
