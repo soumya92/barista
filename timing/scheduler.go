@@ -104,9 +104,7 @@ func (s *Scheduler) At(when time.Time) *Scheduler {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if inTestMode() {
-		testMutex.RLock()
-		now := Now()
-		testMutex.RUnlock()
+		now := testNow()
 		if when.Before(now) {
 			when = now
 		}

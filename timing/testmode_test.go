@@ -225,6 +225,10 @@ func TestPastTriggers_TestMode(t *testing.T) {
 	Resume()
 	NextTick()
 	assertTriggered(t, sch, "on resume")
+
+	assert.Panics(t, func() {
+		sch.Every(-1 * time.Second)
+	}, "negative repeating interval")
 }
 
 func TestTestModeReset(t *testing.T) {

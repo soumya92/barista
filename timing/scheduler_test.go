@@ -136,4 +136,8 @@ func TestPastTriggers(t *testing.T) {
 	assertNotTriggered(t, sch, "when paused")
 	Resume()
 	assertTriggered(t, sch, "on resume")
+
+	assert.Panics(t, func() {
+		sch.Every(-1 * time.Second)
+	}, "negative repeating interval")
 }
