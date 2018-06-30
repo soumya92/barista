@@ -67,7 +67,7 @@ var currentInfo base.ErrorValue // of Info
 var infoEmitter *base.Emitter
 
 var once sync.Once
-var updater timing.Scheduler
+var updater *timing.Scheduler
 
 // construct initialises meminfo's global updating. All meminfo
 // modules are updated with just one read of /proc/meminfo.
@@ -79,7 +79,7 @@ func construct() {
 		l.Attach(nil, updater, "meminfo.updater")
 		l.Attach(&currentInfo, &infoEmitter, ".emitter")
 		updater.Every(3 * time.Second)
-		go func(updater timing.Scheduler) {
+		go func(updater *timing.Scheduler) {
 			for {
 				update()
 				<-updater.Tick()

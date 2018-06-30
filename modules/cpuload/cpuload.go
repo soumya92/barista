@@ -52,7 +52,7 @@ func (l LoadAvg) Min15() float64 {
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
 	base.SimpleClickHandler
-	scheduler timing.Scheduler
+	scheduler *timing.Scheduler
 	format    base.Value
 }
 

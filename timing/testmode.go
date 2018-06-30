@@ -21,8 +21,10 @@ import (
 	"time"
 )
 
-var testMutex sync.RWMutex
-var testMode = false
+var (
+	testMode  = false
+	testMutex sync.RWMutex
+)
 
 func inTestMode() bool {
 	testMutex.RLock()
@@ -42,7 +44,9 @@ func testNow() time.Time {
 // does not pass at all, until NextTick() or Advance* is called.
 func TestMode() {
 	testMutex.Lock()
+	schedulersMu.Lock()
 	defer testMutex.Unlock()
+	defer schedulersMu.Unlock()
 	testMode = true
 	Now = testNow
 	schedulers = nil
@@ -55,7 +59,9 @@ func TestMode() {
 // after this call will be real.
 func ExitTestMode() {
 	testMutex.Lock()
+	schedulersMu.Lock()
 	defer testMutex.Unlock()
+	defer schedulersMu.Unlock()
 	testMode = false
 	Now = time.Now
 	schedulers = nil
@@ -64,7 +70,7 @@ func ExitTestMode() {
 // tickAfter returns the next trigger time for the scheduler.
 // This is used in test mode to determine the next firing scheduler
 // and advance time to it.
-func (s *scheduler) tickAfter(now time.Time) time.Time {
+func (s *Scheduler) tickAfter(now time.Time) time.Time {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.interval == time.Duration(0) {
@@ -76,7 +82,7 @@ func (s *scheduler) tickAfter(now time.Time) time.Time {
 
 // schedulerList implements sort.Interface for schedulers based
 // on their next trigger time.
-type schedulerList []*scheduler
+type schedulerList []*Scheduler
 
 func (l schedulerList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l schedulerList) Len() int      { return len(l) }
@@ -87,7 +93,7 @@ func (l schedulerList) Less(i, j int) bool {
 
 // sortedSchedulers returns the list of schedulers sorted by the
 // time remaining until their next tick.
-func sortedSchedulers() []*scheduler {
+func sortedSchedulers() []*Scheduler {
 	schedulersMu.Lock()
 	defer schedulersMu.Unlock()
 	sort.Sort(schedulerList(schedulers))
@@ -124,7 +130,7 @@ func AdvanceTo(newTime time.Time) {
 		if nextTick.After(now) && !nextTick.After(newTime) {
 			found = true
 			nowInTest.Store(nextTick)
-			s.maybeTick()
+			s.maybeTrigger()
 		}
 	}
 	if !found {

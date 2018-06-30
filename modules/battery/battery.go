@@ -90,7 +90,7 @@ func (i Info) PluggedIn() bool {
 type Module struct {
 	base.SimpleClickHandler
 	batteryName string
-	scheduler   timing.Scheduler
+	scheduler   *timing.Scheduler
 	format      base.Value
 }
 
