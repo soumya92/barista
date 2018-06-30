@@ -19,115 +19,16 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/soumya92/barista/notifier"
 )
 
-// TestMode sets test mode for all schedulers.
-// In test mode schedulers do not fire automatically, and time
-// does not pass at all, until NextTick() or Advance* is called.
-func TestMode() {
-	testMutex.Lock()
-	defer testMutex.Unlock()
-	schedulerMaker = newTestScheduler
-	Now = testNow
-	// Set to non-zero time when entering test mode so that any IsZero
-	// checks don't unexpectedly pass.
-	nowInTest.Store(time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC))
-	// Clear the list of test schedulers so that TestMode() starts with
-	// a clean slate.
-	testSchedulers = make(schedulerList, 0)
-}
+var testMutex sync.RWMutex
+var testMode = false
 
-// ExitTestMode exits test mode for all schedulers. Any schedulers created
-// after this call will be real.
-func ExitTestMode() {
-	testMutex.Lock()
-	defer testMutex.Unlock()
-	schedulerMaker = newScheduler
-	Now = time.Now
+func inTestMode() bool {
+	testMutex.RLock()
+	defer testMutex.RUnlock()
+	return testMode
 }
-
-// testScheduler implements Scheduler for test mode.
-type testScheduler struct {
-	sync.Mutex
-	notifyFn     func()
-	notifyCh     <-chan struct{}
-	nextTrigger  time.Time
-	interval     time.Duration
-	paused       bool
-	fireOnResume bool
-}
-
-func newTestScheduler() Scheduler {
-	fn, ch := notifier.New()
-	s := &testScheduler{notifyFn: fn, notifyCh: ch}
-	testMutex.Lock()
-	defer testMutex.Unlock()
-	testSchedulers = append(testSchedulers, s)
-	return s
-}
-
-func (s *testScheduler) setTrigger(next time.Time, interval time.Duration) {
-	s.Lock()
-	defer s.Unlock()
-	s.nextTrigger = next
-	s.interval = interval
-}
-
-func (s *testScheduler) Tick() <-chan struct{} {
-	return s.notifyCh
-}
-
-func (s *testScheduler) At(when time.Time) Scheduler {
-	s.setTrigger(when, time.Duration(0))
-	return s
-}
-
-func (s *testScheduler) After(delay time.Duration) Scheduler {
-	s.setTrigger(Now().Add(delay), time.Duration(0))
-	return s
-}
-
-func (s *testScheduler) Every(interval time.Duration) Scheduler {
-	s.setTrigger(Now(), interval)
-	return s
-}
-
-func (s *testScheduler) Stop() {
-	s.setTrigger(time.Time{}, time.Duration(0))
-}
-
-func (s *testScheduler) pause() {
-	s.Lock()
-	defer s.Unlock()
-	s.paused = true
-}
-
-func (s *testScheduler) resume() {
-	s.Lock()
-	defer s.Unlock()
-	s.paused = false
-	if s.fireOnResume {
-		s.fireOnResume = false
-		s.notifyFn()
-	}
-}
-
-// tickAfter returns the next trigger time for the scheduler.
-// This is used in test mode to determine the next firing scheduler
-// and advance time to it.
-func (s *testScheduler) tickAfter(now time.Time) time.Time {
-	s.Lock()
-	defer s.Unlock()
-	if s.interval == time.Duration(0) {
-		return s.nextTrigger
-	}
-	elapsedIntervals := now.Sub(s.nextTrigger) / s.interval
-	return s.nextTrigger.Add(s.interval * (elapsedIntervals + 1))
-}
-
-var testMutex sync.Mutex
 
 // nowInTest tracks the current time in test mode.
 var nowInTest atomic.Value // of time.Time
@@ -136,9 +37,46 @@ func testNow() time.Time {
 	return nowInTest.Load().(time.Time)
 }
 
+// TestMode sets test mode for all schedulers.
+// In test mode schedulers do not fire automatically, and time
+// does not pass at all, until NextTick() or Advance* is called.
+func TestMode() {
+	testMutex.Lock()
+	defer testMutex.Unlock()
+	testMode = true
+	Now = testNow
+	schedulers = nil
+	// Set to non-zero time when entering test mode so that any IsZero
+	// checks don't unexpectedly pass.
+	nowInTest.Store(time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC))
+}
+
+// ExitTestMode exits test mode for all schedulers. Any schedulers created
+// after this call will be real.
+func ExitTestMode() {
+	testMutex.Lock()
+	defer testMutex.Unlock()
+	testMode = false
+	Now = time.Now
+	schedulers = nil
+}
+
+// tickAfter returns the next trigger time for the scheduler.
+// This is used in test mode to determine the next firing scheduler
+// and advance time to it.
+func (s *scheduler) tickAfter(now time.Time) time.Time {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.interval == time.Duration(0) {
+		return s.nextTrigger
+	}
+	elapsedIntervals := now.Sub(s.nextTrigger) / s.interval
+	return s.nextTrigger.Add(s.interval * (elapsedIntervals + 1))
+}
+
 // schedulerList implements sort.Interface for schedulers based
 // on their next trigger time.
-type schedulerList []*testScheduler
+type schedulerList []*scheduler
 
 func (l schedulerList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l schedulerList) Len() int      { return len(l) }
@@ -147,16 +85,13 @@ func (l schedulerList) Less(i, j int) bool {
 	return l[i].tickAfter(now).Before(l[j].tickAfter(now))
 }
 
-// testSchedulers tracks all schedulers created in test mode.
-var testSchedulers schedulerList
-
-// sortedSchedulers returns a list of test schedulers sorted by the
+// sortedSchedulers returns the list of schedulers sorted by the
 // time remaining until their next tick.
-func sortedSchedulers() []*testScheduler {
-	testMutex.Lock()
-	defer testMutex.Unlock()
-	sort.Sort(testSchedulers)
-	return testSchedulers
+func sortedSchedulers() []*scheduler {
+	schedulersMu.Lock()
+	defer schedulersMu.Unlock()
+	sort.Sort(schedulerList(schedulers))
+	return schedulers
 }
 
 // NextTick triggers the next scheduler and returns the trigger time.
@@ -189,13 +124,7 @@ func AdvanceTo(newTime time.Time) {
 		if nextTick.After(now) && !nextTick.After(newTime) {
 			found = true
 			nowInTest.Store(nextTick)
-			s.Lock()
-			if s.paused {
-				s.fireOnResume = true
-			} else {
-				s.notifyFn()
-			}
-			s.Unlock()
+			s.maybeTick()
 		}
 	}
 	if !found {

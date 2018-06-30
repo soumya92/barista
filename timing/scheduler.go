@@ -26,8 +26,13 @@ import (
 // scheduler implements timing.Scheduler using a timer for fixed delays
 // and a ticker for fixed intervals.
 type scheduler struct {
+	// for real scheduling.
 	timer  *time.Timer
 	ticker *time.Ticker
+
+	// for test scheduling.
+	nextTrigger time.Time
+	interval    time.Duration
 
 	mutex        sync.Mutex
 	notifyFn     func()
@@ -37,8 +42,8 @@ type scheduler struct {
 }
 
 var (
-	// Keeps track of all schedulers, to allow timing.Pause and timing.Resume.
-	schedulers   []Scheduler
+	// Keeps track of all schedulers, for timing.Pause/Resume and test mode.
+	schedulers   []*scheduler
 	schedulersMu sync.RWMutex
 )
 
@@ -47,7 +52,9 @@ var paused atomic.Value // of bool
 
 // NewScheduler creates a new scheduler.
 func NewScheduler() Scheduler {
-	s := schedulerMaker()
+	fn, ch := notifier.New()
+	s := &scheduler{notifyFn: fn, notifyCh: ch}
+	l.Attach(s, ch, "")
 	if p, ok := paused.Load().(bool); ok && p {
 		s.pause()
 	}
@@ -77,17 +84,6 @@ func Resume() {
 	}
 }
 
-// schedulerMaker creates a scheduler, replaced in test mode.
-var schedulerMaker = newScheduler
-
-// newScheduler returns a new real scheduler.
-func newScheduler() Scheduler {
-	fn, ch := notifier.New()
-	s := &scheduler{notifyFn: fn, notifyCh: ch}
-	l.Attach(s, ch, "")
-	return s
-}
-
 func (s *scheduler) maybeTick() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -106,6 +102,11 @@ func (s *scheduler) At(when time.Time) Scheduler {
 	l.Fine("%s At(%v)", l.ID(s), when)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if inTestMode() {
+		s.nextTrigger = when
+		s.interval = time.Duration(0)
+		return s
+	}
 	s.stop()
 	s.timer = time.AfterFunc(when.Sub(Now()), s.maybeTick)
 	return s
@@ -115,6 +116,11 @@ func (s *scheduler) After(delay time.Duration) Scheduler {
 	l.Fine("%s After(%v)", l.ID(s), delay)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if inTestMode() {
+		s.nextTrigger = Now().Add(delay)
+		s.interval = time.Duration(0)
+		return s
+	}
 	s.stop()
 	s.timer = time.AfterFunc(delay, s.maybeTick)
 	return s
@@ -124,6 +130,11 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 	l.Fine("%s Every(%v)", l.ID(s), interval)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if inTestMode() {
+		s.nextTrigger = Now()
+		s.interval = interval
+		return s
+	}
 	s.stop()
 	s.ticker = time.NewTicker(interval)
 	go func() {
@@ -145,6 +156,11 @@ func (s *scheduler) Stop() {
 	l.Fine("%s Stop", l.ID(s))
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if inTestMode() {
+		s.nextTrigger = time.Time{}
+		s.interval = time.Duration(0)
+		return
+	}
 	s.stop()
 }
 
