@@ -210,6 +210,10 @@ func TestTestModeReset(t *testing.T) {
 	assert.Equal(t, startTime.Add(2*time.Second), NextTick())
 	assertTriggered(t, sch1, "triggers every second")
 
+	Pause()
+	assert.Equal(t, startTime.Add(3*time.Second), NextTick())
+	assertNotTriggered(t, sch1, "when paused")
+
 	TestMode()
 	sch2 := NewScheduler().Every(time.Minute)
 

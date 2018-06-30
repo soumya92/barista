@@ -53,6 +53,7 @@ func TestMode() {
 	// Set to non-zero time when entering test mode so that any IsZero
 	// checks don't unexpectedly pass.
 	nowInTest.Store(time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC))
+	paused.Store(false)
 }
 
 // ExitTestMode exits test mode for all schedulers. Any schedulers created
@@ -65,6 +66,7 @@ func ExitTestMode() {
 	testMode = false
 	Now = time.Now
 	schedulers = nil
+	paused.Store(false)
 }
 
 // tickAfter returns the next trigger time for the scheduler.

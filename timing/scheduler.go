@@ -52,13 +52,16 @@ var (
 
 // Whether new schedulers are created paused.
 var paused atomic.Value // of bool
+func init() {
+	paused.Store(false)
+}
 
 // NewScheduler creates a new scheduler.
 func NewScheduler() *Scheduler {
 	fn, ch := notifier.New()
 	s := &Scheduler{notifyFn: fn, notifyCh: ch}
 	l.Attach(s, ch, "")
-	if p, ok := paused.Load().(bool); ok && p {
+	if paused.Load().(bool) {
 		s.pause()
 	}
 	schedulersMu.Lock()
