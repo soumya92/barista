@@ -12,3 +12,13 @@ script:
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
+
+notifications:
+  pushover:
+    template: "%{repository_slug}: %{message} (%{duration})\n%{commit_subject} %{build_url}"
+    on_success: always
+    on_failure: always
+    users:
+      - secure: MsqGtKJseiagCPHFONX4bqkUZwNcN3hs+gZRwfO7JhWshu2LZPFiLWBi6Fn/0gfRp3vaS6a4MmHzCLwD3lHWI+RU0lvOfTbCvjO/oB65rYf2xCkjkGpLn5BhOWdZe5O2+W3yXd/Ak3OtUuy3s6z2qYsyjBFKR8+LfEgkUaiAW6CKtL9fdKAf1Or9JY+qPiMEqOx0JhbLk7R5j4YwfmYhUVMgW3jd7zT4QWqDxABgYeLCuAOS0g5KwUjF9tNUicSvWp4coILMZXqY08vR6zA6ZyAh1U+D3vSwR3807Xt42BDdBdkCnVpVlHJV4XaJMOqYupN4TjUEel4KRY3uMvqxxnbB/RXVwsbng+pu5o96eeuBz07x5XTbdAZAZ1oWLVz5ynZaRBJ5zICZvbWvhbvP0B0SoKp3oUIKFp+R3QhYiACBW7bmHU/EK6lYSpAxIAxpZxboVNhcKhbU0LQTlXL2jH9ZObOyk+2ldA982o6/j87wQBIADeiRLTo/wt+c3KDZp70W17FZCjDpyqUAKfSYATsp5lMSUP9gu1YbXjjlU2dwbkzRMKyuAU/+511IexHW+kjw/YzQOQt2NN7f8e8XYccd4Orn1A3StXrIQhyCSJzD9t1YrP38WrJAeqJaG05rQGGt4qOeIELxnOUWlkVzhRGdMeYEQtH7dAWSc16DmG8=
+    api_key:
+      secure: Zh2ZYLGQg9clemzMGepFV+MzsOqMofPzOKH/Tbg+ZqLuWcjOvJkIJ1SPFUWsRPmZxmIbgiN90A5cvwVHXG7RBczgRkYFrXfn0ACFnayX2OuOdFt3/GHB9bVuo9qKWwBZ0JuQClPZpxTxngvohsxT4+jmaY4pSxHaa1YWj2ieHHQqP0SpnHeyzjHxy3ZQSdVNuQm9dAPiBhPudbToA0/w51m0lJhc0OkDEVlalbyr1FJYPoURkPTLQTCWf4u3L/ti0nh/lEY+AGRcC450JFTfyXhecHzXsJ1sH5TzkrfmHwDst9SCmlmZIRkRbjxtEOKK0rci/fEBl8UYn/jBLCrZLbFxFe16ciFvczD6joJEGzooWTCB/uu0ZWL+cp6mf/gLPrpVxVrgWK8PXkkOKj+F+Q47Ib8a7s7CFSbWeMMsu00piha/DgjGgQpiZxfudYLdhQp5brjqMTTCKfESNz1EHP5PTIz+povQLmXBSamJNGbfvk4W1tQHfvDedc3hTeSJ3CSwF/Lwt0BJXcAbcJMaROTvNxtXyE0vj3S/wLAtmUgSO1pUxgEDGGwhoXFzXYTIovSMrrkT+Eoaw+jzuxrdJLRp2nXoKsrGZ1Zm4I/pLcVCCHgmagR/irYM5q7/e2fcGHkMbVvXbx242cxmT74xmPFqQFqbJmOV6uA188xXYbg=
