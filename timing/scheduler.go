@@ -66,9 +66,9 @@ func Pause() {
 	paused = true
 }
 
-// Await waits for the bar to resume timing.
+// await waits for the bar to resume timing.
 // It returns immediately if the bar is not paused.
-func Await() {
+func await() {
 	mu.Lock()
 	if !paused {
 		mu.Unlock()
@@ -150,7 +150,7 @@ func (s *scheduler) maybeTrigger() {
 	if !atomic.CompareAndSwapInt32(&s.waiting, 0, 1) {
 		return
 	}
-	Await()
+	await()
 	if atomic.CompareAndSwapInt32(&s.waiting, 1, 0) {
 		s.notifyFn()
 	}
