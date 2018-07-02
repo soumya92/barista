@@ -24,21 +24,13 @@ import (
 	"github.com/soumya92/barista/notifier"
 )
 
-// Scheduler represents a trigger that can be repeating or one-off, and
-// is intrinsically tied to the running bar. This means that if the trigger
-// condition occurs while the bar is paused, it will not fire until the bar
-// is next resumed, making it ideal for scheduling work that should only be
-// performed while the bar is active.
-type Scheduler struct {
-	// for real scheduling.
+// scheduler implements a Scheduler tied to actual time.
+type scheduler struct {
+	sync.Mutex
+
 	timer  *time.Timer
 	ticker *time.Ticker
 
-	// for test scheduling.
-	startTime time.Time
-	interval  time.Duration
-
-	mutex    sync.Mutex
 	notifyFn func()
 	notifyCh <-chan struct{}
 
@@ -57,10 +49,13 @@ var (
 )
 
 // NewScheduler creates a new scheduler.
-func NewScheduler() *Scheduler {
+func NewScheduler() Scheduler {
 	fn, ch := notifier.New()
-	s := &Scheduler{notifyFn: fn, notifyCh: ch}
+	s := &scheduler{notifyFn: fn, notifyCh: ch}
 	l.Attach(s, ch, "")
+	if testMode {
+		return &testScheduler{scheduler: s}
+	}
 	return s
 }
 
@@ -98,62 +93,41 @@ func Resume() {
 
 // Tick returns a channel that receives an empty value
 // when the scheduler is triggered.
-func (s *Scheduler) Tick() <-chan struct{} {
+func (s *scheduler) Tick() <-chan struct{} {
 	return s.notifyCh
 }
 
-// At sets the scheduler to trigger a specific time.
-// This will replace any pending triggers.
-func (s *Scheduler) At(when time.Time) *Scheduler {
+func (s *scheduler) At(when time.Time) Scheduler {
 	l.Fine("%s At(%v)", l.ID(s), when)
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.stop()
-	if testMode {
-		s.addTestModeTrigger(when)
-		return s
-	}
 	s.timer = time.AfterFunc(when.Sub(Now()), s.maybeTrigger)
 	return s
 }
 
-// After sets the scheduler to trigger after a delay.
-// This will replace any pending triggers.
-func (s *Scheduler) After(delay time.Duration) *Scheduler {
+func (s *scheduler) After(delay time.Duration) Scheduler {
 	l.Fine("%s After(%v)", l.ID(s), delay)
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.stop()
-	if testMode {
-		s.addTestModeTrigger(Now().Add(delay))
-		return s
-	}
 	s.timer = time.AfterFunc(delay, s.maybeTrigger)
 	return s
 }
 
-// Every sets the scheduler to trigger at an interval.
-// The interval must be greater than zero; if not, Every will panic.
-// This will replace any pending triggers.
-func (s *Scheduler) Every(interval time.Duration) *Scheduler {
+func (s *scheduler) Every(interval time.Duration) Scheduler {
 	l.Fine("%s Every(%v)", l.ID(s), interval)
 	if interval <= 0 {
 		panic(errors.New("non-positive interval for Scheduler#Every"))
 	}
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.stop()
-	if testMode {
-		s.startTime = Now()
-		s.interval = interval
-		s.addTestModeTrigger(s.nextRepeatingTick())
-		return s
-	}
 	s.ticker = time.NewTicker(interval)
 	go func() {
-		s.mutex.Lock()
+		s.Lock()
 		ticker := s.ticker
-		s.mutex.Unlock()
+		s.Unlock()
 		if ticker == nil {
 			// Scheduler stopped before goroutine was started.
 			return
@@ -165,15 +139,14 @@ func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 	return s
 }
 
-// Stop cancels all further triggers for the scheduler.
-func (s *Scheduler) Stop() {
+func (s *scheduler) Stop() {
 	l.Fine("%s Stop", l.ID(s))
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.stop()
 }
 
-func (s *Scheduler) maybeTrigger() {
+func (s *scheduler) maybeTrigger() {
 	if !atomic.CompareAndSwapInt32(&s.waiting, 0, 1) {
 		return
 	}
@@ -183,12 +156,7 @@ func (s *Scheduler) maybeTrigger() {
 	}
 }
 
-func (s *Scheduler) stop() {
-	if testMode {
-		s.interval = 0
-		s.removeTestModeTriggers()
-		return
-	}
+func (s *scheduler) stop() {
 	if s.timer != nil {
 		s.timer.Stop()
 		s.timer = nil

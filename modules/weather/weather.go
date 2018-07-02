@@ -92,7 +92,7 @@ type Provider interface {
 // which allows click handlers to get the current weather.
 type Module struct {
 	provider       Provider
-	scheduler      *timing.Scheduler
+	scheduler      timing.Scheduler
 	outputFunc     base.Value // of func(Weather) bar.Output
 	clickHandler   base.Value // of func(Weather, bar.Event)
 	currentWeather base.Value // of Weather

@@ -37,7 +37,7 @@ import (
 type Module struct {
 	base.SimpleClickHandler
 	thermalFile string
-	scheduler   *timing.Scheduler
+	scheduler   timing.Scheduler
 	format      base.Value
 }
 

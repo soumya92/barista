@@ -68,7 +68,7 @@ func (i Info) AvailPct() int {
 type Module struct {
 	base.SimpleClickHandler
 	path      string
-	scheduler *timing.Scheduler
+	scheduler timing.Scheduler
 	format    base.Value
 }
 

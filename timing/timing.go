@@ -40,3 +40,29 @@ import "time"
 
 // Now returns the current time.
 var Now = time.Now
+
+// Scheduler represents a trigger that can be repeating or one-off, and
+// is intrinsically tied to the running bar. This means that if the trigger
+// condition occurs while the bar is paused, it will not fire until the bar
+// is next resumed, making it ideal for scheduling work that should only be
+// performed while the bar is active.
+type Scheduler interface {
+	// Tick returns a channel that receives an empty value
+	// when the scheduler is triggered.
+	Tick() <-chan struct{}
+
+	// At sets the scheduler to trigger a specific time.
+	// This will replace any pending triggers.
+	At(time.Time) Scheduler
+
+	// After sets the scheduler to trigger after a delay.
+	// This will replace any pending triggers.
+	After(time.Duration) Scheduler
+
+	// Every sets the scheduler to trigger at an interval.
+	// This will replace any pending triggers.
+	Every(time.Duration) Scheduler
+
+	// Stop cancels all further triggers for the scheduler.
+	Stop()
+}

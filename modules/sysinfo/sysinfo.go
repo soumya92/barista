@@ -53,7 +53,7 @@ var currentInfo base.ErrorValue // of Info
 var infoEmitter *base.Emitter
 
 var once sync.Once
-var updater *timing.Scheduler
+var updater timing.Scheduler
 
 // construct initialises sysinfo's global updating.
 func construct() {
@@ -64,7 +64,7 @@ func construct() {
 		l.Attach(nil, &currentInfo, "sysinfo.currentInfo")
 		l.Attach(&currentInfo, &infoEmitter, ".emitter")
 		updater.Every(3 * time.Second)
-		go func(updater *timing.Scheduler) {
+		go func(updater timing.Scheduler) {
 			for {
 				update()
 				<-updater.Tick()

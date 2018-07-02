@@ -46,7 +46,7 @@ func (s Speeds) Total() unit.Datarate {
 type Module struct {
 	base.SimpleClickHandler
 	iface      string
-	scheduler  *timing.Scheduler
+	scheduler  timing.Scheduler
 	outputFunc base.Value // of func(Speeds) bar.Output
 }
 

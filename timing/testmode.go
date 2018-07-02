@@ -15,14 +15,23 @@
 package timing
 
 import (
+	"errors"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	l "github.com/soumya92/barista/logging"
 )
 
+type testScheduler struct {
+	*scheduler
+	startTime time.Time
+	interval  time.Duration
+}
+
 type trigger struct {
-	what *Scheduler
+	what *testScheduler
 	when time.Time
 }
 
@@ -87,13 +96,7 @@ func sortedTriggers() (sorted triggerList, hasTriggers bool) {
 	return triggers, true
 }
 
-func (s *Scheduler) addTestModeTrigger(when time.Time) {
-	triggersMu.Lock()
-	defer triggersMu.Unlock()
-	triggers = append(triggers, trigger{s, when})
-}
-
-func (s *Scheduler) removeTestModeTriggers() {
+func (s *testScheduler) setNextTrigger(when time.Time) Scheduler {
 	newTriggers := triggerList{}
 	triggersMu.Lock()
 	defer triggersMu.Unlock()
@@ -103,11 +106,42 @@ func (s *Scheduler) removeTestModeTriggers() {
 		}
 	}
 	triggers = newTriggers
+	if !when.IsZero() {
+		triggers = append(triggers, trigger{s, when})
+	}
+	return s
 }
 
-func (s *Scheduler) nextRepeatingTick() time.Time {
+func (s *testScheduler) nextRepeatingTick() time.Time {
 	elapsedIntervals := Now().Sub(s.startTime) / s.interval
 	return s.startTime.Add(s.interval * (elapsedIntervals + 1))
+}
+
+func (s *testScheduler) At(when time.Time) Scheduler {
+	l.Fine("%s At[Test](%v)", l.ID(s), when)
+	return s.setNextTrigger(when)
+}
+
+func (s *testScheduler) After(delay time.Duration) Scheduler {
+	l.Fine("%s After[Test](%v)", l.ID(s), delay)
+	return s.setNextTrigger(Now().Add(delay))
+}
+
+func (s *testScheduler) Every(interval time.Duration) Scheduler {
+	l.Fine("%s Every[Test](%v)", l.ID(s), interval)
+	if interval <= 0 {
+		panic(errors.New("non-positive interval for Scheduler#Every"))
+	}
+	s.Lock()
+	defer s.Unlock()
+	s.startTime = Now()
+	s.interval = interval
+	return s.setNextTrigger(s.nextRepeatingTick())
+}
+
+func (s *testScheduler) Stop() {
+	l.Fine("%s Stop[Test]", l.ID(s))
+	s.setNextTrigger(time.Time{})
 }
 
 // NextTick triggers the next scheduler and returns the trigger time.

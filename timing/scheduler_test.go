@@ -21,7 +21,7 @@ import (
 	"github.com/stretchrcom/testify/assert"
 )
 
-func assertTriggered(t *testing.T, s *Scheduler, message string) {
+func assertTriggered(t *testing.T, s Scheduler, message string) {
 	select {
 	case <-s.Tick():
 	case <-time.After(time.Second):
@@ -29,7 +29,7 @@ func assertTriggered(t *testing.T, s *Scheduler, message string) {
 	}
 }
 
-func assertNotTriggered(t *testing.T, s *Scheduler, message string) {
+func assertNotTriggered(t *testing.T, s Scheduler, message string) {
 	select {
 	case <-s.Tick():
 		assert.Fail(t, "scheduler was triggered", message)

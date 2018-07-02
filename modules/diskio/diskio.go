@@ -57,7 +57,7 @@ var once sync.Once
 
 var lock sync.Mutex
 var modules map[string]*diskInfo
-var updater *timing.Scheduler
+var updater timing.Scheduler
 
 // construct initialises diskio's global updating. All diskio
 // modules are updated with just one read of /proc/diskstats.
@@ -67,7 +67,7 @@ func construct() {
 		updater = timing.NewScheduler()
 		l.Attach(nil, updater, "diskio.updater")
 		updater.Every(3 * time.Second)
-		go func(updater *timing.Scheduler) {
+		go func(updater timing.Scheduler) {
 			for {
 				update()
 				<-updater.Tick()
