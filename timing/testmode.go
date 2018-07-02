@@ -16,6 +16,7 @@ package timing
 
 import (
 	"errors"
+	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -198,11 +199,7 @@ func AdvanceTo(newTime time.Time) {
 		return
 	}
 	if newTime.After(testNow()) {
-		// We need to give the goroutine from go trigger() some time
-		// to execute, otherwise the next one will replace it, causing
-		// undercounts when advancing time with a repeated scheduler.
-		// TODO: Remove this hack, or decide that this is not a use-case.
-		time.Sleep(time.Millisecond)
+		runtime.Gosched()
 		AdvanceTo(newTime)
 	}
 }

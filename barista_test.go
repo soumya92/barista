@@ -21,6 +21,7 @@ import (
 	"image/color"
 	"os"
 	"os/signal"
+	"runtime"
 	"testing"
 	"time"
 
@@ -79,8 +80,7 @@ func waitForSignal(sigChan <-chan os.Signal) {
 	ch := make(chan bool)
 	go func() {
 		<-sigChan
-		// TODO: Eliminate this sleep.
-		time.Sleep(10 * time.Millisecond)
+		runtime.Gosched()
 		ch <- true
 	}()
 	<-ch

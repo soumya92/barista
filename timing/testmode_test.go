@@ -15,6 +15,7 @@
 package timing
 
 import (
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -176,12 +177,7 @@ func TestCoalescedUpdates_TestMode(t *testing.T) {
 	sch := NewScheduler()
 	sch.Every(15 * time.Millisecond)
 	AdvanceBy(45 * time.Millisecond)
-	// There's a race condition here. Advance calls trigger() in a separate
-	// goroutine, which means there's a chance that the goroutine runs after
-	// the assertTriggered verification, and causes the next statement to fail.
-	// So we need to sleep for a bit to make sure that all goroutines have a
-	// chance to run.
-	time.Sleep(5 * time.Millisecond)
+	runtime.Gosched()
 	assertTriggered(t, sch, "after multiple intervals")
 	assertNotTriggered(t, sch, "multiple updates coalesced")
 }
