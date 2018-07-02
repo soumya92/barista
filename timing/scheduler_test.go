@@ -95,12 +95,11 @@ func TestRepeating(t *testing.T) {
 
 	Pause()
 	assertNotTriggered(t, sch, "when paused")
-	time.Sleep(15 * time.Millisecond) // > 2 intervals.
-
-	Resume()
-	assertTriggered(t, sch, "when resumed")
-
+	time.Sleep(31 * time.Millisecond) // > 2 intervals.
 	sch.Stop()
+	Resume()
+
+	assertTriggered(t, sch, "when resumed")
 	assertNotTriggered(t, sch, "only once on resume")
 
 	sch.After(5 * time.Millisecond)

@@ -16,6 +16,7 @@ package timing
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -90,6 +91,23 @@ func TestRepeating_TestMode(t *testing.T) {
 	assert.Equal(t, now, NextTick(), "no ticks when stopped")
 }
 
+func TestRepeatingChange_TestMode(t *testing.T) {
+	TestMode()
+	sch := NewScheduler()
+	now := Now()
+
+	sch.Every(time.Minute)
+	assert.Equal(t, now.Add(1*time.Minute), NextTick())
+	assert.Equal(t, now.Add(2*time.Minute), NextTick())
+	assert.Equal(t, now.Add(3*time.Minute), NextTick())
+
+	now = Now()
+	sch.Every(time.Hour)
+	assert.Equal(t, now.Add(1*time.Hour), NextTick())
+	assert.Equal(t, now.Add(2*time.Hour), NextTick())
+	assert.Equal(t, now.Add(3*time.Hour), NextTick())
+}
+
 func TestMultipleTriggers_TestMode(t *testing.T) {
 	TestMode()
 	sch1 := NewScheduler()
@@ -118,6 +136,7 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 	sch := NewScheduler()
 	sch.Every(time.Second)
 
+	var tickCount int32
 	var launched sync.WaitGroup
 	var waited sync.WaitGroup
 	for i := 0; i < 60; i++ {
@@ -128,6 +147,7 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 		go func() {
 			launched.Done()
 			<-sch.Tick()
+			atomic.AddInt32(&tickCount, 1)
 			waited.Done()
 		}()
 	}
@@ -145,7 +165,8 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 	select {
 	case <-doneChan: // Test passed.
 	case <-time.After(time.Second):
-		assert.Fail(t, "Did not receive 60 ticks")
+		assert.Fail(t, "Did not receive 60 ticks",
+			"Only got %d tick(s)", tickCount)
 	}
 }
 
@@ -155,6 +176,12 @@ func TestCoalescedUpdates_TestMode(t *testing.T) {
 	sch := NewScheduler()
 	sch.Every(15 * time.Millisecond)
 	AdvanceBy(45 * time.Millisecond)
+	// There's a race condition here. Advance calls trigger() in a separate
+	// goroutine, which means there's a chance that the goroutine runs after
+	// the assertTriggered verification, and causes the next statement to fail.
+	// So we need to sleep for a bit to make sure that all goroutines have a
+	// chance to run.
+	time.Sleep(5 * time.Millisecond)
 	assertTriggered(t, sch, "after multiple intervals")
 	assertNotTriggered(t, sch, "multiple updates coalesced")
 }

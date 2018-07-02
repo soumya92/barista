@@ -35,60 +35,65 @@ type Scheduler struct {
 	ticker *time.Ticker
 
 	// for test scheduling.
-	nextTrigger time.Time
-	interval    time.Duration
+	startTime time.Time
+	interval  time.Duration
 
-	mutex        sync.Mutex
-	notifyFn     func()
-	notifyCh     <-chan struct{}
-	paused       bool
-	fireOnResume bool
+	mutex    sync.Mutex
+	notifyFn func()
+	notifyCh <-chan struct{}
+
+	waiting int32 // basically bool, but we need atomics.
 }
 
 var (
-	// Keeps track of all schedulers, for timing.Pause/Resume and test mode.
-	schedulers   []*Scheduler
-	schedulersMu sync.RWMutex
-)
+	// A set of channels to be closed by timing.Resume.
+	// This allows schedulers to wait for resume, without
+	// requiring a reference to each created scheduler.
+	waiters  []chan struct{}
+	paused   = false
+	testMode = false
 
-// Whether new schedulers are created paused.
-var paused atomic.Value // of bool
-func init() {
-	paused.Store(false)
-}
+	mu sync.Mutex
+)
 
 // NewScheduler creates a new scheduler.
 func NewScheduler() *Scheduler {
 	fn, ch := notifier.New()
 	s := &Scheduler{notifyFn: fn, notifyCh: ch}
 	l.Attach(s, ch, "")
-	if paused.Load().(bool) {
-		s.pause()
-	}
-	schedulersMu.Lock()
-	defer schedulersMu.Unlock()
-	schedulers = append(schedulers, s)
 	return s
 }
 
 // Pause timing.
 func Pause() {
-	paused.Store(true)
-	schedulersMu.RLock()
-	defer schedulersMu.RUnlock()
-	for _, sch := range schedulers {
-		sch.pause()
+	mu.Lock()
+	defer mu.Unlock()
+	paused = true
+}
+
+// Await waits for the bar to resume timing.
+// It returns immediately if the bar is not paused.
+func Await() {
+	mu.Lock()
+	if !paused {
+		mu.Unlock()
+		return
 	}
+	ch := make(chan struct{})
+	waiters = append(waiters, ch)
+	mu.Unlock()
+	<-ch
 }
 
 // Resume timing.
 func Resume() {
-	paused.Store(false)
-	schedulersMu.RLock()
-	defer schedulersMu.RUnlock()
-	for _, sch := range schedulers {
-		sch.resume()
+	mu.Lock()
+	defer mu.Unlock()
+	paused = false
+	for _, ch := range waiters {
+		close(ch)
 	}
+	waiters = nil
 }
 
 // Tick returns a channel that receives an empty value
@@ -103,16 +108,16 @@ func (s *Scheduler) At(when time.Time) *Scheduler {
 	l.Fine("%s At(%v)", l.ID(s), when)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if inTestMode() {
+	s.stop()
+	if testMode {
 		now := testNow()
 		if when.Before(now) {
 			when = now
 		}
-		s.nextTrigger = when
 		s.interval = 0
+		addTestModeTrigger(s, when)
 		return s
 	}
-	s.stop()
 	s.timer = time.AfterFunc(when.Sub(Now()), s.maybeTrigger)
 	return s
 }
@@ -123,15 +128,15 @@ func (s *Scheduler) After(delay time.Duration) *Scheduler {
 	l.Fine("%s After(%v)", l.ID(s), delay)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if inTestMode() {
+	s.stop()
+	if testMode {
 		if delay < 0 {
 			delay = 0
 		}
-		s.nextTrigger = Now().Add(delay)
 		s.interval = 0
+		addTestModeTrigger(s, Now().Add(delay))
 		return s
 	}
-	s.stop()
 	s.timer = time.AfterFunc(delay, s.maybeTrigger)
 	return s
 }
@@ -146,12 +151,13 @@ func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if inTestMode() {
-		s.nextTrigger = Now()
+	s.stop()
+	if testMode {
+		s.startTime = Now()
 		s.interval = interval
+		addTestModeTrigger(s, nextRepeatingTick(s))
 		return s
 	}
-	s.stop()
 	s.ticker = time.NewTicker(interval)
 	go func() {
 		s.mutex.Lock()
@@ -162,7 +168,7 @@ func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 			return
 		}
 		for range ticker.C {
-			s.maybeTrigger()
+			go s.maybeTrigger()
 		}
 	}()
 	return s
@@ -173,33 +179,25 @@ func (s *Scheduler) Stop() {
 	l.Fine("%s Stop", l.ID(s))
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if inTestMode() {
-		s.nextTrigger = time.Time{}
-		s.interval = 0
-		return
-	}
 	s.stop()
 }
 
 func (s *Scheduler) maybeTrigger() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.paused {
-		s.fireOnResume = true
-	} else {
-		s.notifyFn()
-	}
-	if !inTestMode() {
+	if !atomic.CompareAndSwapInt32(&s.waiting, 0, 1) {
 		return
 	}
-	// If this is not a repeating scheduler,
-	// 'consume' the trigger to avoid firing again.
-	if s.interval == 0 {
-		s.nextTrigger = time.Time{}
+	Await()
+	if atomic.CompareAndSwapInt32(&s.waiting, 1, 0) {
+		s.notifyFn()
 	}
 }
 
 func (s *Scheduler) stop() {
+	if testMode {
+		s.interval = 0
+		removeTestModeTriggers(s)
+		return
+	}
 	if s.timer != nil {
 		s.timer.Stop()
 		s.timer = nil
@@ -207,21 +205,5 @@ func (s *Scheduler) stop() {
 	if s.ticker != nil {
 		s.ticker.Stop()
 		s.ticker = nil
-	}
-}
-
-func (s *Scheduler) pause() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.paused = true
-}
-
-func (s *Scheduler) resume() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.paused = false
-	if s.fireOnResume {
-		s.fireOnResume = false
-		s.notifyFn()
 	}
 }

@@ -21,16 +21,17 @@ import (
 	"time"
 )
 
-var (
-	testMode  = false
-	testMutex sync.RWMutex
-)
-
-func inTestMode() bool {
-	testMutex.RLock()
-	defer testMutex.RUnlock()
-	return testMode
+type trigger struct {
+	what *Scheduler
+	when time.Time
 }
+
+type triggerList []trigger
+
+var (
+	triggers   triggerList
+	triggersMu sync.Mutex
+)
 
 // nowInTest tracks the current time in test mode.
 var nowInTest atomic.Value // of time.Time
@@ -43,77 +44,77 @@ func testNow() time.Time {
 // In test mode schedulers do not fire automatically, and time
 // does not pass at all, until NextTick() or Advance* is called.
 func TestMode() {
-	testMutex.Lock()
-	schedulersMu.Lock()
-	defer testMutex.Unlock()
-	defer schedulersMu.Unlock()
-	testMode = true
-	Now = testNow
-	schedulers = nil
-	// Set to non-zero time when entering test mode so that any IsZero
-	// checks don't unexpectedly pass.
-	nowInTest.Store(time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC))
-	paused.Store(false)
+	reset(func() {
+		testMode = true
+		Now = testNow
+		// Set to non-zero time when entering test mode so that any IsZero
+		// checks don't unexpectedly pass.
+		nowInTest.Store(time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC))
+	})
 }
 
 // ExitTestMode exits test mode for all schedulers. Any schedulers created
 // after this call will be real.
 func ExitTestMode() {
-	testMutex.Lock()
-	schedulersMu.Lock()
-	defer testMutex.Unlock()
-	defer schedulersMu.Unlock()
-	testMode = false
-	Now = time.Now
-	schedulers = nil
-	paused.Store(false)
+	reset(func() {
+		testMode = false
+		Now = time.Now
+	})
 }
 
-// tickAfter returns the next trigger time for the scheduler.
-// This is used in test mode to determine the next firing scheduler
-// and advance time to it.
-func (s *Scheduler) tickAfter(now time.Time) time.Time {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.interval == time.Duration(0) {
-		return s.nextTrigger
+func reset(fn func()) {
+	mu.Lock()
+	defer mu.Unlock()
+	triggersMu.Lock()
+	defer triggersMu.Unlock()
+	fn()
+	waiters = nil
+	triggers = nil
+	paused = false
+}
+
+func addTestModeTrigger(s *Scheduler, when time.Time) {
+	triggersMu.Lock()
+	defer triggersMu.Unlock()
+	triggers = append(triggers, trigger{s, when})
+}
+
+func removeTestModeTriggers(s *Scheduler) {
+	newTriggers := triggerList{}
+	triggersMu.Lock()
+	defer triggersMu.Unlock()
+	for _, t := range triggers {
+		if t.what != s {
+			newTriggers = append(newTriggers, t)
+		}
 	}
-	elapsedIntervals := now.Sub(s.nextTrigger) / s.interval
-	return s.nextTrigger.Add(s.interval * (elapsedIntervals + 1))
+	triggers = newTriggers
 }
 
-// schedulerList implements sort.Interface for schedulers based
-// on their next trigger time.
-type schedulerList []*Scheduler
-
-func (l schedulerList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
-func (l schedulerList) Len() int      { return len(l) }
-func (l schedulerList) Less(i, j int) bool {
-	now := Now()
-	return l[i].tickAfter(now).Before(l[j].tickAfter(now))
+func nextRepeatingTick(s *Scheduler) time.Time {
+	elapsedIntervals := Now().Sub(s.startTime) / s.interval
+	return s.startTime.Add(s.interval * (elapsedIntervals + 1))
 }
 
-// sortedSchedulers returns the list of schedulers sorted by the
-// time remaining until their next tick.
-func sortedSchedulers() []*Scheduler {
-	schedulersMu.Lock()
-	defer schedulersMu.Unlock()
-	sort.Sort(schedulerList(schedulers))
-	return schedulers
+func (l triggerList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
+func (l triggerList) Len() int      { return len(l) }
+func (l triggerList) Less(i, j int) bool {
+	return l[i].when.Before(l[j].when)
 }
 
 // NextTick triggers the next scheduler and returns the trigger time.
 // It also advances test time to match.
 func NextTick() time.Time {
-	now := Now()
-	for _, s := range sortedSchedulers() {
-		nextTick := s.tickAfter(now)
-		if !now.After(nextTick) {
-			AdvanceTo(nextTick)
-			return nextTick
-		}
+	triggersMu.Lock()
+	if len(triggers) == 0 {
+		triggersMu.Unlock()
+		return testNow()
 	}
-	return now
+	sort.Sort(triggers)
+	when := triggers[0].when
+	triggersMu.Unlock()
+	AdvanceTo(when)
+	return when
 }
 
 // AdvanceBy increments the test time by the given duration,
@@ -125,21 +126,45 @@ func AdvanceBy(duration time.Duration) {
 // AdvanceTo increments the test time to the given time,
 // and triggers any schedulers that were scheduled in the meantime.
 func AdvanceTo(newTime time.Time) {
-	now := Now()
 	found := false
-	for _, s := range sortedSchedulers() {
-		nextTick := s.tickAfter(now)
-		if !now.After(nextTick) && !nextTick.After(newTime) {
-			found = true
-			nowInTest.Store(nextTick)
-			s.maybeTrigger()
-		}
+	triggersMu.Lock()
+	sort.Sort(triggers)
+	sorted := triggers
+	triggersMu.Unlock()
+	if len(sorted) == 0 {
+		nowInTest.Store(newTime)
+		return
 	}
+	nextTick := sorted[0].when
+	if nextTick.After(newTime) {
+		nowInTest.Store(newTime)
+		return
+	}
+	nowInTest.Store(nextTick)
+	idx := 0
+	for i := 0; i < len(sorted) && !sorted[i].when.After(nextTick); i++ {
+		t := sorted[i]
+		found = true
+		if t.what.interval > 0 {
+			t.when = nextRepeatingTick(t.what)
+			sorted = append(sorted, t)
+		}
+		idx = i + 1
+		go t.what.maybeTrigger()
+	}
+	triggersMu.Lock()
+	triggers = sorted[idx:]
+	triggersMu.Unlock()
 	if !found {
 		nowInTest.Store(newTime)
 		return
 	}
-	if newTime.After(Now()) {
+	if newTime.After(testNow()) {
+		// We need to give the goroutine from go trigger() some time
+		// to execute, otherwise the next one will replace it, causing
+		// undercounts when advancing time with a repeated scheduler.
+		// TODO: Remove this hack, or decide that this is not a use-case.
+		time.Sleep(time.Millisecond)
 		AdvanceTo(newTime)
 	}
 }
