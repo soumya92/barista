@@ -28,6 +28,10 @@ type trigger struct {
 
 type triggerList []trigger
 
+func (l triggerList) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l triggerList) Len() int           { return len(l) }
+func (l triggerList) Less(i, j int) bool { return l[i].when.Before(l[j].when) }
+
 var (
 	triggers   triggerList
 	triggersMu sync.Mutex
@@ -73,13 +77,23 @@ func reset(fn func()) {
 	paused = false
 }
 
-func addTestModeTrigger(s *Scheduler, when time.Time) {
+func sortedTriggers() (sorted triggerList, hasTriggers bool) {
+	triggersMu.Lock()
+	defer triggersMu.Unlock()
+	if len(triggers) == 0 {
+		return triggers, false
+	}
+	sort.Sort(triggers)
+	return triggers, true
+}
+
+func (s *Scheduler) addTestModeTrigger(when time.Time) {
 	triggersMu.Lock()
 	defer triggersMu.Unlock()
 	triggers = append(triggers, trigger{s, when})
 }
 
-func removeTestModeTriggers(s *Scheduler) {
+func (s *Scheduler) removeTestModeTriggers() {
 	newTriggers := triggerList{}
 	triggersMu.Lock()
 	defer triggersMu.Unlock()
@@ -91,30 +105,21 @@ func removeTestModeTriggers(s *Scheduler) {
 	triggers = newTriggers
 }
 
-func nextRepeatingTick(s *Scheduler) time.Time {
+func (s *Scheduler) nextRepeatingTick() time.Time {
 	elapsedIntervals := Now().Sub(s.startTime) / s.interval
 	return s.startTime.Add(s.interval * (elapsedIntervals + 1))
-}
-
-func (l triggerList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
-func (l triggerList) Len() int      { return len(l) }
-func (l triggerList) Less(i, j int) bool {
-	return l[i].when.Before(l[j].when)
 }
 
 // NextTick triggers the next scheduler and returns the trigger time.
 // It also advances test time to match.
 func NextTick() time.Time {
-	triggersMu.Lock()
-	if len(triggers) == 0 {
-		triggersMu.Unlock()
+	sorted, hasTriggers := sortedTriggers()
+	if !hasTriggers {
 		return testNow()
 	}
-	sort.Sort(triggers)
-	when := triggers[0].when
-	triggersMu.Unlock()
+	when := sorted[0].when
 	AdvanceTo(when)
-	return when
+	return testNow()
 }
 
 // AdvanceBy increments the test time by the given duration,
@@ -126,12 +131,8 @@ func AdvanceBy(duration time.Duration) {
 // AdvanceTo increments the test time to the given time,
 // and triggers any schedulers that were scheduled in the meantime.
 func AdvanceTo(newTime time.Time) {
-	found := false
-	triggersMu.Lock()
-	sort.Sort(triggers)
-	sorted := triggers
-	triggersMu.Unlock()
-	if len(sorted) == 0 {
+	sorted, hasTriggers := sortedTriggers()
+	if !hasTriggers {
 		nowInTest.Store(newTime)
 		return
 	}
@@ -140,13 +141,16 @@ func AdvanceTo(newTime time.Time) {
 		nowInTest.Store(newTime)
 		return
 	}
-	nowInTest.Store(nextTick)
+	if nextTick.After(testNow()) {
+		nowInTest.Store(nextTick)
+	}
 	idx := 0
-	for i := 0; i < len(sorted) && !sorted[i].when.After(nextTick); i++ {
-		t := sorted[i]
-		found = true
+	for i, t := range sorted {
+		if sorted[i].when.After(nextTick) {
+			break
+		}
 		if t.what.interval > 0 {
-			t.when = nextRepeatingTick(t.what)
+			t.when = t.what.nextRepeatingTick()
 			sorted = append(sorted, t)
 		}
 		idx = i + 1
@@ -155,7 +159,7 @@ func AdvanceTo(newTime time.Time) {
 	triggersMu.Lock()
 	triggers = sorted[idx:]
 	triggersMu.Unlock()
-	if !found {
+	if idx == 0 {
 		nowInTest.Store(newTime)
 		return
 	}

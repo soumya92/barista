@@ -110,12 +110,7 @@ func (s *Scheduler) At(when time.Time) *Scheduler {
 	defer s.mutex.Unlock()
 	s.stop()
 	if testMode {
-		now := testNow()
-		if when.Before(now) {
-			when = now
-		}
-		s.interval = 0
-		addTestModeTrigger(s, when)
+		s.addTestModeTrigger(when)
 		return s
 	}
 	s.timer = time.AfterFunc(when.Sub(Now()), s.maybeTrigger)
@@ -130,11 +125,7 @@ func (s *Scheduler) After(delay time.Duration) *Scheduler {
 	defer s.mutex.Unlock()
 	s.stop()
 	if testMode {
-		if delay < 0 {
-			delay = 0
-		}
-		s.interval = 0
-		addTestModeTrigger(s, Now().Add(delay))
+		s.addTestModeTrigger(Now().Add(delay))
 		return s
 	}
 	s.timer = time.AfterFunc(delay, s.maybeTrigger)
@@ -155,7 +146,7 @@ func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 	if testMode {
 		s.startTime = Now()
 		s.interval = interval
-		addTestModeTrigger(s, nextRepeatingTick(s))
+		s.addTestModeTrigger(s.nextRepeatingTick())
 		return s
 	}
 	s.ticker = time.NewTicker(interval)
@@ -195,7 +186,7 @@ func (s *Scheduler) maybeTrigger() {
 func (s *Scheduler) stop() {
 	if testMode {
 		s.interval = 0
-		removeTestModeTriggers(s)
+		s.removeTestModeTriggers()
 		return
 	}
 	if s.timer != nil {
