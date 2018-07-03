@@ -185,7 +185,7 @@ func TestSimple(t *testing.T) {
 
 	bat0 := Default().
 		UrgentWhen(capLt30).
-		OutputTemplate(outputs.TextTemplate(`{{.Status}}`))
+		OutputTemplate(`{{.Status}}`)
 
 	bat1 := New("BAT1").
 		OutputColor(func(i Info) color.Color {
@@ -227,7 +227,7 @@ func TestSimple(t *testing.T) {
 	bat1.RefreshInterval(time.Hour)
 	testBar.AssertNoOutput("On change of refresh interval")
 
-	bat1.OutputTemplate(outputs.TextTemplate(`{{.Capacity}}`))
+	bat1.OutputTemplate(`{{.Capacity}}`)
 	testBar.NextOutput().At(1).AssertEqual(
 		bar.TextSegment("100").Color(colors.Hex("#ff0000")),
 		"when output template changes")

@@ -110,7 +110,7 @@ func New(provider Provider) *Module {
 	}
 	l.Register(m, "outputFunc", "clickHandler", "currentWeather", "scheduler")
 	// Default output template is just the temperature and conditions.
-	m.OutputTemplate(outputs.TextTemplate(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`))
+	m.OutputTemplate(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`)
 	m.RefreshInterval(10 * time.Minute)
 	m.OnClick(nil)
 	return m
@@ -123,9 +123,10 @@ func (m *Module) OutputFunc(outputFunc func(Weather) bar.Output) *Module {
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
+func (m *Module) OutputTemplate(template string) *Module {
+	templateFn := outputs.TextTemplate(template)
 	return m.OutputFunc(func(w Weather) bar.Output {
-		return template(w)
+		return templateFn(w)
 	})
 }
 

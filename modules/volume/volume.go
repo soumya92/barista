@@ -93,9 +93,10 @@ func (m *Module) OutputFunc(outputFunc func(Volume) bar.Output) *Module {
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
+func (m *Module) OutputTemplate(template string) *Module {
+	templateFn := outputs.TextTemplate(template)
 	return m.OutputFunc(func(v Volume) bar.Output {
-		return template(v)
+		return templateFn(v)
 	})
 }
 
@@ -215,7 +216,7 @@ func createModule(impl moduleImpl) *Module {
 	l.Register(m, "outputFunc", "currentVolume", "clickHandler", "impl")
 	m.OnClick(DefaultClickHandler)
 	// Default output template is just the volume %, "MUT" when muted.
-	m.OutputTemplate(outputs.TextTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`))
+	m.OutputTemplate(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`)
 	return m
 }
 

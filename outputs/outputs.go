@@ -22,10 +22,6 @@ import (
 	"github.com/soumya92/barista/pango"
 )
 
-// TemplateFunc is a function that takes in a single argument constructs a
-// bar output from it.
-type TemplateFunc func(interface{}) bar.Output
-
 // Errorf constructs a bar output that indicates an error,
 // using the given format string and arguments.
 func Errorf(format string, args ...interface{}) *bar.Segment {

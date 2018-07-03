@@ -62,8 +62,8 @@ func TestDiskIo(t *testing.T) {
 		"sda1": []int{0, 0},
 	})
 
-	sda1 := New("sda1").OutputTemplate(outputs.TextTemplate(`sda1: {{.Total | byterate}}`))
-	sdb1 := New("sdb1").OutputTemplate(outputs.TextTemplate(`sdb1: {{.Total | ibyterate}}`))
+	sda1 := New("sda1").OutputTemplate(`sda1: {{.Total | byterate}}`)
+	sdb1 := New("sdb1").OutputTemplate(`sdb1: {{.Total | ibyterate}}`)
 	testBar.Run(sda1, sdb1)
 
 	testBar.LatestOutput().AssertEmpty("on start")

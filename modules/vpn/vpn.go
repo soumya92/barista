@@ -61,7 +61,7 @@ func New(iface string) *Module {
 	l.Label(m, iface)
 	l.Register(m, "outputFunc")
 	// Default output template that's just 'VPN' when connected.
-	m.OutputTemplate(outputs.TextTemplate("{{if .Connected}}VPN{{end}}"))
+	m.OutputTemplate("{{if .Connected}}VPN{{end}}")
 	return m
 }
 
@@ -78,9 +78,10 @@ func (m *Module) OutputFunc(outputFunc func(State) bar.Output) *Module {
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
+func (m *Module) OutputTemplate(template string) *Module {
+	templateFn := outputs.TextTemplate(template)
 	return m.OutputFunc(func(s State) bar.Output {
-		return template(s)
+		return templateFn(s)
 	})
 }
 

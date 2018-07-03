@@ -45,10 +45,10 @@ func TestCputemp(t *testing.T) {
 	temp0 := DefaultZone()
 
 	temp1 := Zone("thermal_zone1").
-		OutputTemplate(outputs.TextTemplate(`{{.Fahrenheit | printf "%.0f"}}`))
+		OutputTemplate(`{{.Fahrenheit | printf "%.0f"}}`)
 
 	temp2 := Zone("thermal_zone2").
-		OutputTemplate(outputs.TextTemplate(`{{.Kelvin | printf "%.0f"}}`))
+		OutputTemplate(`{{.Kelvin | printf "%.0f"}}`)
 
 	testBar.Run(temp0, temp1, temp2)
 
@@ -81,7 +81,7 @@ func TestCputemp(t *testing.T) {
 	col, _ := out.At(1).Segment().GetColor()
 	assert.Equal(t, green, col, "on color func change")
 
-	temp2.OutputTemplate(outputs.TextTemplate(`{{.Kelvin | printf "%.0f"}} kelvin`))
+	temp2.OutputTemplate(`{{.Kelvin | printf "%.0f"}} kelvin`)
 	testBar.AssertNoOutput("on error'd template change")
 	testBar.Click(2)
 	testBar.LatestOutput().At(2).AssertError("error persists at restart")

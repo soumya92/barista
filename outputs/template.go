@@ -17,8 +17,7 @@ package outputs
 import (
 	"bytes"
 	"fmt"
-	htmlTemplate "html/template"
-	textTemplate "text/template"
+	"text/template"
 
 	"github.com/dustin/go-humanize"
 	"github.com/martinlindhe/unit"
@@ -26,18 +25,18 @@ import (
 	"github.com/soumya92/barista/bar"
 )
 
-var defaultFuncs = make(map[string]interface{})
+var defaultFuncs = make(template.FuncMap)
 
 // AddTemplateFunc adds template functions available to all templates.
 func AddTemplateFunc(name string, f interface{}) {
 	defaultFuncs[name] = f
 }
 
-// TextTemplate creates a TemplateFunc from the given text template.
-func TextTemplate(tpl string) TemplateFunc {
-	t := textTemplate.Must(
-		textTemplate.New("text").
-			Funcs(textTemplate.FuncMap(defaultFuncs)).
+// TextTemplate returns a function that applies the given text template.
+func TextTemplate(tpl string) func(interface{}) bar.Output {
+	t := template.Must(
+		template.New("text").
+			Funcs(template.FuncMap(defaultFuncs)).
 			Parse(tpl))
 	return func(arg interface{}) bar.Output {
 		var out bytes.Buffer
@@ -45,22 +44,6 @@ func TextTemplate(tpl string) TemplateFunc {
 			return Error(err)
 		}
 		return bar.TextSegment(out.String())
-	}
-}
-
-// PangoTemplate creates a TemplateFunc from the given pango template.
-// It uses go's html/template to escape input properly.
-func PangoTemplate(tpl string) TemplateFunc {
-	t := htmlTemplate.Must(
-		htmlTemplate.New("pango").
-			Funcs(htmlTemplate.FuncMap(defaultFuncs)).
-			Parse(tpl))
-	return func(arg interface{}) bar.Output {
-		var out bytes.Buffer
-		if err := t.Execute(&out, arg); err != nil {
-			return Error(err)
-		}
-		return bar.PangoSegment(out.String())
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/martinlindhe/unit"
+	"github.com/soumya92/barista/bar"
 	"github.com/stretchrcom/testify/assert"
 )
 
@@ -42,7 +43,7 @@ func TestTextTemplate(t *testing.T) {
 
 	tests := []struct {
 		desc     string
-		template TemplateFunc
+		template func(interface{}) bar.Output
 		expected string
 	}{
 		{"simple template", TextTemplate(`{{.Number}}`), "42"},
@@ -53,35 +54,6 @@ func TestTextTemplate(t *testing.T) {
 			"pango markup not interpreted",
 			TextTemplate(`<span size='{{.Number}}'>{{.HTML}}</span>`),
 			"<span size='42'><b>bold</b></span>",
-		},
-	}
-	for _, tc := range tests {
-		assert.Equal(t, tc.expected, textOf(tc.template(testObject)), tc.desc)
-	}
-}
-
-func TestPangoTemplate(t *testing.T) {
-	assert.Panics(t, func() { PangoTemplate("{{invalid template") }, "panic on invalid template")
-	// TODO: Handle invalid markup.
-	//assert.Panics(t, func() { PangoTemplate("<unclosed tag") }, "panic on unclosed tag")
-	//assert.Panics(t, func() { PangoTemplate("<tag invalid='attribute>") }, "panic on unclosed attribute")
-	//assert.Panics(t, func() { PangoTemplate("<a></b>") }, "panic on mismatched tags")
-	assert.NotPanics(t, func() { PangoTemplate("string") }, "no panic on simple string")
-	assert.NotPanics(t, func() { PangoTemplate("number = {{.number}}") }, "no panic on simple template")
-
-	tests := []struct {
-		desc     string
-		template TemplateFunc
-		expected string
-	}{
-		{"simple template", PangoTemplate(`{{.Number}}`), "42"},
-		{"multiple fields", PangoTemplate(`{{.Number}} <b>{{.Text}}</b>`), "42 <b>test-string</b>"},
-		{"piping through formatter", PangoTemplate(`{{.Fraction | printf "%.4f"}}`), "2.7183"},
-		{"if/else", PangoTemplate(`{{if .Object.YesNo}}yes{{else}}no{{end}}`), "yes"},
-		{
-			"pango markup escaped",
-			PangoTemplate(`<span size='{{.Number}}'>{{.HTML}}</span>`),
-			"<span size='42'>&lt;b&gt;bold&lt;/b&gt;</span>",
 		},
 	}
 	for _, tc := range tests {

@@ -84,7 +84,7 @@ func TestCpuload(t *testing.T) {
 	testBar.NextOutput().AssertText(
 		[]string{"1.00"}, "on next tick")
 
-	load.OutputTemplate(outputs.TextTemplate(`{{.Min5 | printf "%.2f"}}`))
+	load.OutputTemplate(`{{.Min5 | printf "%.2f"}}`)
 	testBar.NextOutput().AssertText(
 		[]string{"2.00"}, "on output format change")
 

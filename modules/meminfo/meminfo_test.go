@@ -25,7 +25,6 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/base"
-	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
 )
@@ -53,8 +52,8 @@ func TestMeminfo(t *testing.T) {
 		"MemFree":      1024,
 	})
 
-	avail := New().OutputTemplate(outputs.TextTemplate(`{{.Available.Kibibytes}}`))
-	free := New().OutputTemplate(outputs.TextTemplate(`{{.FreeFrac "Mem"}}`))
+	avail := New().OutputTemplate(`{{.Available.Kibibytes}}`)
+	free := New().OutputTemplate(`{{.FreeFrac "Mem"}}`)
 
 	testBar.Run(avail, free)
 	testBar.LatestOutput().AssertText(
@@ -96,9 +95,9 @@ func TestErrors(t *testing.T) {
 	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
 
-	availFrac := New().OutputTemplate(outputs.TextTemplate(`{{.AvailFrac}}`))
-	free := New().OutputTemplate(outputs.TextTemplate(`{{.MemFree | ibytesize}}`))
-	total := New().OutputTemplate(outputs.TextTemplate(`{{.MemTotal | bytesize}}`))
+	availFrac := New().OutputTemplate(`{{.AvailFrac}}`)
+	free := New().OutputTemplate(`{{.MemFree | ibytesize}}`)
+	total := New().OutputTemplate(`{{.MemTotal | bytesize}}`)
 
 	testBar.Run(availFrac, free, total)
 	testBar.LatestOutput().AssertError("on start if missing meminfo")

@@ -99,21 +99,13 @@ func TestErrors(t *testing.T) {
 			Error(fmt.Errorf("error string")),
 			"error string",
 		},
-
 		{
 			"errorf with arguments",
 			Errorf("cannot add %d and %s", 1, "a"),
 			"cannot add 1 and a",
 		},
-
 		{
-			"error in pango template",
-			PangoTemplate(`<b>{{.NoSuchField}}</b>`)(testObject),
-			"can't evaluate field NoSuchField",
-		},
-
-		{
-			"error in text template",
+			"error in template",
 			TextTemplate(`{{.Number.Nested}}`)(testObject),
 			"can't evaluate field Nested in type int",
 		},

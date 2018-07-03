@@ -118,9 +118,10 @@ func (m *Module) OutputFunc(outputFunc func(IO) bar.Output) *Module {
 }
 
 // OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template func(interface{}) bar.Output) *Module {
+func (m *Module) OutputTemplate(template string) *Module {
+	templateFn := outputs.TextTemplate(template)
 	return m.OutputFunc(func(i IO) bar.Output {
-		return template(i)
+		return templateFn(i)
 	})
 }
 
