@@ -106,7 +106,7 @@ func New(provider Provider) *Module {
 	}
 	l.Register(m, "outputFunc", "clickHandler", "currentWeather", "scheduler")
 	// Default output template is just the temperature and conditions.
-	m.Template(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`)
+	m.Template(`{{.Temperature.Celsius | printf "%.1f"}}℃ {{.Description}} ({{.Attribution}})`)
 	m.RefreshInterval(10 * time.Minute)
 	m.OnClick(nil)
 	return m
