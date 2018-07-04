@@ -33,6 +33,25 @@ import (
 	"github.com/soumya92/barista/timing"
 )
 
+// Status represents a normalised battery status.
+type Status string
+
+const (
+	// Disconnected represents a named battery that was not found.
+	Disconnected Status = "Disconnected"
+	// Charging represents a battery that is actively being charged.
+	Charging Status = "Charging"
+	// Discharging represents a battery that is actively being discharged.
+	Discharging Status = "Discharging"
+	// Full represents a battery that is plugged in and at capacity.
+	Full Status = "Full"
+	// NotCharging represents a battery that is plugged in,
+	// not full, but not charging.
+	NotCharging Status = "Not charging"
+	// Unknown is used to catch all other statuses.
+	Unknown Status = ""
+)
+
 // Info represents the current battery information.
 type Info struct {
 	// Capacity in *percents*, from 0 to 100.
@@ -48,7 +67,7 @@ type Info struct {
 	// Current voltage of the batter, in V.
 	Voltage float64
 	// Status of the battery, e.g. "Charging", "Full", "Disconnected".
-	Status string
+	Status Status
 	// Technology of the battery, e.g. "Li-Ion", "Li-Poly", "Ni-MH".
 	Technology string
 }
@@ -68,30 +87,49 @@ func (i Info) RemainingPct() int {
 
 // RemainingTime returns the best guess for remaining time.
 // This is based on the current power draw and remaining capacity.
-// TODO: Moving average?
 func (i Info) RemainingTime() time.Duration {
 	// Battery does not report current draw,
 	// cannot estimate remaining time.
 	if math.Nextafter(i.Power, 0) == 0 {
-		return time.Duration(0)
+		return 0
 	}
-	// ACPI spec says this must be in hours.
-	hours := i.EnergyNow / i.Power
+	// According to ACPI spec, these calculations will return hours.
+	hours := 0.0
+	switch i.Status {
+	case Charging:
+		hours = (i.EnergyFull - i.EnergyNow) / i.Power
+	case Discharging:
+		hours = i.EnergyNow / i.Power
+	}
 	return time.Duration(int(hours*3600)) * time.Second
+}
+
+// Discharging returns true if the battery is being discharged.
+func (i Info) Discharging() bool {
+	return i.Status != Charging && i.Status != Full
 }
 
 // PluggedIn returns true if the laptop is plugged in.
 func (i Info) PluggedIn() bool {
-	return i.Status == "Charging" || i.Status == "Full"
+	return i.Status == Charging || i.Status == Full || i.Status == NotCharging
+}
+
+// SignedPower returns a positive power value when the battery
+// is being charged, and a negative power value when discharged.
+func (i Info) SignedPower() float64 {
+	if i.Discharging() {
+		return -i.Power
+	}
+	return i.Power
 }
 
 // Module represents a battery bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
 	base.SimpleClickHandler
-	batteryName string
-	scheduler   timing.Scheduler
-	format      base.Value
+	updateFunc func() Info
+	scheduler  timing.Scheduler
+	format     base.Value
 }
 
 type format struct {
@@ -115,13 +153,11 @@ func (m *Module) getFormat() format {
 	return m.format.Get().(format)
 }
 
-// New constructs an instance of the battery module for the given battery name.
-func New(name string) *Module {
+func newModule(updateFunc func() Info) *Module {
 	m := &Module{
-		batteryName: name,
-		scheduler:   timing.NewScheduler(),
+		updateFunc: updateFunc,
+		scheduler:  timing.NewScheduler(),
 	}
-	l.Label(m, name)
 	l.Register(m, "scheduler", "format")
 	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
@@ -130,9 +166,16 @@ func New(name string) *Module {
 	return m
 }
 
-// Default constructs an instance of the battery module with BAT0.
-func Default() *Module {
-	return New("BAT0")
+// Named constructs an instance of the battery module for the given battery name.
+func Named(name string) *Module {
+	m := newModule(func() Info { return batteryInfo(name) })
+	l.Label(m, name)
+	return m
+}
+
+// All constructs a battery module that aggregates all detected batteries.
+func All() *Module {
+	return newModule(allBatteriesInfo)
 }
 
 // Output configures a module to display the output of a user-defined function.
@@ -176,13 +219,13 @@ func (m *Module) UrgentWhen(urgentFunc func(Info) bool) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	info := batteryInfo(m.batteryName)
+	info := m.updateFunc()
 	format := m.getFormat()
 	for {
 		s.Output(format.output(info))
 		select {
 		case <-m.scheduler.Tick():
-			info = batteryInfo(m.batteryName)
+			info = m.updateFunc()
 		case <-m.format.Update():
 			format = m.getFormat()
 		}
@@ -220,6 +263,21 @@ func fromMicroStr(str string) float64 {
 	return float64(uValue) / math.Pow(10, 6 /* micros */)
 }
 
+func fromStatusStr(str string) Status {
+	switch str {
+	case string(Full):
+		return Full
+	case string(Charging):
+		return Charging
+	case string(Discharging):
+		return Discharging
+	case string(Disconnected):
+		return Disconnected
+	default:
+		return Unknown
+	}
+}
+
 var fs = afero.NewOsFs()
 
 func batteryInfo(name string) Info {
@@ -228,13 +286,13 @@ func batteryInfo(name string) Info {
 	f, err := fs.Open(batteryPath)
 	if err != nil {
 		l.Log("Failed to read stats for %s: %s", name, err)
-		return Info{Status: "Disconnected"}
+		return Info{Status: Disconnected}
 	}
 	defer f.Close()
 	s := bufio.NewScanner(f)
 	s.Split(bufio.ScanLines)
 
-	info := Info{Status: "Unknown"}
+	var info Info
 	var energyNow, powerNow, energyFull, energyMax electricValue
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
@@ -267,7 +325,7 @@ func batteryInfo(name string) Info {
 		case "VOLTAGE_NOW":
 			info.Voltage = fromMicroStr(value)
 		case "STATUS":
-			info.Status = value
+			info.Status = fromStatusStr(value)
 		case "TECHNOLOGY":
 			info.Technology = value
 		case "CAPACITY":
@@ -279,4 +337,58 @@ func batteryInfo(name string) Info {
 	info.EnergyFull = energyFull.toWatts(info.Voltage)
 	info.Power = powerNow.toWatts(info.Voltage)
 	return info
+}
+
+func allBatteriesInfo() Info {
+	dir, err := fs.Open("/sys/class/power_supply")
+	if err != nil {
+		l.Log("Failed to list batteries: %s", err)
+		return Info{}
+	}
+	batts, err := dir.Readdirnames(-1)
+	if err != nil {
+		l.Log("Failed to list batteries: %s", err)
+		return Info{}
+	}
+	var allInfo Info
+	var techs []string
+	var voltEnergySum float64
+
+	for _, batt := range batts {
+		if !strings.HasPrefix(batt, "BAT") {
+			continue
+		}
+		info := batteryInfo(batt)
+
+		allInfo.EnergyFull += info.EnergyFull
+		allInfo.EnergyMax += info.EnergyMax
+		allInfo.EnergyNow += info.EnergyNow
+		if info.Technology != "" {
+			techs = append(techs, info.Technology)
+		}
+		voltEnergySum += info.Voltage * info.EnergyNow
+		signedPower := allInfo.SignedPower() + info.SignedPower()
+		allInfo.Power = math.Abs(signedPower)
+
+		switch allInfo.Status {
+		case Charging:
+			if signedPower < 0 {
+				allInfo.Status = Discharging
+			}
+		case Discharging:
+			if signedPower > 0 {
+				allInfo.Status = Charging
+			}
+		default:
+			if info.Status != Unknown {
+				allInfo.Status = info.Status
+			}
+		}
+	}
+	// No meaningful voltage aggregator, so just average it by the energy
+	// stored at each voltage. (e.g. 10Wh @ 12V, 5Wh @ 9V = ~11V).
+	allInfo.Voltage = voltEnergySum / allInfo.EnergyNow
+	allInfo.Capacity = int(allInfo.EnergyNow * 100.0 / allInfo.EnergyFull)
+	allInfo.Technology = strings.Join(techs, ",")
+	return allInfo
 }

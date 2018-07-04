@@ -49,35 +49,40 @@ func write(battery battery) {
 
 func TestDisconnected(t *testing.T) {
 	fs = afero.NewMemMapFs()
+	assert := assert.New(t)
 
 	// No battery.
 	info := batteryInfo("BAT0")
-	assert.Equal(t, "Disconnected", info.Status)
+	assert.Equal(Disconnected, info.Status)
 
 	// Make sure nothing panics when values are missing.
-	assert.InDelta(t, 0, info.Remaining(), 0.000001)
-	assert.Equal(t, 0, info.RemainingPct())
-	assert.Equal(t, time.Duration(0), info.RemainingTime())
+	assert.InDelta(0, info.Remaining(), 0.000001)
+	assert.Equal(0, info.RemainingPct())
+	assert.Equal(time.Duration(0), info.RemainingTime())
 }
 
 func TestUnknownAndMissingStatus(t *testing.T) {
 	fs = afero.NewMemMapFs()
+	assert := assert.New(t)
 
 	// No battery.
 	info := batteryInfo("BAT0")
-	assert.Equal(t, "Disconnected", info.Status)
+	assert.Equal(Disconnected, info.Status)
+
+	info = allBatteriesInfo()
+	assert.Equal(Unknown, info.Status)
 
 	// Unknown status.
 	write(battery{"NAME": "BAT1"})
 	info = batteryInfo("BAT1")
-	assert.Equal(t, "Unknown", info.Status)
+	assert.Equal(Unknown, info.Status)
 
 	write(battery{
 		"NAME":   "BAT2",
 		"STATUS": "OtherStatus",
 	})
 	info = batteryInfo("BAT2")
-	assert.Equal(t, "OtherStatus", info.Status)
+	assert.Equal(Unknown, info.Status)
 }
 
 func TestGarbageFiles(t *testing.T) {
@@ -87,7 +92,7 @@ func TestGarbageFiles(t *testing.T) {
 	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/uevent",
 		[]byte(`
 POWER_SUPPLY_NAME=BAT0
-POWER_SUPPLY_STATUS=Charging
+POWER_SUPPLY_STATUS=Disconnected
 This line is weird and should be ignored
 POWER_SUPPLY_VOLTAGE_NOW=12000000
 POWER_SUPPLY_CURRENT_NOW=500000
@@ -101,7 +106,7 @@ And an empty line follows
 `), 0644)
 	info := batteryInfo("BAT0")
 
-	assert.Equal("Charging", info.Status)
+	assert.Equal(Disconnected, info.Status)
 	assert.InDelta(12, info.Voltage, 0.01)
 	assert.InDelta(6, info.Power, 0.01)
 	assert.InDelta(60, info.EnergyFull, 0.01)
@@ -110,6 +115,11 @@ And an empty line follows
 	assert.Equal(0.0, info.EnergyMax)
 	// invalid entry does not overwrite previous.
 	assert.Equal("NiCd", info.Technology)
+
+	fs = afero.NewMemMapFs()
+	afero.WriteFile(fs, "/sys/class/power_supply", []byte(`foobar`), 0644)
+	info = allBatteriesInfo()
+	assert.Equal(Unknown, info.Status)
 }
 
 var micros = 1000 * 1000
@@ -156,7 +166,7 @@ func TestSimple(t *testing.T) {
 	})
 
 	info := batteryInfo("BAT0")
-	assert.Equal("Charging", info.Status)
+	assert.Equal(Charging, info.Status)
 	assert.Equal("Li-poly", info.Technology)
 	assert.InDelta(20.0, info.Voltage, 0.01)
 	assert.InDelta(10.0, info.Power, 0.01)
@@ -169,7 +179,7 @@ func TestSimple(t *testing.T) {
 	assert.True(info.PluggedIn())
 
 	info = batteryInfo("BAT1")
-	assert.Equal("Full", info.Status)
+	assert.Equal(Full, info.Status)
 	assert.True(info.PluggedIn())
 
 	info = batteryInfo("BAT2")
@@ -183,16 +193,16 @@ func TestSimple(t *testing.T) {
 
 	testBar.New(t)
 
-	bat0 := Default().
+	bat0 := Named("BAT0").
 		UrgentWhen(capLt30).
 		Template(`{{.Status}}`)
 
-	bat1 := New("BAT1").
+	bat1 := Named("BAT1").
 		OutputColor(func(i Info) color.Color {
 			return colors.Hex("#ff0000")
 		})
 
-	bat2 := New("BAT2").
+	bat2 := Named("BAT2").
 		UrgentWhen(capLt30).
 		Output(func(i Info) bar.Output {
 			return outputs.Text(i.Technology)
@@ -240,4 +250,95 @@ func TestSimple(t *testing.T) {
 	testBar.NextOutput().At(1).AssertEqual(
 		bar.TextSegment("100").Urgent(false),
 		"when urgent func changes")
+}
+
+func TestCombined(t *testing.T) {
+	assert := assert.New(t)
+	fs = afero.NewMemMapFs()
+
+	bat0 := battery{
+		"NAME":               "BAT0",
+		"STATUS":             "Charging",
+		"PRESENT":            1,
+		"TECHNOLOGY":         "Li-poly",
+		"VOLTAGE_NOW":        20 * micros,
+		"POWER_NOW":          10 * micros,
+		"ENERGY_FULL_DESIGN": 50 * micros,
+		"ENERGY_FULL":        50 * micros,
+		"ENERGY_NOW":         25 * micros,
+		"CAPACITY":           50,
+	}
+	bat1 := battery{
+		"NAME":               "BAT1",
+		"STATUS":             "Not charging",
+		"PRESENT":            1,
+		"VOLTAGE_NOW":        10 * micros,
+		"POWER_NOW":          0 * micros,
+		"ENERGY_FULL_DESIGN": 50 * micros,
+		"ENERGY_FULL":        50 * micros,
+		"ENERGY_NOW":         20 * micros,
+		"CAPACITY":           100,
+	}
+	bat2 := battery{
+		"NAME":               "BAT2",
+		"STATUS":             "Discharging",
+		"PRESENT":            1,
+		"TECHNOLOGY":         "NiCd",
+		"VOLTAGE_NOW":        5 * micros,
+		"CURRENT_NOW":        1 * micros,
+		"CHARGE_FULL_DESIGN": 10 * micros,
+		"CHARGE_FULL":        10 * micros,
+		"CHARGE_NOW":         5 * micros,
+		"CAPACITY":           50,
+	}
+	ac := battery{
+		"NAME":   "AC",
+		"ONLINE": 0,
+	}
+
+	writeAll := func() { write(bat0); write(bat1); write(bat2); write(ac) }
+	writeAll()
+
+	testBar.New(t)
+	testBar.Run(All().Template(`{{.Status}} - {{.RemainingPct}}/{{.RemainingTime}}`))
+
+	info := allBatteriesInfo()
+	assert.Equal("Li-poly,NiCd", info.Technology)
+	assert.InDelta(11.7857142, info.Voltage, 1.0/float64(micros))
+
+	// Total capacity: 150Wh, currently available: 25Wh + 20Wh + 25Wh = 70Wh.
+	// Net to be charged: 80Wh, net charge rate: 10W - 5W =  5W.
+	testBar.LatestOutput().AssertText([]string{
+		"Charging - 46/16h0m0s"}, "on start")
+
+	bat0["STATUS"] = "Discharging"
+	bat2["CURRENT_NOW"] = 2 * micros
+	writeAll()
+	testBar.Tick()
+
+	// Available: 70Wh, net discharge rate: 10W + 10W = 20W.
+	testBar.LatestOutput().AssertText([]string{
+		"Discharging - 46/3h30m0s"})
+
+	bat0["ENERGY_NOW"] = 30 * micros
+	bat0["CAPACITY"] = 60
+	bat2["STATUS"] = "Charging"
+	bat2["CURRENT_NOW"] = 5 * micros
+	writeAll()
+	testBar.Tick()
+
+	// Available: 75Wh, Total: 150Wh.
+	// To charge: 75Wh, net charge rate: 25W - 10W = 15W.
+	testBar.LatestOutput().AssertText([]string{
+		"Charging - 50/5h0m0s"})
+
+	bat0["STATUS"] = "Charging"
+	bat2["STATUS"] = "Discharging"
+	writeAll()
+	testBar.Tick()
+
+	// Available: 75Wh, Total: 150Wh.
+	// Net discharge rate: 25W - 10W = 15W.
+	testBar.LatestOutput().AssertText([]string{
+		"Discharging - 50/5h0m0s"})
 }
