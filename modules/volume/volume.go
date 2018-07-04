@@ -35,7 +35,6 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
 )
 
 // Volume represents the current audio volume and mute state.
@@ -94,10 +93,8 @@ func (m *Module) Output(outputFunc func(Volume) bar.Output) *Module {
 
 // Template configures a module to display the output of a template.
 func (m *Module) Template(template string) *Module {
-	templateFn := outputs.TextTemplate(template)
-	return m.Output(func(v Volume) bar.Output {
-		return templateFn(v)
-	})
+	base.Template(template, m.Output)
+	return m
 }
 
 // OnClick sets the click handler for the module.

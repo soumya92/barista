@@ -98,13 +98,8 @@ func (m *Module) Output(outputFunc func(LoadAvg) bar.Output) *Module {
 
 // Template configures a module to display the output of a template.
 func (m *Module) Template(template string) *Module {
-	templateFn := outputs.TextTemplate(template)
-	return m.Output(func(l LoadAvg) bar.Output {
-		// TODO: See if there's a way to avoid this.
-		// Go does not agree with me when I say that a func(interface{})
-		// should be assignable to a func(LoadAvg).
-		return templateFn(l)
-	})
+	base.Template(template, m.Output)
+	return m
 }
 
 // RefreshInterval configures the polling frequency for getloadavg.

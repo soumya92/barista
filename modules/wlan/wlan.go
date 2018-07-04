@@ -30,7 +30,6 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
 )
 
 // Info represents the wireless card status.
@@ -87,10 +86,8 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 
 // Template configures a module to display the output of a template.
 func (m *Module) Template(template string) *Module {
-	templateFn := outputs.TextTemplate(template)
-	return m.Output(func(i Info) bar.Output {
-		return templateFn(i)
-	})
+	base.Template(template, m.Output)
+	return m
 }
 
 // Stream starts the module.

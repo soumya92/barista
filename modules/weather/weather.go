@@ -23,7 +23,6 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
 
@@ -120,10 +119,8 @@ func (m *Module) Output(outputFunc func(Weather) bar.Output) *Module {
 
 // Template configures a module to display the output of a template.
 func (m *Module) Template(template string) *Module {
-	templateFn := outputs.TextTemplate(template)
-	return m.Output(func(w Weather) bar.Output {
-		return templateFn(w)
-	})
+	base.Template(template, m.Output)
+	return m
 }
 
 // RefreshInterval configures the polling frequency.

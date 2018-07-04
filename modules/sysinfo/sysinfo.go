@@ -107,10 +107,8 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 
 // Template configures a module to display the output of a template.
 func (m *Module) Template(template string) *Module {
-	templateFn := outputs.TextTemplate(template)
-	return m.Output(func(i Info) bar.Output {
-		return templateFn(i)
-	})
+	base.Template(template, m.Output)
+	return m
 }
 
 // Stream subscribes to sysinfo and updates the module's output.

@@ -93,10 +93,8 @@ func (m *Module) Output(outputFunc func(unit.Temperature) bar.Output) *Module {
 
 // Template configures a module to display the output of a template.
 func (m *Module) Template(template string) *Module {
-	templateFn := outputs.TextTemplate(template)
-	return m.Output(func(t unit.Temperature) bar.Output {
-		return templateFn(t)
-	})
+	base.Template(template, m.Output)
+	return m
 }
 
 // RefreshInterval configures the polling frequency for cpu temperatures.

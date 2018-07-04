@@ -25,7 +25,6 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
 )
 
 // State represents the vpn state.
@@ -79,10 +78,8 @@ func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 
 // Template configures a module to display the output of a template.
 func (m *Module) Template(template string) *Module {
-	templateFn := outputs.TextTemplate(template)
-	return m.Output(func(s State) bar.Output {
-		return templateFn(s)
-	})
+	base.Template(template, m.Output)
+	return m
 }
 
 // Stream starts the module.
