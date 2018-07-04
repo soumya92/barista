@@ -175,20 +175,20 @@ func New(player string) *Module {
 	// Set default click handler in New(), can be overridden later.
 	m.OnClick(DefaultClickHandler)
 	// Default output template that's just the currently playing track.
-	m.OutputTemplate(`{{if .Connected}}{{.Title}}{{end}}`)
+	m.Template(`{{if .Connected}}{{.Title}}{{end}}`)
 	return m
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(Info) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(i Info) bar.Output {
+	return m.Output(func(i Info) bar.Output {
 		return templateFn(i)
 	})
 }

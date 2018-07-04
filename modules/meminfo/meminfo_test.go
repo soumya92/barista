@@ -52,8 +52,8 @@ func TestMeminfo(t *testing.T) {
 		"MemFree":      1024,
 	})
 
-	avail := New().OutputTemplate(`{{.Available.Kibibytes}}`)
-	free := New().OutputTemplate(`{{.FreeFrac "Mem"}}`)
+	avail := New().Template(`{{.Available.Kibibytes}}`)
+	free := New().Template(`{{.FreeFrac "Mem"}}`)
 
 	testBar.Run(avail, free)
 	testBar.LatestOutput().AssertText(
@@ -95,9 +95,9 @@ func TestErrors(t *testing.T) {
 	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
 
-	availFrac := New().OutputTemplate(`{{.AvailFrac}}`)
-	free := New().OutputTemplate(`{{.MemFree | ibytesize}}`)
-	total := New().OutputTemplate(`{{.MemTotal | bytesize}}`)
+	availFrac := New().Template(`{{.AvailFrac}}`)
+	free := New().Template(`{{.MemFree | ibytesize}}`)
+	total := New().Template(`{{.MemTotal | bytesize}}`)
 
 	testBar.Run(availFrac, free, total)
 	testBar.LatestOutput().AssertError("on start if missing meminfo")

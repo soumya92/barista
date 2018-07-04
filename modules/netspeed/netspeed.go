@@ -60,20 +60,20 @@ func New(iface string) *Module {
 	l.Register(m, "scheduler", "outputFunc")
 	m.RefreshInterval(3 * time.Second)
 	// Default output template that's just the up and down speeds in SI.
-	m.OutputTemplate("{{.Tx | ibyterate}} up | {{.Rx | ibyterate}} down")
+	m.Template("{{.Tx | ibyterate}} up | {{.Rx | ibyterate}} down")
 	return m
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(Speeds) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(Speeds) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(s Speeds) bar.Output {
+	return m.Output(func(s Speeds) bar.Output {
 		return templateFn(s)
 	})
 }

@@ -98,10 +98,6 @@ type Module struct {
 	currentWeather base.Value // of Weather
 }
 
-func defaultOutputFunc(w Weather) bar.Output {
-	return outputs.Textf("%.1f℃ %s", w.Temperature.Celsius(), w.Description)
-}
-
 // New constructs an instance of the weather module with the provided configuration.
 func New(provider Provider) *Module {
 	m := &Module{
@@ -110,22 +106,22 @@ func New(provider Provider) *Module {
 	}
 	l.Register(m, "outputFunc", "clickHandler", "currentWeather", "scheduler")
 	// Default output template is just the temperature and conditions.
-	m.OutputTemplate(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`)
+	m.Template(`{{.Temperature.C | printf "%.1f"}}℃ {{.Description}}`)
 	m.RefreshInterval(10 * time.Minute)
 	m.OnClick(nil)
 	return m
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(Weather) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(Weather) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(w Weather) bar.Output {
+	return m.Output(func(w Weather) bar.Output {
 		return templateFn(w)
 	})
 }

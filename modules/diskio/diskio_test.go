@@ -62,8 +62,8 @@ func TestDiskIo(t *testing.T) {
 		"sda1": []int{0, 0},
 	})
 
-	sda1 := New("sda1").OutputTemplate(`sda1: {{.Total | byterate}}`)
-	sdb1 := New("sdb1").OutputTemplate(`sdb1: {{.Total | ibyterate}}`)
+	sda1 := New("sda1").Template(`sda1: {{.Total | byterate}}`)
+	sdb1 := New("sdb1").Template(`sdb1: {{.Total | ibyterate}}`)
 	testBar.Run(sda1, sdb1)
 
 	testBar.LatestOutput().AssertEmpty("on start")
@@ -99,7 +99,7 @@ func TestDiskIo(t *testing.T) {
 	testBar.LatestOutput().AssertText(
 		[]string{"sda1: 5.1 kB/s"}, "on tick")
 
-	sda1.OutputFunc(func(i IO) bar.Output {
+	sda1.Output(func(i IO) bar.Output {
 		return outputs.Textf("sda1: %.1f", i.Total().KibibytesPerSecond())
 	})
 

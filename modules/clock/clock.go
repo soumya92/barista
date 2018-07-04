@@ -43,7 +43,7 @@ func (m *Module) getConfig() config {
 	return m.config.Get().(config)
 }
 
-func defaultOutputFunc(now time.Time) bar.Output {
+func defaultOutput(now time.Time) bar.Output {
 	return outputs.Text(now.Format("15:04"))
 }
 
@@ -54,7 +54,7 @@ func Zone(timezone *time.Location) *Module {
 	m.config.Set(config{
 		timezone:    timezone,
 		granularity: time.Minute,
-		outputFunc:  defaultOutputFunc,
+		outputFunc:  defaultOutput,
 	})
 	return m
 }
@@ -74,14 +74,14 @@ func ZoneByName(name string) (*Module, error) {
 	return Zone(tz), nil
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
+// Output configures a module to display the output of a user-defined function.
 //
 // The first argument configures the granularity at which the module should refresh.
 // For example, if the format does not have seconds, it should be time.Minute.
 //
 // The module will always update at the next second, minute, hour, etc.,
 // so large granularities will not negatively affect the output.
-func (m *Module) OutputFunc(
+func (m *Module) Output(
 	granularity time.Duration,
 	outputFunc func(time.Time) bar.Output,
 ) *Module {
@@ -107,7 +107,7 @@ func (m *Module) OutputFormat(format string) *Module {
 	case strings.Contains(format, "04"):
 		granularity = time.Minute
 	}
-	return m.OutputFunc(granularity, func(now time.Time) bar.Output {
+	return m.Output(granularity, func(now time.Time) bar.Output {
 		return outputs.Text(now.Format(format))
 	})
 }

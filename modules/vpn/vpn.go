@@ -61,7 +61,7 @@ func New(iface string) *Module {
 	l.Label(m, iface)
 	l.Register(m, "outputFunc")
 	// Default output template that's just 'VPN' when connected.
-	m.OutputTemplate("{{if .Connected}}VPN{{end}}")
+	m.Template("{{if .Connected}}VPN{{end}}")
 	return m
 }
 
@@ -71,16 +71,16 @@ func DefaultInterface() *Module {
 	return New("tun0")
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(State) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(s State) bar.Output {
+	return m.Output(func(s State) bar.Output {
 		return templateFn(s)
 	})
 }

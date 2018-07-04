@@ -86,7 +86,7 @@ type Module struct {
 	outputFunc base.Value
 }
 
-func defaultOutputFunc(i Info) bar.Output {
+func defaultOutput(i Info) bar.Output {
 	return outputs.Textf("up: %s, load: %0.2f", i.Uptime, i.Loads[0])
 }
 
@@ -94,21 +94,21 @@ func defaultOutputFunc(i Info) bar.Output {
 func New() *Module {
 	construct()
 	m := &Module{ticker: infoEmitter.Subscribe()}
-	m.OutputFunc(defaultOutputFunc)
+	m.Output(defaultOutput)
 	l.Register(m, "outputFunc")
 	return m
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(Info) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(i Info) bar.Output {
+	return m.Output(func(i Info) bar.Output {
 		return templateFn(i)
 	})
 }

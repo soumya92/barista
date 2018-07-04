@@ -119,7 +119,7 @@ func main() {
 	})
 
 	localtime := clock.Local().
-		OutputFunc(time.Second, func(now time.Time) bar.Output {
+		Output(time.Second, func(now time.Time) bar.Output {
 			return outputs.Pango(
 				pango.Icon("material-today").Color(colors.Scheme("dim-icon")),
 				now.Format("Mon Jan 2 "),
@@ -137,7 +137,7 @@ func main() {
 	// https://openweathermap.org/api.
 	wthr := weather.New(
 		openweathermap.Zipcode("94043", "US").Build(),
-	).OutputFunc(func(w weather.Weather) bar.Output {
+	).Output(func(w weather.Weather) bar.Output {
 		iconName := ""
 		switch w.Condition {
 		case weather.Thunderstorm,
@@ -184,7 +184,7 @@ func main() {
 		)
 	})
 
-	vol := volume.DefaultMixer().OutputFunc(func(v volume.Volume) bar.Output {
+	vol := volume.DefaultMixer().Output(func(v volume.Volume) bar.Output {
 		if v.Mute {
 			return outputs.
 				Pango(pango.Icon("ion-volume-off"), "MUT").
@@ -204,7 +204,7 @@ func main() {
 		)
 	})
 
-	loadAvg := sysinfo.New().OutputFunc(func(s sysinfo.Info) bar.Output {
+	loadAvg := sysinfo.New().Output(func(s sysinfo.Info) bar.Output {
 		out := outputs.Textf("%0.2f %0.2f", s.Loads[0], s.Loads[2])
 		// Load averages are unusually high for a few minutes after boot.
 		if s.Uptime < 10*time.Minute {
@@ -223,7 +223,7 @@ func main() {
 	})
 	loadAvg.OnClick(startTaskManager)
 
-	freeMem := meminfo.New().OutputFunc(func(m meminfo.Info) bar.Output {
+	freeMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
 		out := outputs.Pango(pango.Icon("material-memory"), outputs.IBytesize(m.Available()))
 		freeGigs := m.Available().Gigabytes()
 		switch {
@@ -255,7 +255,7 @@ func main() {
 				return nil
 			}
 		}).
-		OutputFunc(func(temp unit.Temperature) bar.Output {
+		Output(func(temp unit.Temperature) bar.Output {
 			return outputs.Pango(
 				pango.Icon("mdi-fan"), spacer,
 				pango.Textf("%2d℃", int(temp.Celsius())),
@@ -264,7 +264,7 @@ func main() {
 
 	net := netspeed.New("eno1").
 		RefreshInterval(2 * time.Second).
-		OutputFunc(func(s netspeed.Speeds) bar.Output {
+		Output(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
 				pango.Icon("fa-upload"), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
 				pango.Text(" ").Small(),
@@ -272,7 +272,7 @@ func main() {
 			)
 		})
 
-	rhythmbox := media.New("rhythmbox").OutputFunc(mediaFormatFunc)
+	rhythmbox := media.New("rhythmbox").Output(mediaFormatFunc)
 
 	g := group.Collapsing()
 

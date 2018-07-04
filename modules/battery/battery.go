@@ -126,7 +126,7 @@ func New(name string) *Module {
 	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just the available battery percent.
-	m.OutputTemplate(`BATT {{.RemainingPct}}%`)
+	m.Template(`BATT {{.RemainingPct}}%`)
 	return m
 }
 
@@ -135,18 +135,18 @@ func Default() *Module {
 	return New("BAT0")
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(Info) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	c := m.getFormat()
 	c.outputFunc = outputFunc
 	m.format.Set(c)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(i Info) bar.Output {
+	return m.Output(func(i Info) bar.Output {
 		return templateFn(i)
 	})
 }

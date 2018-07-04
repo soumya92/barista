@@ -74,7 +74,7 @@ func Zone(thermalZone string) *Module {
 	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
 	// Default output template, if no template/function was specified.
-	m.OutputTemplate(`{{.Celsius | printf "%.1f"}}℃`)
+	m.Template(`{{.Celsius | printf "%.1f"}}℃`)
 	return m
 }
 
@@ -83,18 +83,18 @@ func DefaultZone() *Module {
 	return Zone("thermal_zone0")
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(unit.Temperature) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(unit.Temperature) bar.Output) *Module {
 	c := m.getFormat()
 	c.outputFunc = outputFunc
 	m.format.Set(c)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(t unit.Temperature) bar.Output {
+	return m.Output(func(t unit.Temperature) bar.Output {
 		return templateFn(t)
 	})
 }

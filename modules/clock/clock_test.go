@@ -108,7 +108,7 @@ func TestManualGranularities(t *testing.T) {
 	testBar.New(t)
 	timing.AdvanceTo(fixedTime)
 
-	local := Local().OutputFunc(time.Hour, func(now time.Time) bar.Output {
+	local := Local().Output(time.Hour, func(now time.Time) bar.Output {
 		return outputs.Text(now.Format("15:04:05"))
 	})
 	testBar.Run(local)
@@ -123,7 +123,7 @@ func TestManualGranularities(t *testing.T) {
 	testBar.NextOutput().AssertText(
 		[]string{"02:00:00"}, "on tick")
 
-	local.OutputFunc(time.Minute, func(now time.Time) bar.Output {
+	local.Output(time.Minute, func(now time.Time) bar.Output {
 		return outputs.Text(now.Format("15:04:05.00"))
 	})
 	testBar.NextOutput().AssertText(

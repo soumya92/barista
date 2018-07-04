@@ -79,7 +79,7 @@ func TestNetspeed(t *testing.T) {
 
 	n := New("if0").
 		RefreshInterval(time.Second).
-		OutputTemplate(`{{.Rx.KibibytesPerSecond}}/{{.Tx.KibibytesPerSecond}}`)
+		Template(`{{.Rx.KibibytesPerSecond}}/{{.Tx.KibibytesPerSecond}}`)
 
 	testBar.Run(n)
 	testBar.AssertNoOutput("on start")
@@ -100,12 +100,12 @@ func TestNetspeed(t *testing.T) {
 
 	testBar.NextOutput().AssertEqual(outputs.Text("4/1"), "on tick")
 
-	n.OutputTemplate(`{{.Total | ibyterate}}`)
+	n.Template(`{{.Total | ibyterate}}`)
 	testBar.NextOutput().AssertEqual(
 		outputs.Text("5.0 KiB/s"),
 		"uses previous result on output function change")
 
-	n.OutputTemplate(`{{.Total | byterate}}`)
+	n.Template(`{{.Total | byterate}}`)
 	testBar.NextOutput().AssertEqual(
 		outputs.Text("5.1 kB/s"),
 		"uses previous result on output function change")

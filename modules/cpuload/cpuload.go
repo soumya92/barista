@@ -84,22 +84,22 @@ func New() *Module {
 	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just 2 decimals of the 1-minute load average.
-	m.OutputTemplate(`{{.Min1 | printf "%.2f"}}`)
+	m.Template(`{{.Min1 | printf "%.2f"}}`)
 	return m
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(LoadAvg) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(LoadAvg) bar.Output) *Module {
 	c := m.getFormat()
 	c.outputFunc = outputFunc
 	m.format.Set(c)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(l LoadAvg) bar.Output {
+	return m.Output(func(l LoadAvg) bar.Output {
 		// TODO: See if there's a way to avoid this.
 		// Go does not agree with me when I say that a func(interface{})
 		// should be assignable to a func(LoadAvg).

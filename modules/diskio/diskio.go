@@ -90,7 +90,7 @@ type Module struct {
 	outputFunc base.Value
 }
 
-func defaultOutputFunc(i IO) bar.Output {
+func defaultOutput(i IO) bar.Output {
 	return outputs.Textf("Disk: %s", outputs.IByterate(i.Total()))
 }
 
@@ -107,20 +107,20 @@ func New(disk string) *Module {
 	m := &Module{ioChan: mInfo.makeChannel()}
 	l.Label(m, disk)
 	l.Register(m, "ioChan", "outputFunc")
-	m.OutputFunc(defaultOutputFunc)
+	m.Output(defaultOutput)
 	return m
 }
 
-// OutputFunc configures a module to display the output of a user-defined function.
-func (m *Module) OutputFunc(outputFunc func(IO) bar.Output) *Module {
+// Output configures a module to display the output of a user-defined function.
+func (m *Module) Output(outputFunc func(IO) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
-// OutputTemplate configures a module to display the output of a template.
-func (m *Module) OutputTemplate(template string) *Module {
+// Template configures a module to display the output of a template.
+func (m *Module) Template(template string) *Module {
 	templateFn := outputs.TextTemplate(template)
-	return m.OutputFunc(func(i IO) bar.Output {
+	return m.Output(func(i IO) bar.Output {
 		return templateFn(i)
 	})
 }
