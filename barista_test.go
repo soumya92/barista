@@ -21,7 +21,6 @@ import (
 	"image/color"
 	"os"
 	"os/signal"
-	"runtime"
 	"testing"
 	"time"
 
@@ -74,16 +73,6 @@ func readOutputTexts(t *testing.T, stdout *mockio.Writable) []string {
 		outputs[idx] = jsonOutput["full_text"].(string)
 	}
 	return outputs
-}
-
-func waitForSignal(sigChan <-chan os.Signal) {
-	ch := make(chan bool)
-	go func() {
-		<-sigChan
-		runtime.Gosched()
-		ch <- true
-	}()
-	<-ch
 }
 
 func TestSingleModule(t *testing.T) {
@@ -245,13 +234,14 @@ func TestPauseResume(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 	TestMode(mockStdin, mockStdout)
+	pausedChan := make(chan bool, 1)
+	instance.pausedChan = pausedChan
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
 	go Run(module1, module2)
-
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, unix.SIGUSR1, unix.SIGUSR2)
+	// bar resumes on start.
+	<-pausedChan
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -271,7 +261,7 @@ func TestPauseResume(t *testing.T) {
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	waitForSignal(signalChan)
+	assert.True(t, <-pausedChan)
 	module1.OutputText("a")
 	module2.OutputText("b")
 	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
@@ -289,7 +279,7 @@ func TestPauseResume(t *testing.T) {
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	waitForSignal(signalChan)
+	assert.False(t, <-pausedChan)
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"a", "b"}, out,
 		"Outputs while paused printed on resume")
@@ -305,22 +295,23 @@ func TestPauseResume(t *testing.T) {
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
-		"Resuming a running bar is a nop")
+	select {
+	case <-pausedChan:
+		assert.Fail(t, "Resuming a running bar is a nop")
+	case <-time.After(10 * time.Millisecond): // test passed.
+	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	waitForSignal(signalChan)
+	assert.True(t, <-pausedChan)
 	module2.OutputText("c")
 	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"No output while paused, got %s", mockStdout.ReadNow())
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	waitForSignal(signalChan)
+	assert.False(t, <-pausedChan)
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"a", "c"}, out,
 		"Partial updates while paused")
-
-	signal.Stop(signalChan)
 }
 
 func TestClickEvents(t *testing.T) {
@@ -444,19 +435,19 @@ func TestSignalHandlingSuppression(t *testing.T) {
 	module.AssertStarted()
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	waitForSignal(signalChan)
+	<-signalChan
 	module.OutputText("a")
 	outs := readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"a"}, outs,
 		"Not paused on USR1")
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	waitForSignal(signalChan)
+	<-signalChan
 	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"USR2 is a nop")
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	waitForSignal(signalChan)
+	<-signalChan
 	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"USR1 is a nop")
 

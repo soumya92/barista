@@ -106,6 +106,8 @@ type i3Bar struct {
 	// For testing, output the associated error in the json as well.
 	// This allows output tester to accurately check for errors.
 	includeErrorsInOutput bool
+	// For testing, emits true when paused and false when resumed.
+	pausedChan chan<- bool
 }
 
 // output converts the module's output to i3Output by adding the name (position),
@@ -511,8 +513,14 @@ func (b *i3Bar) pause() {
 	l.Log("Bar paused")
 	b.Lock()
 	defer b.Unlock()
+	if b.paused {
+		return
+	}
 	b.paused = true
 	timing.Pause()
+	if b.pausedChan != nil {
+		b.pausedChan <- true
+	}
 }
 
 // resume instructs all pausable modules to continue processing.
@@ -520,11 +528,17 @@ func (b *i3Bar) resume() {
 	l.Log("Bar resumed")
 	b.Lock()
 	defer b.Unlock()
+	if !b.paused {
+		return
+	}
 	b.paused = false
 	timing.Resume()
 	if b.refreshOnResume {
 		b.refreshOnResume = false
 		b.maybeUpdate()
+	}
+	if b.pausedChan != nil {
+		b.pausedChan <- false
 	}
 }
 
