@@ -96,15 +96,15 @@ func (m *Module) Output(
 func (m *Module) OutputFormat(format string) *Module {
 	granularity := time.Hour
 	switch {
-	case strings.Contains(format, ".000"):
+	case strings.Contains(format, ".000"), strings.Contains(format, ".999"):
 		granularity = time.Millisecond
-	case strings.Contains(format, ".00"):
+	case strings.Contains(format, ".00"), strings.Contains(format, ".99"):
 		granularity = 10 * time.Millisecond
-	case strings.Contains(format, ".0"):
+	case strings.Contains(format, ".0"), strings.Contains(format, ".9"):
 		granularity = 100 * time.Millisecond
-	case strings.Contains(format, "05"):
+	case strings.Contains(format, "05"), strings.Contains(format, "_5"):
 		granularity = time.Second
-	case strings.Contains(format, "04"):
+	case strings.Contains(format, "04"), strings.Contains(format, "_4"):
 		granularity = time.Minute
 	}
 	return m.Output(granularity, func(now time.Time) bar.Output {
