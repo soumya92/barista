@@ -16,8 +16,8 @@
 package module
 
 import (
+	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/stretchrcom/testify/assert"
@@ -35,14 +35,11 @@ var negativeTimeout = 10 * time.Millisecond
 type TestModule struct {
 	sync.Mutex
 	assert  *assert.Assertions
-	state   atomic.Value // of testModuleState
-	onStart chan<- bool
-}
-
-type testModuleState struct {
 	started bool
 	outputs chan bar.Output
 	events  chan bar.Event
+	onStart chan<- bool
+	onStop  chan<- bool
 }
 
 // New creates a new module with the given testingT that can be used
@@ -51,53 +48,55 @@ func New(t assert.TestingT) *TestModule {
 	return &TestModule{assert: assert.New(t)}
 }
 
-func (t *TestModule) getState() testModuleState {
-	s, _ := t.state.Load().(testModuleState)
-	return s // if conversion failed, zero value is fine.
-}
-
 // Stream conforms to bar.Module.
 func (t *TestModule) Stream(sink bar.Sink) {
-	s := t.getState()
-	if s.started {
+	t.Lock()
+	if t.started {
+		t.Unlock()
 		panic("already streaming!")
 	}
-
-	t.Lock()
-	newS := testModuleState{
-		outputs: make(chan bar.Output, 100),
-		events:  make(chan bar.Event, 100),
-		started: true,
-	}
+	outputs := make(chan bar.Output, 100)
+	t.outputs = outputs
+	t.events = make(chan bar.Event, 100)
+	t.started = true
 	onStart := t.onStart
 	t.onStart = nil
-	t.state.Store(newS)
 	t.Unlock()
 
 	if onStart != nil {
 		go func() { onStart <- true }()
 	}
-	for out := range newS.outputs {
+	for out := range outputs {
 		sink.Output(out)
+	}
+	t.Lock()
+	t.started = false
+	onStop := t.onStop
+	t.onStop = nil
+	t.Unlock()
+	if onStop != nil {
+		go func() { onStop <- true }()
 	}
 }
 
 // Click conforms to bar.Clickable.
 func (t *TestModule) Click(e bar.Event) {
-	s := t.getState()
-	if !s.started {
-		panic("not streaming!")
+	t.Lock()
+	defer t.Unlock()
+	if !t.started {
+		panic(fmt.Sprintf("not streaming! (tried to click: %+#v)", e))
 	}
-	s.events <- e
+	t.events <- e
 }
 
 // Output queues output to be sent over the channel on the next read.
 func (t *TestModule) Output(out bar.Output) {
-	s := t.getState()
-	if !s.started {
-		panic("not streaming!")
+	t.Lock()
+	defer t.Unlock()
+	if !t.started {
+		panic(fmt.Sprintf("not streaming! (tried to output: %+#v)", out))
 	}
-	s.outputs <- out
+	t.outputs <- out
 }
 
 // OutputText is shorthand for Output(bar.TextSegment(...)).
@@ -108,17 +107,24 @@ func (t *TestModule) OutputText(text string) {
 // Close closes the module's channels, allowing the bar to restart
 // the module on click.
 func (t *TestModule) Close() {
-	s := t.getState()
-	close(s.outputs)
-	close(s.events)
-	t.state.Store(testModuleState{})
+	stopChan := make(chan bool)
+	t.Lock()
+	t.onStop = stopChan
+	close(t.outputs)
+	t.outputs = nil
+	t.Unlock()
+	<-stopChan
+	t.Lock()
+	close(t.events)
+	t.events = nil
+	t.Unlock()
 }
 
 // AssertStarted waits for the module to start, or does nothing
 // if the module is already streaming.
 func (t *TestModule) AssertStarted(args ...interface{}) {
 	t.Lock()
-	if t.getState().started {
+	if t.started {
 		t.Unlock()
 		return
 	}
@@ -135,16 +141,24 @@ func (t *TestModule) AssertStarted(args ...interface{}) {
 
 // AssertNotStarted asserts that the module was not started.
 func (t *TestModule) AssertNotStarted(args ...interface{}) {
-	s := t.getState()
-	t.assert.False(s.started, args...)
+	t.Lock()
+	defer t.Unlock()
+	t.assert.False(t.started, args...)
 }
 
 // AssertClicked asserts that the module was clicked and returns the event.
 // Calling this multiple times asserts multiple click events.
 func (t *TestModule) AssertClicked(args ...interface{}) bar.Event {
-	s := t.getState()
+	t.Lock()
+	started := t.started
+	evtChan := t.events
+	t.Unlock()
+	if !started {
+		t.assert.Fail("expecting click event on stopped module!", args...)
+		return bar.Event{}
+	}
 	select {
-	case evt := <-s.events:
+	case evt := <-evtChan:
 		return evt
 	case <-time.After(positiveTimeout):
 		t.assert.Fail("expected a click event", args...)
@@ -154,9 +168,11 @@ func (t *TestModule) AssertClicked(args ...interface{}) bar.Event {
 
 // AssertNotClicked asserts that the module received no events.
 func (t *TestModule) AssertNotClicked(args ...interface{}) {
-	s := t.getState()
+	t.Lock()
+	evtChan := t.events
+	t.Unlock()
 	select {
-	case <-s.events:
+	case <-evtChan:
 		t.assert.Fail("expected no click event", args...)
 	case <-time.After(negativeTimeout):
 	}
