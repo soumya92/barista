@@ -52,6 +52,9 @@ func construct() {
 		if mods, ok := trimPrefix(arg, "--finelog="); ok {
 			fineLogModules = append(fineLogModules, strings.Split(mods, ",")...)
 		}
+		if mods, ok := trimPrefix(arg, "-finelog="); ok {
+			fineLogModules = append(fineLogModules, strings.Split(mods, ",")...)
+		}
 	}
 }
 
