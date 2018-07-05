@@ -70,11 +70,14 @@ func TestUnknownAndMissingStatus(t *testing.T) {
 	assert.Equal(Disconnected, info.Status)
 
 	info = allBatteriesInfo()
-	assert.Equal(Unknown, info.Status)
+	assert.Equal(Disconnected, info.Status)
 
 	// Unknown status.
 	write(battery{"NAME": "BAT1"})
 	info = batteryInfo("BAT1")
+	assert.Equal(Unknown, info.Status)
+
+	info = allBatteriesInfo()
 	assert.Equal(Unknown, info.Status)
 
 	write(battery{
@@ -82,6 +85,9 @@ func TestUnknownAndMissingStatus(t *testing.T) {
 		"STATUS": "OtherStatus",
 	})
 	info = batteryInfo("BAT2")
+	assert.Equal(Unknown, info.Status)
+
+	info = allBatteriesInfo()
 	assert.Equal(Unknown, info.Status)
 }
 
@@ -296,13 +302,17 @@ func TestCombined(t *testing.T) {
 		"ONLINE": 0,
 	}
 
+	write(ac)
+	info := allBatteriesInfo()
+	assert.Equal(Disconnected, info.Status)
+
 	writeAll := func() { write(bat0); write(bat1); write(bat2); write(ac) }
 	writeAll()
 
 	testBar.New(t)
 	testBar.Run(All().Template(`{{.Status}} - {{.RemainingPct}}/{{.RemainingTime}}`))
 
-	info := allBatteriesInfo()
+	info = allBatteriesInfo()
 	assert.Equal("Li-poly,NiCd", info.Technology)
 	assert.InDelta(11.7857142, info.Voltage, 1.0/float64(micros))
 

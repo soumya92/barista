@@ -273,6 +273,8 @@ func fromStatusStr(str string) Status {
 		return Discharging
 	case string(Disconnected):
 		return Disconnected
+	case string(NotCharging):
+		return NotCharging
 	default:
 		return Unknown
 	}
@@ -342,24 +344,28 @@ func batteryInfo(name string) Info {
 func allBatteriesInfo() Info {
 	dir, err := fs.Open("/sys/class/power_supply")
 	if err != nil {
-		l.Log("Failed to list batteries: %s", err)
-		return Info{}
+		l.Log("No batteries: %s", err)
+		return Info{Status: Disconnected}
 	}
 	batts, err := dir.Readdirnames(-1)
 	if err != nil {
 		l.Log("Failed to list batteries: %s", err)
-		return Info{}
+		return Info{Status: Unknown}
 	}
-	var allInfo Info
-	var techs []string
-	var voltEnergySum float64
-
+	var infos []Info
 	for _, batt := range batts {
 		if !strings.HasPrefix(batt, "BAT") {
 			continue
 		}
-		info := batteryInfo(batt)
-
+		infos = append(infos, batteryInfo(batt))
+	}
+	if len(infos) == 0 {
+		return Info{Status: Disconnected}
+	}
+	var allInfo Info
+	var techs []string
+	var voltEnergySum float64
+	for _, info := range infos {
 		allInfo.EnergyFull += info.EnergyFull
 		allInfo.EnergyMax += info.EnergyMax
 		allInfo.EnergyNow += info.EnergyNow
