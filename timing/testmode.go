@@ -16,7 +16,6 @@ package timing
 
 import (
 	"errors"
-	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -87,16 +86,6 @@ func reset(fn func()) {
 	paused = false
 }
 
-func sortedTriggers() (sorted triggerList, hasTriggers bool) {
-	triggersMu.Lock()
-	defer triggersMu.Unlock()
-	if len(triggers) == 0 {
-		return triggers, false
-	}
-	sort.Sort(triggers)
-	return triggers, true
-}
-
 func (s *testScheduler) setNextTrigger(when time.Time) Scheduler {
 	newTriggers := triggerList{}
 	triggersMu.Lock()
@@ -110,6 +99,7 @@ func (s *testScheduler) setNextTrigger(when time.Time) Scheduler {
 	if !when.IsZero() {
 		triggers = append(triggers, trigger{s, when})
 	}
+	sort.Sort(triggers)
 	return s
 }
 
@@ -148,58 +138,65 @@ func (s *testScheduler) Stop() {
 // NextTick triggers the next scheduler and returns the trigger time.
 // It also advances test time to match.
 func NextTick() time.Time {
-	sorted, hasTriggers := sortedTriggers()
-	if !hasTriggers {
+	triggersMu.Lock()
+	defer triggersMu.Unlock()
+	if len(triggers) == 0 {
 		return testNow()
 	}
-	when := sorted[0].when
-	AdvanceTo(when)
-	return testNow()
+	when := triggers[0].when
+	return advanceToLocked(when)
 }
 
 // AdvanceBy increments the test time by the given duration,
 // and triggers any schedulers that were scheduled in the meantime.
-func AdvanceBy(duration time.Duration) {
-	AdvanceTo(Now().Add(duration))
+func AdvanceBy(duration time.Duration) time.Time {
+	return AdvanceTo(Now().Add(duration))
 }
 
 // AdvanceTo increments the test time to the given time,
 // and triggers any schedulers that were scheduled in the meantime.
-func AdvanceTo(newTime time.Time) {
-	sorted, hasTriggers := sortedTriggers()
-	if !hasTriggers {
+func AdvanceTo(newTime time.Time) time.Time {
+	triggersMu.Lock()
+	defer triggersMu.Unlock()
+	return advanceToLocked(newTime)
+}
+
+func advanceToLocked(newTime time.Time) time.Time {
+	if len(triggers) == 0 {
 		nowInTest.Store(newTime)
-		return
+		return newTime
 	}
-	nextTick := sorted[0].when
+	nextTick := triggers[0].when
 	if nextTick.After(newTime) {
 		nowInTest.Store(newTime)
-		return
+		return newTime
 	}
-	if nextTick.After(testNow()) {
+	now := testNow()
+	if nextTick.After(now) {
 		nowInTest.Store(nextTick)
+	} else {
+		nextTick = now
 	}
 	idx := 0
-	for i, t := range sorted {
-		if sorted[i].when.After(nextTick) {
+	for i, t := range triggers {
+		if triggers[i].when.After(nextTick) {
 			break
 		}
 		if t.what.interval > 0 {
 			t.when = t.what.nextRepeatingTick()
-			sorted = append(sorted, t)
+			triggers = append(triggers, t)
 		}
 		idx = i + 1
-		go t.what.maybeTrigger()
+		t.what.maybeTrigger()
 	}
-	triggersMu.Lock()
-	triggers = sorted[idx:]
-	triggersMu.Unlock()
+	triggers = triggers[idx:]
 	if idx == 0 {
 		nowInTest.Store(newTime)
-		return
+		return newTime
 	}
-	if newTime.After(testNow()) {
-		runtime.Gosched()
-		AdvanceTo(newTime)
+	sort.Sort(triggers)
+	if newTime.After(nextTick) {
+		return advanceToLocked(newTime)
 	}
+	return nextTick
 }

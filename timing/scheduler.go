@@ -66,18 +66,22 @@ func Pause() {
 	paused = true
 }
 
-// await waits for the bar to resume timing.
-// It returns immediately if the bar is not paused.
-func await() {
+// await executes the given function when the bar is running.
+// If the bar is paused, it waits for the bar to resume.
+func await(fn func()) {
 	mu.Lock()
 	if !paused {
 		mu.Unlock()
+		fn()
 		return
 	}
 	ch := make(chan struct{})
 	waiters = append(waiters, ch)
 	mu.Unlock()
-	<-ch
+	go func() {
+		<-ch
+		fn()
+	}()
 }
 
 // Resume timing.
@@ -133,7 +137,7 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 			return
 		}
 		for range ticker.C {
-			go s.maybeTrigger()
+			s.maybeTrigger()
 		}
 	}()
 	return s
@@ -150,10 +154,11 @@ func (s *scheduler) maybeTrigger() {
 	if !atomic.CompareAndSwapInt32(&s.waiting, 0, 1) {
 		return
 	}
-	await()
-	if atomic.CompareAndSwapInt32(&s.waiting, 1, 0) {
-		s.notifyFn()
-	}
+	await(func() {
+		if atomic.CompareAndSwapInt32(&s.waiting, 1, 0) {
+			s.notifyFn()
+		}
+	})
 }
 
 func (s *scheduler) stop() {

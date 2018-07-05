@@ -63,6 +63,13 @@ func TestTiming_TestMode(t *testing.T) {
 	assertNotTriggered(t, sch2, "already elapsed")
 	assertNotTriggered(t, sch3, "already elapsed")
 	assertTriggered(t, sch1, "when advancing beyond trigger duration")
+
+	now := Now()
+	sch1.At(now.Add(time.Minute))
+	sch1.At(now.Add(time.Hour))
+	sch1.At(now.Add(time.Second))
+	assert.Equal(t, now.Add(time.Second), NextTick())
+	assertTriggered(t, sch1)
 }
 
 func TestRepeating_TestMode(t *testing.T) {
@@ -102,7 +109,7 @@ func TestRepeatingChange_TestMode(t *testing.T) {
 	assert.Equal(t, now.Add(2*time.Minute), NextTick())
 	assert.Equal(t, now.Add(3*time.Minute), NextTick())
 
-	now = Now()
+	now = now.Add(3 * time.Minute)
 	sch.Every(time.Hour)
 	assert.Equal(t, now.Add(1*time.Hour), NextTick())
 	assert.Equal(t, now.Add(2*time.Hour), NextTick())
@@ -139,35 +146,27 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 
 	var tickCount int32
 	var launched sync.WaitGroup
-	var waited sync.WaitGroup
 	for i := 0; i < 60; i++ {
 		launched.Add(1)
-		waited.Add(1)
 		// Ensure that no writes to sch's ticker will block,
 		// by adding listeners to the channel in advance.
 		go func() {
 			launched.Done()
 			<-sch.Tick()
 			atomic.AddInt32(&tickCount, 1)
-			waited.Done()
 		}()
 	}
 
 	launched.Wait() // ensure goroutines are launched.
 	AdvanceBy(time.Minute)
 
-	// If fewer than 60 ticks are received, this will never finish.
-	doneChan := make(chan struct{})
-	go func() {
-		waited.Wait()
-		doneChan <- struct{}{}
-	}()
-
-	select {
-	case <-doneChan: // Test passed.
-	case <-time.After(time.Second):
-		assert.Fail(t, "Did not receive 60 ticks",
-			"Only got %d tick(s)", tickCount)
+	// Expect all ticks to be received within 10ms of real time.
+	time.Sleep(10 * time.Millisecond)
+	actualTicks := atomic.LoadInt32(&tickCount)
+	if actualTicks < 54 {
+		assert.Fail(t, "Not enough notifications",
+			"Expected >= 54 ticks out of 60, only got %d tick(s)",
+			actualTicks)
 	}
 }
 
@@ -176,7 +175,7 @@ func TestCoalescedUpdates_TestMode(t *testing.T) {
 
 	sch := NewScheduler()
 	sch.Every(15 * time.Millisecond)
-	AdvanceBy(45 * time.Millisecond)
+	AdvanceBy(45 * time.Second)
 	runtime.Gosched()
 	assertTriggered(t, sch, "after multiple intervals")
 	assertNotTriggered(t, sch, "multiple updates coalesced")
