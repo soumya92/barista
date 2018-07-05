@@ -75,6 +75,17 @@ func readOutputTexts(t *testing.T, stdout *mockio.Writable) []string {
 	return outputs
 }
 
+func debugEvents(kind ...debugEventKind) <-chan debugEvent {
+	ch := make(chan debugEvent, 10)
+	mask := 0
+	for _, k := range kind {
+		mask |= int(k)
+	}
+	instance.debugChan = ch
+	instance.debugMask = mask
+	return ch
+}
+
 func TestSingleModule(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
@@ -201,6 +212,7 @@ func TestMultiSegmentModule(t *testing.T) {
 
 	module := testModule.New(t)
 	go Run(module)
+	module.AssertStarted()
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -234,14 +246,13 @@ func TestPauseResume(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 	TestMode(mockStdin, mockStdout)
-	pausedChan := make(chan bool, 1)
-	instance.pausedChan = pausedChan
+	pauseChan := debugEvents(dEvtPaused, dEvtResumed)
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
 	go Run(module1, module2)
 	// bar resumes on start.
-	<-pausedChan
+	<-pauseChan
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
 	assert.Nil(t, err, "output array started without any errors")
@@ -253,62 +264,67 @@ func TestPauseResume(t *testing.T) {
 	out := readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"1"}, out, "Outputs before pause")
 	sch1 := timing.NewScheduler().After(time.Millisecond)
-	time.Sleep(2 * time.Millisecond)
 	select {
 	case <-sch1.Tick():
-	default:
+	case <-time.After(time.Second):
 		assert.Fail(t, "Scheduler not triggered while bar is running")
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	assert.True(t, <-pausedChan)
+	assert.Equal(t, dEvtPaused, (<-pauseChan).kind)
 	module1.OutputText("a")
 	module2.OutputText("b")
 	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
-		"No output while paused")
+		"No output while paused, got %s", mockStdout.ReadNow())
 
 	sch1.After(time.Millisecond)
 	sch2 := timing.NewScheduler().After(time.Millisecond)
-	time.Sleep(2 * time.Millisecond)
 	select {
 	case <-sch1.Tick():
 		assert.Fail(t, "Scheduler triggered while bar is paused")
 	case <-sch2.Tick():
 		assert.Fail(t, "Scheduler triggered while bar is paused")
-	default:
+	case <-time.After(10 * time.Millisecond): // test passed
+	}
+
+	unix.Kill(unix.Getpid(), unix.SIGUSR1)
+	select {
+	case <-pauseChan:
+		assert.Fail(t, "Pausing a paused bar is a nop")
+	case <-time.After(10 * time.Millisecond): // test passed.
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	assert.False(t, <-pausedChan)
+	assert.Equal(t, dEvtResumed, (<-pauseChan).kind)
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"a", "b"}, out,
 		"Outputs while paused printed on resume")
 	select {
 	case <-sch1.Tick():
-	default:
+	case <-time.After(time.Second):
 		assert.Fail(t, "Scheduler not triggered after bar is resumed")
 	}
 	select {
 	case <-sch2.Tick():
-	default:
+	case <-time.After(time.Second):
 		assert.Fail(t, "Scheduler not triggered after bar is resumed")
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
 	select {
-	case <-pausedChan:
+	case <-pauseChan:
 		assert.Fail(t, "Resuming a running bar is a nop")
 	case <-time.After(10 * time.Millisecond): // test passed.
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	assert.True(t, <-pausedChan)
+	assert.Equal(t, dEvtPaused, (<-pauseChan).kind)
 	module2.OutputText("c")
 	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"No output while paused, got %s", mockStdout.ReadNow())
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	assert.False(t, <-pausedChan)
+	assert.Equal(t, dEvtResumed, (<-pauseChan).kind)
 	out = readOutputTexts(t, mockStdout)
 	assert.Equal(t, []string{"a", "c"}, out,
 		"Partial updates while paused")
@@ -318,6 +334,7 @@ func TestClickEvents(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 	TestMode(mockStdin, mockStdout)
+	stopChan := debugEvents(dEvtModuleStopped)
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
@@ -386,7 +403,9 @@ func TestClickEvents(t *testing.T) {
 	module2.AssertClicked("events are received after the weird name")
 
 	module1.Close()
+	dEvt := <-stopChan
 	module1.AssertNotStarted("After Close()")
+	assert.Contains(t, module1Name, dEvt.data, "Module stopped on Close()")
 
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2Name))
 	module2.AssertClicked()
@@ -399,6 +418,9 @@ func TestClickEvents(t *testing.T) {
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", \"button\": 1},", module1Name))
 	module1.AssertNotClicked("After Close(), before restart")
 	module1.AssertStarted("On Button1 click")
+
+	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", \"button\": 1},", module1Name))
+	module1.AssertClicked("After restart")
 }
 
 func TestSignalHandlingSuppression(t *testing.T) {
@@ -461,6 +483,7 @@ func TestErrorHandling(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 	TestMode(mockStdin, mockStdout)
+	stopChan := debugEvents(dEvtModuleStopped)
 	errChan := make(chan bar.ErrorEvent)
 	SetErrorHandler(func(e bar.ErrorEvent) { errChan <- e })
 
@@ -503,6 +526,7 @@ func TestErrorHandling(t *testing.T) {
 		"click events do not cause any updates")
 
 	module.Close()
+	<-stopChan
 
 	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 3},`, errorSegmentName))
 	module.AssertNotClicked("on right click of error segment")
@@ -520,6 +544,7 @@ func TestErrorHandling(t *testing.T) {
 
 	module.Output(outputsWithError)
 	module.Close()
+	<-stopChan
 	out = readOutput(t, mockStdout)
 	assert.Equal(t, 3, len(out), "All segments in output")
 

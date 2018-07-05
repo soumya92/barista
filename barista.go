@@ -106,8 +106,24 @@ type i3Bar struct {
 	// For testing, output the associated error in the json as well.
 	// This allows output tester to accurately check for errors.
 	includeErrorsInOutput bool
-	// For testing, emits true when paused and false when resumed.
-	pausedChan chan<- bool
+	// For testing, emits debug events based on the requested mask.
+	debugChan chan<- debugEvent
+	debugMask int
+}
+
+type debugEventKind int
+
+const (
+	dEvtPaused debugEventKind = 1 << iota
+	dEvtResumed
+	dEvtModuleStopped
+)
+
+// debugEvent is used for tests to synchronise on some events that
+// are otherwise extremely hard to user.
+type debugEvent struct {
+	kind debugEventKind
+	data string
 }
 
 // output converts the module's output to i3Output by adding the name (position),
@@ -132,6 +148,8 @@ func (m *i3Module) output(b *i3Bar) {
 	// as "restartable" and the next click event (Button1/2/3) will
 	// call the output() method again.
 	m.restartable.Store(true)
+	l.Fine("%s stopped, waiting for restart", l.ID(m.Module))
+	b.emitDebugEvent(dEvtModuleStopped, m.name)
 }
 
 // handleRestart checks if the module needs to be restarted, and restarts
@@ -308,12 +326,13 @@ func Run(modules ...bar.Module) error {
 			if !ok {
 				continue
 			}
-			l.Fine("Clicked on module %s", l.ID(module.Module))
 			// If the module swallows the event to potentially restart,
 			// do not dispatch it to the click handler.
 			if module.handleRestart(b, event.Event) {
+				l.Fine("Skipping click on %s: needs restart", l.ID(module.Module))
 				continue
 			}
+			l.Fine("Clicked on module %s", l.ID(module.Module))
 			// Check that the module actually supports click events.
 			if clickable, ok := module.Module.(bar.Clickable); ok {
 				// Goroutine to prevent click handlers from blocking the bar.
@@ -518,9 +537,7 @@ func (b *i3Bar) pause() {
 	}
 	b.paused = true
 	timing.Pause()
-	if b.pausedChan != nil {
-		b.pausedChan <- true
-	}
+	b.emitDebugEvent(dEvtPaused, "")
 }
 
 // resume instructs all pausable modules to continue processing.
@@ -537,9 +554,7 @@ func (b *i3Bar) resume() {
 		b.refreshOnResume = false
 		b.maybeUpdate()
 	}
-	if b.pausedChan != nil {
-		b.pausedChan <- false
-	}
+	b.emitDebugEvent(dEvtResumed, "")
 }
 
 // refresh requests an update of the bar's output.
@@ -565,6 +580,14 @@ func (b *i3Bar) maybeUpdate() {
 		// is only be called after individual modules' lastOutput is
 		// set, when the previous update is consumed, each module will
 		// already have the latest output.
+	}
+}
+
+// emitDebugEvent emits a debug event if the channel is not nil
+// and events of the kind have been requested.
+func (b *i3Bar) emitDebugEvent(kind debugEventKind, data string) {
+	if b.debugMask&int(kind) != 0 {
+		b.debugChan <- debugEvent{kind, data}
 	}
 }
 
