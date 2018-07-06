@@ -27,7 +27,11 @@ if [ "$1" = "BARISTA_FLAKE_TEST" ]; then
 	shift
 	outfile="$(mktemp)"
 	"$@" >"$outfile" 2>&1
-	[ "$?" -eq 0 ] || [ "$?" -eq 127 ] || echo "$outfile"
+	if [ "$?" -eq 0 ] || [ "$?" -eq 127 ]; then
+		rm -f "$outfile"
+	else
+		echo "$outfile"
+	fi
 	exit $?
 fi
 
@@ -39,4 +43,4 @@ parallel=16
 total=96
 count=4
 
-seq 1 $total | xargs -n 1 -P $parallel $0 BARISTA_FLAKE_TEST go test -race -tags debuglog -count $count "$@" -- -finelog=
+seq 1 $total | xargs -n 1 -P $parallel $0 BARISTA_FLAKE_TEST go test -v -race -tags debuglog -count $count "$@" -- -finelog=
