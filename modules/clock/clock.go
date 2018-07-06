@@ -123,15 +123,16 @@ func (m *Module) Timezone(timezone *time.Location) *Module {
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	sch := timing.NewScheduler()
-	l.Attach(m, sch, "scheduler")
+	l.Attach(m, sch, ".scheduler")
 	cfg := m.getConfig()
 	for {
 		now := timing.Now()
-		s.Output(cfg.outputFunc(now.In(cfg.timezone)))
 		next := now.Add(cfg.granularity).Truncate(cfg.granularity)
+		sch.At(next)
+		s.Output(cfg.outputFunc(now.In(cfg.timezone)))
 
 		select {
-		case <-sch.At(next).Tick():
+		case <-sch.Tick():
 		case <-m.config.Update():
 			cfg = m.getConfig()
 		}
