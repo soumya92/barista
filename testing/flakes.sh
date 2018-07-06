@@ -27,12 +27,13 @@ if [ "$1" = "BARISTA_FLAKE_TEST" ]; then
 	shift
 	outfile="$(mktemp)"
 	"$@" >"$outfile" 2>&1
-	if [ "$?" -eq 0 ] || [ "$?" -eq 127 ]; then
+	status="$?"
+	if [ "$status" -eq 0 ] || [ "$status" -eq 127 ]; then
 		rm -f "$outfile"
 	else
 		echo "$outfile"
 	fi
-	exit $?
+	exit $status
 fi
 
 # When invoked normally, sets up a parallel pipeline using seq | xargs to
