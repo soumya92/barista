@@ -16,14 +16,9 @@
 package vpn
 
 import (
-	"net"
-
-	"golang.org/x/sys/unix"
-
-	"github.com/vishvananda/netlink"
-
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/watchers/netlink"
 	l "github.com/soumya92/barista/logging"
 )
 
@@ -42,9 +37,9 @@ func (s State) Disconnected() bool {
 
 // Valid states for the vpn
 const (
-	Connected State = iota
+	Disconnected State = iota
 	Waiting
-	Disconnected
+	Connected
 )
 
 // Module represents a VPN bar module.
@@ -84,53 +79,24 @@ func (m *Module) Template(template string) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	// Initial state.
 	state := Disconnected
-	if link, err := netlink.LinkByName(m.intf); err == nil {
-		if link.Attrs().Flags&net.FlagUp == net.FlagUp {
-			state = Connected
-		} else {
-			state = Waiting
-		}
-	}
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
-	s.Output(outputFunc(state))
-
-	// Watch for changes.
-	linkCh := make(chan netlink.LinkUpdate)
-	done := make(chan struct{})
-	defer close(done)
-	netlink.LinkSubscribe(linkCh, done)
-	var lastFlags uint32
+	linkCh := netlink.ByName(m.intf)
 
 	for {
 		select {
 		case update := <-linkCh:
-			if update.Attrs().Name != m.intf {
-				continue
-			}
-			newFlags := update.IfInfomsg.Flags
-			shouldUpdate := false
-			if lastFlags&unix.IFF_UP != newFlags&unix.IFF_UP {
-				shouldUpdate = true
-			}
-			if lastFlags&unix.IFF_RUNNING != newFlags&unix.IFF_RUNNING {
-				shouldUpdate = true
-			}
-			if shouldUpdate {
-				lastFlags = newFlags
-				if newFlags&unix.IFF_RUNNING == unix.IFF_RUNNING {
-					state = Connected
-				} else if newFlags&unix.IFF_UP == unix.IFF_UP {
-					state = Waiting
-				} else {
-					state = Disconnected
-				}
-				s.Output(outputFunc(state))
+			switch update.State {
+			case netlink.Up:
+				state = Connected
+			case netlink.Dormant:
+				state = Waiting
+			default:
+				state = Disconnected
 			}
 		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
-			s.Output(outputFunc(state))
 		}
+		s.Output(outputFunc(state))
 	}
 }

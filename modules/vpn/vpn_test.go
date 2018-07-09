@@ -14,4 +14,33 @@
 
 package vpn
 
-// Empty test file for more accurate code coverage.
+import (
+	"testing"
+
+	"github.com/soumya92/barista/base/watchers/netlink"
+	testBar "github.com/soumya92/barista/testing/bar"
+)
+
+func TestVpn(t *testing.T) {
+	nlt := netlink.TestMode()
+	link := nlt.AddLink(netlink.Link{Name: "tun0", State: netlink.Down})
+
+	testBar.New(t)
+	v := DefaultInterface().Template(
+		`{{if not .Disconnected}}{{if .Connected}}VPN{{else}}...{{end}}{{end}}`)
+	testBar.Run(v)
+
+	testBar.LatestOutput().AssertText([]string{""})
+
+	nlt.UpdateLink(link, netlink.Link{Name: "tun0", State: netlink.Dormant})
+	testBar.LatestOutput().AssertText([]string{"..."})
+
+	nlt.UpdateLink(link, netlink.Link{Name: "tun0", State: netlink.Up})
+	testBar.LatestOutput().AssertText([]string{"VPN"})
+
+	v.Template(`{{if .Disconnected}}NO VPN{{end}}`)
+	testBar.LatestOutput().AssertText([]string{""})
+
+	nlt.RemoveLink(link)
+	testBar.LatestOutput().AssertText([]string{"NO VPN"})
+}
