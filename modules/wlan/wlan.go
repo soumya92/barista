@@ -23,43 +23,36 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/sys/unix"
-
-	"github.com/vishvananda/netlink"
-
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/watchers/netlink"
 	l "github.com/soumya92/barista/logging"
 )
 
 // Info represents the wireless card status.
 type Info struct {
-	State          State
+	State          netlink.OperState
+	IPs            []net.IP
 	SSID           string
 	AccessPointMAC string
 	Channel        int
 	Frequency      float64
 }
 
+// Connecting returns true if a connection is in progress.
+func (i Info) Connecting() bool {
+	return i.State == netlink.Dormant
+}
+
 // Connected returns true if connected to a wireless network.
 func (i Info) Connected() bool {
-	return i.State == Connected
+	return i.State == netlink.Up
 }
 
 // Enabled returns true if the wireless card is enabled.
 func (i Info) Enabled() bool {
-	return i.State != Disabled
+	return i.State != netlink.Gone && i.State != netlink.NotPresent
 }
-
-// State represents the wireless card state.
-type State int
-
-// Valid states for the wireless card.
-const (
-	Connected State = iota
-	Disconnected
-	Disabled
-)
 
 // Module represents a wlan bar module.
 type Module struct {
@@ -92,89 +85,36 @@ func (m *Module) Template(template string) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	// Initial state.
-	link, err := netlink.LinkByName(m.intf)
-	if s.Error(err) {
-		return
-	}
-	var info Info
-	if link.Attrs().Flags&net.FlagUp == net.FlagUp {
-		info, err = m.getWifiInfo()
-		if s.Error(err) {
-			return
-		}
-		if info.SSID == "" {
-			info.State = Disconnected
-		}
-	}
+	info := Info{State: netlink.Gone}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	s.Output(outputFunc(info))
-
-	// Watch for changes.
-	linkCh := make(chan netlink.LinkUpdate)
-	done := make(chan struct{})
-	defer close(done)
-	netlink.LinkSubscribe(linkCh, done)
-	var lastFlags uint32
-
+	updateChan := netlink.ByName(m.intf)
 	for {
 		select {
-		case update := <-linkCh:
-			if update.Attrs().Name != m.intf {
-				continue
-			}
-			newFlags := update.IfInfomsg.Flags
-			shouldUpdate := false
-			if lastFlags&unix.IFF_UP != newFlags&unix.IFF_UP {
-				shouldUpdate = true
-			}
-			if lastFlags&unix.IFF_RUNNING != newFlags&unix.IFF_RUNNING {
-				shouldUpdate = true
-			}
-			if shouldUpdate {
-				lastFlags = newFlags
-				info = Info{}
-				if newFlags&unix.IFF_UP != unix.IFF_UP {
-					info.State = Disabled
-				} else if newFlags&unix.IFF_RUNNING != unix.IFF_RUNNING {
-					info.State = Disconnected
-				} else {
-					info, err = m.getWifiInfo()
-					if s.Error(err) {
-						return
-					}
-				}
-				s.Output(outputFunc(info))
-			}
+		case update := <-updateChan:
+			info.State = update.State
+			info.IPs = update.IPs
+			m.fillWifiInfo(&info)
 		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
-			s.Output(outputFunc(info))
 		}
+		s.Output(outputFunc(info))
 	}
 }
 
-func (m *Module) getWifiInfo() (info Info, err error) {
-	info.State = Connected
-	info.SSID, _ = m.iwgetid("-r")
-	info.AccessPointMAC, _ = m.iwgetid("-a")
-	var ch string
-	if ch, err = m.iwgetid("-c"); err == nil {
-		info.Channel, err = strconv.Atoi(ch)
-		if err != nil {
-			return
-		}
+func (m *Module) fillWifiInfo(info *Info) {
+	ssid, err := iwgetid(m.intf, "-r")
+	if err != nil {
+		return
 	}
-	var freq string
-	if freq, err = m.iwgetid("-f"); err == nil {
-		info.Frequency, err = strconv.ParseFloat(freq, 64)
-		if err != nil {
-			return
-		}
-	}
-	return
+	info.SSID = ssid
+	info.AccessPointMAC, _ = iwgetid(m.intf, "-a")
+	ch, _ := iwgetid(m.intf, "-c")
+	info.Channel, _ = strconv.Atoi(ch)
+	freq, _ := iwgetid(m.intf, "-f")
+	info.Frequency, _ = strconv.ParseFloat(freq, 64)
 }
 
-func (m *Module) iwgetid(flag string) (string, error) {
-	out, err := exec.Command("/sbin/iwgetid", m.intf, "-r", flag).Output()
+var iwgetid = func(intf, flag string) (string, error) {
+	out, err := exec.Command("/sbin/iwgetid", intf, "-r", flag).Output()
 	return strings.TrimSpace(string(out)), err
 }
