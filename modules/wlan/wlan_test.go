@@ -27,8 +27,9 @@ import (
 func TestNoWlan(t *testing.T) {
 	netlink.TestMode()
 	testBar.New(t)
-	wl := New("wlan0")
-	testBar.Run(wl)
+	wlN := Named("wlan0")
+	wlA := Any()
+	testBar.Run(wlN, wlA)
 	testBar.AssertNoOutput("when wlan link is missing")
 }
 
@@ -74,9 +75,9 @@ func TestWlan(t *testing.T) {
 	link1 := nlt.AddLink(netlink.Link{Name: "wlan1", State: netlink.Dormant})
 
 	testBar.New(t)
-	wl0 := New("wlan0").Template(
+	wl0 := Named("wlan0").Template(
 		`{{if .Connected}}{{.Frequency | printf "%.1g"}}{{end}}`)
-	wl1 := New("wlan1").Template(
+	wl1 := Named("wlan1").Template(
 		`{{if .Enabled -}}
 			{{- if .Connecting -}}
 				WLAN ...
@@ -86,9 +87,10 @@ func TestWlan(t *testing.T) {
 				WL: Down
 			{{- end -}}
 		{{- end}}`)
-	testBar.Run(wl0, wl1)
+	wlA := Any().Template(`{{if .Enabled}}{{.Name}}{{else}}<no wlan>{{end}}`)
+	testBar.Run(wl0, wl1, wlA)
 
-	testBar.LatestOutput().AssertText([]string{"5e+09", "WLAN ..."})
+	testBar.LatestOutput().AssertText([]string{"5e+09", "WLAN ...", "wlan0"})
 
 	iwgetidShouldReturn("wlan1", map[string]string{
 		"-r": "NetworkName",
@@ -97,7 +99,7 @@ func TestWlan(t *testing.T) {
 		"-f": "2.4e+09",
 	})
 	nlt.UpdateLink(link1, netlink.Link{Name: "wlan1", State: netlink.Up})
-	testBar.LatestOutput().At(1).AssertText("NetworkName")
+	testBar.LatestOutput().AssertText([]string{"5e+09", "NetworkName", "wlan0"})
 
 	wl0.Template(`{{index .IPs 0}}`)
 	nlt.AddIP(link0, net.IPv4(10, 0, 0, 1))
@@ -106,4 +108,16 @@ func TestWlan(t *testing.T) {
 	nlt.AddIP(link0, net.IPv6loopback)
 	wl0.Template(`{{index .IPs 1}}`)
 	testBar.LatestOutput().At(0).AssertText("::1")
+
+	nlt.UpdateLink(link0, netlink.Link{Name: "wlan0", State: netlink.Down})
+	testBar.LatestOutput().At(2).AssertText("wlan1", "when active link switches")
+
+	nlt.UpdateLink(link1, netlink.Link{Name: "wl1", State: netlink.Up})
+	testBar.LatestOutput().At(2).AssertText("wl1", "when active link is renamed")
+
+	nlt.RemoveLink(link1)
+	testBar.LatestOutput().At(2).AssertText("wlan0", "fallback when active link is removed")
+
+	nlt.RemoveLink(link0)
+	testBar.LatestOutput().At(2).AssertText("<no wlan>", "when no links remain")
 }

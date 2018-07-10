@@ -20,6 +20,7 @@ package wlan
 import (
 	"net"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,7 @@ import (
 
 // Info represents the wireless card status.
 type Info struct {
+	Name           string
 	State          netlink.OperState
 	IPs            []net.IP
 	SSID           string
@@ -51,7 +53,7 @@ func (i Info) Connected() bool {
 
 // Enabled returns true if the wireless card is enabled.
 func (i Info) Enabled() bool {
-	return i.State != netlink.Gone && i.State != netlink.NotPresent
+	return i.State != netlink.Unknown && i.State != netlink.NotPresent
 }
 
 // Module represents a wlan bar module.
@@ -61,14 +63,20 @@ type Module struct {
 	outputFunc base.Value // of func(Info) bar.Output
 }
 
-// New constructs an instance of the wlan module for the specified interface.
-func New(iface string) *Module {
+// Named constructs an instance of the wlan module for the specified interface.
+func Named(iface string) *Module {
 	m := &Module{intf: iface}
 	l.Label(m, iface)
 	l.Register(m, "outputFunc")
 	// Default output template is just the SSID when connected.
 	m.Template("{{if .Connected}}{{.SSID}}{{end}}")
 	return m
+}
+
+// Any constructs an instance of the wlan module that uses any available
+// wireless interface, choosing the 'best' state from all available.
+func Any() *Module {
+	return Named("")
 }
 
 // Output configures a module to display the output of a user-defined function.
@@ -85,14 +93,28 @@ func (m *Module) Template(template string) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	info := Info{State: netlink.Gone}
+	info := Info{}
+	infos := map[string]Info{}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	updateChan := netlink.ByName(m.intf)
+	var updateChan <-chan netlink.Link
+	if m.intf == "" {
+		updateChan = netlink.WithPrefix("wl")
+	} else {
+		updateChan = netlink.ByName(m.intf)
+	}
 	for {
 		select {
 		case update := <-updateChan:
-			info.State = update.State
-			info.IPs = update.IPs
+			if update.State == netlink.Gone {
+				delete(infos, update.Name)
+			} else {
+				infos[update.Name] = Info{
+					Name:  update.Name,
+					State: update.State,
+					IPs:   update.IPs,
+				}
+			}
+			info = getBestInfo(infos)
 			m.fillWifiInfo(&info)
 		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
@@ -112,6 +134,28 @@ func (m *Module) fillWifiInfo(info *Info) {
 	info.Channel, _ = strconv.Atoi(ch)
 	freq, _ := iwgetid(m.intf, "-f")
 	info.Frequency, _ = strconv.ParseFloat(freq, 64)
+}
+
+func getBestInfo(infoMap map[string]Info) Info {
+	if len(infoMap) == 0 {
+		return Info{}
+	}
+	infos := []Info{}
+	for _, i := range infoMap {
+		infos = append(infos, i)
+	}
+	sort.Slice(infos, func(ai, bi int) bool {
+		a, b := infos[ai], infos[bi]
+		switch {
+		case a.State > b.State:
+			return true
+		case a.State < b.State:
+			return false
+		default:
+			return a.Name < b.Name
+		}
+	})
+	return infos[0]
 }
 
 var iwgetid = func(intf, flag string) (string, error) {
