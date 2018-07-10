@@ -17,6 +17,7 @@ package netlink
 
 import (
 	"net"
+	"sort"
 	"strings"
 	"sync"
 
@@ -103,8 +104,49 @@ func addIP(index LinkIndex, addr net.IP) {
 	}
 	l.Fine("Adding IP %s for %s@%d", addr, link.Name, index)
 	link.IPs = append(link.IPs, addr)
+	// Sort the IPs in a deterministic fashion, prioritising global unicast
+	// IPs over link-local, all the way down to loopback and unspecified.
+	// (see ipPriority for the complete ordering)
+	// There are two reasons for doing this:
+	//
+	// - This package only exists to support barista modules, which are
+	//   more likely to care about displaying "best" IP than about the order
+	//   of addition.
+	//
+	// - We cannot consistently order this list by when IPs were added
+	//   because the initial data returns the IPs in an unspecified order
+	//   (likely family, v4 before v6).
+	sort.Slice(link.IPs, func(ai, bi int) bool {
+		a, b := link.IPs[ai], link.IPs[bi]
+		priA, priB := ipPriority(a), ipPriority(b)
+		switch {
+		case priA < priB:
+			return true
+		case priA > priB:
+			return false
+		default:
+			return a.String() < b.String()
+		}
+	})
 	links[index] = link
 	notifyChanged(link)
+}
+
+func ipPriority(ip net.IP) int {
+	priorities := []func(net.IP) bool{
+		net.IP.IsGlobalUnicast,
+		net.IP.IsMulticast,
+		net.IP.IsInterfaceLocalMulticast,
+		net.IP.IsLinkLocalMulticast,
+		net.IP.IsLinkLocalUnicast,
+		net.IP.IsLoopback,
+	}
+	for pri, fn := range priorities {
+		if fn(ip) {
+			return pri
+		}
+	}
+	return len(priorities)
 }
 
 func delLink(index LinkIndex) {

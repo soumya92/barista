@@ -17,7 +17,6 @@ package netlink
 import (
 	"errors"
 	"net"
-	"sort"
 	"sync"
 	"syscall"
 	"testing"
@@ -57,30 +56,14 @@ func devNull(ch <-chan Link) {
 	}
 }
 
-func sortedIPs(IPs []net.IP) []string {
-	ipStrings := make([]string, len(IPs))
-	for i, ip := range IPs {
-		ipStrings[i] = ip.String()
-	}
-	sort.Strings(ipStrings)
-	return ipStrings
-}
-
 func assertLinkEqual(t *testing.T, expected, actual Link, msgAndArgs ...interface{}) {
-	// Use a masked version of Link to do the comparisons, since
-	// testify's output formatting is very useful.
-	objs := []struct {
-		Name         string
-		HardwareAddr string
-		State        OperState
-		IPs          []string
-	}{
-		{expected.Name, expected.HardwareAddr.String(),
-			expected.State, sortedIPs(expected.IPs)},
-		{actual.Name, actual.HardwareAddr.String(),
-			actual.State, sortedIPs(actual.IPs)},
+	if len(expected.HardwareAddr) == 0 {
+		expected.HardwareAddr = nil
 	}
-	assert.Equal(t, objs[0], objs[1], msgAndArgs...)
+	if len(actual.HardwareAddr) == 0 {
+		actual.HardwareAddr = nil
+	}
+	assert.Equal(t, expected, actual, msgAndArgs...)
 }
 
 func TestErrors(t *testing.T) {
@@ -204,7 +187,7 @@ func TestUpdates(t *testing.T) {
 
 	msgCh <- msgNewAddrs(1, net.IPv4(10, 0, 0, 1), nil)
 	u = assertUpdated(t, sub, "on adding different IP")
-	eno1.IPs = []net.IP{net.IPv4(192, 168, 0, 1), net.IPv4(10, 0, 0, 1)}
+	eno1.IPs = []net.IP{net.IPv4(10, 0, 0, 1), net.IPv4(192, 168, 0, 1)}
 	assertLinkEqual(t, eno1, u, "IP is added and entire link is sent")
 
 	msgCh <- msgDelAddrs(1, net.IPv4(192, 168, 10, 1), nil)
@@ -216,9 +199,15 @@ func TestUpdates(t *testing.T) {
 	msgCh <- msgDelAddrs(3, net.IPv4(192, 168, 1, 1), nil)
 	assertNoUpdate(t, sub, "on removing IP from non-existent link")
 
+	msgCh <- msgNewAddrs(1, net.IPv4(0, 0, 0, 0), nil)
+	assertUpdated(t, sub)
+
+	msgCh <- msgNewAddrs(1, net.IPv6loopback, nil)
+	assertUpdated(t, sub)
+
 	msgCh <- msgDelAddrs(1, net.IPv4(192, 168, 1, 1), net.IPv4(192, 168, 0, 1))
 	u = assertUpdated(t, sub, "on removing an IP")
-	eno1.IPs = []net.IP{net.IPv4(10, 0, 0, 1)}
+	eno1.IPs = []net.IP{net.IPv4(10, 0, 0, 1), net.IPv6loopback, net.IPv4(0, 0, 0, 0)}
 	assertLinkEqual(t, eno1, u, "All other link information is preserved")
 
 	msgCh <- msgDelLink(3, Link{Name: "wlan0"})
@@ -323,7 +312,7 @@ func TestTestMode(t *testing.T) {
 	nlt.RemoveIP(id, net.IPv4(10, 0, 2, 1))
 	expected := Link{
 		Name: "eth0",
-		IPs:  []net.IP{net.IPv6loopback, net.IPv4(10, 0, 0, 1)},
+		IPs:  []net.IP{net.IPv4(10, 0, 0, 1), net.IPv6loopback},
 	}
 	u := assertUpdated(t, subEth)
 	assertLinkEqual(t, expected, u)
