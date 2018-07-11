@@ -87,10 +87,10 @@ func TestWlan(t *testing.T) {
 				WL: Down
 			{{- end -}}
 		{{- end}}`)
-	wlA := Any().Template(`{{if .Enabled}}{{.Name}}{{else}}<no wlan>{{end}}`)
+	wlA := Any().Template(`{{if .Enabled}}{{.Name}}/{{.SSID}}{{else}}<no wlan>{{end}}`)
 	testBar.Run(wl0, wl1, wlA)
 
-	testBar.LatestOutput().AssertText([]string{"5e+09", "WLAN ...", "wlan0"})
+	testBar.LatestOutput().AssertText([]string{"5e+09", "WLAN ...", "wlan0/OtherNet"})
 
 	iwgetidShouldReturn("wlan1", map[string]string{
 		"-r": "NetworkName",
@@ -99,7 +99,7 @@ func TestWlan(t *testing.T) {
 		"-f": "2.4e+09",
 	})
 	nlt.UpdateLink(link1, netlink.Link{Name: "wlan1", State: netlink.Up})
-	testBar.LatestOutput().AssertText([]string{"5e+09", "NetworkName", "wlan0"})
+	testBar.LatestOutput().AssertText([]string{"5e+09", "NetworkName", "wlan0/OtherNet"})
 
 	wl0.Template(`{{index .IPs 0}}`)
 	nlt.AddIP(link0, net.IPv4(10, 0, 0, 1))
@@ -110,13 +110,19 @@ func TestWlan(t *testing.T) {
 	testBar.LatestOutput().At(0).AssertText("::1")
 
 	nlt.UpdateLink(link0, netlink.Link{Name: "wlan0", State: netlink.Down})
-	testBar.LatestOutput().At(2).AssertText("wlan1", "when active link switches")
+	testBar.LatestOutput().At(2).AssertText("wlan1/NetworkName", "when active link switches")
 
 	nlt.UpdateLink(link1, netlink.Link{Name: "wl1", State: netlink.Up})
-	testBar.LatestOutput().At(2).AssertText("wl1", "when active link is renamed")
+	iwgetidShouldReturn("wl1", map[string]string{
+		"-r": "NetworkName",
+		"-a": "00:11:22:33:44:55",
+		"-c": "11",
+		"-f": "2.4e+09",
+	})
+	testBar.LatestOutput().At(2).AssertText("wl1/NetworkName", "when active link is renamed")
 
 	nlt.RemoveLink(link1)
-	testBar.LatestOutput().At(2).AssertText("wlan0", "fallback when active link is removed")
+	testBar.LatestOutput().At(2).AssertText("wlan0/OtherNet", "fallback when active link is removed")
 
 	nlt.RemoveLink(link0)
 	testBar.LatestOutput().At(2).AssertText("<no wlan>", "when no links remain")

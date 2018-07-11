@@ -125,7 +125,7 @@ func (m *Module) Stream(s bar.Sink) {
 }
 
 func (m *Module) fillWifiInfo(info *Info) {
-	ssid, err := iwgetid(m.intf, "-r")
+	ssid, err := iwgetid(info.Name, "-r")
 	if err != nil {
 		return
 	}
