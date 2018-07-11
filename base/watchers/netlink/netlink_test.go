@@ -45,8 +45,10 @@ func assertUpdated(t *testing.T, ch <-chan Link, msgAndArgs ...interface{}) Link
 
 func assertNoUpdate(t *testing.T, ch <-chan Link, msgAndArgs ...interface{}) {
 	select {
-	case <-ch:
-		assert.Fail(t, "Unexpected update", msgAndArgs...)
+	case _, ok := <-ch:
+		if ok {
+			assert.Fail(t, "Unexpected update", msgAndArgs...)
+		}
 	case <-time.After(time.Millisecond):
 	}
 }
@@ -180,10 +182,11 @@ func TestUpdates(t *testing.T) {
 	u = assertUpdated(t, sub2, "New subscriber updates on start")
 	assertLinkEqual(t, eno1, u, "update has current information")
 
-	go devNull(sub2) // prevent sub2 from blocking the watcher.
+	Unsubscribe(sub2)
 
 	msgCh <- msgNewAddrs(1, net.IPv4(192, 168, 0, 1), nil)
 	assertNoUpdate(t, sub, "on adding same IP")
+	assertNoUpdate(t, sub2, "after unsubscribe")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(10, 0, 0, 1), nil)
 	u = assertUpdated(t, sub, "on adding different IP")
@@ -201,6 +204,7 @@ func TestUpdates(t *testing.T) {
 
 	msgCh <- msgNewAddrs(1, net.IPv4(0, 0, 0, 0), nil)
 	assertUpdated(t, sub)
+	assertNoUpdate(t, sub2, "after unsubscribe")
 
 	msgCh <- msgNewAddrs(1, net.IPv6loopback, nil)
 	assertUpdated(t, sub)

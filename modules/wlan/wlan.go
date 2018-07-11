@@ -102,6 +102,7 @@ func (m *Module) Stream(s bar.Sink) {
 	} else {
 		updateChan = netlink.ByName(m.intf)
 	}
+	defer netlink.Unsubscribe(updateChan)
 	for {
 		select {
 		case update := <-updateChan:

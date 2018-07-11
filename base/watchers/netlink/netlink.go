@@ -211,7 +211,7 @@ var (
 type subscription struct {
 	name       string
 	prefix     string
-	notifyChan chan<- Link
+	notifyChan chan Link
 }
 
 func (s subscription) matches(iface string) bool {
@@ -270,6 +270,19 @@ func WithPrefix(prefix string) <-chan Link {
 // All creates a netlink watcher for all links.
 func All() <-chan Link {
 	return subscribe(subscription{})
+}
+
+// Unsubscribe removes the given listener and closes the channel
+func Unsubscribe(sub <-chan Link) {
+	subsMu.Lock()
+	for i, s := range subs {
+		if s.notifyChan == sub {
+			subs = append(subs[:i], subs[i+1:]...)
+			close(s.notifyChan)
+			break
+		}
+	}
+	subsMu.Unlock()
 }
 
 // Tester provides methods to simulate netlink messages
