@@ -20,7 +20,6 @@ package wlan
 import (
 	"net"
 	"os/exec"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -53,7 +52,9 @@ func (i Info) Connected() bool {
 
 // Enabled returns true if the wireless card is enabled.
 func (i Info) Enabled() bool {
-	return i.State != netlink.Unknown && i.State != netlink.NotPresent
+	return i.State != netlink.Unknown &&
+		i.State != netlink.NotPresent &&
+		i.State != netlink.Gone
 }
 
 // Module represents a wlan bar module.
@@ -94,29 +95,23 @@ func (m *Module) Template(template string) *Module {
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	info := Info{}
-	infos := map[string]Info{}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	var updateChan <-chan netlink.Link
+	var updateChan netlink.Subscription
 	if m.intf == "" {
 		updateChan = netlink.WithPrefix("wl")
 	} else {
 		updateChan = netlink.ByName(m.intf)
 	}
-	defer netlink.Unsubscribe(updateChan)
+	defer updateChan.Unsubscribe()
 	for {
 		select {
 		case update := <-updateChan:
-			if update.State == netlink.Gone {
-				delete(infos, update.Name)
-			} else {
-				infos[update.Name] = Info{
-					Name:  update.Name,
-					State: update.State,
-					IPs:   update.IPs,
-				}
+			info = Info{
+				Name:  update.Name,
+				State: update.State,
+				IPs:   update.IPs,
 			}
-			info = getBestInfo(infos)
-			m.fillWifiInfo(&info)
+			fillWifiInfo(&info)
 		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		}
@@ -124,39 +119,17 @@ func (m *Module) Stream(s bar.Sink) {
 	}
 }
 
-func (m *Module) fillWifiInfo(info *Info) {
+func fillWifiInfo(info *Info) {
 	ssid, err := iwgetid(info.Name, "-r")
 	if err != nil {
 		return
 	}
 	info.SSID = ssid
-	info.AccessPointMAC, _ = iwgetid(m.intf, "-a")
-	ch, _ := iwgetid(m.intf, "-c")
+	info.AccessPointMAC, _ = iwgetid(info.Name, "-a")
+	ch, _ := iwgetid(info.Name, "-c")
 	info.Channel, _ = strconv.Atoi(ch)
-	freq, _ := iwgetid(m.intf, "-f")
+	freq, _ := iwgetid(info.Name, "-f")
 	info.Frequency, _ = strconv.ParseFloat(freq, 64)
-}
-
-func getBestInfo(infoMap map[string]Info) Info {
-	if len(infoMap) == 0 {
-		return Info{}
-	}
-	infos := []Info{}
-	for _, i := range infoMap {
-		infos = append(infos, i)
-	}
-	sort.Slice(infos, func(ai, bi int) bool {
-		a, b := infos[ai], infos[bi]
-		switch {
-		case a.State > b.State:
-			return true
-		case a.State < b.State:
-			return false
-		default:
-			return a.Name < b.Name
-		}
-	})
-	return infos[0]
 }
 
 var iwgetid = func(intf, flag string) (string, error) {

@@ -60,11 +60,12 @@ func addLink(index LinkIndex, link Link) {
 	linksMu.Lock()
 	defer linksMu.Unlock()
 	changed := false
+	names := []string{link.Name}
 	oldLink, ok := links[index]
 	if ok {
 		if link.Name != oldLink.Name {
 			changed = true
-			notifyChanged(Link{Name: oldLink.Name, State: Gone})
+			names = append(names, oldLink.Name)
 		}
 		if link.State != oldLink.State {
 			changed = true
@@ -84,7 +85,7 @@ func addLink(index LinkIndex, link Link) {
 		l.Fine("Adding link %s@%d", link.Name, index)
 	}
 	links[index] = link
-	notifyChanged(link)
+	notifyChanged(names...)
 }
 
 func addIP(index LinkIndex, addr net.IP) {
@@ -129,7 +130,7 @@ func addIP(index LinkIndex, addr net.IP) {
 		}
 	})
 	links[index] = link
-	notifyChanged(link)
+	notifyChanged(link.Name)
 }
 
 func ipPriority(ip net.IP) int {
@@ -158,8 +159,8 @@ func delLink(index LinkIndex) {
 		return
 	}
 	l.Fine("Deleting link %s@%d", link.Name, index)
-	notifyChanged(Link{Name: link.Name, State: Gone})
 	delete(links, index)
+	notifyChanged(link.Name)
 }
 
 func delIP(index LinkIndex, addr net.IP) {
@@ -185,7 +186,7 @@ func delIP(index LinkIndex, addr net.IP) {
 	}
 	l.Fine("Deleting IP %s for %s@%d", addr, link.Name, index)
 	links[index] = link
-	notifyChanged(link)
+	notifyChanged(link.Name)
 }
 
 func nlInit() {
@@ -193,9 +194,6 @@ func nlInit() {
 	if err != nil {
 		l.Log("Failed to populate initial data: %s", err)
 		return
-	}
-	for _, link := range initialData {
-		notifyChanged(link)
 	}
 	linksMu.Lock()
 	links = initialData
@@ -205,6 +203,7 @@ func nlInit() {
 
 var (
 	subs   []subscription
+	msubs  []chan []Link
 	subsMu sync.RWMutex
 )
 
@@ -214,75 +213,142 @@ type subscription struct {
 	notifyChan chan Link
 }
 
-func (s subscription) matches(iface string) bool {
+func (s subscription) matches(name string) bool {
 	switch {
 	case s.name != "":
-		return s.name == iface
+		return s.name == name
 	case s.prefix != "":
-		return strings.HasPrefix(iface, s.prefix)
+		return strings.HasPrefix(name, s.name)
 	default:
 		return true
 	}
 }
 
-func notifyChanged(l Link) {
-	subsMu.RLock()
-	defer subsMu.RUnlock()
-	for _, s := range subs {
-		if s.matches(l.Name) {
-			s.notifyChan <- l
-		}
-	}
-}
-
-func subscribe(s subscription) <-chan Link {
-	once.Do(nlInit)
-	linksMu.RLock()
-	defer linksMu.RUnlock()
-	subsMu.Lock()
-	defer subsMu.Unlock()
-
-	ch := make(chan Link, len(links)+5)
-	s.notifyChan = ch
-	subs = append(subs, s)
+func (s subscription) notify(links []Link) {
 	for _, link := range links {
 		if s.matches(link.Name) {
 			s.notifyChan <- link
+			return
 		}
 	}
-	return ch
+	s.notifyChan <- Link{State: Gone}
+}
+
+func sortedLinks() []Link {
+	allLinks := []Link{}
+	for _, link := range links {
+		allLinks = append(allLinks, link)
+	}
+	sort.Slice(allLinks, func(ai, bi int) bool {
+		a, b := allLinks[ai], allLinks[bi]
+		switch {
+		case a.State > b.State:
+			return true
+		case a.State < b.State:
+			return false
+		default:
+			return a.Name < b.Name
+		}
+	})
+	return allLinks
+}
+
+func notifyChanged(names ...string) {
+	allLinks := sortedLinks()
+	subsMu.RLock()
+	defer subsMu.RUnlock()
+	for _, s := range subs {
+		for _, n := range names {
+			if s.matches(n) {
+				s.notify(allLinks)
+				break
+			}
+		}
+	}
+	for _, m := range msubs {
+		m <- allLinks
+	}
+}
+
+func subscribe(s subscription) Subscription {
+	once.Do(nlInit)
+	linksMu.RLock()
+	sorted := sortedLinks()
+	linksMu.RUnlock()
+	s.notifyChan = make(chan Link, 10)
+	subsMu.Lock()
+	subs = append(subs, s)
+	subsMu.Unlock()
+	s.notify(sorted)
+	return s.notifyChan
+}
+
+type Subscription <-chan Link
+
+// Unsubscribe stops further notifications and closes the channel.
+func (s Subscription) Unsubscribe() {
+	subsMu.Lock()
+	defer subsMu.Unlock()
+	for i, sub := range subs {
+		if s == sub.notifyChan {
+			subs = append(subs[:i], subs[i+1:]...)
+			close(sub.notifyChan)
+			return
+		}
+	}
 }
 
 // ByName creates a netlink watcher for the named interface.
 // Any updates to the named interface will cause the current
 // information about that link to be sent on the returned channel.
-func ByName(name string) <-chan Link {
+func ByName(name string) Subscription {
 	return subscribe(subscription{name: name})
 }
 
-// WithPrefix creates a netlink watcher that aggregates all links
-// the begin with the given prefix (e.g. 'wl' for wireless,
-// or 'e' for ethernet).
-func WithPrefix(prefix string) <-chan Link {
+// WithPrefix creates a netlink watcher that returns the 'best'
+// link beginning with the given prefix (e.g. 'wl' for wireless,
+// or 'e' for ethernet). See #Any() for details on link priority.
+func WithPrefix(prefix string) Subscription {
 	return subscribe(subscription{prefix: prefix})
 }
 
-// All creates a netlink watcher for all links.
-func All() <-chan Link {
+// Any creates a netlink watcher that returns the 'best' link.
+// Links are preferred in order of their status, and then by name.
+// The status order is Up > Dormant > Testing > LowerLayerDown
+// > Down > NotPresent > Unknown. (A 'virtual' link with status
+// Gone may be returned if no links are available).
+// If multiple links have the same status, they are ordered
+// alphabetically by their name.
+func Any() Subscription {
 	return subscribe(subscription{})
 }
 
-// Unsubscribe removes the given listener and closes the channel
-func Unsubscribe(sub <-chan Link) {
+type MultiSubscription <-chan []Link
+
+// All creates a netlink watcher for all links.
+func All() MultiSubscription {
+	once.Do(nlInit)
+	linksMu.RLock()
+	sorted := sortedLinks()
+	linksMu.RUnlock()
+	m := make(chan []Link, 10)
 	subsMu.Lock()
-	for i, s := range subs {
-		if s.notifyChan == sub {
-			subs = append(subs[:i], subs[i+1:]...)
-			close(s.notifyChan)
-			break
+	msubs = append(msubs, m)
+	subsMu.Unlock()
+	m <- sorted
+	return m
+}
+
+// Unsubscribe removes the given listener and closes the channel
+func (m MultiSubscription) Unsubscribe() {
+	subsMu.Lock()
+	defer subsMu.Unlock()
+	for i, sub := range msubs {
+		if m == sub {
+			msubs = append(msubs[:i], msubs[i+1:]...)
+			return
 		}
 	}
-	subsMu.Unlock()
 }
 
 // Tester provides methods to simulate netlink messages
@@ -328,6 +394,7 @@ func TestMode() Tester {
 	linksMu.Unlock()
 	subsMu.Lock()
 	subs = nil
+	msubs = nil
 	subsMu.Unlock()
 	return &tester{}
 }

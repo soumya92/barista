@@ -30,7 +30,8 @@ func TestNoWlan(t *testing.T) {
 	wlN := Named("wlan0")
 	wlA := Any()
 	testBar.Run(wlN, wlA)
-	testBar.AssertNoOutput("when wlan link is missing")
+	testBar.LatestOutput().AssertText([]string{"", ""},
+		"when no link is present")
 }
 
 // Map of interface -> map of iwgetid flag -> value.

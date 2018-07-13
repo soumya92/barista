@@ -82,6 +82,7 @@ func (m *Module) Stream(s bar.Sink) {
 	state := Disconnected
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
 	linkCh := netlink.ByName(m.intf)
+	defer linkCh.Unsubscribe()
 
 	for {
 		select {
