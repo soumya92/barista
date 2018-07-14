@@ -370,6 +370,16 @@ func (t *tester) AddLink(link Link) LinkIndex {
 }
 
 func (t *tester) UpdateLink(index LinkIndex, link Link) {
+	oldLink := links[index]
+	if link.Name == "" {
+		link.Name = oldLink.Name
+	}
+	if len(link.HardwareAddr) == 0 {
+		link.HardwareAddr = oldLink.HardwareAddr
+	}
+	if link.State == 0 {
+		link.State = oldLink.State
+	}
 	addLink(index, link)
 }
 

@@ -356,13 +356,19 @@ func TestTestMode(t *testing.T) {
 	links := assertMultiUpdated(t, subAll)
 	assert.Equal(t, []Link{expected}, links)
 
-	nlt.UpdateLink(id, Link{Name: "eth0", State: Up, HardwareAddr: hwA[8]})
+	nlt.UpdateLink(id, Link{State: Up})
 	expected.State = Up
 	link = assertUpdated(t, subEth)
 	assert.Equal(t, expected, link)
 	assertMultiUpdated(t, subAll)
 
 	subEth.Unsubscribe()
-	nlt.UpdateLink(id, Link{Name: "eth0", State: Dormant, HardwareAddr: hwA[8]})
+	nlt.UpdateLink(id, Link{State: Dormant})
 	assertNoUpdate(t, subEth, "after unsubscribe")
+
+	nlt.UpdateLink(id, Link{HardwareAddr: hwA[9]})
+	link = assertUpdated(t, Any())
+	expected.State = Dormant
+	expected.HardwareAddr = hwA[9]
+	assert.Equal(t, expected, link, "unset properties are retained")
 }
