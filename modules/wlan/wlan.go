@@ -52,9 +52,7 @@ func (i Info) Connected() bool {
 
 // Enabled returns true if the wireless card is enabled.
 func (i Info) Enabled() bool {
-	return i.State != netlink.Unknown &&
-		i.State != netlink.NotPresent &&
-		i.State != netlink.Gone
+	return i.State > netlink.NotPresent
 }
 
 // Module represents a wlan bar module.
