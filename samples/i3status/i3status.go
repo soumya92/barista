@@ -41,7 +41,7 @@ func main() {
 	})
 
 	barista.Add(netinfo.New().Output(func(s netinfo.State) bar.Output {
-		if s.Disabled() {
+		if !s.Enabled() {
 			return nil
 		}
 		for _, ip := range s.IPs {
@@ -82,18 +82,18 @@ func main() {
 
 	barista.Add(netinfo.Prefix("e").Output(func(s netinfo.State) bar.Output {
 		switch {
-		case s.Disabled():
-			return nil
-		case s.Disconnected():
-			return outputs.Text("E: down").Color(colors.Scheme("bad"))
 		case s.Connected():
 			ip := "<no ip>"
 			if len(s.IPs) > 0 {
 				ip = s.IPs[0].String()
 			}
 			return outputs.Textf("E: %s", ip).Color(colors.Scheme("good"))
-		default:
+		case s.Connecting():
 			return outputs.Text("E: connecting...").Color(colors.Scheme("degraded"))
+		case s.Enabled():
+			return outputs.Text("E: down").Color(colors.Scheme("bad"))
+		default:
+			return nil
 		}
 	}))
 

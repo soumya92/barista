@@ -27,19 +27,19 @@ type State struct {
 	netlink.Link
 }
 
-// Connected returns true if a network is up.
+// Connecting returns true if a connection is in progress.
+func (s State) Connecting() bool {
+	return s.State == netlink.Dormant
+}
+
+// Connected returns true if connected to a network.
 func (s State) Connected() bool {
 	return s.State == netlink.Up
 }
 
-// Disconnected returns true if no networks are up.
-func (s State) Disconnected() bool {
-	return !s.Disabled() && s.State < netlink.Dormant
-}
-
-// Disabled returns true if no links are present.
-func (s State) Disabled() bool {
-	return s.State <= netlink.NotPresent
+// Enabled returns true if a network interface is enabled.
+func (s State) Enabled() bool {
+	return s.State > netlink.NotPresent
 }
 
 // Module represents a netinfo bar module.

@@ -29,8 +29,8 @@ func TestNetinfo(t *testing.T) {
 	link3 := nlt.AddLink(netlink.Link{Name: "wlan0", State: netlink.NotPresent})
 
 	testBar.New(t)
-	n1 := New().Template(`{{if .Disconnected}}No net{{else}}{{.Name}}{{end}}`)
-	n2 := Interface("wlan0").Template(`{{if not .Disabled}}W:{{if .Connected}}{{.Name}}{{else}}down{{end}}{{end}}`)
+	n1 := New().Template(`{{if not .Connected}}No net{{else}}{{.Name}}{{end}}`)
+	n2 := Interface("wlan0").Template(`{{if .Enabled}}W:{{if .Connected}}{{.Name}}{{else}}down{{end}}{{end}}`)
 	n3 := Prefix("eth").Template(`{{if .Connected}}E:{{.Name}}{{end}}`)
 	testBar.Run(n1, n2, n3)
 
