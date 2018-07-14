@@ -293,6 +293,20 @@ func TestFiltering(t *testing.T) {
 	assert.Equal(t, wlan0, link, "Best link is sent to Any()")
 	assertNoUpdate(t, subAny, "Only one update for Any()")
 
+	msgCh <- msgNewLink(1, Link{Name: "lo1", State: Up, HardwareAddr: hwA[4]})
+	assertUpdated(t, subLocal, "Named link changed")
+	assertNoUpdate(t, subEth, "Named link still not present")
+	assertMultiUpdated(t, subAll, "A link changed")
+	assertUpdated(t, subAny, "A link changed")
+	assertNoUpdate(t, subW, "No relevant link changed")
+
+	msgCh <- msgNewLink(1, Link{Name: "lo1", State: Down, HardwareAddr: hwA[4]})
+	assertUpdated(t, subLocal, "Named link changed")
+	assertNoUpdate(t, subEth, "Named link still not present")
+	assertMultiUpdated(t, subAll, "A link changed")
+	assertUpdated(t, subAny, "A link changed")
+	assertNoUpdate(t, subW, "No relevant link changed")
+
 	msgCh <- msgNewLink(4, Link{Name: "wwan0", State: Up, HardwareAddr: hwA[7]})
 	assertNoUpdate(t, subLocal, "Named link unchanged")
 	assertNoUpdate(t, subEth, "Named link still not present")

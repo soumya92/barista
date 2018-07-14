@@ -218,7 +218,7 @@ func (s subscription) matches(name string) bool {
 	case s.name != "":
 		return s.name == name
 	case s.prefix != "":
-		return strings.HasPrefix(name, s.name)
+		return strings.HasPrefix(name, s.prefix)
 	default:
 		return true
 	}
