@@ -113,13 +113,13 @@ func TestWlan(t *testing.T) {
 	nlt.UpdateLink(link0, netlink.Link{Name: "wlan0", State: netlink.Down})
 	testBar.LatestOutput().At(2).AssertText("wlan1/NetworkName", "when active link switches")
 
-	nlt.UpdateLink(link1, netlink.Link{Name: "wl1", State: netlink.Up})
 	iwgetidShouldReturn("wl1", map[string]string{
 		"-r": "NetworkName",
 		"-a": "00:11:22:33:44:55",
 		"-c": "11",
 		"-f": "2.4e+09",
 	})
+	nlt.UpdateLink(link1, netlink.Link{Name: "wl1", State: netlink.Up})
 	testBar.LatestOutput().At(2).AssertText("wl1/NetworkName", "when active link is renamed")
 
 	nlt.RemoveLink(link1)
