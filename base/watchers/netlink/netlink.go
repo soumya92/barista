@@ -283,6 +283,8 @@ func subscribe(s subscription) Subscription {
 	return s.notifyChan
 }
 
+// Subscription represents a single link subscription where
+// the most relevant link is sent on any updates.
 type Subscription <-chan Link
 
 // Unsubscribe stops further notifications and closes the channel.
@@ -323,6 +325,8 @@ func Any() Subscription {
 	return subscribe(subscription{})
 }
 
+// MultiSubscription represents a subscription where all links
+// are sent on any update.
 type MultiSubscription <-chan []Link
 
 // All creates a netlink watcher for all links.
