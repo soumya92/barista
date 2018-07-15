@@ -70,7 +70,7 @@ func TestStdout(t *testing.T) {
 	assert.Equal(t, "cd", stdout.ReadNow(), "continues normally after timeout")
 
 	go func() {
-		val, err = stdout.ReadUntil('b', 20*time.Millisecond)
+		val, err = stdout.ReadUntil('b', 50*time.Millisecond)
 		// This is a test of data races, the assertions are not very important.
 		assert.Equal(t, err, io.EOF)
 		assert.Equal(t, 50, len(val))
