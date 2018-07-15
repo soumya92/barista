@@ -2,7 +2,7 @@
 
 # From https://github.com/codecov/example-go#caveat-multiple-files
 set -e
-mkdir profiles/
+mkdir -p profiles/
 
 # Run tests with coverage for all barista packages
 go list ./... \
