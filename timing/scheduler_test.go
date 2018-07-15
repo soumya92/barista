@@ -43,16 +43,13 @@ func TestStop(t *testing.T) {
 	sch := NewScheduler()
 	assertNotTriggered(t, sch, "when not scheduled")
 
-	sch.After(5 * time.Millisecond)
-	sch.Stop()
+	sch.After(50 * time.Millisecond).Stop()
 	assertNotTriggered(t, sch, "when stopped")
 
-	sch.Every(5 * time.Millisecond)
-	sch.Stop()
+	sch.Every(50 * time.Millisecond).Stop()
 	assertNotTriggered(t, sch, "when stopped")
 
-	sch.At(Now().Add(5 * time.Millisecond))
-	sch.Stop()
+	sch.At(Now().Add(50 * time.Millisecond)).Stop()
 	assertNotTriggered(t, sch, "when stopped")
 
 	sch.After(10 * time.Millisecond)
@@ -85,33 +82,43 @@ func TestPauseResume(t *testing.T) {
 }
 
 func TestRepeating(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping real repeating test in short mode")
+	}
 	ExitTestMode()
 	sch := NewScheduler()
 
-	sch.Every(5 * time.Millisecond)
+	sch.Every(100 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	assertTriggered(t, sch, "after interval elapses")
+	time.Sleep(100 * time.Millisecond)
 	assertTriggered(t, sch, "after interval elapses")
+	time.Sleep(100 * time.Millisecond)
 	assertTriggered(t, sch, "after interval elapses")
 
 	Pause()
+	time.Sleep(100 * time.Millisecond)
 	assertNotTriggered(t, sch, "when paused")
-	time.Sleep(31 * time.Millisecond) // > 2 intervals.
-	sch.Stop()
+	time.Sleep(1 * time.Second) // > 2 intervals.
 	Resume()
 
 	assertTriggered(t, sch, "when resumed")
 	assertNotTriggered(t, sch, "only once on resume")
 
-	sch.After(5 * time.Millisecond)
+	sch.After(20 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 	assertTriggered(t, sch, "after delay elapses")
 	assertNotTriggered(t, sch, "after first trigger")
 }
 
 func TestCoalescedUpdates(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping real coalescing test in short mode")
+	}
 	ExitTestMode()
 	sch := NewScheduler()
-	sch.Every(15 * time.Millisecond)
-	time.Sleep(31 * time.Millisecond)
+	sch.Every(300 * time.Millisecond)
+	time.Sleep(3100 * time.Millisecond)
 	assertTriggered(t, sch, "after multiple intervals")
 	assertNotTriggered(t, sch, "multiple updates coalesced")
 }
