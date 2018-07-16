@@ -126,7 +126,7 @@ func (n *Node) Concat(nodes ...*Node) *Node {
 }
 
 // Pango returns a pango-formatted version of the node.
-func (n *Node) Pango() string {
+func (n *Node) String() string {
 	if n.nodeType == ntText {
 		return html.EscapeString(n.content)
 	}
@@ -144,7 +144,7 @@ func (n *Node) Pango() string {
 		out.WriteString(">")
 	}
 	for _, c := range n.children {
-		out.WriteString(c.Pango())
+		out.WriteString(c.String())
 	}
 	if n.content != "" {
 		out.WriteString("</")
@@ -156,7 +156,7 @@ func (n *Node) Pango() string {
 
 // Segments implements bar.Output for a single pango Node.
 func (n *Node) Segments() []*bar.Segment {
-	return []*bar.Segment{bar.PangoSegment(n.Pango())}
+	return []*bar.Segment{bar.PangoSegment(n.String())}
 }
 
 // New constructs a markup node that wraps the given Nodes.

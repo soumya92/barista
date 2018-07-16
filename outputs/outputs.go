@@ -56,7 +56,7 @@ func Pango(things ...interface{}) *bar.Segment {
 			nodes = append(nodes, pango.Textf("%v", t))
 		}
 	}
-	return bar.PangoSegment(pango.New(nodes...).Pango())
+	return bar.PangoSegment(pango.New(nodes...).String())
 }
 
 // Group concatenates several outputs into a single SegmentGroup,

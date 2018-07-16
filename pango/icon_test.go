@@ -25,11 +25,11 @@ import (
 func TestNoProviders(t *testing.T) {
 	iconProviders = map[string]IconProvider{}
 	assert.Empty(t,
-		Icon("anything-iconname").Pango(),
+		Icon("anything-iconname").String(),
 		"when no providers are added")
 
 	assert.Empty(t,
-		Icon("alert").Pango(),
+		Icon("alert").String(),
 		"when no providers are added")
 }
 
@@ -47,8 +47,8 @@ func TestProviders(t *testing.T) {
 	AddIconProvider("t1", singleIconProvider("foo"))
 	AddIconProvider("t2", singleIconProvider("bar"))
 
-	assert.Empty(t, Icon("t0-bar").Pango(), "non-existent provider")
-	assert.Empty(t, Icon("t1-bar").Pango(), "non-existent icon")
-	pango.AssertText(t, "s:bar", Icon("t2-bar").Pango(),
+	assert.Empty(t, Icon("t0-bar").String(), "non-existent provider")
+	assert.Empty(t, Icon("t1-bar").String(), "non-existent icon")
+	pango.AssertText(t, "s:bar", Icon("t2-bar").String(),
 		"provider name is not passed to Icon(...)")
 }

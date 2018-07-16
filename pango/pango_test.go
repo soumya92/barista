@@ -152,7 +152,7 @@ var stringifyingTests = []struct {
 
 func TestStringifying(t *testing.T) {
 	for _, tc := range stringifyingTests {
-		pango.AssertEqual(t, tc.expected, tc.node.Pango(), tc.desc)
+		pango.AssertEqual(t, tc.expected, tc.node.String(), tc.desc)
 	}
 }
 
@@ -246,7 +246,7 @@ var colorAttrTests = []struct {
 
 func TestColorAttrs(t *testing.T) {
 	for _, tc := range colorAttrTests {
-		pango.AssertEqual(t, tc.expected, tc.node.Pango(), tc.desc)
+		pango.AssertEqual(t, tc.expected, tc.node.String(), tc.desc)
 	}
 }
 
@@ -273,7 +273,7 @@ func benchmarkConstructOnly(b *testing.B, fn func() *Node) {
 func benchmarkConstructAndStringify(b *testing.B, fn func() *Node) {
 	var s string
 	for n := 0; n < b.N; n++ {
-		s = fn().Pango()
+		s = fn().String()
 	}
 	result = s
 }
@@ -282,7 +282,7 @@ func benchmarkStringifyOnly(b *testing.B, fn func() *Node) {
 	var s string
 	node := fn()
 	for n := 0; n < b.N; n++ {
-		s = node.Pango()
+		s = node.String()
 	}
 	result = s
 }

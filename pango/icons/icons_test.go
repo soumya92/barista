@@ -60,19 +60,19 @@ func TestIconProvider(t *testing.T) {
 		{"ligature", "ligature-font", "<span face='testfont' weight='200'>home</span>"},
 	}
 	for _, tc := range tests {
-		pangoTesting.AssertEqual(t, tc.expected, pango.Icon("test-"+tc.icon).Pango(), tc.desc)
+		pangoTesting.AssertEqual(t, tc.expected, pango.Icon("test-"+tc.icon).String(), tc.desc)
 	}
 
 	pangoTesting.AssertEqual(t,
 		"<span color='#ff0000'><span face='testfont' weight='200'>a</span></span>",
-		pango.Icon("test-test").Color(colors.Hex("#f00")).Pango(),
+		pango.Icon("test-test").Color(colors.Hex("#f00")).String(),
 		"Attributes are added to a wrapping <span>",
 	)
 
 	pangoTesting.AssertEqual(t,
 		`<span style='italic'><span weight='200' face='testfont'>home</span
 		><span weight='bold'>foobar</span></span>`,
-		pango.Icon("test-ligature-font").Italic().Append(pango.Text("foobar").Bold()).Pango(),
+		pango.Icon("test-ligature-font").Italic().Append(pango.Text("foobar").Bold()).String(),
 		"Append adds new elements without icon font styling",
 	)
 }
