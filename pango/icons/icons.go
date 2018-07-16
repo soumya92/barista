@@ -29,10 +29,8 @@ Compatible icon fonts:
 Example usage:
   material.Load("/Users/me/Github/google/material-design-icons")
   ...
-  return pango.New(
-    material.Icon("today").Color(colors.Hex("#ddd")),
-    pango.Text(now.Sprintf("%H:%M")),
-  )
+  return pango.Icon("material-today").Color(colors.Hex("#ddd")).
+      Append(pango.Text(now.Sprintf("%H:%M")))
 */
 package icons
 
