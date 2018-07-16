@@ -23,9 +23,10 @@ package ionicons
 
 import (
 	"encoding/json"
-	"io"
-	"io/ioutil"
+	"path/filepath"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/pango/icons"
 )
@@ -62,29 +63,29 @@ func Load(repoPath string) error {
 	return loadWithDefaultPrefix(repoPath, "")
 }
 
+var fs = afero.NewOsFs()
+
 func loadWithDefaultPrefix(repoPath string, defaultPrefix string) error {
-	return icons.NewProvider("ion", icons.Config{
-		RepoPath: repoPath,
-		FilePath: "scripts/manifest.json",
-		Font:     "Ionicons",
-	}).LoadFromFile(func(f io.Reader, add func(string, string)) error {
-		manifest, err := ioutil.ReadAll(f)
+	f, err := fs.Open(filepath.Join(repoPath, "scripts/manifest.json"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	ion := icons.NewProvider("ion")
+	ion.Font("Ionicons")
+	var conf ioniconsConfig
+	err = json.NewDecoder(f).Decode(&conf)
+	if err != nil {
+		return err
+	}
+	for _, icon := range conf.Icons {
+		err = ion.Hex(
+			strings.TrimPrefix(icon.Name, defaultPrefix),
+			strings.TrimPrefix(icon.Code, "0x"),
+		)
 		if err != nil {
 			return err
 		}
-		conf := ioniconsConfig{}
-		err = json.Unmarshal(manifest, &conf)
-		if err != nil {
-			return err
-		}
-		for _, icon := range conf.Icons {
-			value := strings.TrimPrefix(icon.Code, "0x")
-			symbol, err := icons.SymbolFromHex(value)
-			if err != nil {
-				return err
-			}
-			add(strings.TrimPrefix(icon.Name, defaultPrefix), symbol)
-		}
-		return nil
-	})
+	}
+	return nil
 }

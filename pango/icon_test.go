@@ -33,13 +33,13 @@ func TestNoProviders(t *testing.T) {
 		"when no providers are added")
 }
 
-type singleIconProvider string
-
-func (s singleIconProvider) Icon(name string) *Node {
-	if string(s) == name {
-		return Textf("s:%s", s).Small()
+func singleIconProvider(name string) IconProvider {
+	return func(s string) *Node {
+		if string(s) == name {
+			return Textf("s:%s", s).Small()
+		}
+		return nil
 	}
-	return nil
 }
 
 func TestProviders(t *testing.T) {

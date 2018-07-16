@@ -22,36 +22,47 @@ and requires fonts/fontawesome-webfont.ttf to be installed.
 package fontawesome
 
 import (
+	"bufio"
+	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/pango/icons"
 )
 
+var fs = afero.NewOsFs()
+
 // Load initialises the fontawesome icon provider from the given repo.
 func Load(repoPath string) error {
-	return icons.NewProvider("fa", icons.Config{
-		RepoPath: repoPath,
-		FilePath: "web-fonts-with-css/scss/_variables.scss",
-		Font:     "Font Awesome 5 Free",
-	}).LoadByLines(func(line string, add func(string, string)) error {
+	f, err := fs.Open(filepath.Join(repoPath, "web-fonts-with-css/scss/_variables.scss"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	fa := icons.NewProvider("fa")
+	fa.Font("Font Awesome 5 Free")
+	s := bufio.NewScanner(f)
+	s.Split(bufio.ScanLines)
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
 		colon := strings.Index(line, ":")
 		if colon < 0 {
-			return nil
+			continue
 		}
 		name := line[:colon]
 		if !strings.HasPrefix(name, "$fa-var-") {
-			return nil
+			continue
 		}
 		name = strings.TrimPrefix(name, "$fa-var-")
 		value := strings.TrimFunc(line[colon+1:], func(r rune) bool {
 			return unicode.IsSpace(r) || r == '"' || r == '\\' || r == ';'
 		})
-		sym, err := icons.SymbolFromHex(value)
+		err = fa.Hex(name, value)
 		if err != nil {
 			return err
 		}
-		add(name, sym)
-		return nil
-	})
+	}
+	return nil
 }

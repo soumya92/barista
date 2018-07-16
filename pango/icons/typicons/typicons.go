@@ -22,10 +22,10 @@ and requires src/font/typicons.ttf to be installed.
 package typicons
 
 import (
-	"io"
-	"io/ioutil"
+	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"
 
 	"github.com/soumya92/barista/pango/icons"
@@ -38,30 +38,30 @@ type typiconsConfig struct {
 	} `yaml:"glyphs"`
 }
 
+var fs = afero.NewOsFs()
+
 // Load initialises the typicons icon provider from the given repo.
 func Load(repoPath string) error {
-	return icons.NewProvider("typecn", icons.Config{
-		RepoPath: repoPath,
-		FilePath: "config.yml",
-		Font:     "Typicons",
-	}).LoadFromFile(func(f io.Reader, add func(string, string)) error {
-		yml, err := ioutil.ReadAll(f)
+	f, err := fs.Open(filepath.Join(repoPath, "config.yml"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	t := icons.NewProvider("typecn")
+	t.Font("Typicons")
+	var conf typiconsConfig
+	err = yaml.NewDecoder(f).Decode(&conf)
+	if err != nil {
+		return err
+	}
+	for _, glyph := range conf.Glyphs {
+		err = t.Hex(
+			glyph.Name,
+			strings.TrimPrefix(glyph.Code, "0x"),
+		)
 		if err != nil {
 			return err
 		}
-		conf := typiconsConfig{}
-		err = yaml.Unmarshal(yml, &conf)
-		if err != nil {
-			return err
-		}
-		for _, glyph := range conf.Glyphs {
-			value := strings.TrimPrefix(glyph.Code, "0x")
-			symbol, err := icons.SymbolFromHex(value)
-			if err != nil {
-				return err
-			}
-			add(glyph.Name, symbol)
-		}
-		return nil
-	})
+	}
+	return nil
 }

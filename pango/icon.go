@@ -21,11 +21,9 @@ import (
 )
 
 // IconProvider is an interface for providing pango Icons.
-type IconProvider interface {
-	// Icon returns a pango node for the given icon name,
-	// or nil if an icon could not be found.
-	Icon(string) *Node
-}
+// The function should return a pango node for the given
+// icon name, or nil if an icon could not be found.
+type IconProvider func(string) *Node
 
 var iconProviders = map[string]IconProvider{}
 
@@ -42,7 +40,7 @@ func Icon(ident string) *Node {
 	provider := providerAndName[0]
 	name := providerAndName[1]
 	if p, ok := iconProviders[provider]; ok {
-		node := p.Icon(name)
+		node := p(name)
 		if node != nil {
 			return New(node)
 		}

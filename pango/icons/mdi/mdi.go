@@ -24,32 +24,44 @@ and requires fonts/materialdesignicons-webfont.ttf to be installed.
 package mdi
 
 import (
+	"bufio"
+	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/pango/icons"
 )
 
+var fs = afero.NewOsFs()
+
 // Load initialises the material design (community) icon provider
 // from the given repo.
 func Load(repoPath string) error {
+	f, err := fs.Open(filepath.Join(repoPath, "scss/_variables.scss"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	mdi := icons.NewProvider("mdi")
+	mdi.Font("Material Design Icons")
+	mdi.AddStyle(func(n *pango.Node) { n.UltraLight() })
 	started := false
-	return icons.NewProvider("mdi", icons.Config{
-		RepoPath: repoPath,
-		FilePath: "scss/_variables.scss",
-		Font:     "Material Design Icons",
-		Styler:   func(n *pango.Node) { n.UltraLight() },
-	}).LoadByLines(func(line string, add func(string, string)) error {
+	s := bufio.NewScanner(f)
+	s.Split(bufio.ScanLines)
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
 		if !started {
 			if strings.Contains(line, "$mdi-icons:") {
 				started = true
 			}
-			return nil
+			continue
 		}
 		colon := strings.Index(line, ":")
 		if colon < 0 {
-			return nil
+			continue
 		}
 		name := strings.TrimFunc(line[:colon], func(r rune) bool {
 			return unicode.IsSpace(r) || r == '"'
@@ -57,11 +69,10 @@ func Load(repoPath string) error {
 		value := strings.TrimFunc(line[colon+1:], func(r rune) bool {
 			return unicode.IsSpace(r) || r == ','
 		})
-		sym, err := icons.SymbolFromHex(value)
+		err = mdi.Hex(name, value)
 		if err != nil {
 			return err
 		}
-		add(name, sym)
-		return nil
-	})
+	}
+	return nil
 }

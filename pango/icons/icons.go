@@ -35,100 +35,64 @@ Example usage:
 package icons
 
 import (
-	"bufio"
-	"io"
-	"path/filepath"
 	"strconv"
-	"strings"
-
-	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/pango"
 )
 
 // Provider provides pango nodes for icons
 type Provider struct {
-	font    string
 	symbols map[string]string
-	styler  func(*pango.Node)
-	file    string
-}
-
-// Icon creates a pango node that renders the named icon.
-func (p *Provider) Icon(name string) *pango.Node {
-	symbol, ok := p.symbols[name]
-	if !ok {
-		return nil
-	}
-	n := pango.Text(symbol).Font(p.font)
-	if p.styler != nil {
-		p.styler(n)
-	}
-	return n
+	styles  []func(*pango.Node)
 }
 
 // NewProvider creates a new icon provider with the given name,
 // registers it with pango.Icon, and returns it so that an appropriate
 // Load method can be used.
-func NewProvider(name string, c Config) *Provider {
-	p := &Provider{
-		font:    c.Font,
-		symbols: map[string]string{},
-		styler:  c.Styler,
-		file:    filepath.Join(c.RepoPath, c.FilePath),
-	}
-	pango.AddIconProvider(name, p)
+func NewProvider(name string) *Provider {
+	p := &Provider{symbols: map[string]string{}}
+	pango.AddIconProvider(name, p.icon)
 	return p
 }
 
-// Config stores Configuration options for building an IconProvider.
-type Config struct {
-	// Path to a git repository, typically supplied by the user.
-	RepoPath string
-	// Path to the file within the repository.
-	FilePath string
-	// Name of the font face.
-	Font string
-	// An optional function that adds any required pango styling,
-	// in addition to the font. (e.g. light/ultralight weight)
-	Styler func(*pango.Node)
+// icon creates a pango node that renders the named icon.
+func (p *Provider) icon(name string) *pango.Node {
+	symbol, ok := p.symbols[name]
+	if !ok {
+		return nil
+	}
+	n := pango.Text(symbol)
+	for _, s := range p.styles {
+		s(n)
+	}
+	return n
 }
 
-var fs = afero.NewOsFs()
-
-// LoadFromFile creates an IconProvider by passing to the parse
-// function an io.Reader for the source file, and a function to add
-// icons to the provider's map.
-func (p *Provider) LoadFromFile(parseFile func(io.Reader, func(string, string)) error) error {
-	f, err := fs.Open(p.file)
+// Hex adds a symbol to the provider where the value is given
+// in hex-encoded form.
+func (p *Provider) Hex(name, value string) error {
+	sym, err := SymbolFromHex(value)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return parseFile(f, func(name, symbol string) {
-		p.symbols[name] = symbol
-	})
+	p.Symbol(name, sym)
+	return nil
 }
 
-// LoadByLines creates an IconProvider by passing to the parse
-// function each line of the source file, and a function to add
-// icons to the provider's map.
-func (p *Provider) LoadByLines(parseLine func(string, func(string, string)) error) error {
-	return p.LoadFromFile(func(f io.Reader, add func(string, string)) error {
-		s := bufio.NewScanner(f)
-		s.Split(bufio.ScanLines)
-		for s.Scan() {
-			line := strings.TrimSpace(s.Text())
-			if line == "" {
-				continue
-			}
-			err := parseLine(line, add)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+// Symbol adds a symbol to the provider where the value is the
+// symbol/string to use for the icon.
+func (p *Provider) Symbol(name, value string) {
+	p.symbols[name] = value
+}
+
+// Font sets the font set on the returned pango nodes.
+func (p *Provider) Font(font string) {
+	p.AddStyle(func(n *pango.Node) { n.Font(font) })
+}
+
+// AddStyle sets additional styles on all returned pango nodes.
+func (p *Provider) AddStyle(style func(*pango.Node)) {
+	p.styles = append(p.styles, style)
 }
 
 // SymbolFromHex parses a hex string (e.g. "1F44D") and converts

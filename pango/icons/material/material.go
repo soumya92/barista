@@ -22,33 +22,45 @@ and requires iconfont/MaterialIcons-Regular.ttf to be installed.
 package material
 
 import (
+	"bufio"
 	"fmt"
+	"path/filepath"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/pango/icons"
 )
 
+var fs = afero.NewOsFs()
+
 // Load initialises the material design icon provider from the given repo.
 func Load(repoPath string) error {
-	return icons.NewProvider("material", icons.Config{
-		RepoPath: repoPath,
-		FilePath: "iconfont/codepoints",
-		Font:     "Material Icons",
-		Styler:   func(n *pango.Node) { n.UltraLight().Rise(-1600) },
-	}).LoadByLines(func(line string, add func(string, string)) error {
+	f, err := fs.Open(filepath.Join(repoPath, "iconfont/codepoints"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	material := icons.NewProvider("material")
+	material.Font("Material Icons")
+	material.AddStyle(func(n *pango.Node) { n.UltraLight().Rise(-1600) })
+	s := bufio.NewScanner(f)
+	s.Split(bufio.ScanLines)
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
 		components := strings.Split(line, " ")
 		if len(components) != 2 {
-			return fmt.Errorf("Unexpected line in 'iconfont/codepoints'")
-		}
-		symbol, err := icons.SymbolFromHex(components[1])
-		if err != nil {
-			return err
+			return fmt.Errorf("Unexpected line '%s' in 'iconfont/codepoints'", line)
 		}
 		// Material Design Icons uses '_', but all other fonts use '-',
 		// so we'll normalise it here.
 		name := strings.Replace(components[0], "_", "-", -1)
-		add(name, symbol)
-		return nil
-	})
+		value := components[1]
+		err = material.Hex(name, value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
