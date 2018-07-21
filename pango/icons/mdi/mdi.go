@@ -25,6 +25,8 @@ package mdi
 
 import (
 	"bufio"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -59,9 +61,12 @@ func Load(repoPath string) error {
 			}
 			continue
 		}
+		if line == ");" {
+			return nil
+		}
 		colon := strings.Index(line, ":")
 		if colon < 0 {
-			continue
+			return fmt.Errorf("Unexpected line '%s'", line)
 		}
 		name := strings.TrimFunc(line[:colon], func(r rune) bool {
 			return unicode.IsSpace(r) || r == '"'
@@ -74,5 +79,8 @@ func Load(repoPath string) error {
 			return err
 		}
 	}
-	return nil
+	if !started {
+		return errors.New("Could not find any icons in _variables.scss")
+	}
+	return errors.New("Expected ); to end $mdi-icons, got end of file")
 }
