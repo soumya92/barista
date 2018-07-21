@@ -18,10 +18,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/soumya92/barista/pango"
-	"github.com/soumya92/barista/testing/githubfs"
 	pangoTesting "github.com/soumya92/barista/testing/pango"
 	"github.com/spf13/afero"
+
+	"github.com/soumya92/barista/pango"
+	"github.com/soumya92/barista/testing/githubfs"
 	"github.com/stretchr/testify/assert"
 )
 
