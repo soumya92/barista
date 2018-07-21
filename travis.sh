@@ -12,7 +12,7 @@ go list ./... \
 'go test -coverprofile=profiles/$(echo "PKG" | sed "s|/|_|g").out -race -covermode=atomic "PKG"'
 
 # Debug log tests need the build tag, otherwise the nop versions will be used.
-go test -v -tags debuglog -coverprofile=profiles/logging_real.out -race -covermode=atomic ./logging
+go test -tags debuglog -coverprofile=profiles/logging_real.out -race -covermode=atomic ./logging
 
 # Merge all code coverage reports.
 cat profiles/*.out > coverage.txt
