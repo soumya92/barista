@@ -1,4 +1,4 @@
-# Barista
+# <img alt="Logo" src="https://soumya92.github.io/barista/logo/32.png" height="32" width="32" /> Barista
 
 [![Build Status](https://travis-ci.org/soumya92/barista.svg?branch=master)](https://travis-ci.org/soumya92/barista)
 [![GoDoc](https://godoc.org/github.com/soumya92/barista?status.svg)](https://godoc.org/github.com/soumya92/barista)
