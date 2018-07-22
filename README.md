@@ -1,3 +1,5 @@
+<img src="https://soumya92.github.io/barista/logo/128.png" height="128" width="128" alt="Logo" />
+
 # Barista
 
 [![Build Status](https://travis-ci.org/soumya92/barista.svg?branch=master)](https://travis-ci.org/soumya92/barista)
