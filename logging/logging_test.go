@@ -19,6 +19,8 @@ package logging
 import (
 	"fmt"
 	"log"
+	"os"
+	"runtime"
 	"testing"
 
 	"github.com/stretchrcom/testify/assert"
@@ -43,6 +45,7 @@ func resetLoggingState() {
 		return true
 	})
 
+	construct()
 	mockStderr = mockio.Stdout()
 	SetFlags(0) // To make test output as deterministic as possible.
 	SetOutput(mockStderr)
@@ -82,39 +85,50 @@ func TestLog(t *testing.T) {
 }
 
 func TestFine(t *testing.T) {
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+	arg0 := os.Args[0]
+
+	os.Args = []string{arg0}
 	resetLoggingState()
 	Fine("foo")
 	assert.Empty(t, mockStderr.ReadNow())
 
+	os.Args = []string{arg0, "-finelog=mod:something,"}
 	resetLoggingState()
-	fineLogModules = []string{""}
 	Fine("foo")
 	assertLogged(t, "foo")
 
+	os.Args = []string{arg0, "--finelog=bar:logging.TestLog"}
 	resetLoggingState()
-	fineLogModules = []string{"bar:logging.TestLog"}
 	Fine("foo")
 	assert.Empty(t, mockStderr.ReadNow())
 
+	os.Args = []string{arg0, "--finelog=bar:"}
 	resetLoggingState()
-	fineLogModules = []string{"bar:"}
 	Fine("foo")
 	assertLogged(t, "foo")
 
+	os.Args = []string{arg0, "--finelog=bar:notifier.Test,bar:logging.TestFine"}
 	resetLoggingState()
-	fineLogModules = []string{"bar:logging.TestFine"}
 	Fine("foo")
 	assertLogged(t, "foo")
 
+	os.Args = []string{arg0, "--finelog=bar:logging.Test"}
 	resetLoggingState()
-	fineLogModules = []string{"bar:logging.Test"}
 	Fine("foo")
 	assertLogged(t, "foo")
+
+	os.Args = []string{arg0, "--finelog=bar:colors.Test"}
+	resetLoggingState()
+	Fine("foo")
+	assert.Empty(t, mockStderr.ReadNow())
 }
 
 func TestFileLocations(t *testing.T) {
 	resetLoggingState()
 	SetFlags(log.Lshortfile)
 	Log("foo")
-	assertLogged(t, "logging_test.go:118 (bar:logging.TestFileLocations) foo")
+	_, _, line, _ := runtime.Caller(0)
+	assertLogged(t, fmt.Sprintf("logging_test.go:%d (bar:logging.TestFileLocations) foo", line-1))
 }

@@ -112,7 +112,7 @@ func fineLogEnabled(mod string) bool {
 // The name is prefixed based on origin:
 //     - mod:$module for modules included with barista (e.g. mod:cpuinfo)
 //     - bar:$core for core barista code (e.g. bar:notifier, bar:base)
-//     - ext:$package for external code (e.g. ext:github.com/user/repo/module)
+//     - $package for all other code (e.g. github.com/user/repo/module)
 // The source location is empty if neither shortfile nor longfile flags are set,
 // otherwise it is the appropriately formatted file name, ":", and line number.
 func callingModule() (mod string, loc string) {
