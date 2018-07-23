@@ -134,7 +134,7 @@ const loadScale = 65536.0 // LINUX_SYSINFO_LOADS_SCALE
 
 func update() {
 	var sysinfoT unix.Sysinfo_t
-	err := unix.Sysinfo(&sysinfoT)
+	err := sysinfo(&sysinfoT)
 	if currentInfo.Error(err) {
 		return
 	}
@@ -158,3 +158,6 @@ func update() {
 	}
 	currentInfo.Set(sysinfo)
 }
+
+// To allow tests to mock out unix.Sysinfo.
+var sysinfo = unix.Sysinfo
