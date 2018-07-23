@@ -1,4 +1,4 @@
-<img src="https://soumya92.github.io/barista/logo/128.png" height="128" width="128" alt="Logo" />
+<img src="https://raw.githubusercontent.com/soumya92/barista/gh-pages/logo/128.png" height="128" width="128" alt="Logo" />
 
 # Barista
 
