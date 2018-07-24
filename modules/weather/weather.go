@@ -53,7 +53,7 @@ type Condition int
 
 // Possible weather conditions
 const (
-	ConditionUnknown = iota
+	ConditionUnknown Condition = iota
 	Thunderstorm
 	Drizzle
 	Rain
