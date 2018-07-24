@@ -116,6 +116,13 @@ func TestClick(t *testing.T) {
 	positiveTimeout = 10 * time.Millisecond
 	fakeT := &testing.T{}
 	m = New(fakeT)
+	m.AssertClicked("fails when not started")
+	assert.True(t, fakeT.Failed(), "AssertClicked when not started")
+
+	fakeT = &testing.T{}
+	m = New(fakeT)
+	go m.Stream(sink.Null())
+	m.AssertStarted()
 	m.AssertClicked("fails when not clicked")
 	assert.True(t, fakeT.Failed(), "AssertClicked when not clicked")
 
