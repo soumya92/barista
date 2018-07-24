@@ -27,6 +27,7 @@ import (
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/testing/mockio"
 	"github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/timing"
 )
 
 func TestOutput(t *testing.T) {
@@ -166,6 +167,20 @@ func TestSegment(t *testing.T) {
 	s := bar.PangoSegment("<b>bold</b>").Urgent(true)
 	m.Output(s)
 	assert.Equal(t, s, LatestOutput().At(0).Segment())
+}
+
+func TestTick(t *testing.T) {
+	New(t)
+	Run()
+	startTime := timing.Now()
+	timing.NewScheduler().Every(time.Minute)
+
+	assert.Equal(t, startTime.Add(time.Minute), Tick())
+
+	New(t)
+	Run()
+	newStartTime := timing.Now()
+	assert.Equal(t, newStartTime, Tick())
 }
 
 func assertFails(t *testing.T, testFunc func(*module.TestModule), args ...interface{}) {

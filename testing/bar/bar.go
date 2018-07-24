@@ -258,8 +258,8 @@ func RightClick(i int) {
 // Tick calls timing.NextTick() under the covers, allowing
 // some tests that don't need fine grained scheduling control
 // to treat timing's test mode as an implementation detail.
-func Tick() {
-	timing.NextTick()
+func Tick() time.Time {
+	return timing.NextTick()
 }
 
 // AssertNagbar asserts that the global error handler was triggered.
