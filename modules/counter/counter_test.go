@@ -42,4 +42,12 @@ func TestCounter(t *testing.T) {
 	testBar.SendEvent(0, bar.Event{Button: bar.ButtonBack})
 	testBar.NextOutput().AssertText(
 		[]string{"C:-1"}, "on click")
+
+	ctr.Format("=%d=")
+	testBar.NextOutput().AssertText(
+		[]string{"=-1="}, "on format change")
+
+	testBar.SendEvent(0, bar.Event{Button: bar.ScrollUp})
+	testBar.NextOutput().AssertText(
+		[]string{"=0="}, "on click after format change")
 }

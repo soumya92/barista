@@ -56,6 +56,14 @@ func (m *Module) Stream(s bar.Sink) {
 	}
 }
 
+// Format sets the output format.
+// The given format string will receive the counter value
+// as the only argument.
+func (m *Module) Format(format string) *Module {
+	m.format.Set(format)
+	return m
+}
+
 // Click handles clicks on the module output.
 func (m *Module) Click(e bar.Event) {
 	current := m.count.Get().(int)
