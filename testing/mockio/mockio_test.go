@@ -123,7 +123,7 @@ func TestTiming(t *testing.T) {
 		time.Sleep(4 * time.Second)
 		io.WriteString(w, "gh")
 		time.Sleep(4 * time.Second)
-		io.WriteString(w, "ij")
+		io.WriteString(w, "ijklmnop")
 		wait <- struct{}{}
 	})(stdout)
 
@@ -132,8 +132,11 @@ func TestTiming(t *testing.T) {
 	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
 	assert.Equal(t, "abcdef", val, "returns content written before timeout")
 
+	val, err = stdout.ReadUntil('j', 8*time.Second)
+	assert.Equal(t, "ghij", val, "returns only content up to delimiter")
+	assert.NoError(t, err, "if delimiter is written within timeout")
 	<-wait
-	assert.Equal(t, "ghij", stdout.ReadNow(), "subsequent readnow returns content after timeout")
+	assert.Equal(t, "klmnop", stdout.ReadNow(), "subsequent readnow returns content after timeout")
 }
 
 func TestWaiting(t *testing.T) {
