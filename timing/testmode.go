@@ -190,10 +190,6 @@ func advanceToLocked(newTime time.Time) time.Time {
 		t.what.maybeTrigger()
 	}
 	triggers = triggers[idx:]
-	if idx == 0 {
-		nowInTest.Store(newTime)
-		return newTime
-	}
 	sort.Sort(triggers)
 	if newTime.After(nextTick) {
 		return advanceToLocked(newTime)

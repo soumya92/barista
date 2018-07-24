@@ -28,8 +28,9 @@ import (
 type scheduler struct {
 	sync.Mutex
 
-	timer  *time.Timer
-	ticker *time.Ticker
+	timer   *time.Timer
+	ticker  *time.Ticker
+	quitter chan struct{}
 
 	notifyFn func()
 	notifyCh <-chan struct{}
@@ -127,17 +128,24 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 	s.Lock()
 	defer s.Unlock()
 	s.stop()
+	s.quitter = make(chan struct{})
 	s.ticker = time.NewTicker(interval)
 	go func() {
 		s.Lock()
 		ticker := s.ticker
+		quitter := s.quitter
 		s.Unlock()
-		if ticker == nil {
+		if ticker == nil || quitter == nil {
 			// Scheduler stopped before goroutine was started.
 			return
 		}
-		for range ticker.C {
-			s.maybeTrigger()
+		for {
+			select {
+			case <-ticker.C:
+				s.maybeTrigger()
+			case <-quitter:
+				return
+			}
 		}
 	}()
 	return s
@@ -169,5 +177,9 @@ func (s *scheduler) stop() {
 	if s.ticker != nil {
 		s.ticker.Stop()
 		s.ticker = nil
+	}
+	if s.quitter != nil {
+		close(s.quitter)
+		s.quitter = nil
 	}
 }
