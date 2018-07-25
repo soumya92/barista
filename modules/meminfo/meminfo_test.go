@@ -52,12 +52,13 @@ func TestMeminfo(t *testing.T) {
 		"MemFree":      1024,
 	})
 
+	def := New()
 	avail := New().Template(`{{.Available.Kibibytes}}`)
 	free := New().Template(`{{.FreeFrac "Mem"}}`)
 
-	testBar.Run(avail, free)
+	testBar.Run(def, avail, free)
 	testBar.LatestOutput().AssertText(
-		[]string{"2048", "0.25"}, "on start")
+		[]string{"Mem: 2.0 MiB", "2048", "0.25"}, "on start")
 
 	shouldReturn(meminfo{
 		"MemAvailable": 1024,
@@ -68,7 +69,7 @@ func TestMeminfo(t *testing.T) {
 	testBar.Tick()
 
 	testBar.LatestOutput().AssertText(
-		[]string{"1024", "0.0625"}, "on tick")
+		[]string{"Mem: 1.0 MiB", "1024", "0.0625"}, "on tick")
 
 	shouldReturn(meminfo{
 		"Cached":   1024,
@@ -79,7 +80,11 @@ func TestMeminfo(t *testing.T) {
 	testBar.Tick()
 
 	testBar.LatestOutput().AssertText(
-		[]string{"2048", "0.125"}, "on tick")
+		[]string{"Mem: 2.0 MiB", "2048", "0.125"}, "on tick")
+
+	def.Template(`{{.Buffers.Mebibytes}}`)
+	testBar.LatestOutput().AssertText(
+		[]string{"0.5", "2048", "0.125"}, "on template change")
 
 	beforeTick := timing.Now()
 	RefreshInterval(time.Minute)
