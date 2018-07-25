@@ -554,6 +554,82 @@ func TestErrorHandling(t *testing.T) {
 		"restarting from regular segment also clears errors")
 }
 
+func testIoError(
+	t *testing.T,
+	setup func(*mockio.Readable, *mockio.Writable),
+	test func(*mockio.Readable, *mockio.Writable, *testModule.TestModule),
+	formatAndArgs ...interface{},
+) {
+	mockStdin := mockio.Stdin()
+	mockStdout := mockio.Stdout()
+	TestMode(mockStdin, mockStdout)
+	if setup == nil {
+		mockStdin.WriteString("[")
+	} else {
+		setup(mockStdin, mockStdout)
+	}
+
+	m := testModule.New(t)
+	errChan := make(chan error)
+
+	Add(m)
+	go func(e chan<- error) {
+		e <- Run()
+	}(errChan)
+	if test != nil {
+		test(mockStdin, mockStdout, m)
+	}
+	select {
+	case e := <-errChan:
+		assert.Error(t, e, formatAndArgs...)
+	case <-time.After(time.Second):
+		assert.Fail(t, "Expected an error", formatAndArgs...)
+	}
+}
+
+func TestIOErrors(t *testing.T) {
+	testIoError(t,
+		func(in *mockio.Readable, out *mockio.Writable) {
+			out.ShouldError(errors.New("foo"))
+		}, nil, "on stdout error during startup")
+
+	testIoError(t,
+		func(in *mockio.Readable, out *mockio.Writable) {
+			in.ShouldError(errors.New("foo"))
+		}, nil, "on stdin error during startup")
+
+	testIoError(t,
+		func(in *mockio.Readable, out *mockio.Writable) {
+			in.WriteString("!!!")
+		}, nil, "on stdin starting incorrectly")
+
+	testIoError(t, nil,
+		func(in *mockio.Readable, out *mockio.Writable, m *testModule.TestModule) {
+			m.AssertStarted()
+			in.WriteString(`{"button":0},`)
+			in.ShouldError(errors.New("something"))
+		}, "on stdin error")
+
+	testIoError(t, nil,
+		func(in *mockio.Readable, out *mockio.Writable, m *testModule.TestModule) {
+			m.AssertStarted()
+			in.WriteString(`{"button":0}`)
+			in.ShouldError(errors.New("something"))
+		}, "on stdin error")
+
+	testIoError(t, nil,
+		func(in *mockio.Readable, out *mockio.Writable, m *testModule.TestModule) {
+			m.AssertStarted()
+			out.ShouldError(errors.New("something"))
+			m.OutputText("foo")
+		}, "on stdout error")
+
+	testIoError(t, nil,
+		func(in *mockio.Readable, out *mockio.Writable, m *testModule.TestModule) {
+			in.WriteString(`{"foo": $$}`)
+		}, "on stdin invalid json")
+}
+
 type segmentAssertions struct {
 	*testing.T
 	actual   *bar.Segment

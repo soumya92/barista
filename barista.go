@@ -17,6 +17,7 @@ package barista
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"image/color"
 	"io"
 	"os"
@@ -265,8 +266,11 @@ func Run(modules ...bar.Module) error {
 	b.started = true
 	l.Log("Bar started")
 
+	errChan := make(chan error)
 	// Read events from the input stream, pipe them to the events channel.
-	go b.readEvents()
+	go func(e chan<- error) {
+		e <- b.readEvents()
+	}(errChan)
 	for _, m := range b.i3Modules {
 		go m.output(b)
 		l.Log("Module %s started", l.ID(m.Module))
@@ -345,6 +349,8 @@ func Run(modules ...bar.Module) error {
 			case unix.SIGUSR2:
 				b.resume()
 			}
+		case err := <-errChan:
+			return err
 		}
 	}
 }
@@ -496,12 +502,16 @@ func (b *i3Bar) get(name string) (*i3Module, bool) {
 }
 
 // readEvents parses the infinite stream of events received from i3.
-func (b *i3Bar) readEvents() {
+func (b *i3Bar) readEvents() error {
 	// Buffered I/O to allow complete events to be read in at once.
 	reader := bufio.NewReader(b.reader)
 	// Consume opening '['
-	if rune, _, err := reader.ReadRune(); err != nil || rune != '[' {
-		return
+	rune, _, err := reader.ReadRune()
+	if err != nil {
+		return err
+	}
+	if rune != '[' {
+		return errors.New("stdin format error")
 	}
 	for {
 		// While the 'proper' way to implement this infinite parser would be to keep
@@ -510,19 +520,19 @@ func (b *i3Bar) readEvents() {
 		// is read until the first '}', decode it, consume the ',', and repeat.
 		eventJSON, err := reader.ReadString('}')
 		if err != nil {
-			return
+			return err
 		}
 		// The '}' is consumed by ReadString, but required by json Decoder.
 		event := i3Event{}
 		decoder := json.NewDecoder(strings.NewReader(eventJSON + "}"))
 		err = decoder.Decode(&event)
 		if err != nil {
-			return
+			return err
 		}
 		b.events <- event
 		// Consume ','
 		if _, err := reader.ReadString(','); err != nil {
-			return
+			return err
 		}
 	}
 }
