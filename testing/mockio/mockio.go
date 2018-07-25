@@ -152,11 +152,20 @@ func (r *Readable) Read(out []byte) (n int, e error) {
 		return
 	}
 	len := r.buffer.Len()
-	r.mutex.Unlock()
 	if len == 0 {
+		r.mutex.Unlock()
 		<-r.available
+		r.mutex.Lock()
+		if r.nextError != nil {
+			e = r.nextError
+			r.nextError = nil
+			r.mutex.Unlock()
+			if len == 0 {
+				r.consumed <- struct{}{}
+			}
+			return
+		}
 	}
-	r.mutex.Lock()
 	n, e = r.buffer.Read(out)
 	r.mutex.Unlock()
 	if len == 0 {
@@ -197,6 +206,7 @@ func (r *Readable) ShouldError(e error) {
 	r.mutex.Lock()
 	r.nextError = e
 	r.mutex.Unlock()
+	r.signalWrite()
 }
 
 // signalWrite signals that data was written, and waits for it to be consumed.

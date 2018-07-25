@@ -268,4 +268,11 @@ func TestStdin(t *testing.T) {
 	r = <-result
 	assert.NoError(t, r.err, "next error is consumed")
 	assert.Equal(t, "foo", r.contents)
+
+	request <- 4
+	// Give request some time to block.
+	time.Sleep(10 * time.Millisecond)
+	stdin.ShouldError(io.ErrShortBuffer)
+	r = <-result
+	assert.Error(t, r.err, "ShouldError when Read is blocked")
 }
