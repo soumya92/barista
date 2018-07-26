@@ -33,36 +33,36 @@ import (
 // Config represents open weather map API configuration
 // from which a weather.Provider can be built.
 type Config struct {
-	query  map[string]string
+	query  [][2]string
 	apiKey string
 }
 
 // CityID queries OWM by city id. Recommended.
 func CityID(cityID string) *Config {
-	return &Config{query: map[string]string{
-		"id": cityID,
+	return &Config{query: [][2]string{
+		{"id", cityID},
 	}}
 }
 
 // CityName queries OWM using a named city. Least accurate.
 func CityName(city, country string) *Config {
-	return &Config{query: map[string]string{
-		"q": fmt.Sprintf("%s,%s", city, country),
+	return &Config{query: [][2]string{
+		{"q", fmt.Sprintf("%s,%s", city, country)},
 	}}
 }
 
 // Coords queries OWM using lat/lon co-ordinates.
 func Coords(lat, lon float64) *Config {
-	return &Config{query: map[string]string{
-		"lat": fmt.Sprintf("%f", lat),
-		"lon": fmt.Sprintf("%f", lon),
+	return &Config{query: [][2]string{
+		{"lat", fmt.Sprintf("%.6f", lat)},
+		{"lon", fmt.Sprintf("%.6f", lon)},
 	}}
 }
 
 // Zipcode queries OWM using a zip code or post code and country.
 func Zipcode(zip, country string) *Config {
-	return &Config{query: map[string]string{
-		"zip": fmt.Sprintf("%s,%s", zip, country),
+	return &Config{query: [][2]string{
+		{"zip", fmt.Sprintf("%s,%s", zip, country)},
 	}}
 }
 
@@ -86,8 +86,8 @@ func (c *Config) Build() weather.Provider {
 		apiKey = "9c51204f81fc8e1998981de83a7cabc9"
 	}
 	qp.Add("appid", apiKey)
-	for key, value := range c.query {
-		qp.Add(key, value)
+	for _, value := range c.query {
+		qp.Add(value[0], value[1])
 	}
 	owmURL := url.URL{
 		Scheme:   "http",
@@ -126,11 +126,11 @@ type owmWeather struct {
 
 func getCondition(owmCondition int) weather.Condition {
 	switch owmCondition {
-	case 611:
+	case 611, 612:
 		return weather.Sleet
 	case 701:
 		return weather.Mist
-	case 711:
+	case 711, 751, 761, 762:
 		return weather.Smoke
 	case 721:
 		return weather.Haze
@@ -146,7 +146,7 @@ func getCondition(owmCondition int) weather.Condition {
 		return weather.Cloudy
 	case 804:
 		return weather.Overcast
-	case 900:
+	case 900, 781:
 		return weather.Tornado
 	case 901:
 		return weather.TropicalStorm
@@ -156,7 +156,7 @@ func getCondition(owmCondition int) weather.Condition {
 		return weather.Cold
 	case 904:
 		return weather.Hot
-	case 905:
+	case 905, 771:
 		return weather.Windy
 	case 906:
 		return weather.Hail
