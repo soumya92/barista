@@ -16,12 +16,11 @@ package githubfs
 
 import (
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
+	testServer "github.com/soumya92/barista/testing/httpserver"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,48 +29,31 @@ func TestName(t *testing.T) {
 }
 
 func TestFs(t *testing.T) {
-	oldTime := time.Now().Add(-127 * time.Hour)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/loop":
-			w.Header().Set("Location", "/loop")
-			w.WriteHeader(307)
-		case "/500":
-			w.WriteHeader(500)
-			w.Write([]byte("Something went wrong"))
-		case "/oldfile":
-			w.Header().Set("Last-Modified",
-				oldTime.In(time.UTC).Format(http.TimeFormat))
-			w.Write([]byte("foo"))
-		case "/empty":
-			w.Write([]byte{})
-		case "/foo":
-			w.Write([]byte("bar"))
-		}
-	}))
+	ts := testServer.New()
 	defer ts.Close()
 	root = ts.URL
 
 	fs := New()
 
-	_, err := fs.Open("500")
+	_, err := fs.Open("/code/500")
 	assert.Error(t, err)
-	_, err = fs.OpenFile("/loop", 0, 0444)
+	_, err = fs.OpenFile("/redir", 0, 0444)
 	assert.Error(t, err)
-	_, err = fs.Stat("500")
+	_, err = fs.Stat("/code/403")
 	assert.Error(t, err)
 
-	info, err := fs.Stat("oldfile")
+	info, err := fs.Stat("/modtime/1382140800")
 	assert.NoError(t, err)
-	assert.Equal(t, oldTime.Truncate(time.Second), info.ModTime())
+	modTime := time.Date(2013, time.October, 19, 0, 0, 0, 0, time.UTC)
+	assert.WithinDuration(t, modTime, info.ModTime(), time.Minute)
 
-	f, err := fs.Open("empty")
+	f, err := fs.Open("/basic/empty")
 	assert.NoError(t, err)
 	contents, err := ioutil.ReadAll(f)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{}, contents)
 
-	f, err = fs.OpenFile("foo", os.O_RDONLY, 0600)
+	f, err = fs.OpenFile("/basic/foo", os.O_RDONLY, 0600)
 	assert.NoError(t, err)
 	contents, err = ioutil.ReadAll(f)
 	assert.NoError(t, err)
