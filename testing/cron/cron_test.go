@@ -38,15 +38,24 @@ func failNTimes(n int) func(*testing.T) {
 	}
 }
 
+func mockGetenv(eventType string) func(string) string {
+	return func(key string) string {
+		if key == "TRAVIS_EVENT_TYPE" {
+			return eventType
+		}
+		return os.Getenv(key)
+	}
+}
+
 func TestNotCron(t *testing.T) {
-	os.Setenv("TRAVIS_EVENT_TYPE", "not-cron")
+	getenv = mockGetenv("not-cron")
 	Test(t, func(*testing.T) {
 		assert.Fail(t, "test func called but not a cron build")
 	})
 }
 
 func TestCron(t *testing.T) {
-	os.Setenv("TRAVIS_EVENT_TYPE", "cron")
+	getenv = mockGetenv("cron")
 
 	testT := &testing.T{}
 	start := time.Now()

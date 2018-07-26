@@ -30,10 +30,11 @@ import (
 	"time"
 )
 
+var getenv = os.Getenv
 var waits = []int{1, 3, 7, 15}
 
 func Test(t *testing.T, testFunc func(t *testing.T)) {
-	if evt := os.Getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
+	if evt := getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
 		t.Skipf("Skipping LiveVersion test for event type '%s'", evt)
 	}
 	for idx, wait := range waits {
