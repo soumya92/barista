@@ -15,9 +15,9 @@
 package ionicons
 
 import (
-	"os"
 	"testing"
 
+	"github.com/soumya92/barista/testing/cron"
 	pangoTesting "github.com/soumya92/barista/testing/pango"
 	"github.com/spf13/afero"
 
@@ -76,9 +76,8 @@ func TestValid(t *testing.T) {
 // which provides timely notifications of incompatible changes while
 // keeping default tests hermetic.
 func TestLive(t *testing.T) {
-	if evt := os.Getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
-		t.Skipf("Skipping LiveVersion test for event type '%s'", evt)
-	}
 	fs = githubfs.New()
-	assert.NoError(t, Load("/ionic-team/ionicons/master"))
+	cron.Test(t, func(t *testing.T) {
+		assert.NoError(t, Load("/ionic-team/ionicons/master"))
+	})
 }

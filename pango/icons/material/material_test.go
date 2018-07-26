@@ -15,13 +15,13 @@
 package material
 
 import (
-	"os"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/soumya92/barista/pango"
+	"github.com/soumya92/barista/testing/cron"
 	"github.com/soumya92/barista/testing/githubfs"
 	pangoTesting "github.com/soumya92/barista/testing/pango"
 )
@@ -69,9 +69,8 @@ func TestValid(t *testing.T) {
 // which provides timely notifications of incompatible changes while
 // keeping default tests hermetic.
 func TestLive(t *testing.T) {
-	if evt := os.Getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
-		t.Skipf("Skipping LiveVersion test for event type '%s'", evt)
-	}
 	fs = githubfs.New()
-	assert.NoError(t, Load("/google/material-design-icons/master"))
+	cron.Test(t, func(t *testing.T) {
+		assert.NoError(t, Load("/google/material-design-icons/master"))
+	})
 }

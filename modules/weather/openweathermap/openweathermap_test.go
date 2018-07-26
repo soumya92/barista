@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/soumya92/barista/modules/weather"
+	"github.com/soumya92/barista/testing/cron"
 	testServer "github.com/soumya92/barista/testing/httpserver"
 )
 
@@ -179,10 +180,9 @@ func TestProviderBuilder(t *testing.T) {
 }
 
 func TestLive(t *testing.T) {
-	if evt := os.Getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
-		t.Skipf("Skipping LiveVersion test for event type '%s'", evt)
-	}
-	wthr, err := Zipcode("94043", "US").Build().GetWeather()
-	assert.NoError(t, err)
-	assert.NotNil(t, wthr)
+	cron.Test(t, func(t *testing.T) {
+		wthr, err := Zipcode("94043", "US").Build().GetWeather()
+		assert.NoError(t, err)
+		assert.NotNil(t, wthr)
+	})
 }
