@@ -19,6 +19,7 @@ package httpserver
 
 import (
 	"html/template"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -100,6 +101,22 @@ func handleBasic(w http.ResponseWriter, arg string) {
 	}
 }
 
+// handleStatic handles the '/static/' path. It treats arg as the name of
+// a file to load, relative to "testdata".
+func handleStatic(w http.ResponseWriter, arg string) {
+	file, err := fs.Open(filepath.Join("testdata", arg))
+	if os.IsNotExist(err) {
+		handleHttpCode(w, "404")
+		return
+	}
+	if handleError(w, err) {
+		return
+	}
+	w.WriteHeader(200)
+	io.Copy(w, file)
+	file.Close()
+}
+
 // handleTemplate handles the '/tpl/' path. It treats arg as the name of
 // the template file to load, relative to "testdata", and passes all query
 // parameters as arguments to the template.
@@ -136,6 +153,8 @@ func New() *httptest.Server {
 			handleModTime(w, arg)
 		case "basic":
 			handleBasic(w, arg)
+		case "static":
+			handleStatic(w, arg)
 		case "tpl":
 			handleTemplate(w, arg, r.URL.Query())
 		default:

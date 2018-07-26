@@ -49,10 +49,12 @@ func get(t *testing.T, url string) (*http.Response, string) {
 	return r, string(body)
 }
 
-func testOne(t *testing.T, url string, code int, expected string) {
+func testOne(t *testing.T, url string, code int, expected ...string) {
 	resp, body := get(t, url)
 	assert.Equal(t, code, resp.StatusCode, "StatusCode for %s", url)
-	assert.Equal(t, expected, body, "Body for %s", url)
+	if len(expected) == 1 {
+		assert.Equal(t, expected[0], body, "Body for %s", url)
+	}
 }
 
 func TestRedir(t *testing.T) {
@@ -76,9 +78,7 @@ func TestBasic(t *testing.T) {
 func TestHttpCodes(t *testing.T) {
 	testOne(t, "/code/404", 404, "Not Found")
 	testOne(t, "/code/500", 500, "Internal Server Error")
-
-	r, _ := get(t, "/code/xyz")
-	assert.Equal(t, r.StatusCode, 500, "Invalid http code")
+	testOne(t, "/code/xyz", 500)
 }
 
 func TestModTime(t *testing.T) {
@@ -89,33 +89,43 @@ func TestModTime(t *testing.T) {
 	refTime, _ := time.Parse(time.RubyDate, time.RubyDate)
 	assert.WithinDuration(t, refTime, parsed, time.Minute)
 
-	r, _ = get(t, "/modtime/foobar")
-	assert.Equal(t, r.StatusCode, 500, "Invalid unix timestamp")
+	testOne(t, "/modtime/foobar", 500)
+}
+
+func TestStatic(t *testing.T) {
+	fs = afero.NewMemMapFs()
+	assert := assert.New(t)
+
+	afero.WriteFile(fs, "testdata/foo", []byte(`bar`), 0400)
+	testOne(t, "/static/foo", 200, "bar")
+
+	afero.WriteFile(fs, "testdata/empty", []byte{}, 0400)
+	r, body := get(t, "/static/empty")
+	assert.Equal(200, r.StatusCode)
+	assert.Empty(body)
+
+	testOne(t, "/static/not-found", 404)
+
+	afero.WriteFile(fs, "testdata/no-read", []byte{}, 0)
+	// https://github.com/spf13/afero/issues/150
+	// testOne(t, "/static/no-read", 500)
 }
 
 func TestTemplate(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	assert := assert.New(t)
 
 	afero.WriteFile(fs, "testdata/foo.tpl",
 		[]byte(`Param1 = {{.param1}}, Param2 = {{.param2}}`), 0400)
 
-	r, body := get(t, "/tpl/foo?param1=abc&param2=xyz")
-	assert.Equal(200, r.StatusCode)
-	assert.Equal(`Param1 = abc, Param2 = xyz`, body)
-
-	_, body = get(t, "/tpl/foo")
-	assert.Equal(`Param1 = , Param2 = `, body, "missing params")
+	testOne(t, "/tpl/foo?param1=abc&param2=xyz", 200, `Param1 = abc, Param2 = xyz`)
+	testOne(t, "/tpl/foo", 200, `Param1 = , Param2 = `)
 
 	afero.WriteFile(fs, "testdata/cannot-read.tpl", []byte(`anything`), 0)
-	r, _ = get(t, "/tpl/cannot-read?")
 	// https://github.com/spf13/afero/issues/150
-	// assert.Equal(500, r.StatusCode)
+	// testOne(t, "/tpl/cannot-read?", 500)
 
-	r, _ = get(t, "/tpl/no-such-template")
-	assert.Equal(404, r.StatusCode)
+	testOne(t, "/tpl/no-such-template", 404)
 
 	afero.WriteFile(fs, "testdata/bad.tpl", []byte(`Param = {{.param`), 0400)
-	r, _ = get(t, "/tpl/bad")
-	assert.Equal(500, r.StatusCode)
+	testOne(t, "/tpl/bad", 500)
 }
