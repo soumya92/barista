@@ -120,7 +120,7 @@ func getCondition(icon string) weather.Condition {
 	return weather.ConditionUnknown
 }
 
-// GetWeather gets weather information from OpenWeatherMap.
+// GetWeather gets weather information from DarkSky.
 func (ds Provider) GetWeather() (*weather.Weather, error) {
 	response, err := http.Get(string(ds))
 	if err != nil {
