@@ -60,7 +60,7 @@ func TestGood(t *testing.T) {
 }
 
 func TestErrors(t *testing.T) {
-	wthr, err := Provider(ts.URL + "/tpl/bad.json").GetWeather()
+	wthr, err := Provider(ts.URL + "/static/bad.json").GetWeather()
 	assert.Error(t, err, "bad json")
 	assert.Nil(t, wthr)
 
