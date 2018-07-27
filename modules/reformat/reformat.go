@@ -20,45 +20,115 @@ For example, a time module might use strftime-style format strings,
 which don't allow for colours or borders. You can add those using reformat:
 
  t := localtime.New(...)
- r := reformat.New(t, func(o bar.Output) bar.Output {
+ r := reformat.New(t).Format(func(o bar.Output) bar.Output {
    return o.Background("red").Padding(20)
  })
 */
 package reformat
 
 import (
+	"sync"
+
 	"github.com/soumya92/barista/bar"
+	l "github.com/soumya92/barista/logging"
 )
 
 // FormatFunc takes the module's output and returns a modified version.
 type FormatFunc func(bar.Output) bar.Output
 
-// module stores the original module and the re-formatting function.
-type module struct {
-	bar.Module
-	Formatter FormatFunc
+// Original returns the original output unchanged.
+func Original(in bar.Output) bar.Output {
+	return in
 }
 
-// New wraps an existing bar.Module and applies formatFunc to it's output.
-func New(original bar.Module, formatFunc FormatFunc) bar.Module {
-	return &module{original, formatFunc}
+// Hide replaces all outputs with nil, hiding them from the bar.
+func Hide(in bar.Output) bar.Output {
+	return nil
 }
 
-// Stream starts the wrapped module and formats the output before sending
-// it to the original bar.Sink.
-func (m *module) Stream(s bar.Sink) {
-	m.Module.Stream(reformatSink(s, m.Formatter))
+// Module stores the original module, the re-formatting function, and
+// helpers required to allow dynamic re-formatting.
+type Module struct {
+	module     bar.Module
+	sink       bar.Sink
+	mu         sync.Mutex
+	formatter  FormatFunc
+	restarted  chan bool
+	lastOutput bar.Output
+	finished   bool
+}
+
+// New wraps an existing bar.Module, allowing the format to be changed
+// before being sent to the bar.
+func New(original bar.Module) *Module {
+	return &Module{
+		module:    original,
+		restarted: make(chan bool),
+		formatter: Original,
+	}
+}
+
+// Format sets the reformat function.
+func (m *Module) Format(f FormatFunc) *Module {
+	l.Fine("%s.Format(%s)", l.ID(m), l.ID(f))
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if f == nil {
+		f = Original
+	}
+	m.formatter = f
+	if m.sink != nil && !m.finished {
+		m.sink.Output(f(m.lastOutput))
+	}
+	return m
+}
+
+// Stream sets up the output pipeline to filter outputs when hidden.
+func (m *Module) Stream(s bar.Sink) {
+	m.mu.Lock()
+	m.sink = s
+	m.mu.Unlock()
+	wSink := wrappedSink(m, s)
+	for {
+		m.module.Stream(wSink)
+		m.mu.Lock()
+		m.finished = true
+		m.mu.Unlock()
+		<-m.restarted
+	}
 }
 
 // Click passes through the click event if supported by the wrapped module.
-func (m *module) Click(e bar.Event) {
-	if clickable, ok := m.Module.(bar.Clickable); ok {
+func (m *Module) Click(e bar.Event) {
+	m.mu.Lock()
+	if m.finished && isRestartableClick(e) {
+		l.Log("%s restarted by reformat", l.ID(m.module))
+		m.finished = false
+		m.restarted <- true
+		m.mu.Unlock()
+		return
+	}
+	m.mu.Unlock()
+	if clickable, ok := m.module.(bar.Clickable); ok {
 		clickable.Click(e)
 	}
 }
 
-func reformatSink(orig bar.Sink, formatter FormatFunc) bar.Sink {
+// isRestartableClick mimics the function in barista main.
+// Modules that have finished can still be reformatted,
+// so the wrapping module needs to keep running.
+func isRestartableClick(e bar.Event) bool {
+	return e.Button == bar.ButtonLeft ||
+		e.Button == bar.ButtonRight ||
+		e.Button == bar.ButtonMiddle
+}
+
+func wrappedSink(m *Module, s bar.Sink) bar.Sink {
 	return func(o bar.Output) {
-		orig.Output(formatter(o))
+		m.mu.Lock()
+		m.lastOutput = o
+		f := m.formatter
+		m.mu.Unlock()
+		s.Output(f(o))
 	}
 }

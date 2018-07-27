@@ -28,30 +28,50 @@ import (
 func TestReformat(t *testing.T) {
 	testBar.New(t)
 	original := testModule.New(t)
-	reformatted := New(original, func(o bar.Output) bar.Output {
-		return outputs.Textf("+%s+", o.Segments()[0].Text())
-	})
+	reformatted := New(original)
 	original.AssertNotStarted("on construction of reformatted module")
 	testBar.Run(reformatted)
 	original.AssertStarted("on stream of reformatted module")
 
 	original.Output(outputs.Textf("test"))
-	testBar.NextOutput().AssertText([]string{"+test+"},
+	testBar.NextOutput().AssertText([]string{"test"},
 		"when original module updates")
 
+	reformatted.Format(func(o bar.Output) bar.Output {
+		return outputs.Textf("+%s+", o.Segments()[0].Text())
+	})
+	testBar.NextOutput().AssertText([]string{"+test+"},
+		"when format function changes")
+
+	original.Output(outputs.Textf("foo"))
+	testBar.NextOutput().AssertText([]string{"+foo+"},
+		"when original module updates after format func is set")
+
 	evt := bar.Event{Y: 1}
-	reformatted.(bar.Clickable).Click(evt)
+	reformatted.Click(evt)
 	recvEvt := original.AssertClicked("click events propagated")
 	assert.Equal(t, evt, recvEvt, "click events passed through unchanged")
 
 	testBar.AssertNoOutput("when original module is not updated")
 	original.AssertNotClicked("when reformatted module is not clicked")
+
+	reformatted.Format(nil)
+	testBar.NextOutput().AssertText([]string{"foo"},
+		"nil format passes output through unchanged")
+
+	reformatted.Format(Hide)
+	testBar.NextOutput().AssertText([]string{},
+		"reformat.Hide hides the output")
+
+	original.Output(outputs.Textf("test"))
+	testBar.NextOutput().AssertText([]string{},
+		"when original module updates with reformat.Hide")
 }
 
 func TestRestart(t *testing.T) {
 	testBar.New(t)
 	original := testModule.New(t)
-	reformatted := New(original, func(o bar.Output) bar.Output {
+	reformatted := New(original).Format(func(o bar.Output) bar.Output {
 		return outputs.Textf("+%s+", o.Segments()[0].Text())
 	})
 	testBar.Run(reformatted)
