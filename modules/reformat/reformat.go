@@ -78,15 +78,14 @@ func SkipErrors(f SegmentFunc) SegmentFunc {
 // Module stores the original module, the re-formatting function, and
 // helpers required to allow dynamic re-formatting.
 type Module struct {
-	module        bar.Module
-	sink          bar.Sink
-	mu            sync.Mutex
-	formatter     FormatFunc
-	restarted     chan bool
-	lastOutput    bar.Output
-	lastFormatted bar.Output
-	started       bool
-	finished      bool
+	module     bar.Module
+	sink       bar.Sink
+	mu         sync.Mutex
+	formatter  FormatFunc
+	restarted  chan bool
+	lastOutput bar.Output
+	started    bool
+	finished   bool
 }
 
 // New wraps an existing bar.Module, allowing the format to be changed
@@ -173,10 +172,9 @@ func wrappedSink(m *Module, s bar.Sink) bar.Sink {
 	return func(o bar.Output) {
 		m.mu.Lock()
 		m.lastOutput = o
-		m.lastFormatted = m.formatter(o)
-		out := m.lastFormatted
+		f := m.formatter
 		m.started = true
 		m.mu.Unlock()
-		s.Output(out)
+		s.Output(f(o))
 	}
 }
