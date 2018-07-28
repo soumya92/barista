@@ -31,6 +31,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // FormatFunc takes the module's output and returns a modified version.
@@ -46,26 +47,58 @@ func Hide(in bar.Output) bar.Output {
 	return nil
 }
 
+// SegmentFunc is a reformatting function at the segment level.
+type SegmentFunc func(*bar.Segment) *bar.Segment
+
+// EachSegment transforms each segment individually.
+func EachSegment(f SegmentFunc) FormatFunc {
+	return func(in bar.Output) bar.Output {
+		if in == nil {
+			return in
+		}
+		out := outputs.Group()
+		for _, s := range in.Segments() {
+			out.Append(f(s.Clone()))
+		}
+		return out
+	}
+}
+
+// SkipErrors wraps a segment transformation function so that
+// error segments pass through unchanged.
+func SkipErrors(f SegmentFunc) SegmentFunc {
+	return func(in *bar.Segment) *bar.Segment {
+		if in.GetError() != nil {
+			return in
+		}
+		return f(in)
+	}
+}
+
 // Module stores the original module, the re-formatting function, and
 // helpers required to allow dynamic re-formatting.
 type Module struct {
-	module     bar.Module
-	sink       bar.Sink
-	mu         sync.Mutex
-	formatter  FormatFunc
-	restarted  chan bool
-	lastOutput bar.Output
-	finished   bool
+	module        bar.Module
+	sink          bar.Sink
+	mu            sync.Mutex
+	formatter     FormatFunc
+	restarted     chan bool
+	lastOutput    bar.Output
+	lastFormatted bar.Output
+	started       bool
+	finished      bool
 }
 
 // New wraps an existing bar.Module, allowing the format to be changed
 // before being sent to the bar.
 func New(original bar.Module) *Module {
-	return &Module{
+	m := &Module{
 		module:    original,
 		restarted: make(chan bool),
 		formatter: Original,
 	}
+	l.Label(m, l.ID(original))
+	return m
 }
 
 // Format sets the reformat function.
@@ -77,24 +110,37 @@ func (m *Module) Format(f FormatFunc) *Module {
 		f = Original
 	}
 	m.formatter = f
-	if m.sink != nil && !m.finished {
-		m.sink.Output(f(m.lastOutput))
+	if m.started {
+		go m.sink.Output(m.lastOutput)
 	}
 	return m
 }
 
 // Stream sets up the output pipeline to filter outputs when hidden.
 func (m *Module) Stream(s bar.Sink) {
-	m.mu.Lock()
-	m.sink = s
-	m.mu.Unlock()
 	wSink := wrappedSink(m, s)
+	m.mu.Lock()
+	m.sink = wSink
+	m.mu.Unlock()
 	for {
 		m.module.Stream(wSink)
 		m.mu.Lock()
 		m.finished = true
+		m.started = false
 		m.mu.Unlock()
 		<-m.restarted
+		m.mu.Lock()
+		nonErrorOutput := outputs.Group()
+		formatted := m.formatter(m.lastOutput)
+		if formatted != nil {
+			for _, o := range formatted.Segments() {
+				if o.GetError() == nil {
+					nonErrorOutput.Append(o)
+				}
+			}
+		}
+		s.Output(nonErrorOutput)
+		m.mu.Unlock()
 	}
 }
 
@@ -102,7 +148,7 @@ func (m *Module) Stream(s bar.Sink) {
 func (m *Module) Click(e bar.Event) {
 	m.mu.Lock()
 	if m.finished && isRestartableClick(e) {
-		l.Log("%s restarted by reformat", l.ID(m.module))
+		l.Log("%s restarted", l.ID(m))
 		m.finished = false
 		m.restarted <- true
 		m.mu.Unlock()
@@ -127,8 +173,10 @@ func wrappedSink(m *Module, s bar.Sink) bar.Sink {
 	return func(o bar.Output) {
 		m.mu.Lock()
 		m.lastOutput = o
-		f := m.formatter
+		m.lastFormatted = m.formatter(o)
+		out := m.lastFormatted
+		m.started = true
 		m.mu.Unlock()
-		s.Output(f(o))
+		s.Output(out)
 	}
 }

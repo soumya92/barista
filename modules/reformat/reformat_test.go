@@ -66,6 +66,21 @@ func TestReformat(t *testing.T) {
 	original.Output(outputs.Textf("test"))
 	testBar.NextOutput().AssertText([]string{},
 		"when original module updates with reformat.Hide")
+
+	reformatted.Format(EachSegment(SkipErrors(
+		func(in *bar.Segment) *bar.Segment {
+			return outputs.Textf("#%s#", in.Text())
+		})))
+	testBar.NextOutput().AssertText([]string{"#test#"},
+		"with EachSegment wrapper")
+
+	original.Output(outputs.Group(
+		outputs.Text("a"), outputs.Text("b"), outputs.Errorf("c")))
+	out := testBar.NextOutput()
+	out.At(0).AssertText("#a#")
+	out.At(1).AssertText("#b#")
+	err := out.At(2).AssertError()
+	assert.Equal(t, "c", err, "erro string unchanged")
 }
 
 func TestRestart(t *testing.T) {
@@ -80,14 +95,38 @@ func TestRestart(t *testing.T) {
 	original.Output(outputs.Textf("test"))
 	testBar.NextOutput().AssertText([]string{"+test+"})
 
+	reformatted.Format(func(o bar.Output) bar.Output {
+		return outputs.Group(
+			outputs.Errorf("foo"),
+			outputs.Textf("+%s+", o.Segments()[0].Text()),
+		)
+	})
+
+	out := testBar.NextOutput()
+	out.At(0).AssertError()
+	out.At(1).AssertText("+test+")
+
 	original.Close()
 	testBar.AssertNoOutput("on close")
 	original.AssertNotStarted("after close")
 
 	testBar.Click(0)
 	original.AssertStarted("when reformatted module is clicked")
+	testBar.NextOutput().AssertText([]string{"+test+"},
+		"error segments removed on restart")
+
 	testBar.AssertNoOutput("until original module outputs")
+	reformatted.Format(EachSegment(
+		func(in *bar.Segment) *bar.Segment {
+			return outputs.Textf("** %s **", in.Text())
+		}))
+	testBar.AssertNoOutput("if format func changes before any output")
 
 	original.OutputText("foo")
-	testBar.NextOutput().AssertText([]string{"+foo+"})
+	testBar.NextOutput().AssertText([]string{"** foo **"},
+		"error segments removed on restart")
+
+	assert.NotPanics(t, func() { original.Output(nil) },
+		"nil output with EachSegment formatter")
+	testBar.NextOutput().AssertEmpty()
 }
