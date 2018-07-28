@@ -110,6 +110,10 @@ func TestRestart(t *testing.T) {
 	testBar.AssertNoOutput("on close")
 	original.AssertNotStarted("after close")
 
+	assert.NotPanics(t, func() {
+		testBar.SendEvent(0, bar.Event{Button: bar.ScrollUp})
+	})
+
 	testBar.Click(0)
 	original.AssertStarted("when reformatted module is clicked")
 	testBar.NextOutput().AssertText([]string{"+test+"},

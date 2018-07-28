@@ -146,10 +146,12 @@ func (m *Module) Stream(s bar.Sink) {
 // Click passes through the click event if supported by the wrapped module.
 func (m *Module) Click(e bar.Event) {
 	m.mu.Lock()
-	if m.finished && isRestartableClick(e) {
-		l.Log("%s restarted", l.ID(m))
-		m.finished = false
-		m.restarted <- true
+	if m.finished {
+		if isRestartableClick(e) {
+			l.Log("%s restarted", l.ID(m))
+			m.finished = false
+			m.restarted <- true
+		}
 		m.mu.Unlock()
 		return
 	}
