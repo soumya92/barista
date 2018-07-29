@@ -20,7 +20,7 @@ import (
 	"github.com/stretchrcom/testify/assert"
 
 	"github.com/soumya92/barista/bar"
-	testSink "github.com/soumya92/barista/testing/sink"
+	"github.com/soumya92/barista/sink"
 )
 
 type simpleModule struct{}
@@ -39,7 +39,7 @@ func TestWrappedModule(t *testing.T) {
 		clickableModule{},
 	} {
 		var wrapped WrappedModule = &module{Module: m}
-		go wrapped.Stream(testSink.Null())
+		go wrapped.Stream(sink.Null())
 		assert.NotPanics(t, func() { wrapped.Click(evt) })
 	}
 }

@@ -22,7 +22,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/testing/sink"
+	"github.com/soumya92/barista/sink"
 )
 
 func finishedWithin(f func(), timeout time.Duration) bool {

@@ -17,10 +17,15 @@ package sink
 
 import "github.com/soumya92/barista/bar"
 
-// New creates a new sink with a default buffer of 10 items,
-// and returns a channel that will emit any outputs sent to the sink.
+// New creates a new sink and returns a channel that
+// will emit any outputs sent to the sink.
 func New() (<-chan bar.Output, bar.Sink) {
-	ch := make(chan bar.Output, 10)
+	return Buffered(0)
+}
+
+// Buffered creates a new buffered sink.
+func Buffered(bufCount int) (<-chan bar.Output, bar.Sink) {
+	ch := make(chan bar.Output, bufCount)
 	return ch, func(o bar.Output) { ch <- o }
 }
 

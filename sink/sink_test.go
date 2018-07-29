@@ -26,14 +26,10 @@ import (
 
 func TestNewSink(t *testing.T) {
 	ch, s := New()
-	s(outputs.Text("foo"))
-	s(outputs.Text("bar"))
+	go s(outputs.Text("foo"))
 
 	out := <-ch
 	assert.Equal(t, "foo", out.Segments()[0].Text())
-
-	out = <-ch
-	assert.Equal(t, "bar", out.Segments()[0].Text())
 
 	assert.False(t, s.Error(nil))
 	select {
@@ -43,13 +39,29 @@ func TestNewSink(t *testing.T) {
 		// test passed
 	}
 
-	assert.True(t, s.Error(io.EOF))
+	doneChan := make(chan struct{})
+	go func() {
+		assert.True(t, s.Error(io.EOF))
+		doneChan <- struct{}{}
+	}()
 	select {
 	case out := <-ch:
 		assert.Error(t, out.Segments()[0].GetError())
-	default:
+	case <-doneChan:
 		assert.Fail(t, "expected error output on channel")
 	}
+}
+
+func TestBufferedSink(t *testing.T) {
+	ch, s := Buffered(5)
+	s(outputs.Text("foo"))
+	s(outputs.Text("bar"))
+
+	out := <-ch
+	assert.Equal(t, "foo", out.Segments()[0].Text())
+
+	out = <-ch
+	assert.Equal(t, "bar", out.Segments()[0].Text())
 }
 
 func TestNullSink(t *testing.T) {
