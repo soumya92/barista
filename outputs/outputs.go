@@ -63,11 +63,9 @@ func Pango(things ...interface{}) *bar.Segment {
 // to facilitate easier manipulation of output properties.
 // For example, setting a colour or urgency for all segments together.
 func Group(outputs ...bar.Output) *SegmentGroup {
-	group := newSegmentGroup()
+	group := new(SegmentGroup)
 	for _, o := range outputs {
-		if o != nil {
-			group.Append(o.Segments()...)
-		}
+		group.Append(o)
 	}
 	return group
 }

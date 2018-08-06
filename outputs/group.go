@@ -49,11 +49,6 @@ const (
 	sgaOuterPadding
 )
 
-// newSegmentGroup constructs an empty SegmentGroup
-func newSegmentGroup() *SegmentGroup {
-	return &SegmentGroup{}
-}
-
 // Color sets the color for all segments in the group.
 func (g *SegmentGroup) Color(color color.Color) *SegmentGroup {
 	g.color = color
@@ -139,8 +134,10 @@ func (g *SegmentGroup) Glue() *SegmentGroup {
 }
 
 // Append adds additional segments to this group.
-func (g *SegmentGroup) Append(segments ...*bar.Segment) *SegmentGroup {
-	g.segments = append(g.segments, segments...)
+func (g *SegmentGroup) Append(output bar.Output) *SegmentGroup {
+	if output != nil {
+		g.segments = append(g.segments, output.Segments()...)
+	}
 	return g
 }
 

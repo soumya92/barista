@@ -246,6 +246,6 @@ func TestMinWidthDistributions(t *testing.T) {
 	assert.Equal([]interface{}{100, "###.##", 50, 40, 40}, minWidths())
 
 	// Additional segments are added, min width should redistribute.
-	out.Append(Text("6"), Text("7"))
+	out.Append(Text("6")).Append(Text("7"))
 	assert.Equal([]interface{}{100, "###.##", 50, 20, 20, 20, 20}, minWidths())
 }

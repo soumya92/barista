@@ -138,7 +138,7 @@ func TestGroup(t *testing.T) {
 
 		{
 			"group with append",
-			Group().Append(Text("1"), Textf("%d", 2)),
+			Group().Append(Text("1")).Append(Textf("%d", 2)),
 			"1|2|",
 		},
 
@@ -150,7 +150,7 @@ func TestGroup(t *testing.T) {
 
 		{
 			"setting inner separators before adding modules",
-			Group().InnerSeparators(false).Append(Text("1"), Text("2")),
+			Group().InnerSeparators(false).Append(Text("1")).Append(Text("2")),
 			"12|",
 		},
 
@@ -158,9 +158,9 @@ func TestGroup(t *testing.T) {
 			"innerseparator with existing separators in modules",
 			Group().
 				InnerSeparators(false).
-				Append(Text("1"),
-					Text("2").Separator(true),
-					Textf("%d", 3)),
+				Append(Text("1")).
+				Append(Text("2").Separator(true)).
+				Append(Textf("%d", 3)),
 			"12|3|",
 		},
 
