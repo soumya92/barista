@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
-# From https://github.com/codecov/example-go#caveat-multiple-files
+CC_TEST_REPORTER_LOC="https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64"
+
 set -e
 mkdir -p profiles/
 
 CODECLIMATE=0
-if curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 >./cc-test-reporter; then
+if test -n "$CC_TEST_REPORTER_ID" && curl -LSs "$CC_TEST_REPORTER_LOC" >./cc-test-reporter; then
 	CODECLIMATE=1
 	chmod +x ./cc-test-reporter
 	./cc-test-reporter before-build
