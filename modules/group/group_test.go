@@ -38,7 +38,7 @@ func TestWrappedModule(t *testing.T) {
 		simpleModule{},
 		clickableModule{},
 	} {
-		var wrapped WrappedModule = &module{Module: m}
+		var wrapped WrappedModule = newWrappedModule(m, true)
 		go wrapped.Stream(sink.Null())
 		assert.NotPanics(t, func() { wrapped.Click(evt) })
 	}

@@ -79,11 +79,11 @@ func TestCyclingWithModules(t *testing.T) {
 
 	out4 := outputs.Text("4")
 	module2.Output(out4)
-	testBar.AssertNoOutput("while hidden")
+	testBar.LatestOutput().AssertEqual(out3, "hidden module updated")
 
 	out5 := outputs.Text("5")
 	module2.Output(out5)
-	testBar.AssertNoOutput("while hidden")
+	testBar.LatestOutput().AssertEqual(out3, "hidden module updated")
 
 	group.Show(1)
 	testBar.LatestOutput().AssertEqual(out5, "updates while hidden coalesced")
@@ -141,7 +141,7 @@ func TestCyclingRestart(t *testing.T) {
 	module1.AssertNotStarted("click when not showing")
 
 	group.Show(0)
-	testBar.LatestOutput().AssertText([]string{"1"})
+	testBar.LatestOutput().Expect("On Show(...)")
 	module1.AssertNotStarted("until clicked")
 
 	testBar.Click(0)

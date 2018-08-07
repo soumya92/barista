@@ -32,10 +32,11 @@ group.
 package group
 
 import (
-	"sync"
+	"sync/atomic"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/core"
 	l "github.com/soumya92/barista/logging"
 )
 
@@ -69,13 +70,9 @@ func (b *button) Stream(s bar.Sink) {
 // module wraps a bar.Module with a "visibility" modifier, and only
 // sends output when it's visible. Otherwise it outputs nothing.
 type module struct {
-	bar.Module
-	bar.Sink
-	sync.Mutex
-	restarted  chan bool
-	lastOutput bar.Output
-	visible    bool
-	finished   bool
+	bar.Module // for logging.
+	wrapped    *core.Module
+	visible    atomic.Value // of bool
 }
 
 // WrappedModule implements bar.Module, Clickable, and Pausable.
@@ -86,77 +83,39 @@ type WrappedModule interface {
 }
 
 func newWrappedModule(m bar.Module, visible bool) *module {
-	return &module{
-		Module:    m,
-		restarted: make(chan bool),
-		visible:   visible,
-	}
+	wrapped := &module{Module: m, wrapped: core.NewModule(m)}
+	wrapped.visible.Store(visible)
+	return wrapped
 }
 
 // Stream sets up the output pipeline to filter outputs when hidden.
 func (m *module) Stream(s bar.Sink) {
-	m.Lock()
-	m.Sink = s
-	m.Unlock()
-	wSink := wrappedSink(m, s)
-	for {
-		m.Module.Stream(wSink)
-		m.Lock()
-		m.finished = true
-		m.Unlock()
-		<-m.restarted
-	}
+	m.wrapped.Stream(wrappedSink(m, s))
 }
 
 // Click passes through the click event if supported by the wrapped module.
 func (m *module) Click(e bar.Event) {
-	m.Lock()
-	if m.finished && isRestartableClick(e) {
-		l.Log("%s restarted by wrapper", l.ID(m.Module))
-		m.finished = false
-		m.restarted <- true
-		m.Unlock()
-		return
-	}
-	m.Unlock()
-	if clickable, ok := m.Module.(bar.Clickable); ok {
-		clickable.Click(e)
-	}
-}
-
-// isRestartableClick mimics the function in barista main.
-// Modules that have finished can still be hidden/shown,
-// so the wrapped module cannot close the channel.
-func isRestartableClick(e bar.Event) bool {
-	return e.Button == bar.ButtonLeft ||
-		e.Button == bar.ButtonRight ||
-		e.Button == bar.ButtonMiddle
+	m.wrapped.Click(e)
 }
 
 // SetVisible sets the module visibility and updates the output accordingly.
 func (m *module) SetVisible(visible bool) {
-	m.Lock()
-	defer m.Unlock()
-	if m.visible == visible {
+	oldV := m.visible.Load().(bool)
+	if oldV == visible {
 		return
 	}
 	l.Fine("%s: visible %v", l.ID(m), visible)
-	m.visible = visible
-	if visible {
-		m.Output(m.lastOutput)
-	} else {
-		m.Output(nil)
-	}
+	m.visible.Store(visible)
+	m.wrapped.Replay()
 }
 
-func wrappedSink(m *module, s bar.Sink) bar.Sink {
-	return func(o bar.Output) {
-		m.Lock()
-		m.lastOutput = o
-		visible := m.visible
-		m.Unlock()
+func wrappedSink(m *module, s bar.Sink) core.Sink {
+	return func(o bar.Segments) {
+		visible := m.visible.Load().(bool)
 		if visible {
 			s.Output(o)
+		} else {
+			s.Output(nil)
 		}
 	}
 }

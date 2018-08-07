@@ -37,8 +37,8 @@ func TestReformat(t *testing.T) {
 	testBar.NextOutput().AssertText([]string{"test"},
 		"when original module updates")
 
-	reformatted.Format(func(o bar.Output) bar.Output {
-		return outputs.Textf("+%s+", o.Segments()[0].Text())
+	reformatted.Format(func(s bar.Segments) bar.Output {
+		return outputs.Textf("+%s+", s[0].Text())
 	})
 	testBar.NextOutput().AssertText([]string{"+test+"},
 		"when format function changes")
@@ -86,8 +86,8 @@ func TestReformat(t *testing.T) {
 func TestRestart(t *testing.T) {
 	testBar.New(t)
 	original := testModule.New(t)
-	reformatted := New(original).Format(func(o bar.Output) bar.Output {
-		return outputs.Textf("+%s+", o.Segments()[0].Text())
+	reformatted := New(original).Format(func(s bar.Segments) bar.Output {
+		return outputs.Textf("+%s+", s[0].Text())
 	})
 	testBar.Run(reformatted)
 	original.AssertStarted("on stream of reformatted module")
@@ -95,12 +95,16 @@ func TestRestart(t *testing.T) {
 	original.Output(outputs.Textf("test"))
 	testBar.NextOutput().AssertText([]string{"+test+"})
 
-	reformatted.Format(func(o bar.Output) bar.Output {
-		return outputs.Group(
-			outputs.Errorf("foo"),
-			outputs.Textf("+%s+", o.Segments()[0].Text()),
-		)
-	})
+	reformatted.Format(EachSegment(SkipErrors(
+		func(s *bar.Segment) *bar.Segment {
+			return outputs.Textf("+%s+", s.Text())
+		})))
+	testBar.NextOutput().Expect("On format func change")
+
+	original.Output(outputs.Group(
+		outputs.Errorf("foo"),
+		outputs.Text("test"),
+	))
 
 	out := testBar.NextOutput()
 	out.At(0).AssertError()

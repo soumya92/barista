@@ -40,7 +40,7 @@ func TestCollapsingEmpty(t *testing.T) {
 	testBar.Run(group.Add(module))
 	module.AssertStarted("when wrapping module is started")
 	module.OutputText("test")
-	testBar.AssertNoOutput("adding to collapsed group")
+	testBar.NextOutput().AssertEmpty("adding to collapsed group")
 }
 
 func TestCollapsingWithModule(t *testing.T) {
@@ -71,7 +71,7 @@ func TestCollapsingWithModule(t *testing.T) {
 	testBar.NextOutput().AssertEmpty("on collapse")
 	out2 := outputs.Text("world")
 	module.Output(out2)
-	testBar.AssertNoOutput("while collapsed")
+	testBar.NextOutput().AssertEmpty("while collapsed")
 
 	group.Toggle()
 	assert.False(t, group.Collapsed(), "state check")

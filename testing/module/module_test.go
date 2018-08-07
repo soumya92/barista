@@ -137,7 +137,10 @@ func TestClick(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	m := New(t)
-	go m.Stream(sink.Null())
+	go func() {
+		m.Stream(sink.Null())
+		m.ModuleFinished()
+	}()
 	m.AssertStarted()
 
 	assert.Panics(t, func() { m.Stream(sink.Null()) },

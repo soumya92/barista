@@ -71,12 +71,7 @@ func (t *TestModule) Stream(sink bar.Sink) {
 	}
 	t.Lock()
 	t.started = false
-	onStop := t.onStop
-	t.onStop = nil
 	t.Unlock()
-	if onStop != nil {
-		go func() { onStop <- true }()
-	}
 }
 
 // Click conforms to bar.Clickable.
@@ -102,6 +97,18 @@ func (t *TestModule) Output(out bar.Output) {
 // OutputText is shorthand for Output(bar.TextSegment(...)).
 func (t *TestModule) OutputText(text string) {
 	t.Output(bar.TextSegment(text))
+}
+
+// ModuleFinished should be called when the module host has processed
+// the return from this module's Stream().
+func (t *TestModule) ModuleFinished() {
+	t.Lock()
+	onStop := t.onStop
+	t.onStop = nil
+	t.Unlock()
+	if onStop != nil {
+		go func() { onStop <- true }()
+	}
 }
 
 // Close closes the module's channels, allowing the bar to restart

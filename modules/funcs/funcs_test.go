@@ -73,11 +73,11 @@ func TestOnClick(t *testing.T) {
 	testBar.AssertNoOutput("Function is not called again")
 
 	testBar.Click(0)
-	testBar.NextOutput().AssertText(
+	testBar.LatestOutput().AssertText(
 		[]string{"2"}, "Function called again on click")
 
 	testBar.Click(0)
-	testBar.NextOutput().AssertText(
+	testBar.LatestOutput().AssertText(
 		[]string{"3"}, "Function called again on click")
 }
 

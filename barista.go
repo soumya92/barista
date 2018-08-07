@@ -15,7 +15,6 @@
 package barista
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"image/color"
@@ -26,24 +25,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/sys/unix"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/core"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/timing"
 )
-
-type i3Segment map[string]interface{}
-
-type i3SegmentWithError struct {
-	i3Segment
-	error
-}
-
-type i3Output []i3SegmentWithError
 
 // i3Event instances are received from i3bar on stdin.
 type i3Event struct {
@@ -59,23 +49,12 @@ type i3Header struct {
 	ClickEvents bool `json:"click_events"`
 }
 
-// i3Module wraps Module with extra information to help run i3bar.
-type i3Module struct {
-	bar.Module
-	name       string
-	lastOutput atomic.Value // of i3Output
-	// If the Stream() channel is closed, the next left/middle/right click
-	// event will restart the module. This provides an easy way for modules
-	// to report errors: `out <- outputs.Error(...); close(out);`
-	// (where out = the output channel of the module, returned from Stream).
-	restartable atomic.Value // of bool
-}
-
 // i3Bar is the "bar" instance that handles events and streams output.
 type i3Bar struct {
 	sync.Mutex
 	// The list of modules that make up this bar.
-	i3Modules []*i3Module
+	modules   []bar.Module
+	moduleSet *core.ModuleSet
 	// To allow error outputs to show the full error using i3-nagbar without
 	// forcing the bar into compact mode on long errors, store the full error
 	// text for the last set of segments, and send error IDs to i3bar.
@@ -127,77 +106,6 @@ type debugEvent struct {
 	data string
 }
 
-// output converts the module's output to i3Output by adding the name (position),
-// sets the module's last output to the converted i3Output, and signals the bar
-// to update its output.
-func (m *i3Module) output(b *i3Bar) {
-	m.Stream(func(o bar.Output) {
-		var i3out i3Output
-		if o != nil {
-			for _, segment := range o.Segments() {
-				i3out = append(i3out, i3SegmentWithError{
-					i3map(segment),
-					segment.GetError(),
-				})
-			}
-		}
-		m.lastOutput.Store(i3out)
-		l.Fine("New output from %s", l.ID(m.Module))
-		b.refresh()
-	})
-	// If we got here, the module is finished, so we mark the module
-	// as "restartable" and the next click event (Button1/2/3) will
-	// call the output() method again.
-	m.restartable.Store(true)
-	l.Fine("%s stopped, waiting for restart", l.ID(m.Module))
-	b.emitDebugEvent(dEvtModuleStopped, m.name)
-}
-
-// handleRestart checks if the module needs to be restarted, and restarts
-// the module if the event is a left, right, or middle click. It clears
-// the restartable flag and calls Stream on the module to resume output
-// to the bar. It also clears any error segments.
-// Returns true if the event was swallowed (i.e. should not be dispatched)
-// to the underlying module.
-func (m *i3Module) handleRestart(bar *i3Bar, e bar.Event) bool {
-	needsRestart, _ := m.restartable.Load().(bool)
-	if !needsRestart {
-		// Process event normally.
-		return false
-	}
-	if !isRestartableClick(e) {
-		// Swallow event, but do not restart the module.
-		return true
-	}
-	// Restart the module.
-	lastOut := m.lastOutput.Load().(i3Output)
-	var newOut i3Output
-	for _, segment := range lastOut {
-		if segment.error == nil {
-			newOut = append(newOut, segment)
-		}
-	}
-	if len(lastOut) != len(newOut) {
-		l.Fine("Module %s cleared %d error output(s)",
-			l.ID(m.Module), len(lastOut)-len(newOut))
-		m.lastOutput.Store(newOut)
-		bar.refresh()
-	}
-	m.restartable.Store(false)
-	go m.output(bar)
-	l.Log("Module %s restarted", l.ID(m.Module))
-	// Swallow the event.
-	return true
-}
-
-// isRestartableClick checks whether an event is allowed to restart
-// a pending module. Only left/middle/right clicks restart a module.
-func isRestartableClick(e bar.Event) bool {
-	return e.Button == bar.ButtonLeft ||
-		e.Button == bar.ButtonRight ||
-		e.Button == bar.ButtonMiddle
-}
-
 var instance *i3Bar
 var instanceInit sync.Once
 
@@ -219,7 +127,12 @@ func construct() {
 // Add adds a module to the bar.
 func Add(module bar.Module) {
 	construct()
-	instance.addModule(module)
+	instance.Lock()
+	defer instance.Unlock()
+	if instance.started {
+		panic("Cannot add modules after .Run()")
+	}
+	instance.modules = append(instance.modules, module)
 }
 
 // SuppressSignals instructs the bar to skip the pause/resume signal handling.
@@ -249,9 +162,6 @@ func SetErrorHandler(handler func(bar.ErrorEvent)) {
 // `bar.Add(a); bar.Add(b); bar.Run()`, and `bar.Run(a, b)`.
 func Run(modules ...bar.Module) error {
 	construct()
-	for _, m := range modules {
-		instance.addModule(m)
-	}
 	// To allow TestMode to work, we need to avoid any references
 	// to instance in the run loop.
 	b := instance
@@ -262,19 +172,24 @@ func Run(modules ...bar.Module) error {
 		signal.Notify(signalChan, unix.SIGUSR1, unix.SIGUSR2)
 	}
 
+	b.modules = append(b.modules, modules...)
+	b.moduleSet = core.NewModuleSet(b.modules)
+
 	// Mark the bar as started.
 	b.started = true
 	l.Log("Bar started")
+
+	go func(i <-chan int) {
+		for range i {
+			b.refresh()
+		}
+	}(b.moduleSet.Stream())
 
 	errChan := make(chan error)
 	// Read events from the input stream, pipe them to the events channel.
 	go func(e chan<- error) {
 		e <- b.readEvents()
 	}(errChan)
-	for _, m := range b.i3Modules {
-		go m.output(b)
-		l.Log("Module %s started", l.ID(m.Module))
-	}
 
 	// Write header.
 	header := i3Header{
@@ -326,22 +241,7 @@ func Run(modules ...bar.Module) error {
 			}
 			// Events are stripped of the name before being dispatched to the
 			// correct module.
-			module, ok := b.get(moduleID)
-			if !ok {
-				continue
-			}
-			// If the module swallows the event to potentially restart,
-			// do not dispatch it to the click handler.
-			if module.handleRestart(b, event.Event) {
-				l.Fine("Skipping click on %s: needs restart", l.ID(module.Module))
-				continue
-			}
-			l.Fine("Clicked on module %s", l.ID(module.Module))
-			// Check that the module actually supports click events.
-			if clickable, ok := module.Module.(bar.Clickable); ok {
-				// Goroutine to prevent click handlers from blocking the bar.
-				go clickable.Click(event.Event)
-			}
+			b.click(moduleID, event.Event)
 		case sig := <-signalChan:
 			switch sig {
 			case unix.SIGUSR1:
@@ -382,26 +282,6 @@ func idFromName(name string) (moduleID, errorID string) {
 // DefaultErrorHandler invokes i3-nagbar to show the full error message.
 func DefaultErrorHandler(e bar.ErrorEvent) {
 	exec.Command("i3-nagbar", "-m", e.Error.Error()).Run()
-}
-
-// addModule adds a single module to the bar.
-func (b *i3Bar) addModule(module bar.Module) {
-	// Panic if adding modules to an already running bar.
-	// TODO: Support this in the future.
-	if b.started {
-		panic("Cannot add modules after .Run()")
-	}
-	// Use the position of the module in the list as the "name", so when i3bar
-	// sends us events, we can use atoi(name) to get the correct module.
-	name := strconv.Itoa(len(b.i3Modules))
-	l.Log("Module '%s' -> %s", name, l.ID(module))
-	i3Module := i3Module{
-		Module: module,
-		name:   name,
-	}
-	b.Lock()
-	defer b.Unlock()
-	b.i3Modules = append(b.i3Modules, &i3Module)
 }
 
 func colorString(c color.Color) string {
@@ -459,23 +339,20 @@ func (b *i3Bar) print() error {
 	// The bar will update any modules before calling this method, so the
 	// lastOutput property of each module will represent the current state.
 	b.errors = map[string]error{}
-	output := make([]i3Segment, 0)
-	for _, m := range b.i3Modules {
-		lastOut, ok := m.lastOutput.Load().(i3Output)
-		if !ok {
-			continue
-		}
-		for _, segment := range lastOut {
-			out := segment.i3Segment
-			if segment.error != nil {
+	output := make([]map[string]interface{}, 0)
+	for idx, segments := range b.moduleSet.LastOutputs() {
+		name := strconv.Itoa(idx)
+		for _, segment := range segments {
+			out := i3map(segment)
+			if err := segment.GetError(); err != nil {
 				errorID := strconv.Itoa(len(b.errors))
-				b.errors[errorID] = segment.error
-				out["name"] = "e/" + errorID + "/" + m.name
+				b.errors[errorID] = err
+				out["name"] = "e/" + errorID + "/" + name
 				if b.includeErrorsInOutput {
-					out["error"] = segment.Error()
+					out["error"] = err.Error()
 				}
 			} else {
-				out["name"] = "m/" + m.name
+				out["name"] = "m/" + name
 			}
 			output = append(output, out)
 		}
@@ -487,54 +364,37 @@ func (b *i3Bar) print() error {
 	return err
 }
 
-// get finds the module that corresponds to the given "name" from i3.
-func (b *i3Bar) get(name string) (*i3Module, bool) {
+// click sends the event to the module of the given "name".
+func (b *i3Bar) click(name string, evt bar.Event) {
 	index, err := strconv.Atoi(name)
 	if err != nil {
 		l.Log("Malformed module id '%s'", name)
-		return nil, false
+		return
 	}
-	if index < 0 || len(b.i3Modules) <= index {
+	if index < 0 || len(b.modules) <= index {
 		l.Log("Could not find module '%s'", name)
-		return nil, false
+		return
 	}
-	return b.i3Modules[index], true
+	go b.moduleSet.Click(index, evt)
 }
 
 // readEvents parses the infinite stream of events received from i3.
 func (b *i3Bar) readEvents() error {
-	// Buffered I/O to allow complete events to be read in at once.
-	reader := bufio.NewReader(b.reader)
+	decoder := json.NewDecoder(b.reader)
 	// Consume opening '['
-	rune, _, err := reader.ReadRune()
+	_, err := decoder.Token()
 	if err != nil {
 		return err
 	}
-	if rune != '[' {
-		return errors.New("stdin format error")
-	}
-	for {
-		// While the 'proper' way to implement this infinite parser would be to keep
-		// a state machine and hook into json parsing and stuff, we'll take a
-		// shortcut since we know there are no nested objects. So all we have to do
-		// is read until the first '}', decode it, consume the ',', and repeat.
-		eventJSON, err := reader.ReadString('}')
-		if err != nil {
-			return err
-		}
-		// The '}' is consumed by ReadString, but required by json Decoder.
-		event := i3Event{}
-		decoder := json.NewDecoder(strings.NewReader(eventJSON + "}"))
+	for decoder.More() {
+		var event i3Event
 		err = decoder.Decode(&event)
 		if err != nil {
 			return err
 		}
 		b.events <- event
-		// Consume ','
-		if _, err := reader.ReadString(','); err != nil {
-			return err
-		}
 	}
+	return errors.New("stdin exhausted")
 }
 
 // pause instructs all pausable modules to suspend processing.

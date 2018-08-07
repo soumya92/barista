@@ -334,7 +334,6 @@ func TestClickEvents(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 	TestMode(mockStdin, mockStdout)
-	stopChan := debugEvents(dEvtModuleStopped)
 
 	module1 := testModule.New(t)
 	module2 := testModule.New(t)
@@ -403,9 +402,6 @@ func TestClickEvents(t *testing.T) {
 	module2.AssertClicked("events are received after the weird name")
 
 	module1.Close()
-	dEvt := <-stopChan
-	module1.AssertNotStarted("After Close()")
-	assert.Contains(t, module1Name, dEvt.data, "Module stopped on Close()")
 
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2Name))
 	module2.AssertClicked()
@@ -483,7 +479,6 @@ func TestErrorHandling(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 	TestMode(mockStdin, mockStdout)
-	stopChan := debugEvents(dEvtModuleStopped)
 	errChan := make(chan bar.ErrorEvent)
 	SetErrorHandler(func(e bar.ErrorEvent) { errChan <- e })
 
@@ -526,7 +521,6 @@ func TestErrorHandling(t *testing.T) {
 		"click events do not cause any updates")
 
 	module.Close()
-	<-stopChan
 
 	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 3},`, errorSegmentName))
 	module.AssertNotClicked("on right click of error segment")
@@ -544,7 +538,6 @@ func TestErrorHandling(t *testing.T) {
 
 	module.Output(outputsWithError)
 	module.Close()
-	<-stopChan
 	out = readOutput(t, mockStdout)
 	assert.Equal(t, 3, len(out), "All segments in output")
 
