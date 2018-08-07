@@ -85,6 +85,9 @@ type Output interface {
 	Segments() []*Segment
 }
 
+// Segments implements Output for []*Segment.
+type Segments []*Segment
+
 // Button represents an X11 mouse button.
 type Button int
 

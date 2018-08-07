@@ -129,6 +129,14 @@ func TestBarOutput(t *testing.T) {
 	barOut := segment.Segments()
 	assert.Equal(t, 1, len(barOut), "bar.Output from Segment returns 1 segment")
 	assert.Equal(t, segment, barOut[0])
+
+	segment0 := TextSegment("foo")
+	segment1 := TextSegment("baz")
+	segments := Segments{segment0, segment1}
+	barOut = segments.Segments()
+	assert.Equal(t, 2, len(barOut), "bar.Output from Segments returns all segments")
+	assert.Equal(t, segment0, barOut[0])
+	assert.Equal(t, segment1, barOut[1])
 }
 
 func TestClone(t *testing.T) {

@@ -219,3 +219,8 @@ func (s *Segment) Clone() *Segment {
 	*copied = *s
 	return copied
 }
+
+// Segments returns the list of segments as a bar.Output.
+func (s Segments) Segments() []*Segment {
+	return s
+}
