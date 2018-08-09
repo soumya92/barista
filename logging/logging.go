@@ -79,11 +79,14 @@ func shorten(path string) string {
 	if module, ok := trimPrefix(path, baristaPkg+"/modules/"); ok {
 		return fmt.Sprintf("mod:%s", module)
 	}
-	if core, ok := trimPrefix(path, baristaPkg+"/"); ok {
-		return fmt.Sprintf("bar:%s", core)
+	if core, ok := trimPrefix(path, baristaPkg+"/core."); ok {
+		return fmt.Sprintf("core:%s", core)
 	}
-	if core, ok := trimPrefix(path, baristaPkg+"."); ok {
-		return fmt.Sprintf("barista:%s", core)
+	if bar, ok := trimPrefix(path, baristaPkg+"/"); ok {
+		return fmt.Sprintf("bar:%s", bar)
+	}
+	if main, ok := trimPrefix(path, baristaPkg+"."); ok {
+		return fmt.Sprintf("barista:%s", main)
 	}
 	return path
 }
