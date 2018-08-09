@@ -57,6 +57,14 @@ type astruct struct {
 	fooer Fooer
 }
 
+// To test shortening when the type name matches the package name.
+// Usually such matches indicate that the package is primarily
+// intended to support this type, so shortening it from 'foo.foo'
+// to just 'foo' makes sense.
+type logging struct {
+	foo int
+}
+
 var namedStruct = astruct{
 	embedded{intFooer(4), 5},
 	"baz", 8, intFooer(11),
@@ -92,6 +100,10 @@ var namedStruct1 = astruct{}
 var namedStruct2 = astruct{}
 var namedStruct1Ref = &namedStruct1
 var namedStruct3 = namedStruct2
+
+var idStruct = logging{}
+var idStructRef = &idStruct
+var idStructNewRef = &logging{}
 
 var emptyChanSend chan<- struct{} = emptyChan
 var boolChanSend chan<- bool = boolChan
@@ -135,6 +147,9 @@ func TestIdentify(t *testing.T) {
 			"[chan bool]{int; float64}@%x", reflect.ValueOf(anonMap).Pointer())},
 		{stringSlice, fmt.Sprintf(
 			"[]string@%x", reflect.ValueOf(stringSlice).Pointer())},
+		{idStruct, "bar:logging@?"},
+		{idStructRef, fmt.Sprintf(
+			"bar:logging@%x", reflect.ValueOf(idStructRef).Pointer())},
 	}
 
 	for _, tc := range idTests {
@@ -174,6 +189,9 @@ func TestID(t *testing.T) {
 		{&fooerIntf, "bar:logging.intFooer#1"},
 		{&namedStructRef.Fooer, "bar:logging.intFooer#2"},
 		{assert.New(t), "github.com/stretchrcom/testify/assert.Assertions#0"},
+		{idStruct, "bar:logging@?"},
+		{idStructRef, "bar:logging#0"},
+		{idStructNewRef, "bar:logging#1"},
 	}
 
 	for _, tc := range idTests {

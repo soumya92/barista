@@ -59,7 +59,12 @@ func typeName(typ reflect.Type) string {
 	}
 	name := typ.Name()
 	if typ.PkgPath() != "" {
-		name = fmt.Sprintf("%s.%s", shorten(typ.PkgPath()), name)
+		path := shorten(typ.PkgPath())
+		if strings.HasSuffix(path, name) {
+			name = path
+		} else {
+			name = fmt.Sprintf("%s.%s", path, name)
+		}
 	}
 	if name != "" {
 		return name
