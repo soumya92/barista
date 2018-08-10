@@ -27,9 +27,9 @@ import (
 	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
+	"github.com/soumya92/barista/group/collapsing"
 	"github.com/soumya92/barista/modules/clock"
 	"github.com/soumya92/barista/modules/cputemp"
-	"github.com/soumya92/barista/modules/group"
 	"github.com/soumya92/barista/modules/media"
 	"github.com/soumya92/barista/modules/meminfo"
 	"github.com/soumya92/barista/modules/netspeed"
@@ -274,15 +274,11 @@ func main() {
 
 	rhythmbox := media.New("rhythmbox").Output(mediaFormatFunc)
 
-	g := group.Collapsing()
+	grp, _ := collapsing.Group(net, temp, freeMem, loadAvg)
 
 	panic(barista.Run(
 		rhythmbox,
-		g.Add(net),
-		g.Add(temp),
-		g.Add(freeMem),
-		g.Add(loadAvg),
-		g.Button(outputs.Text("+"), outputs.Text("-")),
+		grp,
 		vol,
 		wthr,
 		localtime,
