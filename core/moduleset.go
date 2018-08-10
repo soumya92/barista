@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/soumya92/barista/bar"
+	l "github.com/soumya92/barista/logging"
 )
 
 type ModuleSet struct {
@@ -34,6 +35,7 @@ func NewModuleSet(modules []bar.Module) *ModuleSet {
 		updateCh: make(chan int),
 	}
 	for i, m := range modules {
+		l.Fine("%s added as %s[%d]", l.ID(m), l.ID(set), i)
 		set.modules[i] = NewModule(m)
 	}
 	return set
@@ -48,6 +50,7 @@ func (set *ModuleSet) Stream() <-chan int {
 
 func (m *ModuleSet) sinkFn(idx int) Sink {
 	return func(out bar.Segments) {
+		l.Fine("%s new output from #%d", l.ID(m), idx)
 		m.outputsMu.Lock()
 		m.outputs[idx] = out
 		m.outputsMu.Unlock()

@@ -18,6 +18,7 @@ package core
 
 import (
 	"github.com/soumya92/barista/bar"
+	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/sink"
 )
@@ -52,6 +53,8 @@ func NewModule(original bar.Module) *Module {
 		eventCh:  make(chan bar.Event),
 	}
 	m.replayFn, m.replayCh = notifier.New()
+	l.Attach(original, m, "~core")
+	l.Register(m, "replayCh")
 	return m
 }
 
@@ -75,6 +78,7 @@ func (m *Module) runLoop(realSink Sink) {
 
 	go func(m bar.Module, innerSink bar.Sink, doneCh chan<- struct{}) {
 		m.Stream(innerSink)
+		l.Fine("%s finished", l.ID(m))
 		doneCh <- struct{}{}
 	}(m.original, innerSink, doneCh)
 
@@ -92,12 +96,14 @@ func (m *Module) runLoop(realSink Sink) {
 			}
 		case <-m.replayCh:
 			if started {
+				l.Fine("%s: replay last output", l.ID(m))
 				realSink(out)
 			}
 		case e := <-m.eventCh:
 			if finished {
 				if isRestartableClick(e) {
-					realSink(stripErrors(out))
+					realSink(stripErrors(out, l.ID(m)))
+					l.Fine("%s restarted: %+v", l.ID(m.original), e)
 					return // Stream will restart the run loop.
 				}
 			} else {
@@ -145,12 +151,16 @@ func toSegments(out bar.Output) bar.Segments {
 }
 
 // stripErrors strips any error segments from the given list.
-func stripErrors(in bar.Segments) bar.Segments {
+func stripErrors(in bar.Segments, logCtx string) bar.Segments {
 	var out bar.Segments
 	for _, s := range in {
 		if s.GetError() == nil {
 			out = append(out, s)
 		}
+	}
+	if len(in) != len(out) {
+		l.Fine("%s removed %d error segments from output",
+			logCtx, len(in)-len(out))
 	}
 	return out
 }
