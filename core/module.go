@@ -77,6 +77,7 @@ func (m *Module) runLoop(realSink Sink) {
 	doneCh := make(chan struct{})
 
 	go func(m bar.Module, innerSink bar.Sink, doneCh chan<- struct{}) {
+		l.Fine("%s started", l.ID(m))
 		m.Stream(innerSink)
 		l.Fine("%s finished", l.ID(m))
 		doneCh <- struct{}{}
@@ -102,8 +103,8 @@ func (m *Module) runLoop(realSink Sink) {
 		case e := <-m.eventCh:
 			if finished {
 				if isRestartableClick(e) {
-					realSink(stripErrors(out, l.ID(m)))
 					l.Fine("%s restarted: %+v", l.ID(m.original), e)
+					realSink(stripErrors(out, l.ID(m)))
 					return // Stream will restart the run loop.
 				}
 			} else {

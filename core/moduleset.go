@@ -50,7 +50,8 @@ func (set *ModuleSet) Stream() <-chan int {
 
 func (m *ModuleSet) sinkFn(idx int) Sink {
 	return func(out bar.Segments) {
-		l.Fine("%s new output from #%d", l.ID(m), idx)
+		l.Fine("%s new output from %s",
+			l.ID(m), l.ID(m.modules[idx].original))
 		m.outputsMu.Lock()
 		m.outputs[idx] = out
 		m.outputsMu.Unlock()
