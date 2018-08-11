@@ -21,6 +21,7 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/testing/fail"
 )
 
 // An empty output for testing, different from 'nil'.
@@ -68,11 +69,12 @@ func TestAssertions(t *testing.T) {
 func TestAssertionErrors(t *testing.T) {
 	var out bar.Output
 	assertFail := func(testFunc func(Assertions), args ...interface{}) {
-		fakeT := &testing.T{}
-		a := New(fakeT, out)
-		assert.False(t, fakeT.Failed())
-		testFunc(a)
-		assert.True(t, fakeT.Failed(), args...)
+		var a Assertions
+		fail.Setup(func(fakeT *testing.T) {
+			a = New(fakeT, out)
+		}).AssertFails(t, func(*testing.T) {
+			testFunc(a)
+		}, args...)
 	}
 
 	expectResult := true // Expect false, so start with true.
@@ -152,10 +154,9 @@ func TestSegmentAssertions(t *testing.T) {
 	err := a.AssertError("with error output")
 	assert.Equal(t, "something", err, "error description")
 
-	fakeT := &testing.T{}
-	assert.False(t, fakeT.Failed())
-	a = Segment(fakeT, nil)
-	assert.True(t, fakeT.Failed(), "Trying to assert on nil segment")
+	fail.AssertFails(t, func(fakeT *testing.T) {
+		a = Segment(fakeT, nil)
+	}, "Trying to assert on nil segment")
 }
 
 func TestEmptySegmentAssertions(t *testing.T) {
@@ -172,11 +173,12 @@ func TestEmptySegmentAssertions(t *testing.T) {
 func TestSegmentAssertionErrors(t *testing.T) {
 	var segment *bar.Segment
 	assertFail := func(testFunc func(SegmentAssertions), args ...interface{}) {
-		fakeT := &testing.T{}
-		s := SegmentAssertions{segment: segment, assert: assert.New(fakeT)}
-		assert.False(t, fakeT.Failed())
-		testFunc(s)
-		assert.True(t, fakeT.Failed(), args...)
+		var s SegmentAssertions
+		fail.Setup(func(fakeT *testing.T) {
+			s = SegmentAssertions{segment: segment, assert: assert.New(fakeT)}
+		}).AssertFails(t, func(*testing.T) {
+			testFunc(s)
+		}, args...)
 	}
 
 	textSegment := bar.TextSegment("test segment")

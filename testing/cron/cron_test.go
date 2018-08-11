@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/soumya92/barista/testing/fail"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -57,22 +58,16 @@ func TestNotCron(t *testing.T) {
 func TestCron(t *testing.T) {
 	getenv = mockGetenv("cron")
 
-	testT := &testing.T{}
 	start := time.Now()
-	Test(testT, failNTimes(100))
+	fail.AssertFails(t, func(testT *testing.T) {
+		Test(testT, failNTimes(100))
+	}, "More than 4 failures from test function")
 	end := time.Now()
-	if !testT.Failed() {
-		assert.Fail(t, "Expected Test to fail")
-	}
 	assert.WithinDuration(t, start.Add(6*time.Second), end, time.Second)
 
-	testT = &testing.T{}
 	start = time.Now()
-	Test(testT, failNTimes(2))
+	Test(t, failNTimes(2))
 	end = time.Now()
-	if testT.Failed() {
-		assert.Fail(t, "Expected Test to pass after retries")
-	}
 	assert.WithinDuration(t, start.Add(1*time.Second), end, time.Second,
 		"Test should only wait 0+1 seconds (for the 2 failures)")
 }

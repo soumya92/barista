@@ -28,6 +28,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/soumya92/barista/testing/fail"
 )
 
 var getenv = os.Getenv
@@ -37,19 +39,11 @@ func Test(t *testing.T, testFunc func(t *testing.T)) {
 	if evt := getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
 		t.Skipf("Skipping LiveVersion test for event type '%s'", evt)
 	}
-	for idx, wait := range waits {
-		var testT *testing.T
-		if idx == len(waits)-1 {
-			// Final attempt runs on real testing.T, so the test
-			// fails with any errors from testFunc.
-			testT = t
-		} else {
-			testT = &testing.T{}
-		}
-		testFunc(testT)
-		if !testT.Failed() {
+	for _, wait := range waits {
+		if !fail.Failed(testFunc) {
 			return
 		}
 		time.Sleep(time.Duration(wait) * time.Second)
 	}
+	testFunc(t)
 }

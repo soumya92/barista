@@ -25,6 +25,7 @@ import (
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/pango"
+	"github.com/soumya92/barista/testing/fail"
 	"github.com/soumya92/barista/testing/mockio"
 	"github.com/soumya92/barista/testing/module"
 	"github.com/soumya92/barista/timing"
@@ -186,17 +187,15 @@ func TestTick(t *testing.T) {
 func assertFails(t *testing.T, testFunc func(*module.TestModule), args ...interface{}) {
 	positiveTimeout = 10 * time.Millisecond
 	defer func() { positiveTimeout = time.Second }()
-	fakeT := &testing.T{}
-
-	New(fakeT)
 	m := module.New(t)
-	Run(m)
 
-	m.AssertStarted()
-	assert.False(t, fakeT.Failed())
-
-	testFunc(m)
-	assert.True(t, fakeT.Failed(), args...)
+	fail.Setup(func(fakeT *testing.T) {
+		New(fakeT)
+		Run(m)
+		m.AssertStarted()
+	}).AssertFails(t, func(*testing.T) {
+		testFunc(m)
+	}, args...)
 }
 
 func stdout() *mockio.Writable {

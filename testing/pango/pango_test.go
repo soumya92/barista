@@ -15,10 +15,9 @@
 package pango
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/soumya92/barista/testing/fail"
 )
 
 func TestEqual(t *testing.T) {
@@ -99,11 +98,9 @@ func TestUnequal(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		fakeT := &testing.T{}
-		AssertEqual(fakeT, tc.a, tc.b)
-		if !fakeT.Failed() {
-			assert.Fail(t, fmt.Sprintf("Expected %s ~= %s to fail", tc.a, tc.b), tc.desc)
-		}
+		fail.AssertFails(t, func(fakeT *testing.T) {
+			AssertEqual(fakeT, tc.a, tc.b)
+		}, "%s ~= %s (%s)", tc.a, tc.b, tc.desc)
 	}
 }
 
@@ -154,10 +151,8 @@ func TestText(t *testing.T) {
 	}
 
 	for _, tc := range negativeCases {
-		fakeT := &testing.T{}
-		AssertEqual(fakeT, tc.text, tc.markup)
-		if !fakeT.Failed() {
-			assert.Fail(t, fmt.Sprintf("Expected Text(%s) = %s to fail", tc.markup, tc.text), tc.desc)
-		}
+		fail.AssertFails(t, func(fakeT *testing.T) {
+			AssertText(fakeT, tc.text, tc.markup)
+		}, "Text(%s) = %s (%s)", tc.markup, tc.text, tc.desc)
 	}
 }

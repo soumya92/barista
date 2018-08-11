@@ -23,6 +23,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/sink"
+	"github.com/soumya92/barista/testing/fail"
 )
 
 func finishedWithin(f func(), timeout time.Duration) bool {
@@ -114,25 +115,25 @@ func TestClick(t *testing.T) {
 	m.AssertNotClicked("no extra events")
 
 	positiveTimeout = 10 * time.Millisecond
-	fakeT := &testing.T{}
-	m = New(fakeT)
-	m.AssertClicked("fails when not started")
-	assert.True(t, fakeT.Failed(), "AssertClicked when not started")
+	fail.AssertFails(t, func(fakeT *testing.T) {
+		m = New(fakeT)
+		m.AssertClicked("fails when not started")
+	}, "AssertClicked when not started")
 
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	go m.Stream(sink.Null())
-	m.AssertStarted()
-	m.AssertClicked("fails when not clicked")
-	assert.True(t, fakeT.Failed(), "AssertClicked when not clicked")
+	fail.AssertFails(t, func(fakeT *testing.T) {
+		m = New(fakeT)
+		go m.Stream(sink.Null())
+		m.AssertStarted()
+		m.AssertClicked("fails when not clicked")
+	}, "AssertClicked when not clicked")
 
-	fakeT = &testing.T{}
-	m = New(fakeT)
-	go m.Stream(sink.Null())
-	m.AssertStarted()
-	m.Click(evt1)
-	m.AssertNotClicked("fails when clicked")
-	assert.True(t, fakeT.Failed(), "AssertNotClicked when clicked")
+	fail.AssertFails(t, func(fakeT *testing.T) {
+		m = New(fakeT)
+		go m.Stream(sink.Null())
+		m.AssertStarted()
+		m.Click(evt1)
+		m.AssertNotClicked("fails when clicked")
+	}, "AssertNotClicked when clicked")
 }
 
 func TestClose(t *testing.T) {
@@ -180,10 +181,9 @@ func TestStarted(t *testing.T) {
 		"AssertStarted after streaming")
 
 	positiveTimeout = 10 * time.Millisecond
-	fakeT := &testing.T{}
-	m3 := New(fakeT)
-	assert.False(t, fakeT.Failed())
-	m3.AssertStarted()
-	assert.True(t, fakeT.Failed(),
-		"AssertStarted fails if module is not streamed")
+	fail.AssertFails(t, func(fakeT *testing.T) {
+		m3 := New(fakeT)
+		assert.False(t, fakeT.Failed())
+		m3.AssertStarted()
+	}, "AssertStarted fails if module is not streamed")
 }
