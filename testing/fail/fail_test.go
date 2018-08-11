@@ -64,3 +64,40 @@ func TestAssertionWithNoFailure(t *testing.T) {
 		}, f.desc)
 	}
 }
+
+func TestSetupFailures(t *testing.T) {
+	for _, f := range failures {
+		for _, ff := range failures {
+			AssertFails(t, func(t *testing.T) {
+				Setup(f.fn).AssertFails(t, ff.fn,
+					"Setup(%s).AssertFails(%s)", f.desc, ff.desc)
+			})
+		}
+		for _, nf := range noFailures {
+			AssertFails(t, func(t *testing.T) {
+				Setup(f.fn).AssertFails(t, nf.fn,
+					"Setup(%s).AssertFails(%s)", f.desc, nf.desc)
+			})
+		}
+	}
+}
+
+func TestNoFailureWithSetup(t *testing.T) {
+	for _, s := range noFailures {
+		for _, nf := range noFailures {
+			AssertFails(t, func(t *testing.T) {
+				Setup(s.fn).AssertFails(t, nf.fn,
+					"Setup(%s).AssertFails(%s)", s.desc, nf.desc)
+			})
+		}
+	}
+}
+
+func TestFailureWithSetup(t *testing.T) {
+	for _, s := range noFailures {
+		for _, f := range failures {
+			Setup(s.fn).AssertFails(t, f.fn,
+				"Setup(%s).AssertFails(%s)", s.desc, f.desc)
+		}
+	}
+}
