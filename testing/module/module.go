@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 )
@@ -34,7 +34,7 @@ var negativeTimeout = 10 * time.Millisecond
 // TestModule represents a bar.Module used for testing.
 type TestModule struct {
 	sync.Mutex
-	assert  *assert.Assertions
+	require *require.Assertions
 	started bool
 	outputs chan bar.Output
 	events  chan bar.Event
@@ -44,8 +44,8 @@ type TestModule struct {
 
 // New creates a new module with the given testingT that can be used
 // to assert the behaviour of the bar (or related modules).
-func New(t assert.TestingT) *TestModule {
-	return &TestModule{assert: assert.New(t)}
+func New(t require.TestingT) *TestModule {
+	return &TestModule{require: require.New(t)}
 }
 
 // Stream conforms to bar.Module.
@@ -142,7 +142,7 @@ func (t *TestModule) AssertStarted(args ...interface{}) {
 	select {
 	case <-ch:
 	case <-time.After(positiveTimeout):
-		t.assert.Fail("module did not start", args...)
+		t.require.Fail("module did not start", args...)
 	}
 }
 
@@ -150,7 +150,7 @@ func (t *TestModule) AssertStarted(args ...interface{}) {
 func (t *TestModule) AssertNotStarted(args ...interface{}) {
 	t.Lock()
 	defer t.Unlock()
-	t.assert.False(t.started, args...)
+	t.require.False(t.started, args...)
 }
 
 // AssertClicked asserts that the module was clicked and returns the event.
@@ -161,14 +161,14 @@ func (t *TestModule) AssertClicked(args ...interface{}) bar.Event {
 	evtChan := t.events
 	t.Unlock()
 	if !started {
-		t.assert.Fail("expecting click event on stopped module!", args...)
+		t.require.Fail("expecting click event on stopped module!", args...)
 		return bar.Event{}
 	}
 	select {
 	case evt := <-evtChan:
 		return evt
 	case <-time.After(positiveTimeout):
-		t.assert.Fail("expected a click event", args...)
+		t.require.Fail("expected a click event", args...)
 		return bar.Event{}
 	}
 }
@@ -180,7 +180,7 @@ func (t *TestModule) AssertNotClicked(args ...interface{}) {
 	t.Unlock()
 	select {
 	case <-evtChan:
-		t.assert.Fail("expected no click event", args...)
+		t.require.Fail("expected no click event", args...)
 	case <-time.After(negativeTimeout):
 	}
 }

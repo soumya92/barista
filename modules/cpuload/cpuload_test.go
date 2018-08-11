@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
@@ -66,7 +66,7 @@ var mockloadavg = func(out *LoadAvg, count int) (int, error) {
 }
 
 func TestCpuload(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	getloadavg = mockloadavg
 	testBar.New(t)
 
@@ -114,13 +114,13 @@ func TestCpuload(t *testing.T) {
 	beforeTick := timing.Now()
 	afterTick := timing.NextTick()
 	testBar.NextOutput().Expect("on next tick")
-	assert.Equal(time.Minute, afterTick.Sub(beforeTick))
+	require.Equal(time.Minute, afterTick.Sub(beforeTick))
 
 	testBar.AssertNoOutput("until next tick")
 }
 
 func TestErrors(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	getloadavg = mockloadavg
 	testBar.New(t)
 
@@ -130,15 +130,15 @@ func TestErrors(t *testing.T) {
 	shouldReturn(1)
 	testBar.Tick()
 	errs := testBar.LatestOutput().AssertError("on next tick with error")
-	assert.Equal("getloadavg: 1", errs[0], "error string contains getloadavg code")
+	require.Equal("getloadavg: 1", errs[0], "error string contains getloadavg code")
 
 	shouldReturn(1, 2, 3, 4, 5)
 	testBar.Click(0) // to restart.
 	errs = testBar.LatestOutput().AssertError("on next tick with error")
-	assert.Equal("getloadavg: 5", errs[0], "error string contains getloadavg code")
+	require.Equal("getloadavg: 5", errs[0], "error string contains getloadavg code")
 
 	shouldError(errors.New("test"))
 	testBar.Click(0)
 	errs = testBar.LatestOutput().AssertError("on next tick with error")
-	assert.Equal("test", errs[0], "error string is passed through")
+	require.Equal("test", errs[0], "error string is passed through")
 }

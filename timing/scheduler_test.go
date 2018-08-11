@@ -18,21 +18,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func assertTriggered(t *testing.T, s Scheduler, msgAndArgs ...interface{}) {
 	select {
 	case <-s.Tick():
 	case <-time.After(time.Second):
-		assert.Fail(t, "scheduler did not trigger", msgAndArgs...)
+		require.Fail(t, "scheduler did not trigger", msgAndArgs...)
 	}
 }
 
 func assertNotTriggered(t *testing.T, s Scheduler, msgAndArgs ...interface{}) {
 	select {
 	case <-s.Tick():
-		assert.Fail(t, "scheduler was triggered", msgAndArgs...)
+		require.Fail(t, "scheduler was triggered", msgAndArgs...)
 	case <-time.After(10 * time.Millisecond):
 	}
 }
@@ -143,7 +143,7 @@ func TestPastTriggers(t *testing.T) {
 	Resume()
 	assertTriggered(t, sch, "on resume")
 
-	assert.Panics(t, func() {
+	require.Panics(t, func() {
 		sch.Every(-1 * time.Second)
 	}, "negative repeating interval")
 }

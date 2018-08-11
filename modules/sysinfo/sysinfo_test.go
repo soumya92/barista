@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 
 	"github.com/soumya92/barista/base"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
+	"github.com/stretchr/testify/require"
 )
 
 var syncMutex sync.Mutex
@@ -54,7 +54,7 @@ var mockSysinfo = func(out *unix.Sysinfo_t) error {
 }
 
 func TestSysinfo(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	sysinfo = mockSysinfo
 	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
@@ -93,13 +93,13 @@ func TestSysinfo(t *testing.T) {
 	beforeTick := timing.Now()
 	afterTick := timing.NextTick()
 	testBar.LatestOutput().Expect("on next tick")
-	assert.Equal(time.Minute, afterTick.Sub(beforeTick))
+	require.Equal(time.Minute, afterTick.Sub(beforeTick))
 
 	testBar.AssertNoOutput("until next tick")
 }
 
 func TestErrors(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	sysinfo = mockSysinfo
 	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
@@ -112,5 +112,5 @@ func TestErrors(t *testing.T) {
 	testBar.Tick()
 
 	errs := testBar.LatestOutput().AssertError("on next tick with error")
-	assert.Equal("test", errs[0], "error string is passed through")
+	require.Equal("test", errs[0], "error string is passed through")
 }

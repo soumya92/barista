@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTiming_TestMode(t *testing.T) {
@@ -32,7 +32,7 @@ func TestTiming_TestMode(t *testing.T) {
 	sch3 := NewScheduler()
 
 	startTime := Now()
-	assert.Equal(t, startTime, NextTick(),
+	require.Equal(t, startTime, NextTick(),
 		"next tick doesn't change time when nothing is scheduled")
 	assertNotTriggered(t, sch1, "when not scheduled")
 	assertNotTriggered(t, sch2, "when not scheduled")
@@ -42,13 +42,13 @@ func TestTiming_TestMode(t *testing.T) {
 	sch2.After(time.Second)
 	sch3.After(time.Minute)
 
-	assert.Equal(t, startTime.Add(time.Second), NextTick(),
+	require.Equal(t, startTime.Add(time.Second), NextTick(),
 		"triggers earliest scheduler")
 	assertTriggered(t, sch2, "triggers earliest scheduler")
 	assertNotTriggered(t, sch1, "only earliest scheduler triggers")
 	assertNotTriggered(t, sch3, "only earliest scheduler triggers")
 
-	assert.Equal(t, startTime.Add(time.Minute), NextTick(),
+	require.Equal(t, startTime.Add(time.Minute), NextTick(),
 		"triggers next scheduler")
 	assertNotTriggered(t, sch2, "already elapsed")
 	assertTriggered(t, sch3, "earliest scheduler triggers")
@@ -68,7 +68,7 @@ func TestTiming_TestMode(t *testing.T) {
 	sch1.At(now.Add(time.Minute))
 	sch1.At(now.Add(time.Hour))
 	sch1.At(now.Add(time.Second))
-	assert.Equal(t, now.Add(time.Second), NextTick())
+	require.Equal(t, now.Add(time.Second), NextTick())
 	assertTriggered(t, sch1)
 }
 
@@ -81,13 +81,13 @@ func TestRepeating_TestMode(t *testing.T) {
 	sch1.Every(time.Minute)
 	sch2.Every(10 * time.Minute)
 	for i := 1; i < 10; i++ {
-		assert.Equal(t,
+		require.Equal(t,
 			now.Add(time.Duration(i)*time.Minute),
 			NextTick(),
 			"repeated scheduler")
 		assertTriggered(t, sch1, "repeated scheduler")
 	}
-	assert.Equal(t,
+	require.Equal(t,
 		now.Add(time.Duration(10)*time.Minute),
 		NextTick(), "at overlap")
 	assertTriggered(t, sch1, "at overlap")
@@ -96,7 +96,7 @@ func TestRepeating_TestMode(t *testing.T) {
 	now = Now()
 	sch1.Stop()
 	sch2.Stop()
-	assert.Equal(t, now, NextTick(), "no ticks when stopped")
+	require.Equal(t, now, NextTick(), "no ticks when stopped")
 }
 
 func TestRepeatingChange_TestMode(t *testing.T) {
@@ -105,15 +105,15 @@ func TestRepeatingChange_TestMode(t *testing.T) {
 	now := Now()
 
 	sch.Every(time.Minute)
-	assert.Equal(t, now.Add(1*time.Minute), NextTick())
-	assert.Equal(t, now.Add(2*time.Minute), NextTick())
-	assert.Equal(t, now.Add(3*time.Minute), NextTick())
+	require.Equal(t, now.Add(1*time.Minute), NextTick())
+	require.Equal(t, now.Add(2*time.Minute), NextTick())
+	require.Equal(t, now.Add(3*time.Minute), NextTick())
 
 	now = now.Add(3 * time.Minute)
 	sch.Every(time.Hour)
-	assert.Equal(t, now.Add(1*time.Hour), NextTick())
-	assert.Equal(t, now.Add(2*time.Hour), NextTick())
-	assert.Equal(t, now.Add(3*time.Hour), NextTick())
+	require.Equal(t, now.Add(1*time.Hour), NextTick())
+	require.Equal(t, now.Add(2*time.Hour), NextTick())
+	require.Equal(t, now.Add(3*time.Hour), NextTick())
 }
 
 func TestMultipleTriggers_TestMode(t *testing.T) {
@@ -126,7 +126,7 @@ func TestMultipleTriggers_TestMode(t *testing.T) {
 	sch1.Every(time.Minute)
 	sch2.After(time.Minute)
 	sch3.At(Now().Add(time.Minute))
-	assert.Equal(t, now.Add(time.Minute), NextTick(), "multiple triggers")
+	require.Equal(t, now.Add(time.Minute), NextTick(), "multiple triggers")
 	assertTriggered(t, sch1, "multiple triggers")
 	assertTriggered(t, sch2, "multiple triggers")
 	assertTriggered(t, sch3, "multiple triggers")
@@ -164,7 +164,7 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	actualTicks := atomic.LoadInt32(&tickCount)
 	if actualTicks < 54 {
-		assert.Fail(t, "Not enough notifications",
+		require.Fail(t, "Not enough notifications",
 			"Expected >= 54 ticks out of 60, only got %d tick(s)",
 			actualTicks)
 	}
@@ -193,17 +193,17 @@ func TestPauseResume_TestMode(t *testing.T) {
 	sch2 := NewScheduler().Every(time.Minute)
 
 	expected = expected.Add(time.Minute)
-	assert.Equal(t, expected, NextTick(), "with paused scheduler")
+	require.Equal(t, expected, NextTick(), "with paused scheduler")
 	assertNotTriggered(t, sch, "while paused")
 	assertNotTriggered(t, sch2, "created while paused")
 
 	expected = expected.Add(time.Minute)
-	assert.Equal(t, expected, NextTick(), "with paused scheduler")
+	require.Equal(t, expected, NextTick(), "with paused scheduler")
 	assertNotTriggered(t, sch, "while paused")
 	assertNotTriggered(t, sch2, "while paused")
 
 	expected = expected.Add(time.Minute)
-	assert.Equal(t, expected, NextTick(), "with paused scheduler")
+	require.Equal(t, expected, NextTick(), "with paused scheduler")
 	assertNotTriggered(t, sch, "while paused")
 
 	AdvanceBy(30 * time.Second)
@@ -216,7 +216,7 @@ func TestPauseResume_TestMode(t *testing.T) {
 	assertNotTriggered(t, sch2, "only once when resumed")
 
 	expected = expected.Add(time.Minute)
-	assert.Equal(t, expected, NextTick(), "with resumed scheduler")
+	require.Equal(t, expected, NextTick(), "with resumed scheduler")
 	assertTriggered(t, sch, "tick after resuming")
 	assertTriggered(t, sch2, "tick after resuming")
 }
@@ -226,10 +226,10 @@ func TestPastTriggers_TestMode(t *testing.T) {
 	sch := NewScheduler()
 	now := Now()
 	sch.After(-1 * time.Minute)
-	assert.Equal(t, now, NextTick())
+	require.Equal(t, now, NextTick())
 	assertTriggered(t, sch, "negative delay notifies immediately")
 	sch.At(Now().Add(-1 * time.Minute))
-	assert.Equal(t, now, NextTick())
+	require.Equal(t, now, NextTick())
 	assertTriggered(t, sch, "past trigger notifies immediately")
 
 	Pause()
@@ -248,7 +248,7 @@ func TestPastTriggers_TestMode(t *testing.T) {
 	NextTick()
 	assertTriggered(t, sch, "on resume")
 
-	assert.Panics(t, func() {
+	require.Panics(t, func() {
 		sch.Every(-1 * time.Second)
 	}, "negative repeating interval")
 }
@@ -258,25 +258,25 @@ func TestTestModeReset(t *testing.T) {
 	sch1 := NewScheduler().Every(time.Second)
 
 	startTime := Now()
-	assert.Equal(t, startTime.Add(time.Second), NextTick())
+	require.Equal(t, startTime.Add(time.Second), NextTick())
 	assertTriggered(t, sch1, "triggers every second")
 
-	assert.Equal(t, startTime.Add(2*time.Second), NextTick())
+	require.Equal(t, startTime.Add(2*time.Second), NextTick())
 	assertTriggered(t, sch1, "triggers every second")
 
 	Pause()
-	assert.Equal(t, startTime.Add(3*time.Second), NextTick())
+	require.Equal(t, startTime.Add(3*time.Second), NextTick())
 	assertNotTriggered(t, sch1, "when paused")
 
 	TestMode()
 	sch2 := NewScheduler().Every(time.Minute)
 
 	startTime = Now()
-	assert.Equal(t, startTime.Add(time.Minute), NextTick())
+	require.Equal(t, startTime.Add(time.Minute), NextTick())
 	assertNotTriggered(t, sch1, "previous scheduler is not triggered")
 	assertTriggered(t, sch2, "new scheduler is triggered")
 
-	assert.Equal(t, startTime.Add(2*time.Minute), NextTick())
+	require.Equal(t, startTime.Add(2*time.Minute), NextTick())
 	assertNotTriggered(t, sch1, "previous scheduler is not triggered")
 	assertTriggered(t, sch2, "new scheduler is repeatedly triggered")
 }

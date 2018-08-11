@@ -18,11 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/stretchr/testify/require"
 )
 
 func nextUpdate(t *testing.T, ch <-chan int, formatAndArgs ...interface{}) int {
@@ -30,7 +29,7 @@ func nextUpdate(t *testing.T, ch <-chan int, formatAndArgs ...interface{}) int {
 	case idx := <-ch:
 		return idx
 	case <-time.After(time.Second):
-		assert.Fail(t, "No update from moduleset", formatAndArgs...)
+		require.Fail(t, "No update from moduleset", formatAndArgs...)
 	}
 	return -1
 }
@@ -38,7 +37,7 @@ func nextUpdate(t *testing.T, ch <-chan int, formatAndArgs ...interface{}) int {
 func assertNoUpdate(t *testing.T, ch <-chan int, formatAndArgs ...interface{}) {
 	select {
 	case <-ch:
-		assert.Fail(t, "Unexpected update from moduleset", formatAndArgs...)
+		require.Fail(t, "Unexpected update from moduleset", formatAndArgs...)
 	case <-time.After(10 * time.Millisecond):
 		// test passed.
 	}
@@ -58,18 +57,18 @@ func TestModuleSet(t *testing.T) {
 	}
 
 	tms[1].OutputText("foo")
-	assert.Equal(t, 1, nextUpdate(t, updateCh, "on output"),
+	require.Equal(t, 1, nextUpdate(t, updateCh, "on output"),
 		"update notification on new output from module")
 
 	tms[0].OutputText("baz")
-	assert.Equal(t, 0, nextUpdate(t, updateCh, "on update"),
+	require.Equal(t, 0, nextUpdate(t, updateCh, "on update"),
 		"update notification on new output from module")
 
-	assert.Empty(t, ms.LastOutput(2), "without any output")
-	assert.Equal(t, "baz", ms.LastOutput(0)[0].Text())
+	require.Empty(t, ms.LastOutput(2), "without any output")
+	require.Equal(t, "baz", ms.LastOutput(0)[0].Text())
 
 	out := ms.LastOutputs()
-	assert.Equal(t,
+	require.Equal(t,
 		[]bar.Segments{
 			{bar.TextSegment("baz")},
 			{bar.TextSegment("foo")},
@@ -78,7 +77,7 @@ func TestModuleSet(t *testing.T) {
 
 	ms.Click(0, bar.Event{X: 40})
 	e := tms[0].AssertClicked("on moduleset click")
-	assert.Equal(t, 40, e.X)
+	require.Equal(t, 40, e.X)
 
 	tms[2].Output(outputs.Errorf("something went wrong"))
 	<-updateCh
@@ -91,8 +90,8 @@ func TestModuleSet(t *testing.T) {
 	tms[2].AssertNotStarted("when not left/right/middle clicked")
 
 	ms.Click(2, bar.Event{Button: bar.ButtonLeft})
-	assert.Equal(t, 2, nextUpdate(t, updateCh, "on restart"),
+	require.Equal(t, 2, nextUpdate(t, updateCh, "on restart"),
 		"update notification on restart")
-	assert.Empty(t, ms.LastOutput(2), "error segment removed")
+	require.Empty(t, ms.LastOutput(2), "error segment removed")
 	tms[2].AssertStarted("on left click after finish")
 }

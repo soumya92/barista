@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
@@ -62,7 +62,7 @@ func TestEvery(t *testing.T) {
 
 	then := timing.Now()
 	now := timing.NextTick()
-	assert.InDelta(t, float64(time.Second), float64(now.Sub(then)),
+	require.InDelta(t, float64(time.Second), float64(now.Sub(then)),
 		float64(time.Millisecond))
 
 	testBar.NextOutput().Expect("on tick")

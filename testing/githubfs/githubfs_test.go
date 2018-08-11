@@ -21,11 +21,11 @@ import (
 	"time"
 
 	testServer "github.com/soumya92/barista/testing/httpserver"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestName(t *testing.T) {
-	assert.Contains(t, New().Name(), "GitHubFS")
+	require.Contains(t, New().Name(), "GitHubFS")
 }
 
 func TestFs(t *testing.T) {
@@ -36,26 +36,26 @@ func TestFs(t *testing.T) {
 	fs := New()
 
 	_, err := fs.Open("/code/500")
-	assert.Error(t, err)
+	require.Error(t, err)
 	_, err = fs.OpenFile("/redir", 0, 0444)
-	assert.Error(t, err)
+	require.Error(t, err)
 	_, err = fs.Stat("/code/403")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	info, err := fs.Stat("/modtime/1382140800")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	modTime := time.Date(2013, time.October, 19, 0, 0, 0, 0, time.UTC)
-	assert.WithinDuration(t, modTime, info.ModTime(), time.Minute)
+	require.WithinDuration(t, modTime, info.ModTime(), time.Minute)
 
 	f, err := fs.Open("/basic/empty")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	contents, err := ioutil.ReadAll(f)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte{}, contents)
+	require.NoError(t, err)
+	require.Equal(t, []byte{}, contents)
 
 	f, err = fs.OpenFile("/basic/foo", os.O_RDONLY, 0600)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	contents, err = ioutil.ReadAll(f)
-	assert.NoError(t, err)
-	assert.Equal(t, "bar", string(contents))
+	require.NoError(t, err)
+	require.Equal(t, "bar", string(contents))
 }

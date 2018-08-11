@@ -19,7 +19,7 @@ import (
 
 	"github.com/martinlindhe/unit"
 	"github.com/soumya92/barista/bar"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var testObject = struct {
@@ -37,9 +37,9 @@ var testObject = struct {
 }
 
 func TestTextTemplate(t *testing.T) {
-	assert.Panics(t, func() { TextTemplate("{{invalid template") }, "panic on invalid template")
-	assert.NotPanics(t, func() { TextTemplate("string") }, "no panic on simple string")
-	assert.NotPanics(t, func() { TextTemplate("number = {{.number}}") }, "no panic on simple template")
+	require.Panics(t, func() { TextTemplate("{{invalid template") }, "panic on invalid template")
+	require.NotPanics(t, func() { TextTemplate("string") }, "no panic on simple string")
+	require.NotPanics(t, func() { TextTemplate("number = {{.number}}") }, "no panic on simple template")
 
 	tests := []struct {
 		desc     string
@@ -57,7 +57,7 @@ func TestTextTemplate(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, textOf(tc.template(testObject)), tc.desc)
+		require.Equal(t, tc.expected, textOf(tc.template(testObject)), tc.desc)
 	}
 }
 
@@ -81,6 +81,6 @@ func TestTemplateFuncs(t *testing.T) {
 		{"ibyterate", `{{.Rate | ibyterate}}`, "23 KiB/s"},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, textOf(TextTemplate(tc.template)(unitsObject)), tc.desc)
+		require.Equal(t, tc.expected, textOf(TextTemplate(tc.template)(unitsObject)), tc.desc)
 	}
 }

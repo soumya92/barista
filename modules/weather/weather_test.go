@@ -23,7 +23,7 @@ import (
 	"github.com/martinlindhe/unit"
 	"github.com/soumya92/barista/bar"
 	testBar "github.com/soumya92/barista/testing/bar"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testProvider struct {
@@ -43,7 +43,7 @@ func (t *testProvider) GetWeather() (*Weather, error) {
 }
 
 func TestWeather(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	testBar.New(t)
 	p := &testProvider{Weather: Weather{
 		Location:    "Swallow Falls",
@@ -58,9 +58,9 @@ func TestWeather(t *testing.T) {
 
 	testBar.LatestOutput().AssertText(
 		[]string{"22.2℃ chance of meatballs (FLDSMDFR)"}, "on start")
-	assert.True(true)
+	require.True(true)
 
-	assert.NotPanics(func() { testBar.Click(0) })
+	require.NotPanics(func() { testBar.Click(0) })
 	testBar.Tick()
 	testBar.LatestOutput().Expect("on tick")
 
@@ -71,7 +71,7 @@ func TestWeather(t *testing.T) {
 
 	select {
 	case <-clickedWeathers:
-		assert.Fail("Click handler triggered by old click")
+		require.Fail("Click handler triggered by old click")
 	case <-time.After(time.Millisecond):
 	}
 
@@ -85,9 +85,9 @@ func TestWeather(t *testing.T) {
 
 	select {
 	case w := <-clickedWeathers:
-		assert.InDelta(0.9, w.Humidity, 1e-9)
+		require.InDelta(0.9, w.Humidity, 1e-9)
 	case <-time.After(time.Second):
-		assert.Fail("Click event did not trigger handler")
+		require.Fail("Click event did not trigger handler")
 	}
 
 	w.Template(`{{.Temperature.Fahrenheit | printf "%.0f"}}, by {{.Attribution}}`)
@@ -101,7 +101,7 @@ func TestWeather(t *testing.T) {
 	testBar.Tick()
 	testBar.AssertNoOutput("on tick when weather is cached")
 	testBar.Click(0)
-	assert.Equal(Cloudy, (<-clickedWeathers).Condition)
+	require.Equal(Cloudy, (<-clickedWeathers).Condition)
 
 	p.Lock()
 	p.cached = false
@@ -113,7 +113,7 @@ func TestWeather(t *testing.T) {
 	testBar.Click(0)
 	select {
 	case <-clickedWeathers:
-		assert.Fail("Click handler triggered during error")
+		require.Fail("Click handler triggered during error")
 	case <-time.After(time.Millisecond):
 	}
 }

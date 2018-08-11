@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/testing/fail"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -35,7 +35,7 @@ func failNTimes(n int) func(*testing.T) {
 		if count > n {
 			return
 		}
-		assert.Fail(t, "Failing N Times", "%d out of %d", count, n)
+		require.Fail(t, "Failing N Times", "%d out of %d", count, n)
 	}
 }
 
@@ -51,7 +51,7 @@ func mockGetenv(eventType string) func(string) string {
 func TestNotCron(t *testing.T) {
 	getenv = mockGetenv("not-cron")
 	Test(t, func(*testing.T) {
-		assert.Fail(t, "test func called but not a cron build")
+		require.Fail(t, "test func called but not a cron build")
 	})
 }
 
@@ -63,11 +63,11 @@ func TestCron(t *testing.T) {
 		Test(testT, failNTimes(100))
 	}, "More than 4 failures from test function")
 	end := time.Now()
-	assert.WithinDuration(t, start.Add(6*time.Second), end, time.Second)
+	require.WithinDuration(t, start.Add(6*time.Second), end, time.Second)
 
 	start = time.Now()
 	Test(t, failNTimes(2))
 	end = time.Now()
-	assert.WithinDuration(t, start.Add(1*time.Second), end, time.Second,
+	require.WithinDuration(t, start.Add(1*time.Second), end, time.Second,
 		"Test should only wait 0+1 seconds (for the 2 failures)")
 }

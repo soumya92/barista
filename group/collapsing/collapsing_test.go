@@ -21,7 +21,7 @@ import (
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	testModule "github.com/soumya92/barista/testing/module"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCollapsing(t *testing.T) {
@@ -47,13 +47,13 @@ func TestCollapsing(t *testing.T) {
 
 	tm1.OutputText("b")
 	testBar.AssertNoOutput("while collapsed")
-	assert.False(t, ctrl.Expanded())
+	require.False(t, ctrl.Expanded())
 
 	testBar.Click(0)
 	testBar.NextOutput().AssertText([]string{">", "a", "b", "<"},
 		"Expands on click, uses previous output")
 
-	assert.True(t, ctrl.Expanded())
+	require.True(t, ctrl.Expanded())
 	tm2.OutputText("c")
 	testBar.NextOutput().AssertText([]string{">", "a", "b", "c", "<"},
 		"Updates immediately when expanded")
@@ -73,7 +73,7 @@ func TestCollapsing(t *testing.T) {
 
 	testBar.Click(4)
 	testBar.NextOutput().AssertText([]string{"+"})
-	assert.False(t, ctrl.Expanded())
+	require.False(t, ctrl.Expanded())
 
 	ctrl.ButtonFunc(func(expanded bool) (start, end bar.Output) {
 		if expanded {

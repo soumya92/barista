@@ -21,7 +21,7 @@ import (
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	testModule "github.com/soumya92/barista/testing/module"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSwitching(t *testing.T) {
@@ -41,14 +41,14 @@ func TestSwitching(t *testing.T) {
 	tm1.AssertStarted()
 	tm2.AssertStarted()
 
-	assert.Equal(t, 3, ctrl.Count())
-	assert.Equal(t, 0, ctrl.Current())
+	require.Equal(t, 3, ctrl.Count())
+	require.Equal(t, 0, ctrl.Current())
 	testBar.NextOutput().AssertText([]string{">"},
 		"with no output from module")
 
 	testBar.Click(0)
 	testBar.NextOutput().AssertText([]string{"<", ">"})
-	assert.Equal(t, 1, ctrl.Current())
+	require.Equal(t, 1, ctrl.Current())
 
 	ctrl.Next()
 	testBar.NextOutput().AssertText([]string{"<"})
@@ -71,9 +71,9 @@ func TestSwitching(t *testing.T) {
 	testBar.NextOutput().AssertText([]string{"/*", "0", "*/"})
 	testBar.Click(0)
 	testBar.NextOutput().AssertText([]string{"/*", "*/"})
-	assert.Equal(t, 2, ctrl.Current(), "wraparound on left")
+	require.Equal(t, 2, ctrl.Current(), "wraparound on left")
 
 	ctrl.Next()
 	testBar.NextOutput().AssertText([]string{"/*", "0", "*/"})
-	assert.Equal(t, 0, ctrl.Current(), "wraparound on right")
+	require.Equal(t, 0, ctrl.Current(), "wraparound on right")
 }

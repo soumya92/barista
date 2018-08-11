@@ -19,12 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/stretchr/testify/require"
 )
 
 type simpleGrouper struct {
@@ -88,13 +87,13 @@ func TestSimpleGrouper(t *testing.T) {
 	testBar.LatestOutput().AssertText([]string{"start", "foo", "end"})
 	testBar.Click(1)
 	e := m2.AssertClicked()
-	assert.Equal(t, "with;semicolon", e.SegmentID)
+	require.Equal(t, "with;semicolon", e.SegmentID)
 
 	testBar.Click(0)
-	assert.Equal(t, "start", <-g.clicked)
+	require.Equal(t, "start", <-g.clicked)
 
 	testBar.Click(2)
-	assert.Equal(t, "end", <-g.clicked)
+	require.Equal(t, "end", <-g.clicked)
 }
 
 type lockableGrouper struct {
@@ -120,7 +119,7 @@ func (l *lockableGrouper) getCounts() (locks, unlocks int) {
 func (l *lockableGrouper) assertLocked(method string) {
 	locks, unlocks := l.getCounts()
 	if locks-unlocks != 1 {
-		assert.Fail(l.T, "Called "+method+" without lock")
+		require.Fail(l.T, "Called "+method+" without lock")
 	}
 }
 
@@ -152,7 +151,7 @@ func TestLockableGrouper(t *testing.T) {
 	grp := New(g, m0, m1, m2)
 	m0.AssertNotStarted("On group construction")
 	locks, unlocks := g.getCounts()
-	assert.Equal(t, 0, locks+unlocks, "No locks on start")
+	require.Equal(t, 0, locks+unlocks, "No locks on start")
 
 	testBar.Run(grp)
 	m0.AssertStarted("On group stream")
@@ -160,29 +159,29 @@ func TestLockableGrouper(t *testing.T) {
 	m2.AssertStarted()
 	testBar.LatestOutput().AssertText([]string{"start", "end"})
 	locks, unlocks = g.getCounts()
-	assert.Equal(t, 1, locks, "Initial output locks")
-	assert.Equal(t, 1, unlocks, "Equal unlock count")
+	require.Equal(t, 1, locks, "Initial output locks")
+	require.Equal(t, 1, unlocks, "Equal unlock count")
 
 	m0.OutputText("foo")
 	testBar.LatestOutput().AssertText([]string{"start", "foo", "end"})
 	locks, unlocks = g.getCounts()
-	assert.Equal(t, 2, locks, "One lock per output")
-	assert.Equal(t, 2, unlocks, "Equal unlock count")
+	require.Equal(t, 2, locks, "One lock per output")
+	require.Equal(t, 2, unlocks, "Equal unlock count")
 
 	m1.OutputText("baz")
 	testBar.AssertNoOutput("when hidden module updates")
 	locks, unlocks = g.getCounts()
-	assert.Equal(t, 3, locks, "Locks even if visible returns false")
-	assert.Equal(t, 3, unlocks)
+	require.Equal(t, 3, locks, "Locks even if visible returns false")
+	require.Equal(t, 3, unlocks)
 
 	testBar.Click(0)
 	locks, unlocks = g.getCounts()
-	assert.Equal(t, 3, locks, "Does not lock for button click")
+	require.Equal(t, 3, locks, "Does not lock for button click")
 
 	testBar.Click(1)
 	locks, unlocks = g.getCounts()
-	assert.Equal(t, 3, locks, "Does not lock for module click")
-	assert.Equal(t, 3, unlocks)
+	require.Equal(t, 3, locks, "Does not lock for module click")
+	require.Equal(t, 3, unlocks)
 }
 
 type signallingGrouper struct {
@@ -253,7 +252,7 @@ func (u *updatingGrouper) AssertUpdated(t *testing.T, idx int, formatAndArgs ...
 	case <-u.updated[idx]:
 		// test passed.
 	case <-time.After(time.Second):
-		assert.Fail(t, "Expected an updated", formatAndArgs...)
+		require.Fail(t, "Expected an updated", formatAndArgs...)
 	}
 }
 
@@ -302,7 +301,7 @@ func TestUpdatingGrouper(t *testing.T) {
 	testBar.Click(1)
 	select {
 	case <-g.updated[1]:
-		assert.Fail(t, "Expected no updated", "on click")
+		require.Fail(t, "Expected no updated", "on click")
 	case <-time.After(10 * time.Millisecond):
 		// test passed, expected no udpate.
 	}

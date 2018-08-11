@@ -17,7 +17,7 @@ package icons
 import (
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/pango"
@@ -34,20 +34,20 @@ func TestSymbolFromHex(t *testing.T) {
 	}
 	for _, tc := range tests {
 		value, err := SymbolFromHex(tc.input)
-		assert.NoError(t, err, "Decoding a valid symbol from hex")
-		assert.Equal(t, tc.expected, value, "Symbol is decoded correctly")
+		require.NoError(t, err, "Decoding a valid symbol from hex")
+		require.Equal(t, tc.expected, value, "Symbol is decoded correctly")
 	}
 
 	_, err := SymbolFromHex("04xc")
-	assert.Error(t, err, "Error with invalid hex string")
+	require.Error(t, err, "Error with invalid hex string")
 	_, err = SymbolFromHex("ffffffffffff")
-	assert.Error(t, err, "Error with out of bounds hex")
+	require.Error(t, err, "Error with out of bounds hex")
 }
 
 func TestIconProvider(t *testing.T) {
 	p := NewProvider("test")
-	assert.NoError(t, p.Hex("lgtm", "1F44D"))
-	assert.Error(t, p.Hex("not-real", "xx"))
+	require.NoError(t, p.Hex("lgtm", "1F44D"))
+	require.Error(t, p.Hex("not-real", "xx"))
 	p.Symbol("test", "a")
 	p.Symbol("ligature-font", "home")
 	p.Font("testfont")

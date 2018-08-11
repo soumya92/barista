@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/testing/cron"
@@ -28,7 +28,7 @@ import (
 
 func TestInvalid(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	assert.Error(t, Load("/src/no-such-directory"))
+	require.Error(t, Load("/src/no-such-directory"))
 
 	afero.WriteFile(fs, "/src/material-error-1/iconfont/codepoints", []byte(
 		`-- Lines in weird formats --
@@ -40,17 +40,17 @@ func TestInvalid(t *testing.T) {
 		 Invalid codepoint:
 		 badIcon xy`,
 	), 0644)
-	assert.Error(t, Load("/src/material-error-1"))
+	require.Error(t, Load("/src/material-error-1"))
 
 	afero.WriteFile(fs, "/src/material-error-2/iconfont/codepoint", nil, 0644)
-	assert.Error(t, Load("/src/material-error-2"))
+	require.Error(t, Load("/src/material-error-2"))
 
 	afero.WriteFile(fs, "/src/material-error-3/iconfont/codepoints", []byte(
 		`someIcon 61
 		 otherIcon 62
 		 badIcon xy`,
 	), 0644)
-	assert.Error(t, Load("/src/material-error-3"))
+	require.Error(t, Load("/src/material-error-3"))
 }
 
 func TestValid(t *testing.T) {
@@ -60,7 +60,7 @@ func TestValid(t *testing.T) {
 		 otherIcon 62
 		 thirdIcon 63`,
 	), 0644)
-	assert.NoError(t, Load("/src/material"))
+	require.NoError(t, Load("/src/material"))
 	pangoTesting.AssertText(t, "a", pango.Icon("material-someIcon").String())
 }
 
@@ -71,6 +71,6 @@ func TestValid(t *testing.T) {
 func TestLive(t *testing.T) {
 	fs = githubfs.New()
 	cron.Test(t, func(t *testing.T) {
-		assert.NoError(t, Load("/google/material-design-icons/master"))
+		require.NoError(t, Load("/google/material-design-icons/master"))
 	})
 }

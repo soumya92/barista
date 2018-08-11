@@ -17,7 +17,7 @@ package weather
 import (
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDirection(t *testing.T) {
@@ -49,7 +49,7 @@ func TestDirection(t *testing.T) {
 		{327, "NNW"}, {348, "NNW"},
 	} {
 		dir := Direction(c.deg)
-		assert.Equal(t, c.card, dir.Cardinal())
-		assert.Equal(t, c.deg, dir.Deg())
+		require.Equal(t, c.card, dir.Cardinal())
+		require.Equal(t, c.deg, dir.Deg())
 	}
 }

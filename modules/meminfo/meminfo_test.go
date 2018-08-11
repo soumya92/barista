@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/base"
 	testBar "github.com/soumya92/barista/testing/bar"
@@ -40,7 +40,7 @@ func shouldReturn(info meminfo) {
 }
 
 func TestMeminfo(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	fs = afero.NewMemMapFs()
 	testBar.New(t)
 	currentInfo = base.ErrorValue{}
@@ -89,7 +89,7 @@ func TestMeminfo(t *testing.T) {
 	beforeTick := timing.Now()
 	RefreshInterval(time.Minute)
 	testBar.Tick()
-	assert.Equal(time.Minute, timing.Now().Sub(beforeTick), "RefreshInterval change")
+	require.Equal(time.Minute, timing.Now().Sub(beforeTick), "RefreshInterval change")
 
 	testBar.LatestOutput().Expect("on refresh interval change")
 }

@@ -20,7 +20,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/testing/mockio"
 )
@@ -30,7 +30,7 @@ func TestNopMethods(t *testing.T) {
 	SetFlags(log.Lshortfile)
 	Log("foo: %d", 42)
 	Fine("bar: %g", 3.14159)
-	assert.Equal(t, "", ID(4))
+	require.Equal(t, "", ID(4))
 	Label(&struct{}{}, "empty")
 	Labelf(&struct{}{}, "empty: %b", true)
 	Attach(t, 4, "->int")

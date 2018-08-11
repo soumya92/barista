@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
@@ -39,30 +39,30 @@ func TestHeader(t *testing.T) {
 	mockStdin := mockio.Stdin()
 	mockStdout := mockio.Stdout()
 	TestMode(mockStdin, mockStdout)
-	assert.Empty(t, mockStdout.ReadNow(), "Nothing written before Run")
+	require.Empty(t, mockStdout.ReadNow(), "Nothing written before Run")
 	go Run()
 
 	out, err := mockStdout.ReadUntil('}', time.Second)
-	assert.Nil(t, err, "header was written")
+	require.Nil(t, err, "header was written")
 
 	header := make(map[string]interface{})
-	assert.Nil(t, json.Unmarshal([]byte(out), &header), "header is valid json")
+	require.Nil(t, json.Unmarshal([]byte(out), &header), "header is valid json")
 	// JSON deserialises all numbers as float64.
-	assert.Equal(t, 1, int(header["version"].(float64)), "header version == 1")
-	assert.Equal(t, true, header["click_events"].(bool), "header click_events == true")
-	assert.Equal(t, int(unix.SIGUSR1), int(header["stop_signal"].(float64)), "header stop_signal == USR1")
-	assert.Equal(t, int(unix.SIGUSR2), int(header["cont_signal"].(float64)), "header cont_signal == USR2")
+	require.Equal(t, 1, int(header["version"].(float64)), "header version == 1")
+	require.Equal(t, true, header["click_events"].(bool), "header click_events == true")
+	require.Equal(t, int(unix.SIGUSR1), int(header["stop_signal"].(float64)), "header stop_signal == USR1")
+	require.Equal(t, int(unix.SIGUSR2), int(header["cont_signal"].(float64)), "header cont_signal == USR2")
 }
 
 func readOutput(t *testing.T, stdout *mockio.Writable) []map[string]interface{} {
 	var jsonOutputs []map[string]interface{}
 	out, err := stdout.ReadUntil(']', time.Second)
-	assert.Nil(t, err, "No error while reading output")
-	assert.Nil(t, json.Unmarshal([]byte(out), &jsonOutputs), "Output is valid json")
+	require.Nil(t, err, "No error while reading output")
+	require.Nil(t, json.Unmarshal([]byte(out), &jsonOutputs), "Output is valid json")
 	_, err = stdout.ReadUntil(',', time.Second)
-	assert.Nil(t, err, "outputs a comma after full bar")
+	require.Nil(t, err, "outputs a comma after full bar")
 	_, err = stdout.ReadUntil('\n', time.Second)
-	assert.Nil(t, err, "outputs a newline after full bar")
+	require.Nil(t, err, "outputs a newline after full bar")
 	return jsonOutputs
 }
 
@@ -97,26 +97,26 @@ func TestSingleModule(t *testing.T) {
 	go Run()
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
-	assert.Nil(t, err, "output array started without any errors")
+	require.Nil(t, err, "output array started without any errors")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
-	assert.Error(t, err, "no output until module updates")
+	require.Error(t, err, "no output until module updates")
 
 	module.AssertStarted()
 	module.OutputText("test")
 	out := readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"test"}, out,
+	require.Equal(t, []string{"test"}, out,
 		"output contains an element for the module")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
-	assert.Error(t, err, "no output until module updates")
+	require.Error(t, err, "no output until module updates")
 
 	module.OutputText("other")
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"other"}, out,
+	require.Equal(t, []string{"other"}, out,
 		"output updates when module sends an update")
 
-	assert.Panics(t,
+	require.Panics(t,
 		func() { Add(testModule.New(t)) },
 		"adding a module to a running bar")
 }
@@ -132,20 +132,20 @@ func TestEmptyOutputs(t *testing.T) {
 	go Run(module1, module2)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
-	assert.Nil(t, err, "output array started without any errors")
+	require.Nil(t, err, "output array started without any errors")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
-	assert.Error(t, err, "no output until module updates")
+	require.Error(t, err, "no output until module updates")
 
 	module1.AssertStarted()
 	module1.Output(nil)
 	out := readOutputTexts(t, mockStdout)
-	assert.Empty(t, out, "all modules are empty")
+	require.Empty(t, out, "all modules are empty")
 
 	module2.AssertStarted()
 	module2.Output(nil)
 	out = readOutputTexts(t, mockStdout)
-	assert.Empty(t, out, "all modules are empty")
+	require.Empty(t, out, "all modules are empty")
 }
 
 func TestMultipleModules(t *testing.T) {
@@ -159,41 +159,41 @@ func TestMultipleModules(t *testing.T) {
 	go Run(module1, module2, module3)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
-	assert.Nil(t, err, "output array started without any errors")
+	require.Nil(t, err, "output array started without any errors")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
-	assert.Error(t, err, "no output until module updates")
+	require.Error(t, err, "no output until module updates")
 
 	module1.AssertStarted()
 	module1.OutputText("test")
 
 	out := readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"test"}, out,
+	require.Equal(t, []string{"test"}, out,
 		"output contains elements only for modules that have output")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
-	assert.Error(t, err, "no output until module updates")
+	require.Error(t, err, "no output until module updates")
 
 	module3.AssertStarted()
 	module3.OutputText("module3")
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"test", "module3"}, out,
+	require.Equal(t, []string{"test", "module3"}, out,
 		"new output repeats previous value for other modules")
 
 	module3.OutputText("new value")
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"test", "new value"}, out,
+	require.Equal(t, []string{"test", "new value"}, out,
 		"updated output repeats previous value for other modules")
 
 	module2.AssertStarted()
 	module2.OutputText("middle")
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"test", "middle", "new value"}, out,
+	require.Equal(t, []string{"test", "middle", "new value"}, out,
 		"newly updated module correctly repositions other modules")
 
 	module1.Output(nil)
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"middle", "new value"}, out,
+	require.Equal(t, []string{"middle", "new value"}, out,
 		"nil output correctly repositions other modules")
 }
 
@@ -215,14 +215,14 @@ func TestMultiSegmentModule(t *testing.T) {
 	module.AssertStarted()
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
-	assert.Nil(t, err, "output array started without any errors")
+	require.Nil(t, err, "output array started without any errors")
 
 	_, err = mockStdout.ReadUntil(']', time.Millisecond)
-	assert.Error(t, err, "no output until module updates")
+	require.Error(t, err, "no output until module updates")
 
 	module.Output(multiOutput("1", "2", "3"))
 	out := readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"1", "2", "3"}, out,
+	require.Equal(t, []string{"1", "2", "3"}, out,
 		"output contains an element for each segment")
 
 	// Implicit in the previous assertion is the fact that all segments
@@ -233,12 +233,12 @@ func TestMultiSegmentModule(t *testing.T) {
 
 	module.Output(multiOutput("2", "3"))
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"2", "3"}, out,
+	require.Equal(t, []string{"2", "3"}, out,
 		"bar handles a disappearing segment correctly")
 
 	module.Output(multiOutput("2", "3", "4", "5", "6"))
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"2", "3", "4", "5", "6"}, out,
+	require.Equal(t, []string{"2", "3", "4", "5", "6"}, out,
 		"bar handles additional segments correctly")
 }
 
@@ -255,78 +255,78 @@ func TestPauseResume(t *testing.T) {
 	<-pauseChan
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
-	assert.Nil(t, err, "output array started without any errors")
+	require.Nil(t, err, "output array started without any errors")
 
 	module1.AssertStarted()
 	module2.AssertStarted()
 
 	module1.OutputText("1")
 	out := readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"1"}, out, "Outputs before pause")
+	require.Equal(t, []string{"1"}, out, "Outputs before pause")
 	sch1 := timing.NewScheduler().After(time.Millisecond)
 	select {
 	case <-sch1.Tick():
 	case <-time.After(time.Second):
-		assert.Fail(t, "Scheduler not triggered while bar is running")
+		require.Fail(t, "Scheduler not triggered while bar is running")
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	assert.Equal(t, dEvtPaused, (<-pauseChan).kind)
+	require.Equal(t, dEvtPaused, (<-pauseChan).kind)
 	module1.OutputText("a")
 	module2.OutputText("b")
-	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+	require.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"No output while paused, got %s", mockStdout.ReadNow())
 
 	sch1.After(time.Millisecond)
 	sch2 := timing.NewScheduler().After(time.Millisecond)
 	select {
 	case <-sch1.Tick():
-		assert.Fail(t, "Scheduler triggered while bar is paused")
+		require.Fail(t, "Scheduler triggered while bar is paused")
 	case <-sch2.Tick():
-		assert.Fail(t, "Scheduler triggered while bar is paused")
+		require.Fail(t, "Scheduler triggered while bar is paused")
 	case <-time.After(10 * time.Millisecond): // test passed
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
 	select {
 	case <-pauseChan:
-		assert.Fail(t, "Pausing a paused bar is a nop")
+		require.Fail(t, "Pausing a paused bar is a nop")
 	case <-time.After(10 * time.Millisecond): // test passed.
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	assert.Equal(t, dEvtResumed, (<-pauseChan).kind)
+	require.Equal(t, dEvtResumed, (<-pauseChan).kind)
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"a", "b"}, out,
+	require.Equal(t, []string{"a", "b"}, out,
 		"Outputs while paused printed on resume")
 	select {
 	case <-sch1.Tick():
 	case <-time.After(time.Second):
-		assert.Fail(t, "Scheduler not triggered after bar is resumed")
+		require.Fail(t, "Scheduler not triggered after bar is resumed")
 	}
 	select {
 	case <-sch2.Tick():
 	case <-time.After(time.Second):
-		assert.Fail(t, "Scheduler not triggered after bar is resumed")
+		require.Fail(t, "Scheduler not triggered after bar is resumed")
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
 	select {
 	case <-pauseChan:
-		assert.Fail(t, "Resuming a running bar is a nop")
+		require.Fail(t, "Resuming a running bar is a nop")
 	case <-time.After(10 * time.Millisecond): // test passed.
 	}
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
-	assert.Equal(t, dEvtPaused, (<-pauseChan).kind)
+	require.Equal(t, dEvtPaused, (<-pauseChan).kind)
 	module2.OutputText("c")
-	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+	require.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"No output while paused, got %s", mockStdout.ReadNow())
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
-	assert.Equal(t, dEvtResumed, (<-pauseChan).kind)
+	require.Equal(t, dEvtResumed, (<-pauseChan).kind)
 	out = readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"a", "c"}, out,
+	require.Equal(t, []string{"a", "c"}, out,
 		"Partial updates while paused")
 }
 
@@ -340,7 +340,7 @@ func TestClickEvents(t *testing.T) {
 	go Run(module1, module2)
 
 	_, err := mockStdout.ReadUntil('[', time.Second)
-	assert.Nil(t, err, "output array started without any errors")
+	require.Nil(t, err, "output array started without any errors")
 	mockStdin.WriteString("[")
 
 	module1.AssertStarted()
@@ -352,7 +352,7 @@ func TestClickEvents(t *testing.T) {
 	module2.Output(multiOutput("a", "b", "c", "d"))
 	out := readOutput(t, mockStdout)
 
-	assert.Equal(t, 7, len(out), "All segments in output")
+	require.Equal(t, 7, len(out), "All segments in output")
 	module1Name := out[0]["name"].(string)
 	module2Name := out[3]["name"].(string)
 
@@ -363,9 +363,9 @@ func TestClickEvents(t *testing.T) {
 		fmt.Sprintf("{\"name\": \"%s\", \"x\": %d, \"y\": %d, \"button\": %d},",
 			module1Name, 13, 24, 3))
 	evt := module1.AssertClicked("when getting a click event")
-	assert.Equal(t, 13, evt.ScreenX, "event value is passed through")
-	assert.Equal(t, 24, evt.ScreenY, "event value is passed through")
-	assert.Equal(t, bar.ButtonRight, evt.Button, "event value is passed through")
+	require.Equal(t, 13, evt.ScreenX, "event value is passed through")
+	require.Equal(t, 24, evt.ScreenY, "event value is passed through")
+	require.Equal(t, bar.ButtonRight, evt.Button, "event value is passed through")
 	module2.AssertNotClicked("only target module receives the event")
 
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\", ", module2Name))
@@ -374,7 +374,7 @@ func TestClickEvents(t *testing.T) {
 	module2.AssertNotClicked("until event is completely written")
 	mockStdin.WriteString("},")
 	evt = module2.AssertClicked("when getting a click event")
-	assert.Equal(t, bar.Event{X: 9, Y: 7}, evt, "event values are passed through")
+	require.Equal(t, bar.Event{X: 9, Y: 7}, evt, "event values are passed through")
 	module1.AssertNotClicked("only target module receives the event")
 
 	mockStdin.WriteString("{\"name\":\"m/foo/bar\",\"x\":9},")
@@ -426,7 +426,7 @@ func TestSignalHandlingSuppression(t *testing.T) {
 
 	module := testModule.New(t)
 	Add(module)
-	assert.NotPanics(t,
+	require.NotPanics(t,
 		func() { SuppressSignals(true) },
 		"Can suppress signal handling before Run")
 	go Run()
@@ -434,42 +434,42 @@ func TestSignalHandlingSuppression(t *testing.T) {
 	signal.Notify(signalChan, unix.SIGUSR1, unix.SIGUSR2)
 
 	out, err := mockStdout.ReadUntil('}', time.Second)
-	assert.Nil(t, err, "header was written")
+	require.Nil(t, err, "header was written")
 
 	header := make(map[string]interface{})
-	assert.Nil(t, json.Unmarshal([]byte(out), &header), "header is valid json")
+	require.Nil(t, json.Unmarshal([]byte(out), &header), "header is valid json")
 	// JSON deserialises all numbers as float64.
-	assert.Equal(t, 1, int(header["version"].(float64)), "header version == 1")
-	assert.Equal(t, true, header["click_events"].(bool), "header click_events == true")
+	require.Equal(t, 1, int(header["version"].(float64)), "header version == 1")
+	require.Equal(t, true, header["click_events"].(bool), "header click_events == true")
 
 	// Ensure no signals are written in header.
 	_, ok := header["stop_signal"]
-	assert.False(t, ok, "No stop_signal in header")
+	require.False(t, ok, "No stop_signal in header")
 	_, ok = header["cont_signal"]
-	assert.False(t, ok, "No cont_signal in header")
+	require.False(t, ok, "No cont_signal in header")
 
 	_, err = mockStdout.ReadUntil('[', time.Second)
-	assert.Nil(t, err, "output array started without any errors")
+	require.Nil(t, err, "output array started without any errors")
 	module.AssertStarted()
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
 	<-signalChan
 	module.OutputText("a")
 	outs := readOutputTexts(t, mockStdout)
-	assert.Equal(t, []string{"a"}, outs,
+	require.Equal(t, []string{"a"}, outs,
 		"Not paused on USR1")
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR2)
 	<-signalChan
-	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+	require.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"USR2 is a nop")
 
 	unix.Kill(unix.Getpid(), unix.SIGUSR1)
 	<-signalChan
-	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+	require.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"USR1 is a nop")
 
-	assert.Panics(t,
+	require.Panics(t,
 		func() { SuppressSignals(false) },
 		"Cannot suppress signal handling after Run")
 	signal.Stop(signalChan)
@@ -496,7 +496,7 @@ func TestErrorHandling(t *testing.T) {
 
 	module.Output(outputsWithError)
 	out := readOutput(t, mockStdout)
-	assert.Equal(t, 3, len(out), "All segments in output")
+	require.Equal(t, 3, len(out), "All segments in output")
 
 	errorSegmentName := out[0]["name"].(string)
 	regularSegmentName := out[1]["name"].(string)
@@ -511,13 +511,13 @@ func TestErrorHandling(t *testing.T) {
 	module.AssertNotClicked("on right click of error segment")
 	select {
 	case e := <-errChan:
-		assert.Equal(t, "foo", e.Error.Error())
-		assert.Equal(t, bar.Event{ScreenX: 4, Button: bar.ButtonRight}, e.Event)
+		require.Equal(t, "foo", e.Error.Error())
+		require.Equal(t, bar.Event{ScreenX: 4, Button: bar.ButtonRight}, e.Event)
 	case <-time.After(time.Second):
-		assert.Fail(t, "should trigger error handler on right click")
+		require.Fail(t, "should trigger error handler on right click")
 	}
 
-	assert.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
+	require.False(t, mockStdout.WaitForWrite(10*time.Millisecond),
 		"click events do not cause any updates")
 
 	module.Close()
@@ -526,24 +526,24 @@ func TestErrorHandling(t *testing.T) {
 	module.AssertNotClicked("on right click of error segment")
 	select {
 	case e := <-errChan:
-		assert.Equal(t, "foo", e.Error.Error())
+		require.Equal(t, "foo", e.Error.Error())
 	case <-time.After(time.Second):
-		assert.Fail(t, "should trigger error handler even after close")
+		require.Fail(t, "should trigger error handler even after close")
 	}
 
 	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 1},`, errorSegmentName))
-	assert.Equal(t, []string{"regular"}, readOutputTexts(t, mockStdout),
+	require.Equal(t, []string{"regular"}, readOutputTexts(t, mockStdout),
 		"restarting clears error outputs immediately")
 	module.AssertStarted()
 
 	module.Output(outputsWithError)
 	module.Close()
 	out = readOutput(t, mockStdout)
-	assert.Equal(t, 3, len(out), "All segments in output")
+	require.Equal(t, 3, len(out), "All segments in output")
 
 	regularSegmentName = out[1]["name"].(string)
 	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 1},`, regularSegmentName))
-	assert.Equal(t, []string{"regular"}, readOutputTexts(t, mockStdout),
+	require.Equal(t, []string{"regular"}, readOutputTexts(t, mockStdout),
 		"restarting from regular segment also clears errors")
 }
 
@@ -574,9 +574,9 @@ func testIoError(
 	}
 	select {
 	case e := <-errChan:
-		assert.Error(t, e, formatAndArgs...)
+		require.Error(t, e, formatAndArgs...)
 	case <-time.After(time.Second):
-		assert.Fail(t, "Expected an error", formatAndArgs...)
+		require.Fail(t, "Expected an error", formatAndArgs...)
 	}
 }
 
@@ -634,7 +634,7 @@ func (s segmentAssertions) AssertEqual(message string) {
 	for k, v := range i3map(s.actual) {
 		actualMap[k] = fmt.Sprintf("%v", v)
 	}
-	assert.Equal(s.T, s.Expected, actualMap, message)
+	require.Equal(s.T, s.Expected, actualMap, message)
 }
 
 func TestI3Map(t *testing.T) {
@@ -658,8 +658,8 @@ func TestI3Map(t *testing.T) {
 	a3.Expected["markup"] = "pango"
 	a3.AssertEqual("markup set for pango segment")
 
-	assert.Equal(t, "test", segment.Text(), "text getter")
-	assert.Equal(t, "test", segment2.Text(), "text getter")
+	require.Equal(t, "test", segment.Text(), "text getter")
+	require.Equal(t, "test", segment2.Text(), "text getter")
 
 	a.Expected["short_text"] = "t"
 	a.AssertEqual("mutates in place")

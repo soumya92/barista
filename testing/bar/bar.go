@@ -23,7 +23,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
@@ -36,7 +36,7 @@ import (
 // TestBar represents a "test" barista instance that runs on mockio streams.
 // It provides methods to collect the output from any modules added to it.
 type TestBar struct {
-	assert.TestingT
+	require.TestingT
 	stdin        *mockio.Readable
 	stdout       *mockio.Writable
 	eventEncoder *json.Encoder
@@ -49,7 +49,7 @@ var instance atomic.Value // of TestBar
 // New creates a new TestBar. This must be called before any modules
 // are constructed, to ensure globals like timing.NewScheduler() are
 // associated with the test instance.
-func New(t assert.TestingT) {
+func New(t require.TestingT) {
 	b := &TestBar{
 		TestingT: t,
 		stdin:    mockio.Stdin(),
@@ -174,7 +174,7 @@ func parseOutput(jsonStr string) (ids []segmentID, output bar.Output, err error)
 func AssertNoOutput(args ...interface{}) {
 	t := instance.Load().(*TestBar)
 	if t.stdout.WaitForWrite(negativeTimeout) {
-		assert.Fail(t, "Expected no output", args...)
+		require.Fail(t, "Expected no output", args...)
 	}
 }
 
@@ -183,13 +183,13 @@ func NextOutput() output.Assertions {
 	t := instance.Load().(*TestBar)
 	json, err := t.readJSONOutput(positiveTimeout)
 	if err != nil {
-		assert.Fail(t, "Error in next output", "Failed to read: %s", err)
+		require.Fail(t, "Error in next output", "Failed to read: %s", err)
 		return output.New(t, nil)
 	}
 	var out bar.Output
 	t.segmentIDs, out, err = parseOutput(json)
 	if err != nil {
-		assert.Fail(t, "Error in next output", "Failed to parse: %s", err)
+		require.Fail(t, "Error in next output", "Failed to parse: %s", err)
 	}
 	return output.New(t, out)
 }
@@ -210,13 +210,13 @@ func LatestOutput() output.Assertions {
 	if err != io.EOF {
 		// This should never happen, since mockio is backed by a bytes.Buffer,
 		// which can only return nil or EOF errors on read.
-		assert.Fail(t, "Error in latest output", "Failed to read: %s", err)
+		require.Fail(t, "Error in latest output", "Failed to read: %s", err)
 		return output.New(t, nil)
 	}
 	var out bar.Output
 	t.segmentIDs, out, err = parseOutput(json)
 	if err != nil {
-		assert.Fail(t, "Error in latest output", "Failed to parse: %s", err)
+		require.Fail(t, "Error in latest output", "Failed to parse: %s", err)
 	}
 	return output.New(t, out)
 }
@@ -228,7 +228,7 @@ func LatestOutput() output.Assertions {
 func SendEvent(i int, e bar.Event) {
 	t := instance.Load().(*TestBar)
 	if i >= len(t.segmentIDs) {
-		assert.Fail(t, "Cannot send event",
+		require.Fail(t, "Cannot send event",
 			"Clicked on segment %d, but only have %d",
 			i, len(t.segmentIDs))
 		return
@@ -271,7 +271,7 @@ func AssertNagbar(args ...interface{}) string {
 	case e := <-t.nagbars:
 		return e
 	case <-time.After(positiveTimeout):
-		assert.Fail(t, "Expected a nagbar error", args...)
+		require.Fail(t, "Expected a nagbar error", args...)
 	}
 	return ""
 }

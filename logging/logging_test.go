@@ -23,7 +23,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/testing/mockio"
 )
@@ -52,7 +52,7 @@ func resetLoggingState() {
 }
 
 func assertLogged(t *testing.T, format string, args ...interface{}) {
-	assert.Equal(t, fmt.Sprintf(format, args...)+"\n", mockStderr.ReadNow())
+	require.Equal(t, fmt.Sprintf(format, args...)+"\n", mockStderr.ReadNow())
 }
 
 func TestShorten(t *testing.T) {
@@ -74,7 +74,7 @@ func TestShorten(t *testing.T) {
 	}
 
 	for _, tc := range shortenTests {
-		assert.Equal(t, tc.expected, shorten(tc.fullpath),
+		require.Equal(t, tc.expected, shorten(tc.fullpath),
 			"shorten(%s)", tc.fullpath)
 	}
 }
@@ -93,7 +93,7 @@ func TestFine(t *testing.T) {
 	os.Args = []string{arg0}
 	resetLoggingState()
 	Fine("foo")
-	assert.Empty(t, mockStderr.ReadNow())
+	require.Empty(t, mockStderr.ReadNow())
 
 	os.Args = []string{arg0, "-finelog=mod:something,"}
 	resetLoggingState()
@@ -103,7 +103,7 @@ func TestFine(t *testing.T) {
 	os.Args = []string{arg0, "--finelog=bar:logging.TestLog"}
 	resetLoggingState()
 	Fine("foo")
-	assert.Empty(t, mockStderr.ReadNow())
+	require.Empty(t, mockStderr.ReadNow())
 
 	os.Args = []string{arg0, "--finelog=bar:"}
 	resetLoggingState()
@@ -123,7 +123,7 @@ func TestFine(t *testing.T) {
 	os.Args = []string{arg0, "--finelog=bar:colors.Test"}
 	resetLoggingState()
 	Fine("foo")
-	assert.Empty(t, mockStderr.ReadNow())
+	require.Empty(t, mockStderr.ReadNow())
 }
 
 func TestFileLocations(t *testing.T) {

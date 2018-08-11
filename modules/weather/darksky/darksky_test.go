@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/martinlindhe/unit"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/modules/weather"
 	"github.com/soumya92/barista/testing/cron"
@@ -38,9 +38,9 @@ func TestMain(m *testing.M) {
 
 func TestGood(t *testing.T) {
 	wthr, err := Provider(ts.URL + "/tpl/good.json?icon=rain").GetWeather()
-	assert.NoError(t, err)
-	assert.NotNil(t, wthr)
-	assert.Equal(t, weather.Weather{
+	require.NoError(t, err)
+	require.NotNil(t, wthr)
+	require.Equal(t, weather.Weather{
 		Location:    "42.360100,-71.058900",
 		Condition:   weather.Rain,
 		Description: "Drizzle",
@@ -61,20 +61,20 @@ func TestGood(t *testing.T) {
 
 func TestErrors(t *testing.T) {
 	wthr, err := Provider(ts.URL + "/static/bad.json").GetWeather()
-	assert.Error(t, err, "bad json")
-	assert.Nil(t, wthr)
+	require.Error(t, err, "bad json")
+	require.Nil(t, wthr)
 
 	wthr, err = Provider(ts.URL + "/code/401").GetWeather()
-	assert.Error(t, err, "http error")
-	assert.Nil(t, wthr)
+	require.Error(t, err, "http error")
+	require.Nil(t, wthr)
 
 	wthr, err = Provider(ts.URL + "/static/empty.json").GetWeather()
-	assert.Error(t, err, "valid json but bad response")
-	assert.Nil(t, wthr)
+	require.Error(t, err, "valid json but bad response")
+	require.Nil(t, wthr)
 
 	wthr, err = Provider(ts.URL + "/redir").GetWeather()
-	assert.Error(t, err, "http error")
-	assert.Nil(t, wthr)
+	require.Error(t, err, "http error")
+	require.Nil(t, wthr)
 }
 
 func TestConditions(t *testing.T) {
@@ -98,7 +98,7 @@ func TestConditions(t *testing.T) {
 		{"other", weather.ConditionUnknown},
 	} {
 		wthr, _ := Provider(ts.URL + "/tpl/good.json?icon=" + tc.dsIcon).GetWeather()
-		assert.Equal(t, tc.expected, wthr.Condition, "DarkSky %s", tc.dsIcon)
+		require.Equal(t, tc.expected, wthr.Condition, "DarkSky %s", tc.dsIcon)
 	}
 }
 
@@ -112,7 +112,7 @@ func TestProviderBuilder(t *testing.T) {
 	} {
 		expected := "https://api.darksky.net/forecast" + tc.expected +
 			"?exclude=minutely%2Chourly%2Calerts%2Cflags&units=us"
-		assert.Equal(t, expected, string(tc.actual.Build().(Provider)))
+		require.Equal(t, expected, string(tc.actual.Build().(Provider)))
 	}
 }
 
@@ -122,7 +122,7 @@ func TestLive(t *testing.T) {
 			APIKey(os.Getenv("WEATHER_DS_API_KEY")).
 			Build().
 			GetWeather()
-		assert.NoError(t, err)
-		assert.NotNil(t, wthr)
+		require.NoError(t, err)
+		require.NotNil(t, wthr)
 	})
 }

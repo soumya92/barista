@@ -22,7 +22,7 @@ import (
 
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
@@ -67,7 +67,7 @@ func TestCputemp(t *testing.T) {
 	temp0.UrgentWhen(func(t unit.Temperature) bool { return t.Celsius() > 30 })
 	out = testBar.LatestOutput()
 	urgent, _ := out.At(0).Segment().IsUrgent()
-	assert.True(t, urgent, "on urgent func change")
+	require.True(t, urgent, "on urgent func change")
 
 	red := colors.Hex("#f00")
 	green := colors.Hex("#070")
@@ -79,7 +79,7 @@ func TestCputemp(t *testing.T) {
 	})
 	out = testBar.LatestOutput()
 	col, _ := out.At(1).Segment().GetColor()
-	assert.Equal(t, green, col, "on color func change")
+	require.Equal(t, green, col, "on color func change")
 
 	temp2.Template(`{{.Kelvin | printf "%.0f"}} kelvin`)
 	testBar.AssertNoOutput("on error'd template change")
@@ -93,7 +93,7 @@ func TestCputemp(t *testing.T) {
 	out.At(0).AssertEqual(outputs.Text("22.2℃").Urgent(false))
 	out.At(1).AssertEqual(outputs.Text("72").Color(red))
 	errStr := out.At(2).AssertError()
-	assert.Equal(t, "open /sys/class/thermal/thermal_zone2/temp: file does not exist", errStr)
+	require.Equal(t, "open /sys/class/thermal/thermal_zone2/temp: file does not exist", errStr)
 
 	temp2.RefreshInterval(time.Second)
 	testBar.AssertNoOutput("on refresh interval change")

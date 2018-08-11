@@ -19,7 +19,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/pango"
@@ -59,7 +59,7 @@ func TestTextFmt(t *testing.T) {
 		{"with multiple args", Textf("%s=%0.4f, %d^2=%d", "pi", 3.14159, 2, 4), "pi=3.1416, 2^2=4"},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, textOf(tc.output), tc.desc)
+		require.Equal(t, tc.expected, textOf(tc.output), tc.desc)
 	}
 }
 
@@ -112,13 +112,13 @@ func TestErrors(t *testing.T) {
 	}
 	for _, tc := range tests {
 		err := tc.output.Segments()[0].GetError()
-		assert.Error(t, err, "Segment has associated error")
-		assert.Contains(t, err.Error(), tc.expected)
-		assert.Equal(t, textOf(tc.output), "Error", "Text is set to 'Error'")
+		require.Error(t, err, "Segment has associated error")
+		require.Contains(t, err.Error(), tc.expected)
+		require.Equal(t, textOf(tc.output), "Error", "Text is set to 'Error'")
 		shortText, _ := tc.output.Segments()[0].GetShortText()
-		assert.Equal(t, shortText, "!", "Short text is set to '!'")
+		require.Equal(t, shortText, "!", "Short text is set to '!'")
 		urgent, _ := tc.output.Segments()[0].IsUrgent()
-		assert.True(t, urgent, "error is marked urgent")
+		require.True(t, urgent, "error is marked urgent")
 	}
 }
 
@@ -189,6 +189,6 @@ func TestGroup(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		assert.Equal(t, tc.expected, textWithSeparators(tc.output), tc.desc)
+		require.Equal(t, tc.expected, textWithSeparators(tc.output), tc.desc)
 	}
 }

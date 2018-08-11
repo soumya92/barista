@@ -20,30 +20,30 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func assertColorEqual(t *testing.T, expected, actual color.Color, args ...interface{}) {
 	var e, a struct{ r, g, b, a uint32 }
 	e.r, e.g, e.b, e.a = expected.RGBA()
 	a.r, a.g, a.b, a.a = actual.RGBA()
-	assert.Equal(t, e, a, args...)
+	require.Equal(t, e, a, args...)
 }
 
 func TestSegment(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	segment := TextSegment("test")
-	assert.Equal("test", segment.Text())
-	assert.False(segment.IsPango())
+	require.Equal("test", segment.Text())
+	require.False(segment.IsPango())
 
 	assertUnset := func(value interface{}, isSet bool) interface{} {
-		assert.False(isSet)
+		require.False(isSet)
 		return value
 	}
 
 	assertSet := func(value interface{}, isSet bool) interface{} {
-		assert.True(isSet)
+		require.True(isSet)
 		return value
 	}
 
@@ -56,23 +56,23 @@ func TestSegment(t *testing.T) {
 	assertUnset(segment.GetID())
 
 	defaultUrgent := assertUnset(segment.IsUrgent())
-	assert.False(defaultUrgent.(bool))
+	require.False(defaultUrgent.(bool))
 
 	defaultSep := assertUnset(segment.HasSeparator())
-	assert.True(defaultSep.(bool))
+	require.True(defaultSep.(bool))
 
 	defaultSepWidth := assertUnset(segment.GetPadding())
-	assert.Equal(9, defaultSepWidth)
+	require.Equal(9, defaultSepWidth)
 
 	segment = PangoSegment("<b>bold</b>")
-	assert.Equal("<b>bold</b>", segment.Text())
-	assert.True(segment.IsPango())
+	require.Equal("<b>bold</b>", segment.Text())
+	require.True(segment.IsPango())
 
 	assertUnset(segment.GetShortText())
 	segment.ShortText("BD")
-	assert.Equal("BD", assertSet(segment.GetShortText()))
+	require.Equal("BD", assertSet(segment.GetShortText()))
 	segment.ShortText("")
-	assert.Equal("", assertSet(segment.GetShortText()))
+	require.Equal("", assertSet(segment.GetShortText()))
 
 	segment.Color(color.Gray{0x77})
 	assertColorEqual(t, color.RGBA{0x77, 0x77, 0x77, 0xff},
@@ -87,78 +87,78 @@ func TestSegment(t *testing.T) {
 		assertSet(segment.GetBorder()).(color.Color))
 
 	segment.Urgent(true)
-	assert.True(assertSet(segment.IsUrgent()).(bool))
+	require.True(assertSet(segment.IsUrgent()).(bool))
 
 	segment.Separator(false)
-	assert.False(assertSet(segment.HasSeparator()).(bool))
+	require.False(assertSet(segment.HasSeparator()).(bool))
 
 	segment.Padding(3)
-	assert.Equal(3, assertSet(segment.GetPadding()))
+	require.Equal(3, assertSet(segment.GetPadding()))
 
 	segment.Error(errors.New("foo"))
-	assert.Error(segment.GetError())
+	require.Error(segment.GetError())
 
 	segment.Error(nil)
-	assert.NoError(segment.GetError())
+	require.NoError(segment.GetError())
 
 	segment.MinWidth(40)
-	assert.Equal(40, assertSet(segment.GetMinWidth()))
+	require.Equal(40, assertSet(segment.GetMinWidth()))
 	segment.MinWidth(0)
-	assert.Equal(0, assertSet(segment.GetMinWidth()))
+	require.Equal(0, assertSet(segment.GetMinWidth()))
 
 	segment.MinWidthPlaceholder("00:00:00")
-	assert.Equal("00:00:00", assertSet(segment.GetMinWidth()))
+	require.Equal("00:00:00", assertSet(segment.GetMinWidth()))
 	segment.MinWidthPlaceholder("")
-	assert.Equal("", assertSet(segment.GetMinWidth()))
+	require.Equal("", assertSet(segment.GetMinWidth()))
 
 	segment.Identifier("test")
-	assert.Equal("test", assertSet(segment.GetID()))
+	require.Equal("test", assertSet(segment.GetID()))
 
 	segment = ErrorSegment(fmt.Errorf("something went wrong"))
-	assert.Equal("Error", segment.Text())
-	assert.Equal("!", assertSet(segment.GetShortText()))
-	assert.True(assertSet(segment.IsUrgent()).(bool))
-	assert.Error(segment.GetError())
+	require.Equal("Error", segment.Text())
+	require.Equal("!", assertSet(segment.GetShortText()))
+	require.True(assertSet(segment.IsUrgent()).(bool))
+	require.Error(segment.GetError())
 	assertUnset(segment.GetMinWidth())
 	segment.MinWidthPlaceholder("error")
-	assert.Equal("error", assertSet(segment.GetMinWidth()))
+	require.Equal("error", assertSet(segment.GetMinWidth()))
 }
 
 func TestBarOutput(t *testing.T) {
 	segment := TextSegment("test").Align(AlignCenter)
 	barOut := segment.Segments()
-	assert.Equal(t, 1, len(barOut), "bar.Output from Segment returns 1 segment")
-	assert.Equal(t, segment, barOut[0])
+	require.Equal(t, 1, len(barOut), "bar.Output from Segment returns 1 segment")
+	require.Equal(t, segment, barOut[0])
 
 	segment0 := TextSegment("foo")
 	segment1 := TextSegment("baz")
 	segments := Segments{segment0, segment1}
 	barOut = segments.Segments()
-	assert.Equal(t, 2, len(barOut), "bar.Output from Segments returns all segments")
-	assert.Equal(t, segment0, barOut[0])
-	assert.Equal(t, segment1, barOut[1])
+	require.Equal(t, 2, len(barOut), "bar.Output from Segments returns all segments")
+	require.Equal(t, segment0, barOut[0])
+	require.Equal(t, segment1, barOut[1])
 }
 
 func TestClone(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	a := TextSegment("10 deg C").
 		Urgent(true).
 		MinWidthPlaceholder("## deg C")
 	b := a.Clone()
 
-	assert.Equal(a, b, "copied values are the same")
+	require.Equal(a, b, "copied values are the same")
 	c := b.Background(color.White)
 
-	assert.NotEqual(a, b, "changes to b not reflected in a")
+	require.NotEqual(a, b, "changes to b not reflected in a")
 	_, isSet := a.GetBackground()
-	assert.False(isSet)
+	require.False(isSet)
 	bg, isSet := b.GetBackground()
-	assert.True(isSet)
+	require.True(isSet)
 	assertColorEqual(t, color.Gray{0xff}, bg)
 
 	c.ShortText("short")
-	assert.Equal(b, c, "chained methods still return same segment")
+	require.Equal(b, c, "chained methods still return same segment")
 	text, isSet := b.GetShortText()
-	assert.True(isSet)
-	assert.Equal("short", text)
+	require.True(isSet)
+	require.Equal("short", text)
 }

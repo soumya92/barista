@@ -19,18 +19,18 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func assertColorEquals(t *testing.T, expected, actual color.Color, args ...interface{}) {
 	if expected == nil {
-		assert.Nil(t, actual, args...)
+		require.Nil(t, actual, args...)
 		return
 	}
 	var e, a struct{ r, g, b, a uint32 }
 	e.r, e.g, e.b, e.a = expected.RGBA()
 	a.r, a.g, a.b, a.a = actual.RGBA()
-	assert.Equal(t, e, a, args...)
+	require.Equal(t, e, a, args...)
 }
 
 func TestCreation(t *testing.T) {
@@ -77,7 +77,7 @@ func TestLoadFromArgs(t *testing.T) {
 	for _, tc := range emptySchemeTests {
 		scheme = map[string]color.Color{}
 		LoadFromArgs(tc.args)
-		assert.Empty(t, scheme, tc.desc)
+		require.Empty(t, scheme, tc.desc)
 	}
 
 	schemeTests := []struct {
@@ -195,7 +195,7 @@ general {
 }
 `), 0644)
 
-	assert.Error(t, LoadFromConfig("non-existent"), "non-existent file")
+	require.Error(t, LoadFromConfig("non-existent"), "non-existent file")
 
 	schemeTests := []struct {
 		file     string
@@ -215,7 +215,7 @@ general {
 	for _, tc := range schemeTests {
 		scheme = map[string]color.Color{}
 		err := LoadFromConfig(tc.file)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 		assertSchemeEquals(t, tc.expected, tc.file)
 	}
 }

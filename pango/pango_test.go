@@ -18,7 +18,7 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/testing/output"
@@ -256,7 +256,7 @@ func TestBarOutput(t *testing.T) {
 	pango.AssertEqual(t,
 		"<span color='#ff0000' underline='error'>something went wrong</span>",
 		segment.Text())
-	assert.True(t, segment.IsPango())
+	require.True(t, segment.IsPango())
 }
 
 var result string

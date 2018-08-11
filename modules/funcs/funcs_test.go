@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
@@ -39,12 +39,12 @@ func doFunc(s bar.Sink) {
 }
 
 func TestOneShot(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	testBar.New(t)
 	atomic.StoreInt64(&count, 0)
 
 	module := Once(doFunc)
-	assert.Equal(int64(0), atomic.LoadInt64(&count),
+	require.Equal(int64(0), atomic.LoadInt64(&count),
 		"Function isn't called until module starts streaming")
 
 	testBar.Run(module)
@@ -52,17 +52,17 @@ func TestOneShot(t *testing.T) {
 		[]string{"1"}, "Function is never called again")
 
 	testBar.AssertNoOutput("No output is sent")
-	assert.Equal(int64(1), atomic.LoadInt64(&count),
+	require.Equal(int64(1), atomic.LoadInt64(&count),
 		"Function is never called again")
 }
 
 func TestOnClick(t *testing.T) {
 	testBar.New(t)
-	assert := assert.New(t)
+	require := require.New(t)
 	atomic.StoreInt64(&count, 0)
 
 	module := OnClick(doFunc)
-	assert.Equal(int64(0), atomic.LoadInt64(&count),
+	require.Equal(int64(0), atomic.LoadInt64(&count),
 		"Function isn't called until module starts streaming")
 
 	testBar.Run(module)
@@ -82,12 +82,12 @@ func TestOnClick(t *testing.T) {
 }
 
 func TestRepeated(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	testBar.New(t)
 	atomic.StoreInt64(&count, 0)
 
 	module := Every(time.Minute, doFunc)
-	assert.Equal(int64(0), atomic.LoadInt64(&count),
+	require.Equal(int64(0), atomic.LoadInt64(&count),
 		"Function isn't called until module starts streaming")
 
 	testBar.Run(module)

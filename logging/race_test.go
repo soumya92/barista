@@ -23,7 +23,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type args []interface{}
@@ -103,10 +103,10 @@ func TestRace(t *testing.T) {
 	// should still work.
 	Label(&namedStruct2, "newlabel")
 
-	assert := assert.New(t)
+	require := require.New(t)
 	// Make some assertions about the generated IDs.
-	assert.Equal("chan bool#0", ID(boolChan))
-	assert.Equal("bar:logging.astruct#0<STRUCT1>->e.bar", ID(&namedStruct1.embedded.bar))
-	assert.Equal("ns.embedded->Fooer", ID(&namedStructRef.embedded.Fooer))
-	assert.Regexp(`bar:logging\.astruct#\d<newlabel>`, ID(&namedStruct2))
+	require.Equal("chan bool#0", ID(boolChan))
+	require.Equal("bar:logging.astruct#0<STRUCT1>->e.bar", ID(&namedStruct1.embedded.bar))
+	require.Equal("ns.embedded->Fooer", ID(&namedStructRef.embedded.Fooer))
+	require.Regexp(`bar:logging\.astruct#\d<newlabel>`, ID(&namedStruct2))
 }

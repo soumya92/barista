@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 )
@@ -26,7 +26,7 @@ import (
 func TestClickHandler(t *testing.T) {
 	var s SimpleClickHandler
 
-	assert.NotPanics(t, func() { s.Click(bar.Event{}) },
+	require.NotPanics(t, func() { s.Click(bar.Event{}) },
 		"Without a click handler set")
 
 	clickedChan := make(chan bool)
@@ -38,11 +38,11 @@ func TestClickHandler(t *testing.T) {
 	case <-clickedChan:
 		// Test passed.
 	case <-time.After(time.Second):
-		assert.Fail(t, "Click event not sent to handler")
+		require.Fail(t, "Click event not sent to handler")
 	}
 
-	assert.NotPanics(t, func() { s.OnClick(nil) },
+	require.NotPanics(t, func() { s.OnClick(nil) },
 		"Clearing click handler")
-	assert.NotPanics(t, func() { s.Click(bar.Event{}) },
+	require.NotPanics(t, func() { s.Click(bar.Event{}) },
 		"After removing click handler")
 }

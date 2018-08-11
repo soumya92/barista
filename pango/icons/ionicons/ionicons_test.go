@@ -20,23 +20,23 @@ import (
 	"github.com/soumya92/barista/testing/cron"
 	pangoTesting "github.com/soumya92/barista/testing/pango"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/testing/githubfs"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestInvalid(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	assert.Error(t, Load("/src/no-such-directory"))
+	require.Error(t, Load("/src/no-such-directory"))
 
 	afero.WriteFile(fs, "/src/ion-error-1/scripts/manifest.json", []byte(
 		`-- Invalid JSON --`,
 	), 0644)
-	assert.Error(t, LoadIos("/src/ion-error-1"))
+	require.Error(t, LoadIos("/src/ion-error-1"))
 
 	afero.WriteFile(fs, "/src/ion-error-2/scripts/manifest.json", nil, 0644)
-	assert.Error(t, LoadMd("/src/ion-error-2"))
+	require.Error(t, LoadMd("/src/ion-error-2"))
 
 	afero.WriteFile(fs, "/src/ion-error-3/scripts/manifest.json", []byte(
 		`{"icons": [
@@ -45,7 +45,7 @@ func TestInvalid(t *testing.T) {
 			{"name": "someIcon", "code": "0xghij"}
 		]}`,
 	), 0644)
-	assert.Error(t, Load("/src/ion-error-3"))
+	require.Error(t, Load("/src/ion-error-3"))
 }
 
 func TestValid(t *testing.T) {
@@ -57,16 +57,16 @@ func TestValid(t *testing.T) {
 			{"name": "otherIcon", "code": "0x63"}
 		]}`,
 	), 0644)
-	assert.NoError(t, Load("/src/ion"))
+	require.NoError(t, Load("/src/ion"))
 	pangoTesting.AssertText(t, "a", pango.Icon("ion-md-someIcon").String())
 	pangoTesting.AssertText(t, "b", pango.Icon("ion-ios-someIcon").String())
 	pangoTesting.AssertText(t, "c", pango.Icon("ion-otherIcon").String())
 
-	assert.NoError(t, LoadMd("/src/ion"))
+	require.NoError(t, LoadMd("/src/ion"))
 	pangoTesting.AssertText(t, "a", pango.Icon("ion-someIcon").String())
 	pangoTesting.AssertText(t, "b", pango.Icon("ion-ios-someIcon").String())
 
-	assert.NoError(t, LoadIos("/src/ion"))
+	require.NoError(t, LoadIos("/src/ion"))
 	pangoTesting.AssertText(t, "b", pango.Icon("ion-someIcon").String())
 	pangoTesting.AssertText(t, "a", pango.Icon("ion-md-someIcon").String())
 }
@@ -78,6 +78,6 @@ func TestValid(t *testing.T) {
 func TestLive(t *testing.T) {
 	fs = githubfs.New()
 	cron.Test(t, func(t *testing.T) {
-		assert.NoError(t, Load("/ionic-team/ionicons/master"))
+		require.NoError(t, Load("/ionic-team/ionicons/master"))
 	})
 }

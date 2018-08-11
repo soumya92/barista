@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
@@ -49,50 +49,50 @@ func write(battery battery) {
 
 func TestDisconnected(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	assert := assert.New(t)
+	require := require.New(t)
 
 	// No battery.
 	info := batteryInfo("BAT0")
-	assert.Equal(Disconnected, info.Status)
+	require.Equal(Disconnected, info.Status)
 
 	// Make sure nothing panics when values are missing.
-	assert.InDelta(0, info.Remaining(), 0.000001)
-	assert.Equal(0, info.RemainingPct())
-	assert.Equal(time.Duration(0), info.RemainingTime())
+	require.InDelta(0, info.Remaining(), 0.000001)
+	require.Equal(0, info.RemainingPct())
+	require.Equal(time.Duration(0), info.RemainingTime())
 }
 
 func TestUnknownAndMissingStatus(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	assert := assert.New(t)
+	require := require.New(t)
 
 	// No battery.
 	info := batteryInfo("BAT0")
-	assert.Equal(Disconnected, info.Status)
+	require.Equal(Disconnected, info.Status)
 
 	info = allBatteriesInfo()
-	assert.Equal(Disconnected, info.Status)
+	require.Equal(Disconnected, info.Status)
 
 	// Unknown status.
 	write(battery{"NAME": "BAT1"})
 	info = batteryInfo("BAT1")
-	assert.Equal(Unknown, info.Status)
+	require.Equal(Unknown, info.Status)
 
 	info = allBatteriesInfo()
-	assert.Equal(Unknown, info.Status)
+	require.Equal(Unknown, info.Status)
 
 	write(battery{
 		"NAME":   "BAT2",
 		"STATUS": "OtherStatus",
 	})
 	info = batteryInfo("BAT2")
-	assert.Equal(Unknown, info.Status)
+	require.Equal(Unknown, info.Status)
 
 	info = allBatteriesInfo()
-	assert.Equal(Unknown, info.Status)
+	require.Equal(Unknown, info.Status)
 }
 
 func TestGarbageFiles(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	fs = afero.NewMemMapFs()
 
 	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/uevent",
@@ -112,26 +112,26 @@ And an empty line follows
 `), 0644)
 	info := batteryInfo("BAT0")
 
-	assert.Equal(Disconnected, info.Status)
-	assert.InDelta(12, info.Voltage, 0.01)
-	assert.InDelta(6, info.Power, 0.01)
-	assert.InDelta(60, info.EnergyFull, 0.01)
-	assert.InDelta(36, info.EnergyNow, 0.01)
+	require.Equal(Disconnected, info.Status)
+	require.InDelta(12, info.Voltage, 0.01)
+	require.InDelta(6, info.Power, 0.01)
+	require.InDelta(60, info.EnergyFull, 0.01)
+	require.InDelta(36, info.EnergyNow, 0.01)
 	// invalid entry is not parsed.
-	assert.Equal(0.0, info.EnergyMax)
+	require.Equal(0.0, info.EnergyMax)
 	// invalid entry does not overwrite previous.
-	assert.Equal("NiCd", info.Technology)
+	require.Equal("NiCd", info.Technology)
 
 	fs = afero.NewMemMapFs()
 	afero.WriteFile(fs, "/sys/class/power_supply", []byte(`foobar`), 0644)
 	info = allBatteriesInfo()
-	assert.Equal(Unknown, info.Status)
+	require.Equal(Unknown, info.Status)
 }
 
 var micros = 1000 * 1000
 
 func TestSimple(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	fs = afero.NewMemMapFs()
 	write(battery{
 		"NAME":               "BAT0",
@@ -172,28 +172,28 @@ func TestSimple(t *testing.T) {
 	})
 
 	info := batteryInfo("BAT0")
-	assert.Equal(Charging, info.Status)
-	assert.Equal("Li-poly", info.Technology)
-	assert.InDelta(20.0, info.Voltage, 0.01)
-	assert.InDelta(10.0, info.Power, 0.01)
-	assert.InDelta(0.5, info.Remaining(), 0.0001)
-	assert.InDelta(20.0, info.EnergyNow, 0.01)
-	assert.InDelta(40.0, info.EnergyFull, 0.01)
-	assert.InDelta(50.0, info.EnergyMax, 0.01)
-	assert.Equal(2*time.Hour, info.RemainingTime())
-	assert.Equal(50, info.Capacity)
-	assert.True(info.PluggedIn())
+	require.Equal(Charging, info.Status)
+	require.Equal("Li-poly", info.Technology)
+	require.InDelta(20.0, info.Voltage, 0.01)
+	require.InDelta(10.0, info.Power, 0.01)
+	require.InDelta(0.5, info.Remaining(), 0.0001)
+	require.InDelta(20.0, info.EnergyNow, 0.01)
+	require.InDelta(40.0, info.EnergyFull, 0.01)
+	require.InDelta(50.0, info.EnergyMax, 0.01)
+	require.Equal(2*time.Hour, info.RemainingTime())
+	require.Equal(50, info.Capacity)
+	require.True(info.PluggedIn())
 
 	info = batteryInfo("BAT1")
-	assert.Equal(Full, info.Status)
-	assert.True(info.PluggedIn())
+	require.Equal(Full, info.Status)
+	require.True(info.PluggedIn())
 
 	info = batteryInfo("BAT2")
-	assert.InDelta(20.0, info.Voltage, 0.01)
-	assert.InDelta(100.0, info.EnergyMax, 0.01)
-	assert.InDelta(88.0, info.EnergyFull, 0.01)
-	assert.InDelta(44.0, info.EnergyNow, 0.01)
-	assert.False(info.PluggedIn())
+	require.InDelta(20.0, info.Voltage, 0.01)
+	require.InDelta(100.0, info.EnergyMax, 0.01)
+	require.InDelta(88.0, info.EnergyFull, 0.01)
+	require.InDelta(44.0, info.EnergyNow, 0.01)
+	require.False(info.PluggedIn())
 
 	capLt30 := func(i Info) bool { return i.Capacity < 30 }
 
@@ -259,7 +259,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestCombined(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	fs = afero.NewMemMapFs()
 
 	bat0 := battery{
@@ -304,7 +304,7 @@ func TestCombined(t *testing.T) {
 
 	write(ac)
 	info := allBatteriesInfo()
-	assert.Equal(Disconnected, info.Status)
+	require.Equal(Disconnected, info.Status)
 
 	writeAll := func() { write(bat0); write(bat1); write(bat2); write(ac) }
 	writeAll()
@@ -313,8 +313,8 @@ func TestCombined(t *testing.T) {
 	testBar.Run(All().Template(`{{.Status}} - {{.RemainingPct}}/{{.RemainingTime}}`))
 
 	info = allBatteriesInfo()
-	assert.Equal("Li-poly,NiCd", info.Technology)
-	assert.InDelta(11.7857142, info.Voltage, 1.0/float64(micros))
+	require.Equal("Li-poly,NiCd", info.Technology)
+	require.InDelta(11.7857142, info.Voltage, 1.0/float64(micros))
 
 	// Total capacity: 150Wh, currently available: 25Wh + 20Wh + 25Wh = 70Wh.
 	// Net to be charged: 80Wh, net charge rate: 10W - 5W =  5W.

@@ -24,7 +24,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/martinlindhe/unit"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
@@ -68,7 +68,7 @@ var mockStatfs = func(path string, out *unix.Statfs_t) error {
 }
 
 func TestDiskspace(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	statfs = mockStatfs
 	testBar.New(t)
 
@@ -139,7 +139,7 @@ func TestDiskspace(t *testing.T) {
 	beforeTick := timing.Now()
 	afterTick := timing.NextTick()
 	testBar.NextOutput().Expect("on next tick")
-	assert.Equal(time.Minute, afterTick.Sub(beforeTick))
+	require.Equal(time.Minute, afterTick.Sub(beforeTick))
 
 	shouldError("/", os.ErrPermission)
 	testBar.Tick()
@@ -149,7 +149,7 @@ func TestDiskspace(t *testing.T) {
 }
 
 func TestDiskspaceInfo(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	statfs = mockStatfs
 	testBar.New(t)
 
@@ -178,12 +178,12 @@ func TestDiskspaceInfo(t *testing.T) {
 	default:
 	}
 
-	assert.InDelta(0.266, info.AvailFrac(), 0.001)
-	assert.Equal(27, info.AvailPct())
-	assert.Equal(67, info.UsedPct())
+	require.InDelta(0.266, info.AvailFrac(), 0.001)
+	require.Equal(27, info.AvailPct())
+	require.Equal(67, info.UsedPct())
 
-	assert.InDelta(3.0, info.Total.Gigabytes(), float64(unit.Byte))
-	assert.InDelta(763, info.Available.Mebibytes(), float64(unit.Byte))
+	require.InDelta(3.0, info.Total.Gigabytes(), float64(unit.Byte))
+	require.InDelta(763, info.Available.Mebibytes(), float64(unit.Byte))
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1024 * 1024,
@@ -194,8 +194,8 @@ func TestDiskspaceInfo(t *testing.T) {
 	testBar.Tick()
 	info = <-infos
 
-	assert.InDelta(3.1, info.Total.Gigabytes(), float64(unit.Byte))
-	assert.InDelta(800, info.Available.Mebibytes(), float64(unit.Byte))
+	require.InDelta(3.1, info.Total.Gigabytes(), float64(unit.Byte))
+	require.InDelta(800, info.Available.Mebibytes(), float64(unit.Byte))
 }
 
 func TestNonexistentDiskspace(t *testing.T) {

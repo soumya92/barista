@@ -19,11 +19,11 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSegmentGroup(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	out := Group(
 		bar.TextSegment("1"),
 		bar.TextSegment("2"),
@@ -39,22 +39,22 @@ func TestSegmentGroup(t *testing.T) {
 	mid := func() *bar.Segment { return out.Segments()[3] }
 	last := func() *bar.Segment { return out.Segments()[5] }
 
-	assert.Equal("1", first().Text())
-	assert.False(first().IsPango())
+	require.Equal("1", first().Text())
+	require.False(first().IsPango())
 
-	assert.Equal("4", mid().Text())
-	assert.True(mid().IsPango())
+	require.Equal("4", mid().Text())
+	require.True(mid().IsPango())
 
-	assert.Equal("6", last().Text())
-	assert.True(last().IsPango())
+	require.Equal("6", last().Text())
+	require.True(last().IsPango())
 
 	assertAllEqual := func(expected interface{},
 		getFunc func(s *bar.Segment) (interface{}, bool),
 		message string) {
 		for _, segment := range out.Segments() {
 			val, isSet := getFunc(segment)
-			assert.True(isSet)
-			assert.Equal(expected, val, message)
+			require.True(isSet)
+			require.Equal(expected, val, message)
 		}
 	}
 
@@ -86,76 +86,76 @@ func TestSegmentGroup(t *testing.T) {
 	assertAllEqual(10,
 		func(s *bar.Segment) (interface{}, bool) { return s.GetMinWidth() },
 		"min_width when equally distributed")
-	assert.Equal(60, sumMinWidth(), "min_width when equally distributed")
+	require.Equal(60, sumMinWidth(), "min_width when equally distributed")
 
 	// Test that however the min_width distribution happens, the sum of segments'
 	// min_width should be whatever was given to the output as a whole.
 	for _, testWidth := range []int{10, 100, 6, 3, 2, 1} {
 		out.MinWidth(testWidth)
-		assert.Equal(testWidth, sumMinWidth(), "min_width = %d", testWidth)
+		require.Equal(testWidth, sumMinWidth(), "min_width = %d", testWidth)
 	}
 
 	out.MinWidth(0)
 	assertAllEqual(0,
 		func(s *bar.Segment) (interface{}, bool) { return s.GetMinWidth() },
 		"min_width when 0")
-	assert.Equal(0, sumMinWidth(), "min_width when 0")
+	require.Equal(0, sumMinWidth(), "min_width when 0")
 
 	out.Separator(true)
 	_, isSet := first().HasSeparator()
-	assert.False(isSet, "separator only affects last segment")
+	require.False(isSet, "separator only affects last segment")
 	_, isSet = mid().HasSeparator()
-	assert.False(isSet, "separator only affects last segment")
+	require.False(isSet, "separator only affects last segment")
 	sep, isSet := last().HasSeparator()
-	assert.True(isSet, "separator only affects last segment")
-	assert.True(sep)
+	require.True(isSet, "separator only affects last segment")
+	require.True(sep)
 
 	out.InnerPadding(5)
 	out.InnerSeparators(false)
 
 	sep, isSet = first().HasSeparator()
-	assert.True(isSet, "inner separator only affects inner segments")
-	assert.False(sep)
+	require.True(isSet, "inner separator only affects inner segments")
+	require.False(sep)
 	pad, _ := first().GetPadding()
-	assert.Equal(5, pad)
+	require.Equal(5, pad)
 	sep, isSet = mid().HasSeparator()
-	assert.True(isSet, "inner separator only affects inner segments")
-	assert.False(sep)
+	require.True(isSet, "inner separator only affects inner segments")
+	require.False(sep)
 	pad, _ = mid().GetPadding()
-	assert.Equal(5, pad)
+	require.Equal(5, pad)
 	sep, _ = last().HasSeparator()
-	assert.True(sep, "last segment separator untouched by inner separator")
+	require.True(sep, "last segment separator untouched by inner separator")
 	_, isSet = last().GetPadding()
-	assert.False(isSet, "last segment separator untouched by inner separator")
+	require.False(isSet, "last segment separator untouched by inner separator")
 
 	out.Glue()
 	pad, _ = mid().GetPadding()
-	assert.Equal(0, pad, "Glue removes inner padding")
+	require.Equal(0, pad, "Glue removes inner padding")
 	sep, _ = mid().HasSeparator()
-	assert.Equal(false, sep, "Glue removes inner separator")
+	require.Equal(false, sep, "Glue removes inner separator")
 }
 
 func TestSingleGroup(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	single := Group(bar.PangoSegment("<b>only</b>"))
-	assert.Equal(1, len(single.Segments()))
+	require.Equal(1, len(single.Segments()))
 
 	segment := func() *bar.Segment { return single.Segments()[0] }
-	assert.Equal("<b>only</b>", segment().Text())
-	assert.True(segment().IsPango())
+	require.Equal("<b>only</b>", segment().Text())
+	require.True(segment().IsPango())
 
 	single.Background(colors.Hex("#ff0"))
 	bg, _ := segment().GetBackground()
-	assert.Equal(colors.Hex("#ff0"), bg)
+	require.Equal(colors.Hex("#ff0"), bg)
 
 	single.Color(colors.Hex("#f00"))
 	col, _ := segment().GetColor()
-	assert.Equal(colors.Hex("#f00"), col)
+	require.Equal(colors.Hex("#f00"), col)
 
 	single.Align(bar.AlignEnd)
 	align, _ := segment().GetAlignment()
-	assert.Equal(bar.AlignEnd, align)
+	require.Equal(bar.AlignEnd, align)
 
 	single.Padding(2)
 	// Single segment should ignore inner separator.
@@ -163,14 +163,14 @@ func TestSingleGroup(t *testing.T) {
 	single.InnerPadding(12)
 
 	pad, _ := segment().GetPadding()
-	assert.Equal(2, pad)
+	require.Equal(2, pad)
 
 	_, isSet := segment().HasSeparator()
-	assert.False(isSet)
+	require.False(isSet)
 
 	single.MinWidth(100)
 	minW, _ := segment().GetMinWidth()
-	assert.Equal(100, minW)
+	require.Equal(100, minW)
 
 	newLast := Text("this is now the last one").Color(colors.Hex("#0ff"))
 	// If another segment is added, some properties must be adjusted.
@@ -178,26 +178,26 @@ func TestSingleGroup(t *testing.T) {
 
 	// Min width is split between the two.
 	minW, _ = segment().GetMinWidth()
-	assert.Equal(50, minW)
+	require.Equal(50, minW)
 	// Now using inner separator config.
 	pad, _ = segment().GetPadding()
-	assert.Equal(12, pad)
+	require.Equal(12, pad)
 	_, isSet = segment().HasSeparator()
-	assert.True(isSet)
+	require.True(isSet)
 
 	segment = func() *bar.Segment { return single.Segments()[1] }
 
 	// The new segment should inherit any unset properties.
 	bg, _ = segment().GetBackground()
-	assert.Equal(colors.Hex("#ff0"), bg)
+	require.Equal(colors.Hex("#ff0"), bg)
 
 	// But retain previously set properties.
 	col, _ = segment().GetColor()
-	assert.Equal(colors.Hex("#0ff"), col)
+	require.Equal(colors.Hex("#0ff"), col)
 
 	// And not set properties that weren't set on either.
 	_, isSet = segment().GetBorder()
-	assert.False(isSet)
+	require.False(isSet)
 }
 
 func TestEmptyGroup(t *testing.T) {
@@ -209,11 +209,11 @@ func TestEmptyGroup(t *testing.T) {
 	empty.InnerSeparators(false)
 	empty.InnerPadding(10)
 	// Make sure nothing blows up...
-	assert.NotPanics(t, func() { empty.Segments() })
+	require.NotPanics(t, func() { empty.Segments() })
 }
 
 func TestMinWidthDistributions(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	out := Group(
 		Text("1").MinWidth(100),
 		Text("2").MinWidthPlaceholder("###.##"),
@@ -232,20 +232,20 @@ func TestMinWidthDistributions(t *testing.T) {
 
 	// Min Width cannot fit the existing segments.
 	out.MinWidth(100)
-	assert.Equal([]interface{}{100, "###.##", 50, nil}, minWidths())
+	require.Equal([]interface{}{100, "###.##", 50, nil}, minWidths())
 
 	// Min Width is exactly equal to existing segments.
 	out.MinWidth(150)
-	assert.Equal([]interface{}{100, "###.##", 50, 0}, minWidths())
+	require.Equal([]interface{}{100, "###.##", 50, 0}, minWidths())
 
 	out.Append(Text("5"))
-	assert.Equal([]interface{}{100, "###.##", 50, 0, 0}, minWidths())
+	require.Equal([]interface{}{100, "###.##", 50, 0, 0}, minWidths())
 
 	// Min Width is split between unset segments.
 	out.MinWidth(230)
-	assert.Equal([]interface{}{100, "###.##", 50, 40, 40}, minWidths())
+	require.Equal([]interface{}{100, "###.##", 50, 40, 40}, minWidths())
 
 	// Additional segments are added, min width should redistribute.
 	out.Append(Text("6")).Append(Text("7"))
-	assert.Equal([]interface{}{100, "###.##", 50, 20, 20, 20, 20}, minWidths())
+	require.Equal([]interface{}{100, "###.##", 50, 20, 20, 20, 20}, minWidths())
 }

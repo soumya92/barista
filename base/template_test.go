@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/martinlindhe/unit"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 )
@@ -67,6 +67,6 @@ var templateTests = []struct {
 func TestTemplates(t *testing.T) {
 	for _, tc := range templateTests {
 		Template(tc.template, tc.function)
-		assert.Equal(t, tc.expected, result.Segments()[0].Text(), tc.desc)
+		require.Equal(t, tc.expected, result.Segments()[0].Text(), tc.desc)
 	}
 }

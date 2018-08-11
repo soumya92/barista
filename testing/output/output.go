@@ -16,7 +16,7 @@
 package output
 
 import (
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 )
@@ -24,17 +24,17 @@ import (
 // New creates an object that provides assertions on a bar.Output,
 // such as equality, emptiness, text equality, and error state across
 // all its segments.
-func New(t assert.TestingT, out bar.Output) Assertions {
+func New(t require.TestingT, out bar.Output) Assertions {
 	return Assertions{
-		output: out,
-		assert: assert.New(t),
+		output:  out,
+		require: require.New(t),
 	}
 }
 
 // Assertions provides assertions that simplify testing outputs.
 type Assertions struct {
-	output bar.Output
-	assert *assert.Assertions
+	output  bar.Output
+	require *require.Assertions
 }
 
 // AssertEqual asserts that the actual output contains exactly the
@@ -43,7 +43,7 @@ func (a Assertions) AssertEqual(expected bar.Output, args ...interface{}) {
 	if !a.Expect(args...) {
 		return
 	}
-	a.assert.Equal(expected.Segments(), a.output.Segments(), args...)
+	a.require.Equal(expected.Segments(), a.output.Segments(), args...)
 }
 
 // AssertEmpty asserts that the actual output has no segments.
@@ -51,7 +51,7 @@ func (a Assertions) AssertEmpty(args ...interface{}) {
 	if !a.Expect(args...) {
 		return
 	}
-	a.assert.Empty(a.output.Segments(), args...)
+	a.require.Empty(a.output.Segments(), args...)
 }
 
 // AssertText asserts that the text of each segment matches the
@@ -65,7 +65,7 @@ func (a Assertions) AssertText(expected []string, args ...interface{}) {
 	for i, s := range segments {
 		actual[i] = s.Text()
 	}
-	a.assert.Equal(expected, actual, args...)
+	a.require.Equal(expected, actual, args...)
 }
 
 // AssertError asserts that each segment in the output is an error,
@@ -76,7 +76,7 @@ func (a Assertions) AssertError(args ...interface{}) []string {
 	}
 	segments := a.output.Segments()
 	if len(segments) == 0 {
-		a.assert.Fail("Expected error, got no output", args...)
+		a.require.Fail("Expected error, got no output", args...)
 		return nil
 	}
 	texts := make([]string, len(segments))
@@ -90,7 +90,7 @@ func (a Assertions) AssertError(args ...interface{}) []string {
 // testBar.LatestOutput().Expect("expected an output")
 func (a Assertions) Expect(args ...interface{}) bool {
 	if a.output == nil {
-		a.assert.Fail("Expected an output, got nil", args...)
+		a.require.Fail("Expected an output, got nil", args...)
 		return false
 	}
 	return true
@@ -100,15 +100,15 @@ func (a Assertions) Expect(args ...interface{}) bool {
 // It fails the test if there are not enough segments.
 func (a Assertions) At(i int) SegmentAssertions {
 	if !a.Expect() {
-		return SegmentAssertions{assert: a.assert}
+		return SegmentAssertions{require: a.require}
 	}
 	segments := a.output.Segments()
 	if i >= len(segments) {
-		a.assert.Fail("Not enough segments",
+		a.require.Fail("Not enough segments",
 			"want #%d, have %d", i, len(segments))
-		return SegmentAssertions{assert: a.assert}
+		return SegmentAssertions{require: a.require}
 	}
-	return SegmentAssertions{segment: segments[i], assert: a.assert}
+	return SegmentAssertions{segment: segments[i], require: a.require}
 }
 
 // Len returns the number of segments in the actual output.
@@ -120,13 +120,13 @@ func (a Assertions) Len() int {
 }
 
 // Segment provides text, error, and equality assertions for a bar.Segment
-func Segment(t assert.TestingT, segment *bar.Segment) SegmentAssertions {
+func Segment(t require.TestingT, segment *bar.Segment) SegmentAssertions {
 	if segment == nil {
-		assert.Fail(t, "Asserting against nil segment")
+		require.Fail(t, "Asserting against nil segment")
 	}
 	return SegmentAssertions{
 		segment: segment,
-		assert:  assert.New(t),
+		require: require.New(t),
 	}
 }
 
@@ -134,7 +134,7 @@ func Segment(t assert.TestingT, segment *bar.Segment) SegmentAssertions {
 // segments within an output.
 type SegmentAssertions struct {
 	segment *bar.Segment
-	assert  *assert.Assertions
+	require *require.Assertions
 }
 
 // AssertEqual asserts that the actual segment is equal to the expecte segment.
@@ -142,7 +142,7 @@ func (a SegmentAssertions) AssertEqual(expected *bar.Segment, args ...interface{
 	if a.segment == nil {
 		return
 	}
-	a.assert.Equal(expected, a.segment, args...)
+	a.require.Equal(expected, a.segment, args...)
 }
 
 // AssertText asserts that the segment's text matches the expected string.
@@ -150,7 +150,7 @@ func (a SegmentAssertions) AssertText(expected string, args ...interface{}) {
 	if a.segment == nil {
 		return
 	}
-	a.assert.Equal(expected, a.segment.Text(), args...)
+	a.require.Equal(expected, a.segment.Text(), args...)
 }
 
 // AssertError asserts that the segment represents an error,
@@ -161,7 +161,7 @@ func (a SegmentAssertions) AssertError(args ...interface{}) string {
 	}
 	err := a.segment.GetError()
 	if err == nil {
-		a.assert.Fail("expected an error", args...)
+		a.require.Fail("expected an error", args...)
 		return ""
 	}
 	return err.Error()
@@ -171,7 +171,7 @@ func (a SegmentAssertions) AssertError(args ...interface{}) string {
 // This is doubly useful because Assertions.At(i) returns SegmentAssertions,
 // allowing code like:
 //     urgent, _ := out.At(2).Segment().IsUrgent()
-//     assert.True(t, urgent, "segment #3 is urgent")
+//     require.True(t, urgent, "segment #3 is urgent")
 func (a SegmentAssertions) Segment() *bar.Segment {
 	return a.segment
 }

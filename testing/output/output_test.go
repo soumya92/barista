@@ -17,7 +17,7 @@ package output
 import (
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
@@ -34,11 +34,11 @@ func (e empty) Segments() []*bar.Segment {
 func TestAssertions(t *testing.T) {
 	a := New(t, outputs.Text("a"))
 	a.AssertEqual(bar.TextSegment("a"), "same output")
-	assert.True(t, a.Expect("should pass"))
+	require.True(t, a.Expect("should pass"))
 	a.AssertText([]string{"a"}, "text")
 	// or another way:
 	a.At(0).AssertText("a")
-	assert.Equal(t, 1, a.Len(), "has 1 segment")
+	require.Equal(t, 1, a.Len(), "has 1 segment")
 
 	a = New(t, outputs.Group(
 		outputs.Text("a"),
@@ -48,22 +48,22 @@ func TestAssertions(t *testing.T) {
 	a.AssertText([]string{"a", "b", "c"}, "multiple segments")
 
 	a = New(t, outputs.Errorf("something"))
-	assert.True(t, a.Expect("should pass"))
+	require.True(t, a.Expect("should pass"))
 	errs := a.AssertError("with error output")
-	assert.Equal(t, []string{"something"}, errs, "error descriptions")
+	require.Equal(t, []string{"something"}, errs, "error descriptions")
 
 	a = New(t, outputs.Group(
 		outputs.Errorf("something"),
 		outputs.Errorf("other thing"),
 	))
 	errs = a.AssertError("with multiple error segments")
-	assert.Equal(t, []string{"something", "other thing"}, errs,
+	require.Equal(t, []string{"something", "other thing"}, errs,
 		"error descriptions with multiple segments")
 
 	a = New(t, empty{})
-	assert.True(t, a.Expect("should pass"))
+	require.True(t, a.Expect("should pass"))
 	a.AssertEmpty("empty output")
-	assert.Equal(t, 0, a.Len())
+	require.Equal(t, 0, a.Len())
 }
 
 func TestAssertionErrors(t *testing.T) {
@@ -77,12 +77,9 @@ func TestAssertionErrors(t *testing.T) {
 		}, args...)
 	}
 
-	expectResult := true // Expect false, so start with true.
 	assertFail(func(a Assertions) {
-		expectResult = a.Expect()
+		a.Expect()
 	}, "Expect with no output")
-	assert.False(t, expectResult,
-		"Expect returns false after failing test")
 	assertFail(func(a Assertions) {
 		a.At(0).AssertText("foo")
 	}, "At() with no output")
@@ -95,16 +92,12 @@ func TestAssertionErrors(t *testing.T) {
 	assertFail(func(a Assertions) {
 		a.AssertEmpty()
 	}, "AssertEmpty with no output")
-	lenResult := -1 // expect 0, so start with non-zero value.
 	assertFail(func(a Assertions) {
-		lenResult = a.Len()
+		a.Len()
 	}, "Len with no output")
-	assert.Equal(t, 0, lenResult, "Len returns 0 with no output")
-	errStrings := []string{"-init-"}
 	assertFail(func(a Assertions) {
-		errStrings = a.AssertError()
+		a.AssertError()
 	}, "AssertError with no output")
-	assert.Empty(t, errStrings, "AssertError returns empty result")
 
 	out = empty{}
 
@@ -148,11 +141,11 @@ func TestSegmentAssertions(t *testing.T) {
 	a.AssertEqual(bar.TextSegment("foo").Urgent(true), "same segment")
 	a.AssertText("foo", "text")
 	// or another way (not recommended, though):
-	assert.Equal(t, bar.TextSegment("foo").Urgent(true), a.Segment())
+	require.Equal(t, bar.TextSegment("foo").Urgent(true), a.Segment())
 
 	a = Segment(t, outputs.Errorf("something").Segments()[0])
 	err := a.AssertError("with error output")
-	assert.Equal(t, "something", err, "error description")
+	require.Equal(t, "something", err, "error description")
 
 	fail.AssertFails(t, func(fakeT *testing.T) {
 		a = Segment(fakeT, nil)
@@ -160,13 +153,13 @@ func TestSegmentAssertions(t *testing.T) {
 }
 
 func TestEmptySegmentAssertions(t *testing.T) {
-	s := SegmentAssertions{assert: assert.New(t)}
+	s := SegmentAssertions{require: require.New(t)}
 	s.AssertEqual(bar.TextSegment("doesn't matter"),
 		"AssertEqual without segment is nop")
 	err := s.AssertError("AssertError without segment is nop")
-	assert.Empty(t, err, "AssertError returns empty result")
+	require.Empty(t, err, "AssertError returns empty result")
 	s.AssertText("whatever", "AssertText without segment is nop")
-	assert.Nil(t, s.Segment(),
+	require.Nil(t, s.Segment(),
 		"Segment() returns nil without segment")
 }
 
@@ -175,7 +168,7 @@ func TestSegmentAssertionErrors(t *testing.T) {
 	assertFail := func(testFunc func(SegmentAssertions), args ...interface{}) {
 		var s SegmentAssertions
 		fail.Setup(func(fakeT *testing.T) {
-			s = SegmentAssertions{segment: segment, assert: assert.New(fakeT)}
+			s = SegmentAssertions{segment: segment, require: require.New(fakeT)}
 		}).AssertFails(t, func(*testing.T) {
 			testFunc(s)
 		}, args...)

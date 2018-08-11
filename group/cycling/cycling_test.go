@@ -21,7 +21,7 @@ import (
 	testBar "github.com/soumya92/barista/testing/bar"
 	testModule "github.com/soumya92/barista/testing/module"
 	"github.com/soumya92/barista/timing"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCycling(t *testing.T) {
@@ -47,25 +47,25 @@ func TestCycling(t *testing.T) {
 	tm0.OutputText("a")
 	testBar.NextOutput().AssertText([]string{"a"},
 		"on active module update")
-	assert.Equal(t, start, timing.Now(), "First output is immediate")
+	require.Equal(t, start, timing.Now(), "First output is immediate")
 
 	testBar.Tick()
 	testBar.NextOutput().AssertEmpty(
 		"switched to module with no output")
-	assert.Equal(t, start.Add(time.Second), timing.Now())
+	require.Equal(t, start.Add(time.Second), timing.Now())
 
 	tm1.OutputText("b")
 	testBar.NextOutput().AssertText([]string{"b"},
 		"on active module update")
-	assert.Equal(t, start.Add(time.Second), timing.Now())
+	require.Equal(t, start.Add(time.Second), timing.Now())
 
 	tm2.OutputText("c")
 	testBar.AssertNoOutput("inactive module update")
-	assert.Equal(t, start.Add(time.Second), timing.Now())
+	require.Equal(t, start.Add(time.Second), timing.Now())
 
 	ctrl.SetInterval(time.Minute)
 	testBar.Tick()
 	testBar.NextOutput().AssertText([]string{"c"},
 		"switched to module with an update")
-	assert.Equal(t, start.Add(61*time.Second), timing.Now())
+	require.Equal(t, start.Add(61*time.Second), timing.Now())
 }

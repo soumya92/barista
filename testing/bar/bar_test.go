@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
@@ -64,7 +64,7 @@ func TestOutput(t *testing.T) {
 
 	s.MinWidth(150)
 	m.Output(s)
-	assert.Equal(t, s, NextOutput().At(0).Segment())
+	require.Equal(t, s, NextOutput().At(0).Segment())
 
 	m.OutputText("baz")
 	LatestOutput().Expect("when output")
@@ -95,7 +95,7 @@ func TestEvents(t *testing.T) {
 	e := bar.Event{X: 10, Y: 10}
 	SendEvent(1, e)
 	actual := m2.AssertClicked()
-	assert.Equal(t, e, actual, "event properties pass through")
+	require.Equal(t, e, actual, "event properties pass through")
 
 	m1.Output(nil)
 	m2.Output(outputs.Group(
@@ -107,13 +107,13 @@ func TestEvents(t *testing.T) {
 	Click(0)
 	m1.AssertNotClicked("when module has no output")
 	evt := m2.AssertClicked("events based on output positions")
-	assert.Equal(t, "foo", evt.SegmentID, "SegmentID is propagated")
+	require.Equal(t, "foo", evt.SegmentID, "SegmentID is propagated")
 	Click(1)
 	evt = m2.AssertClicked("multiple segments from the same module")
-	assert.Equal(t, "bar", evt.SegmentID)
+	require.Equal(t, "bar", evt.SegmentID)
 	Click(2)
 	evt = m2.AssertClicked()
-	assert.Equal(t, "baz", evt.SegmentID)
+	require.Equal(t, "baz", evt.SegmentID)
 }
 
 func TestRestartingModule(t *testing.T) {
@@ -125,16 +125,16 @@ func TestRestartingModule(t *testing.T) {
 	m.Output(outputs.Errorf("something went wrong"))
 	m.Close()
 	errStrs := NextOutput().AssertError("on error")
-	assert.Equal(t, []string{"something went wrong"}, errStrs)
+	require.Equal(t, []string{"something went wrong"}, errStrs)
 
-	assert.Panics(t, func() { m.OutputText("bar") },
+	require.Panics(t, func() { m.OutputText("bar") },
 		"module is not streaming")
 
 	// Died with an error, so right click will nag,
 	RightClick(0)
 	m.AssertNotStarted("on right click with error")
 	err := AssertNagbar("on right click with error")
-	assert.Equal(t, "something went wrong", err)
+	require.Equal(t, "something went wrong", err)
 
 	// but left click will restart,
 	Click(0)
@@ -142,7 +142,7 @@ func TestRestartingModule(t *testing.T) {
 	NextOutput().AssertText([]string{})
 
 	m.AssertStarted()
-	assert.NotPanics(t, func() { m.OutputText("baz") },
+	require.NotPanics(t, func() { m.OutputText("baz") },
 		"module has restarted")
 	NextOutput().AssertText([]string{"baz"})
 }
@@ -163,11 +163,11 @@ func TestSegment(t *testing.T) {
 	out.At(0).AssertText("a")
 	out.At(1).AssertEqual(bar.TextSegment("b"))
 	errStr := out.At(2).AssertError()
-	assert.Equal(t, "oops", errStr)
+	require.Equal(t, "oops", errStr)
 
 	s := bar.PangoSegment("<b>bold</b>").Urgent(true)
 	m.Output(s)
-	assert.Equal(t, s, LatestOutput().At(0).Segment())
+	require.Equal(t, s, LatestOutput().At(0).Segment())
 }
 
 func TestTick(t *testing.T) {
@@ -176,12 +176,12 @@ func TestTick(t *testing.T) {
 	startTime := timing.Now()
 	timing.NewScheduler().Every(time.Minute)
 
-	assert.Equal(t, startTime.Add(time.Minute), Tick())
+	require.Equal(t, startTime.Add(time.Minute), Tick())
 
 	New(t)
 	Run()
 	newStartTime := timing.Now()
-	assert.Equal(t, newStartTime, Tick())
+	require.Equal(t, newStartTime, Tick())
 }
 
 func assertFails(t *testing.T, testFunc func(*module.TestModule), args ...interface{}) {
@@ -317,7 +317,7 @@ func TestSegmentErrors(t *testing.T) {
 		))
 		seg = LatestOutput().At(2).Segment()
 	}, "out of range segment")
-	assert.Nil(t, seg, "nil value on out of range segment")
+	require.Nil(t, seg, "nil value on out of range segment")
 }
 
 func TestNagbarError(t *testing.T) {

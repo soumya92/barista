@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
@@ -48,7 +48,7 @@ func TestSimpleTicking(t *testing.T) {
 func TestAutoGranularities(t *testing.T) {
 	testBar.New(t)
 	timing.AdvanceTo(fixedTime)
-	assert := assert.New(t)
+	require := require.New(t)
 
 	local := Local().OutputFormat("15:04:05")
 	testBar.Run(local)
@@ -58,15 +58,15 @@ func TestAutoGranularities(t *testing.T) {
 	now := timing.NextTick()
 	testBar.LatestOutput().AssertText(
 		[]string{"00:00:01"}, "on next tick")
-	assert.Equal(1, now.Second(), "increases by granularity")
-	assert.Equal(0, now.Nanosecond(), "triggers at exact granularity")
+	require.Equal(1, now.Second(), "increases by granularity")
+	require.Equal(0, now.Nanosecond(), "triggers at exact granularity")
 
 	timing.AdvanceBy(500 * time.Millisecond)
 	testBar.AssertNoOutput("less than granularity")
 
 	now = timing.NextTick()
-	assert.Equal(2, now.Second(), "increases by granularity")
-	assert.Equal(0, now.Nanosecond(), "triggers at exact granularity")
+	require.Equal(2, now.Second(), "increases by granularity")
+	require.Equal(0, now.Nanosecond(), "triggers at exact granularity")
 	testBar.NextOutput().AssertText(
 		[]string{"00:00:02"}, "on next tick")
 
@@ -77,8 +77,8 @@ func TestAutoGranularities(t *testing.T) {
 	now = timing.NextTick()
 	testBar.NextOutput().AssertText(
 		[]string{"00:01"}, "on next tick")
-	assert.Equal(1, now.Minute(), "triggers on exact granularity")
-	assert.Equal(0, now.Second(), "triggers on exact granularity")
+	require.Equal(1, now.Minute(), "triggers on exact granularity")
+	require.Equal(0, now.Second(), "triggers on exact granularity")
 
 	local.OutputFormat("15:04:05.0")
 	testBar.NextOutput().AssertText(
@@ -143,17 +143,17 @@ func TestZones(t *testing.T) {
 	pst := Zone(la).OutputFormat("15:04:05")
 
 	berlin, err := ZoneByName("Europe/Berlin")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	berlin.OutputFormat("15:04:05")
 
 	tokyo, err := ZoneByName("Asia/Tokyo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	tokyo.OutputFormat("15:04:05")
 
 	testBar.Run(pst, berlin, tokyo)
 
 	_, err = ZoneByName("Global/Unknown")
-	assert.Error(t, err, "when loading unknown zone")
+	require.Error(t, err, "when loading unknown zone")
 
 	testBar.LatestOutput().AssertText(
 		[]string{"05:15:00", "14:15:00", "22:15:00"},

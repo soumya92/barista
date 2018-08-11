@@ -17,7 +17,7 @@ package reformat
 import (
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
@@ -50,7 +50,7 @@ func TestReformat(t *testing.T) {
 	evt := bar.Event{Y: 1}
 	reformatted.Click(evt)
 	recvEvt := original.AssertClicked("click events propagated")
-	assert.Equal(t, evt, recvEvt, "click events passed through unchanged")
+	require.Equal(t, evt, recvEvt, "click events passed through unchanged")
 
 	testBar.AssertNoOutput("when original module is not updated")
 	original.AssertNotClicked("when reformatted module is not clicked")
@@ -80,7 +80,7 @@ func TestReformat(t *testing.T) {
 	out.At(0).AssertText("#a#")
 	out.At(1).AssertText("#b#")
 	err := out.At(2).AssertError()
-	assert.Equal(t, "c", err, "erro string unchanged")
+	require.Equal(t, "c", err, "erro string unchanged")
 }
 
 func TestRestart(t *testing.T) {
@@ -114,7 +114,7 @@ func TestRestart(t *testing.T) {
 	testBar.AssertNoOutput("on close")
 	original.AssertNotStarted("after close")
 
-	assert.NotPanics(t, func() {
+	require.NotPanics(t, func() {
 		testBar.SendEvent(0, bar.Event{Button: bar.ScrollUp})
 	})
 
@@ -134,7 +134,7 @@ func TestRestart(t *testing.T) {
 	testBar.NextOutput().AssertText([]string{"** foo **"},
 		"error segments removed on restart")
 
-	assert.NotPanics(t, func() { original.Output(nil) },
+	require.NotPanics(t, func() { original.Output(nil) },
 		"nil output with EachSegment formatter")
 	testBar.NextOutput().AssertEmpty()
 }

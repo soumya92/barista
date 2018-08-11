@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/html"
 )
 
@@ -32,11 +32,11 @@ import (
 // i.e. the result of their rendering will be the same.
 func AssertEqual(t *testing.T, expected, actual string, args ...interface{}) {
 	expectedR, err := html.Parse(strings.NewReader(expected))
-	assert.NoError(t, err, args...)
+	require.NoError(t, err, args...)
 	actualR, err := html.Parse(strings.NewReader(actual))
-	assert.NoError(t, err, args...)
+	require.NoError(t, err, args...)
 	if !equalMarkup(expectedR, actualR) {
-		assert.Fail(t, fmt.Sprintf("%s !~= %s", expected, actual), args...)
+		require.Fail(t, fmt.Sprintf("%s !~= %s", expected, actual), args...)
 	}
 }
 
@@ -44,8 +44,8 @@ func AssertEqual(t *testing.T, expected, actual string, args ...interface{}) {
 // Text content ignores any tags and attributes, using only rendered text.
 func AssertText(t *testing.T, expected string, markup string, args ...interface{}) {
 	markupR, err := html.Parse(strings.NewReader(markup))
-	assert.NoError(t, err, args...)
-	assert.Equal(t, expected, textOf(markupR), args...)
+	require.NoError(t, err, args...)
+	require.Equal(t, expected, textOf(markupR), args...)
 }
 
 func equalMarkup(a, b *html.Node) bool {

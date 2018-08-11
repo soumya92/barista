@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/soumya92/barista/outputs"
@@ -69,7 +69,7 @@ func init() {
 }
 
 func TestNetspeed(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	testBar.New(t)
 
 	setLink("if0", netlink.LinkStatistics{
@@ -116,7 +116,7 @@ func TestNetspeed(t *testing.T) {
 	beforeTick := timing.Now()
 	n.RefreshInterval(time.Minute)
 	testBar.Tick()
-	assert.Equal(time.Minute, timing.Now().Sub(beforeTick),
+	require.Equal(time.Minute, timing.Now().Sub(beforeTick),
 		"RefreshInterval change")
 	testBar.NextOutput().Expect("RefreshInterval change")
 }

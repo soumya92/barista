@@ -18,7 +18,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOutput(t *testing.T) {
@@ -29,13 +29,13 @@ func TestOutput(t *testing.T) {
 	sink.Output(TextSegment("foo"))
 	select {
 	case out := <-ch:
-		assert.Equal(t, "foo", out.Segments()[0].Text())
+		require.Equal(t, "foo", out.Segments()[0].Text())
 	default:
-		assert.Fail(t, "expected output on Output(...)")
+		require.Fail(t, "expected output on Output(...)")
 	}
 
 	sink.Output(nil)
-	assert.Nil(t, <-ch)
+	require.Nil(t, <-ch)
 }
 
 func TestError(t *testing.T) {
@@ -43,20 +43,20 @@ func TestError(t *testing.T) {
 	ch := make(chan Output, 1)
 	sink = func(o Output) { ch <- o }
 
-	assert.False(t, sink.Error(nil), "nil error returns false")
+	require.False(t, sink.Error(nil), "nil error returns false")
 	select {
 	case <-ch:
-		assert.Fail(t, "Should not send any output on Error(nil)")
+		require.Fail(t, "Should not send any output on Error(nil)")
 	default:
 		// test passed.
 	}
 
-	assert.True(t, sink.Error(io.EOF), "non-nil error returns true")
+	require.True(t, sink.Error(io.EOF), "non-nil error returns true")
 	select {
 	case out := <-ch:
-		assert.Error(t, out.Segments()[0].GetError(),
+		require.Error(t, out.Segments()[0].GetError(),
 			"output sent on Error(...) has error segment")
 	default:
-		assert.Fail(t, "Expected an error output on Error(...)")
+		require.Fail(t, "Expected an error output on Error(...)")
 	}
 }

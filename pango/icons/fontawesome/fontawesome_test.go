@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/testing/cron"
@@ -28,7 +28,7 @@ import (
 
 func TestInvalid(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	assert.Error(t, Load("/src/no-such-directory"))
+	require.Error(t, Load("/src/no-such-directory"))
 
 	afero.WriteFile(fs, "/src/fa-error-1/web-fonts-with-css/scss/_variables.scss", []byte(
 		`
@@ -37,7 +37,7 @@ $fa-var-xy: xy;
 $fa-var-foobar: \61;
 `,
 	), 0644)
-	assert.Error(t, Load("/src/fa-error-1"))
+	require.Error(t, Load("/src/fa-error-1"))
 }
 
 func TestValid(t *testing.T) {
@@ -48,7 +48,7 @@ $fa-var-some-icon: \61;
 $fa-var-other-icon: \62;
 `,
 	), 0644)
-	assert.NoError(t, Load("/src/fa"))
+	require.NoError(t, Load("/src/fa"))
 	pangoTesting.AssertText(t, "a", pango.Icon("fa-some-icon").String())
 	pangoTesting.AssertText(t, "b", pango.Icon("fa-other-icon").String())
 }
@@ -60,6 +60,6 @@ $fa-var-other-icon: \62;
 func TestLive(t *testing.T) {
 	fs = githubfs.New()
 	cron.Test(t, func(t *testing.T) {
-		assert.NoError(t, Load("/FortAwesome/Font-Awesome/master"))
+		require.NoError(t, Load("/FortAwesome/Font-Awesome/master"))
 	})
 }

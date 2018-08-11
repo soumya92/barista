@@ -19,21 +19,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func assertTick(t *testing.T, n <-chan struct{}, message string) {
 	select {
 	case <-n:
 	case <-time.After(time.Second):
-		assert.Fail(t, "notifier did not update", message)
+		require.Fail(t, "notifier did not update", message)
 	}
 }
 
 func assertNoTick(t *testing.T, n <-chan struct{}, message string) {
 	select {
 	case <-n:
-		assert.Fail(t, "notifier updated", message)
+		require.Fail(t, "notifier updated", message)
 	case <-time.After(10 * time.Millisecond):
 	}
 }
@@ -81,7 +81,7 @@ func TestNotifyWithWaiting(t *testing.T) {
 	select {
 	case <-doneChan: // Test passed.
 	case <-time.After(time.Second):
-		assert.Fail(t, "waits did not complete")
+		require.Fail(t, "waits did not complete")
 	}
 }
 
@@ -99,6 +99,6 @@ func TestWait(t *testing.T) {
 	select {
 	case <-doneChan: // Test passed.
 	case <-time.After(time.Second):
-		assert.Fail(t, "wait did not complete")
+		require.Fail(t, "wait did not complete")
 	}
 }

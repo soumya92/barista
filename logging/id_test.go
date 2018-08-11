@@ -22,7 +22,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 type Fooer interface {
@@ -188,7 +188,7 @@ func TestID(t *testing.T) {
 		{&namedStruct.Fooer, "bar:logging.intFooer#2"},
 		{&fooerIntf, "bar:logging.intFooer#1"},
 		{&namedStructRef.Fooer, "bar:logging.intFooer#2"},
-		{assert.New(t), "github.com/stretchrcom/testify/assert.Assertions#0"},
+		{assert.New(t), "github.com/stretchr/testify/assert.Assertions#0"},
 		{idStruct, "bar:logging@?"},
 		{idStructRef, "bar:logging#0"},
 		{idStructNewRef, "bar:logging#1"},

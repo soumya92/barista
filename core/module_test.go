@@ -18,11 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/stretchr/testify/require"
 )
 
 func nextOutput(t *testing.T, ch <-chan bar.Segments, formatAndArgs ...interface{}) bar.Segments {
@@ -30,7 +29,7 @@ func nextOutput(t *testing.T, ch <-chan bar.Segments, formatAndArgs ...interface
 	case out := <-ch:
 		return out
 	case <-time.After(time.Second):
-		assert.Fail(t, "No output on sink", formatAndArgs...)
+		require.Fail(t, "No output on sink", formatAndArgs...)
 	}
 	return nil
 }
@@ -38,7 +37,7 @@ func nextOutput(t *testing.T, ch <-chan bar.Segments, formatAndArgs ...interface
 func assertNoOutput(t *testing.T, ch <-chan bar.Segments, formatAndArgs ...interface{}) {
 	select {
 	case <-ch:
-		assert.Fail(t, "Unexpected output on sink", formatAndArgs...)
+		require.Fail(t, "Unexpected output on sink", formatAndArgs...)
 	case <-time.After(10 * time.Millisecond):
 		// test passed.
 	}
@@ -62,10 +61,10 @@ func TestModule(t *testing.T) {
 	assertNoOutput(t, ch, "on start")
 
 	tm.Output(outputs.Text("test"))
-	assert.Equal(t, "test", nextOutput(t, ch)[0].Text())
+	require.Equal(t, "test", nextOutput(t, ch)[0].Text())
 
 	tm.Output(nil)
-	assert.Empty(t, nextOutput(t, ch))
+	require.Empty(t, nextOutput(t, ch))
 }
 
 func TestReplay(t *testing.T) {
@@ -81,11 +80,11 @@ func TestReplay(t *testing.T) {
 	assertNoOutput(t, ch, "on start with pending Replay")
 
 	tm.Output(outputs.Text("foo"))
-	assert.Equal(t, "foo",
+	require.Equal(t, "foo",
 		nextOutput(t, ch, "on regular output")[0].Text())
 
 	m.Replay()
-	assert.Equal(t, "foo",
+	require.Equal(t, "foo",
 		nextOutput(t, ch, "on replay")[0].Text())
 }
 
@@ -111,13 +110,13 @@ func TestFinishListener(t *testing.T) {
 	sm := &simpleModule{make(chan bool)}
 	m := NewModule(sm)
 	go m.Stream(nullSink)
-	assert.True(t, <-sm.returned, "After stream returns")
+	require.True(t, <-sm.returned, "After stream returns")
 
 	lm := &listenerModule{make(chan bool), make(chan bool)}
 	m = NewModule(lm)
 	go m.Stream(nullSink)
-	assert.True(t, <-lm.returned, "After stream returns")
-	assert.True(t, <-lm.finished, "Finish listener is called")
+	require.True(t, <-lm.returned, "After stream returns")
+	require.True(t, <-lm.finished, "Finish listener is called")
 }
 
 type clickableModule struct {
@@ -141,8 +140,8 @@ func TestEvents(t *testing.T) {
 	// Just a sanity check to make sure things don't panic.
 	// None of the .Click() calls should cause a panic.
 	// However, since the runLoop is in a different goroutine,
-	// saying assert.NotPanics(m.Click(...)) doesn't actually
-	// assert what we want it to assert.
+	// saying require.NotPanics(m.Click(...)) doesn't actually
+	// assert what we want it to require.
 
 	sm := &simpleModule{make(chan bool)}
 	m := NewModule(sm)
@@ -163,13 +162,13 @@ func TestEvents(t *testing.T) {
 	m = NewModule(cm)
 	go m.Stream(nullSink)
 	m.Click(bar.Event{Button: bar.ButtonLeft})
-	assert.Equal(t, bar.ButtonLeft, (<-cm.events).Button)
+	require.Equal(t, bar.ButtonLeft, (<-cm.events).Button)
 	cm.finish <- true
 	<-cm.finished
 	m.Click(bar.Event{Button: bar.ButtonLeft})
 	select {
 	case <-cm.events:
-		assert.Fail(t, "module received event after finish")
+		require.Fail(t, "module received event after finish")
 	default:
 	}
 }
@@ -188,7 +187,7 @@ func TestRestart(t *testing.T) {
 		outputs.Errorf("something went wrong"),
 		outputs.Text("test"),
 	))
-	assert.Error(t, nextOutput(t, ch)[0].GetError())
+	require.Error(t, nextOutput(t, ch)[0].GetError())
 
 	tm.Close()
 	assertNoOutput(t, ch, "On close")
@@ -199,7 +198,7 @@ func TestRestart(t *testing.T) {
 
 	m.Click(bar.Event{Button: bar.ButtonMiddle})
 	out := nextOutput(t, ch)
-	assert.Equal(t, 1, len(out), "Only non-error segments on restart")
-	assert.Equal(t, "test", out[0].Text())
+	require.Equal(t, 1, len(out), "Only non-error segments on restart")
+	require.Equal(t, "test", out[0].Text())
 	tm.AssertStarted("on middle click")
 }

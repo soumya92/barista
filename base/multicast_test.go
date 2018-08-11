@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/notifier"
 )
 
 func TestSubscription(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	notifyFn, notifyCh := notifier.New()
 	e := Multicast(notifyCh)
 
@@ -55,13 +55,13 @@ func TestSubscription(t *testing.T) {
 	case <-doneChan:
 	// Test passed, all 25 subscriptions were notified.
 	case <-time.After(time.Second):
-		assert.Fail("Subscriptions not notified within 1s")
+		require.Fail("Subscriptions not notified within 1s")
 	}
 
 	newSub := e.Subscribe()
 	select {
 	case <-newSub:
-		assert.Fail("Newly created subscription notified")
+		require.Fail("Newly created subscription notified")
 	case <-time.After(10 * time.Millisecond):
 		// Test passed, subscriptions only notify of values
 		// set after the call to Subscribe.
@@ -72,6 +72,6 @@ func TestSubscription(t *testing.T) {
 	case <-newSub:
 		// Test passed, should notify since value was set.
 	case <-time.After(time.Second):
-		assert.Fail("New subscription was not notified of value")
+		require.Fail("New subscription was not notified of value")
 	}
 }

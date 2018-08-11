@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/testing/cron"
@@ -28,15 +28,15 @@ import (
 
 func TestInvalid(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	assert.Error(t, Load("/src/no-such-directory"))
+	require.Error(t, Load("/src/no-such-directory"))
 
 	afero.WriteFile(fs, "/src/typicons-error-1/config.yml", []byte(
 		`-- Invalid YAML --`,
 	), 0644)
-	assert.Error(t, Load("/src/typicons-error-1"))
+	require.Error(t, Load("/src/typicons-error-1"))
 
 	afero.WriteFile(fs, "/src/typicons-error-2/config.yml", nil, 0644)
-	assert.Error(t, Load("/src/typicons-error-2"))
+	require.Error(t, Load("/src/typicons-error-2"))
 
 	afero.WriteFile(fs, "/src/typicons-error-3/config.yml", []byte(
 		`glyphs:
@@ -48,7 +48,7 @@ func TestInvalid(t *testing.T) {
   code: 0xghij
 `,
 	), 0644)
-	assert.Error(t, Load("/src/typicons-error-3"))
+	require.Error(t, Load("/src/typicons-error-3"))
 }
 
 func TestValid(t *testing.T) {
@@ -63,7 +63,7 @@ func TestValid(t *testing.T) {
   code: 0x63
 `,
 	), 0644)
-	assert.NoError(t, Load("/src/typicons"))
+	require.NoError(t, Load("/src/typicons"))
 	pangoTesting.AssertText(t, "a", pango.Icon("typecn-someIcon").String())
 	pangoTesting.AssertText(t, "b", pango.Icon("typecn-otherIcon").String())
 }
@@ -75,6 +75,6 @@ func TestValid(t *testing.T) {
 func TestLive(t *testing.T) {
 	fs = githubfs.New()
 	cron.Test(t, func(t *testing.T) {
-		assert.NoError(t, Load("/stephenhutchings/typicons.font/master"))
+		require.NoError(t, Load("/stephenhutchings/typicons.font/master"))
 	})
 }

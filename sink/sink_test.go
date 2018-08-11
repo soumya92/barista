@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/outputs"
 )
@@ -29,26 +29,26 @@ func TestNewSink(t *testing.T) {
 	go s(outputs.Text("foo"))
 
 	out := <-ch
-	assert.Equal(t, "foo", out.Segments()[0].Text())
+	require.Equal(t, "foo", out.Segments()[0].Text())
 
-	assert.False(t, s.Error(nil))
+	require.False(t, s.Error(nil))
 	select {
 	case <-ch:
-		assert.Fail(t, "unexpected output on channel")
+		require.Fail(t, "unexpected output on channel")
 	default:
 		// test passed
 	}
 
 	doneChan := make(chan struct{})
 	go func() {
-		assert.True(t, s.Error(io.EOF))
+		require.True(t, s.Error(io.EOF))
 		doneChan <- struct{}{}
 	}()
 	select {
 	case out := <-ch:
-		assert.Error(t, out.Segments()[0].GetError())
+		require.Error(t, out.Segments()[0].GetError())
 	case <-doneChan:
-		assert.Fail(t, "expected error output on channel")
+		require.Fail(t, "expected error output on channel")
 	}
 }
 
@@ -58,10 +58,10 @@ func TestBufferedSink(t *testing.T) {
 	s(outputs.Text("bar"))
 
 	out := <-ch
-	assert.Equal(t, "foo", out.Segments()[0].Text())
+	require.Equal(t, "foo", out.Segments()[0].Text())
 
 	out = <-ch
-	assert.Equal(t, "bar", out.Segments()[0].Text())
+	require.Equal(t, "bar", out.Segments()[0].Text())
 }
 
 func TestNullSink(t *testing.T) {
@@ -78,6 +78,6 @@ func TestNullSink(t *testing.T) {
 	case <-doneChan:
 		// test passed.
 	case <-time.After(time.Second):
-		assert.Fail(t, "Null sink failed to dump 1000 entries in 1s")
+		require.Fail(t, "Null sink failed to dump 1000 entries in 1s")
 	}
 }

@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
@@ -161,7 +161,7 @@ a b sda2 0 0 100 0 0 0 b 0 0 0 0
 	out.At(1).AssertError("invalid write count")
 	// First tick initialises the stats,
 	// but we won't have a delta until the next tick.
-	assert.Equal(t, 2, out.Len(), "on first tick")
+	require.Equal(t, 2, out.Len(), "on first tick")
 
 	lock.Lock()
 	afero.WriteFile(fs, "/proc/diskstats", []byte(`

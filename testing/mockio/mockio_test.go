@@ -19,24 +19,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchrcom/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStdout(t *testing.T) {
 	stdout := Stdout()
 
-	assert.Empty(t, stdout.ReadNow(), "starts empty")
+	require.Empty(t, stdout.ReadNow(), "starts empty")
 
 	_, err := stdout.ReadUntil('x', 1*time.Millisecond)
-	assert.Equal(t, io.EOF, err, "EOF when timeout expires")
+	require.Equal(t, io.EOF, err, "EOF when timeout expires")
 
 	io.WriteString(stdout, "te")
 	io.WriteString(stdout, "st")
 
 	val, err := stdout.ReadUntil('s', 1*time.Millisecond)
-	assert.Nil(t, err, "no error when multiple writes")
-	assert.Equal(t, "tes", val, "read joins output from multiple writes")
-	assert.Equal(t, "t", stdout.ReadNow(), "remaining string after ReadUntil returned by ReadNow")
+	require.Nil(t, err, "no error when multiple writes")
+	require.Equal(t, "tes", val, "read joins output from multiple writes")
+	require.Equal(t, "t", stdout.ReadNow(), "remaining string after ReadUntil returned by ReadNow")
 
 	wait := make(chan struct{})
 
@@ -48,9 +48,9 @@ func TestStdout(t *testing.T) {
 
 	<-wait
 	val, err = stdout.ReadUntil('c', 1*time.Millisecond)
-	assert.Nil(t, err, "no error when multiple writes in goroutine")
-	assert.Equal(t, "abc", val, "read joins output from multiple writes in goroutine")
-	assert.Equal(t, "def", stdout.ReadNow(), "remaining string after ReadUntil returned by ReadNow")
+	require.Nil(t, err, "no error when multiple writes in goroutine")
+	require.Equal(t, "abc", val, "read joins output from multiple writes in goroutine")
+	require.Equal(t, "def", stdout.ReadNow(), "remaining string after ReadUntil returned by ReadNow")
 
 	go (func(w io.Writer) {
 		io.WriteString(w, "ab")
@@ -62,18 +62,18 @@ func TestStdout(t *testing.T) {
 
 	<-wait
 	val, err = stdout.ReadUntil('d', 1*time.Millisecond)
-	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
-	assert.Equal(t, "ab", val, "returns content written before timeout")
+	require.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
+	require.Equal(t, "ab", val, "returns content written before timeout")
 
 	wait <- struct{}{}
 	<-wait
-	assert.Equal(t, "cd", stdout.ReadNow(), "continues normally after timeout")
+	require.Equal(t, "cd", stdout.ReadNow(), "continues normally after timeout")
 
 	go func() {
 		val, err = stdout.ReadUntil('b', 50*time.Millisecond)
 		// This is a test of data races, the assertions are not very important.
-		assert.Equal(t, err, io.EOF)
-		assert.Equal(t, 50, len(val))
+		require.Equal(t, err, io.EOF)
+		require.Equal(t, 50, len(val))
 		wait <- struct{}{}
 	}()
 	for i := 0; i < 50; i++ {
@@ -94,15 +94,15 @@ func TestStdout(t *testing.T) {
 		<-wait
 		for _, b := range bytes {
 			_, err = stdout.ReadUntil(b, 10*time.Millisecond)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 	}
 
 	stdout.ShouldError(io.ErrClosedPipe)
 	_, err = stdout.Write([]byte{','})
-	assert.Error(t, err, "next error on write")
+	require.Error(t, err, "next error on write")
 	_, err = stdout.Write([]byte{':'})
-	assert.NoError(t, err, "next error is consumed")
+	require.NoError(t, err, "next error is consumed")
 }
 
 func TestTiming(t *testing.T) {
@@ -129,14 +129,14 @@ func TestTiming(t *testing.T) {
 
 	wait <- struct{}{}
 	val, err := stdout.ReadUntil('i', 10*time.Second)
-	assert.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
-	assert.Equal(t, "abcdef", val, "returns content written before timeout")
+	require.Equal(t, io.EOF, err, "EOF when delimiter write does not happen within timeout")
+	require.Equal(t, "abcdef", val, "returns content written before timeout")
 
 	val, err = stdout.ReadUntil('j', 8*time.Second)
-	assert.Equal(t, "ghij", val, "returns only content up to delimiter")
-	assert.NoError(t, err, "if delimiter is written within timeout")
+	require.Equal(t, "ghij", val, "returns only content up to delimiter")
+	require.NoError(t, err, "if delimiter is written within timeout")
 	<-wait
-	assert.Equal(t, "klmnop", stdout.ReadNow(), "subsequent readnow returns content after timeout")
+	require.Equal(t, "klmnop", stdout.ReadNow(), "subsequent readnow returns content after timeout")
 }
 
 func TestWaiting(t *testing.T) {
@@ -148,9 +148,9 @@ func TestWaiting(t *testing.T) {
 
 	io.WriteString(stdout, "123")
 	_, err := stdout.ReadUntil('3', time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.False(t, stdout.WaitForWrite(time.Second),
+	require.False(t, stdout.WaitForWrite(time.Second),
 		"wait when buffer is empty")
 
 	wait := make(chan struct{})
@@ -164,17 +164,17 @@ func TestWaiting(t *testing.T) {
 	})(stdout)
 
 	wait <- struct{}{}
-	assert.True(t, stdout.WaitForWrite(time.Second),
+	require.True(t, stdout.WaitForWrite(time.Second),
 		"wait when buffer is not empty")
-	assert.True(t, stdout.WaitForWrite(time.Second),
+	require.True(t, stdout.WaitForWrite(time.Second),
 		"wait when buffer is still not empty")
 
 	stdout.ReadNow()
 	wait <- struct{}{}
-	assert.False(t, stdout.WaitForWrite(time.Second),
+	require.False(t, stdout.WaitForWrite(time.Second),
 		"wait after buffer is emptied")
 
-	assert.True(t, stdout.WaitForWrite(6*time.Second),
+	require.True(t, stdout.WaitForWrite(6*time.Second),
 		"write before timeout expires")
 }
 
@@ -208,29 +208,29 @@ func TestStdin(t *testing.T) {
 
 	request <- 1
 	r, ok := resultOrTimeout(time.Millisecond)
-	assert.False(t, ok, "read should not return when nothing has been written")
+	require.False(t, ok, "read should not return when nothing has been written")
 
 	stdin.WriteString("")
 	r, ok = resultOrTimeout(time.Second)
-	assert.True(t, ok, "read returns empty string if written")
-	assert.Equal(t, readResult{"", nil}, r, "read returns empty string if written")
+	require.True(t, ok, "read returns empty string if written")
+	require.Equal(t, readResult{"", nil}, r, "read returns empty string if written")
 
 	stdin.WriteString("test")
 	request <- 2
 	r, ok = resultOrTimeout(time.Second)
-	assert.True(t, ok, "read should not time out when content is available")
-	assert.Equal(t, readResult{"te", nil}, r, "read returns only requested content when more is available")
+	require.True(t, ok, "read should not time out when content is available")
+	require.Equal(t, readResult{"te", nil}, r, "read returns only requested content when more is available")
 
 	request <- 2
 	r, ok = resultOrTimeout(time.Second)
-	assert.True(t, ok, "read should not time out when content is available")
-	assert.Equal(t, readResult{"st", nil}, r, "read returns leftover on subsequent call")
+	require.True(t, ok, "read should not time out when content is available")
+	require.Equal(t, readResult{"st", nil}, r, "read returns leftover on subsequent call")
 
 	stdin.WriteString("abcd")
 	request <- 10
 	r, ok = resultOrTimeout(time.Second)
-	assert.True(t, ok, "read should not time out when returning partial content")
-	assert.Equal(t, readResult{"abcd", nil}, r, "read returns partial content if available")
+	require.True(t, ok, "read should not time out when returning partial content")
+	require.Equal(t, readResult{"abcd", nil}, r, "read returns partial content if available")
 
 	stdin.WriteString("12")
 	stdin.WriteString("34")
@@ -238,41 +238,41 @@ func TestStdin(t *testing.T) {
 	stdin.WriteString("78")
 	request <- 8
 	r, ok = resultOrTimeout(time.Second)
-	assert.True(t, ok, "read should not time out when concatenating")
-	assert.Equal(t, readResult{"12345678", nil}, r, "read returns concatenation of multiple writes")
+	require.True(t, ok, "read should not time out when concatenating")
+	require.Equal(t, readResult{"12345678", nil}, r, "read returns concatenation of multiple writes")
 
 	request <- 4
 	r, ok = resultOrTimeout(time.Millisecond)
-	assert.False(t, ok, "read should wait for a write when buffer has been emptied")
+	require.False(t, ok, "read should wait for a write when buffer has been emptied")
 
 	stdin.Write([]byte("xyz"))
 	stdin.Write([]byte("abc"))
 	r, ok = resultOrTimeout(time.Second)
-	assert.True(t, ok, "read does not time out when returning partial content")
-	assert.Equal(t, readResult{"xyz", nil}, r, "read returns contents of first write (does not wait)")
+	require.True(t, ok, "read does not time out when returning partial content")
+	require.Equal(t, readResult{"xyz", nil}, r, "read returns contents of first write (does not wait)")
 
 	request <- 1
 	r = <-result
-	assert.Equal(t, readResult{"a", nil}, r, "remaining writes are read by later requests")
+	require.Equal(t, readResult{"a", nil}, r, "remaining writes are read by later requests")
 
 	request <- 10
 	r = <-result
-	assert.Equal(t, readResult{"bc", nil}, r, "remaining writes are read by later requests")
+	require.Equal(t, readResult{"bc", nil}, r, "remaining writes are read by later requests")
 
 	stdin.WriteString("foo")
 	stdin.ShouldError(io.ErrClosedPipe)
 	request <- 3
 	r = <-result
-	assert.Error(t, r.err, "next error on read")
+	require.Error(t, r.err, "next error on read")
 	request <- 3
 	r = <-result
-	assert.NoError(t, r.err, "next error is consumed")
-	assert.Equal(t, "foo", r.contents)
+	require.NoError(t, r.err, "next error is consumed")
+	require.Equal(t, "foo", r.contents)
 
 	request <- 4
 	// Give request some time to block.
 	time.Sleep(10 * time.Millisecond)
 	stdin.ShouldError(io.ErrShortBuffer)
 	r = <-result
-	assert.Error(t, r.err, "ShouldError when Read is blocked")
+	require.Error(t, r.err, "ShouldError when Read is blocked")
 }
