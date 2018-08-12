@@ -55,6 +55,7 @@ func TestModuleSet(t *testing.T) {
 	for _, tm := range tms {
 		tm.AssertStarted("on moduleset stream")
 	}
+	require.Equal(t, 3, ms.Len())
 
 	tms[1].OutputText("foo")
 	require.Equal(t, 1, nextUpdate(t, updateCh, "on output"),

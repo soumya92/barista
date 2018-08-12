@@ -63,6 +63,10 @@ func (m *ModuleSet) Click(idx int, e bar.Event) {
 	m.modules[idx].Click(e)
 }
 
+func (m *ModuleSet) Len() int {
+	return len(m.modules)
+}
+
 func (m *ModuleSet) LastOutput(idx int) bar.Segments {
 	m.outputsMu.RLock()
 	defer m.outputsMu.RUnlock()
