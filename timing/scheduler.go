@@ -55,7 +55,9 @@ func NewScheduler() Scheduler {
 	s := &scheduler{notifyFn: fn, notifyCh: ch}
 	l.Attach(s, ch, "")
 	if testMode {
-		return &testScheduler{scheduler: s}
+		t := &testScheduler{scheduler: s}
+		l.Attach(t, s, "")
+		return t
 	}
 	return s
 }
