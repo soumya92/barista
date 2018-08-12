@@ -40,26 +40,20 @@ type Assertions struct {
 // AssertEqual asserts that the actual output contains exactly the
 // same segments as the expected output.
 func (a Assertions) AssertEqual(expected bar.Output, args ...interface{}) {
-	if !a.Expect(args...) {
-		return
-	}
+	a.Expect(args...)
 	a.require.Equal(expected.Segments(), a.output.Segments(), args...)
 }
 
 // AssertEmpty asserts that the actual output has no segments.
 func (a Assertions) AssertEmpty(args ...interface{}) {
-	if !a.Expect(args...) {
-		return
-	}
+	a.Expect(args...)
 	a.require.Empty(a.output.Segments(), args...)
 }
 
 // AssertText asserts that the text of each segment matches the
 // expected value.
 func (a Assertions) AssertText(expected []string, args ...interface{}) {
-	if !a.Expect(args...) {
-		return
-	}
+	a.Expect(args...)
 	segments := a.output.Segments()
 	actual := make([]string, len(segments))
 	for i, s := range segments {
@@ -71,9 +65,7 @@ func (a Assertions) AssertText(expected []string, args ...interface{}) {
 // AssertError asserts that each segment in the output is an error,
 // and returns a slice containing the error descriptions.
 func (a Assertions) AssertError(args ...interface{}) []string {
-	if !a.Expect(args...) {
-		return nil
-	}
+	a.Expect(args...)
 	segments := a.output.Segments()
 	if len(segments) == 0 {
 		a.require.Fail("Expected error, got no output", args...)
@@ -87,21 +79,17 @@ func (a Assertions) AssertError(args ...interface{}) []string {
 }
 
 // Expect asserts that the output is not nil. Used in a chain, e.g.
-// testBar.LatestOutput().Expect("expected an output")
-func (a Assertions) Expect(args ...interface{}) bool {
+// testBar.NextOutput().Expect("expected an output")
+func (a Assertions) Expect(args ...interface{}) {
 	if a.output == nil {
 		a.require.Fail("Expected an output, got nil", args...)
-		return false
 	}
-	return true
 }
 
 // At creates segment assertions for the segment at position i.
 // It fails the test if there are not enough segments.
 func (a Assertions) At(i int) SegmentAssertions {
-	if !a.Expect() {
-		return SegmentAssertions{require: a.require}
-	}
+	a.Expect()
 	segments := a.output.Segments()
 	if i >= len(segments) {
 		a.require.Fail("Not enough segments",
@@ -113,9 +101,7 @@ func (a Assertions) At(i int) SegmentAssertions {
 
 // Len returns the number of segments in the actual output.
 func (a Assertions) Len() int {
-	if !a.Expect() {
-		return 0
-	}
+	a.Expect()
 	return len(a.output.Segments())
 }
 
@@ -161,7 +147,9 @@ func (a SegmentAssertions) AssertError(args ...interface{}) string {
 	}
 	err := a.segment.GetError()
 	if err == nil {
-		a.require.Fail("expected an error", args...)
+		a.require.Fail(
+			"expected an error, got '"+a.segment.Text()+"'",
+			args...)
 		return ""
 	}
 	return err.Error()

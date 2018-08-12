@@ -34,7 +34,7 @@ func (e empty) Segments() []*bar.Segment {
 func TestAssertions(t *testing.T) {
 	a := New(t, outputs.Text("a"))
 	a.AssertEqual(bar.TextSegment("a"), "same output")
-	require.True(t, a.Expect("should pass"))
+	a.Expect("should pass")
 	a.AssertText([]string{"a"}, "text")
 	// or another way:
 	a.At(0).AssertText("a")
@@ -48,7 +48,7 @@ func TestAssertions(t *testing.T) {
 	a.AssertText([]string{"a", "b", "c"}, "multiple segments")
 
 	a = New(t, outputs.Errorf("something"))
-	require.True(t, a.Expect("should pass"))
+	a.Expect("should pass")
 	errs := a.AssertError("with error output")
 	require.Equal(t, []string{"something"}, errs, "error descriptions")
 
@@ -61,7 +61,7 @@ func TestAssertions(t *testing.T) {
 		"error descriptions with multiple segments")
 
 	a = New(t, empty{})
-	require.True(t, a.Expect("should pass"))
+	a.Expect("should pass")
 	a.AssertEmpty("empty output")
 	require.Equal(t, 0, a.Len())
 }
