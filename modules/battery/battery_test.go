@@ -318,7 +318,7 @@ func TestCombined(t *testing.T) {
 
 	// Total capacity: 150Wh, currently available: 25Wh + 20Wh + 25Wh = 70Wh.
 	// Net to be charged: 80Wh, net charge rate: 10W - 5W =  5W.
-	testBar.LatestOutput().AssertText([]string{
+	testBar.NextOutput().AssertText([]string{
 		"Charging - 46/16h0m0s"}, "on start")
 
 	bat0["STATUS"] = "Discharging"
@@ -327,7 +327,7 @@ func TestCombined(t *testing.T) {
 	testBar.Tick()
 
 	// Available: 70Wh, net discharge rate: 10W + 10W = 20W.
-	testBar.LatestOutput().AssertText([]string{
+	testBar.NextOutput().AssertText([]string{
 		"Discharging - 46/3h30m0s"})
 
 	bat0["ENERGY_NOW"] = 30 * micros
@@ -339,7 +339,7 @@ func TestCombined(t *testing.T) {
 
 	// Available: 75Wh, Total: 150Wh.
 	// To charge: 75Wh, net charge rate: 25W - 10W = 15W.
-	testBar.LatestOutput().AssertText([]string{
+	testBar.NextOutput().AssertText([]string{
 		"Charging - 50/5h0m0s"})
 
 	bat0["STATUS"] = "Charging"
@@ -349,6 +349,6 @@ func TestCombined(t *testing.T) {
 
 	// Available: 75Wh, Total: 150Wh.
 	// Net discharge rate: 25W - 10W = 15W.
-	testBar.LatestOutput().AssertText([]string{
+	testBar.NextOutput().AssertText([]string{
 		"Discharging - 50/5h0m0s"})
 }

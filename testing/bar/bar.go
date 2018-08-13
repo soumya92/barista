@@ -17,31 +17,26 @@
 package bar
 
 import (
-	"encoding/json"
-	"errors"
-	"io"
 	"sync/atomic"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/colors"
-	"github.com/soumya92/barista/testing/mockio"
+	"github.com/soumya92/barista/core"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/testing/output"
 	"github.com/soumya92/barista/timing"
 )
 
-// TestBar represents a "test" barista instance that runs on mockio streams.
-// It provides methods to collect the output from any modules added to it.
+// TestBar represents a minimal wrapper around core.ModuleSet that
+// simulates a bar for testing purposes.
 type TestBar struct {
 	require.TestingT
-	stdin        *mockio.Readable
-	stdout       *mockio.Writable
-	eventEncoder *json.Encoder
-	segmentIDs   []segmentID
-	nagbars      chan string
+	moduleSet  *core.ModuleSet
+	segmentIDs []segmentID
+	outputs    chan testOutput
 }
 
 var instance atomic.Value // of TestBar
@@ -52,28 +47,40 @@ var instance atomic.Value // of TestBar
 func New(t require.TestingT) {
 	b := &TestBar{
 		TestingT: t,
-		stdin:    mockio.Stdin(),
-		stdout:   mockio.Stdout(),
-		nagbars:  make(chan string, 10),
+		outputs:  make(chan testOutput, 10),
 	}
-	b.eventEncoder = json.NewEncoder(b.stdin)
 	instance.Store(b)
-	barista.TestMode(b.stdin, b.stdout)
-	barista.SetErrorHandler(func(e bar.ErrorEvent) {
-		b.nagbars <- e.Error.Error()
-	})
 	timing.TestMode()
+}
+
+func debugOut(segments bar.Segments) (texts []string) {
+	for _, s := range segments {
+		texts = append(texts, s.Text())
+	}
+	return texts
 }
 
 // Run starts the TestBar with the given modules.
 func Run(m ...bar.Module) {
-	go barista.Run(m...)
 	b := instance.Load().(*TestBar)
-	// consume header and opening '['
-	b.stdout.ReadUntil('}', time.Second)
-	b.stdout.ReadUntil('[', time.Second)
-	// Start the event stream
-	b.stdin.WriteString("[")
+	b.moduleSet = core.NewModuleSet(m)
+	go func(b *TestBar) {
+		for updated := range b.moduleSet.Stream() {
+			segments := make(bar.Segments, 0)
+			ids := make([]segmentID, 0)
+			out := b.moduleSet.LastOutputs()
+			for index, mod := range out {
+				for _, seg := range mod {
+					segments = append(segments, seg)
+					id, _ := seg.GetID()
+					ids = append(ids, segmentID{index, id})
+				}
+			}
+			l.Fine("%s new output (by %d): %v",
+				l.ID(b.moduleSet), updated, debugOut(out[updated]))
+			b.outputs <- testOutput{segments, ids, updated}
+		}
+	}(b)
 }
 
 // Time to wait for events that are expected. Overridden in tests.
@@ -82,143 +89,91 @@ var positiveTimeout = time.Second
 // Time to wait for events that are not expected.
 var negativeTimeout = 10 * time.Millisecond
 
-// Time to wait when repeatedly polling output stream before
-// assuming the stream is finished.
-var pollingTimeout = 20 * time.Millisecond
-
-func (t *TestBar) readJSONOutput(timeout time.Duration) (out string, err error) {
-	out, err = t.stdout.ReadUntil(']', timeout)
-	if err != nil {
-		return
-	}
-	_, err = t.stdout.ReadUntil(',', timeout)
-	t.stdout.ReadUntil('\n', timeout)
-	return
+// segmentID stores the module index and segment identifier,
+// which together identify a segment when dispatching events.
+type segmentID struct {
+	index      int
+	identifier string
 }
 
-// segmentID stores the 'name' and 'instance', which together identify
-// a segment when dispatching events.
-type segmentID struct{ name, instance string }
-
-// outputFromSegments creates a bar.Output from a slice of bar.Segments.
-type outputFromSegments []*bar.Segment
-
-func (o outputFromSegments) Segments() []*bar.Segment {
-	return o
-}
-
-func parseOutput(jsonStr string) (ids []segmentID, output bar.Output, err error) {
-	var jsonOutputs []map[string]interface{}
-	err = json.Unmarshal([]byte(jsonStr), &jsonOutputs)
-	if err != nil {
-		return
-	}
-	var segments []*bar.Segment
-	for _, i3map := range jsonOutputs {
-		var sID segmentID
-		var s *bar.Segment
-		sID.name = i3map["name"].(string)
-		text := i3map["full_text"].(string)
-		if markup, ok := i3map["markup"]; ok && markup.(string) == "pango" {
-			s = bar.PangoSegment(text)
-		} else {
-			s = bar.TextSegment(text)
-		}
-		if shortText, ok := i3map["short_text"]; ok {
-			s.ShortText(shortText.(string))
-		}
-		if err, ok := i3map["error"]; ok {
-			s.Error(errors.New(err.(string)))
-		}
-		if color, ok := i3map["color"]; ok {
-			s.Color(colors.Hex(color.(string)))
-		}
-		if background, ok := i3map["background"]; ok {
-			s.Background(colors.Hex(background.(string)))
-		}
-		if border, ok := i3map["border"]; ok {
-			s.Border(colors.Hex(border.(string)))
-		}
-		if minWidth, ok := i3map["min_width"]; ok {
-			switch w := minWidth.(type) {
-			case float64:
-				s.MinWidth(int(w))
-			case string:
-				s.MinWidthPlaceholder(w)
-			}
-		}
-		if align, ok := i3map["align"]; ok {
-			s.Align(bar.TextAlignment(align.(string)))
-		}
-		if id, ok := i3map["instance"]; ok {
-			sID.instance = id.(string)
-			s.Identifier(id.(string))
-		}
-		if urgent, ok := i3map["urgent"]; ok {
-			s.Urgent(urgent.(bool))
-		}
-		if sep, ok := i3map["separator"]; ok {
-			s.Separator(sep.(bool))
-		}
-		if padding, ok := i3map["separator_block_width"]; ok {
-			s.Padding(int(padding.(float64)))
-		}
-		ids = append(ids, sID)
-		segments = append(segments, s)
-	}
-	output = outputFromSegments(segments)
-	return
+// testOutput groups related information about the latest output.
+type testOutput struct {
+	segments bar.Segments
+	ids      []segmentID
+	updated  int
 }
 
 // AssertNoOutput asserts that the bar did not output anything.
 func AssertNoOutput(args ...interface{}) {
 	t := instance.Load().(*TestBar)
-	if t.stdout.WaitForWrite(negativeTimeout) {
+	select {
+	case <-t.outputs:
 		require.Fail(t, "Expected no output", args...)
+	case <-time.After(negativeTimeout):
+		// test passed.
 	}
 }
 
 // NextOutput returns output assertions for the next output by the bar.
 func NextOutput() output.Assertions {
 	t := instance.Load().(*TestBar)
-	json, err := t.readJSONOutput(positiveTimeout)
-	if err != nil {
-		require.Fail(t, "Error in next output", "Failed to read: %s", err)
-		return output.New(t, nil)
+	var segments bar.Segments
+	select {
+	case out := <-t.outputs:
+		t.segmentIDs = out.ids
+		segments = out.segments
+	case <-time.After(positiveTimeout):
+		require.Fail(t, "Expected an output, got none")
 	}
-	var out bar.Output
-	t.segmentIDs, out, err = parseOutput(json)
-	if err != nil {
-		require.Fail(t, "Error in next output", "Failed to parse: %s", err)
-	}
-	return output.New(t, out)
+	return output.New(t, segments)
 }
 
-// LatestOutput drains any buffered outputs from the bar, and returns
-// output assertions for the last output.
-func LatestOutput() output.Assertions {
+// LatestOutput waits for an output from each of the module indices
+// provided, and returns output assertions for the latest output.
+// If no indices are provided, it waits for outputs from all modules.
+// To wait for any module instead, use NextOutput().
+func LatestOutput(indices ...int) output.Assertions {
+	deadline := time.After(positiveTimeout)
+	updated := map[int]bool{}
 	t := instance.Load().(*TestBar)
-	var json string
-	var err error
-	for err == nil {
-		var out string
-		out, err = t.readJSONOutput(pollingTimeout)
-		if err == nil {
-			json = out
+	if len(indices) == 0 {
+		for i := 0; i < t.moduleSet.Len(); i++ {
+			indices = append(indices, i)
 		}
 	}
-	if err != io.EOF {
-		// This should never happen, since mockio is backed by a bytes.Buffer,
-		// which can only return nil or EOF errors on read.
-		require.Fail(t, "Error in latest output", "Failed to read: %s", err)
-		return output.New(t, nil)
+	l.Fine("%s waiting for output from modules %v", l.ID(t.moduleSet), indices)
+	var segments bar.Segments
+	for segments == nil {
+		select {
+		case out := <-t.outputs:
+			updated[out.updated] = true
+			if hasAllUpdates(updated, indices) {
+				t.segmentIDs = out.ids
+				segments = out.segments
+				l.Fine("%s got output from %v: %v",
+					l.ID(t.moduleSet), indices, debugOut(segments))
+			}
+		case <-deadline:
+			missing := []int{}
+			for _, i := range indices {
+				if !updated[i] {
+					missing = append(missing, i)
+				}
+			}
+			require.Fail(t, "Did not receive expected updates",
+				"modules %v did not update", missing)
+		}
 	}
-	var out bar.Output
-	t.segmentIDs, out, err = parseOutput(json)
-	if err != nil {
-		require.Fail(t, "Error in latest output", "Failed to parse: %s", err)
+	return output.New(t, segments)
+}
+
+func hasAllUpdates(updated map[int]bool, indices []int) bool {
+	for _, i := range indices {
+		if !updated[i] {
+			return false
+		}
 	}
-	return output.New(t, out)
+	return true
 }
 
 // SendEvent sends a bar.Event to the segment at position i.
@@ -233,15 +188,8 @@ func SendEvent(i int, e bar.Event) {
 			i, len(t.segmentIDs))
 		return
 	}
-	e.SegmentID = t.segmentIDs[i].instance
-	t.eventEncoder.Encode(struct {
-		bar.Event
-		Name string `json:"name"`
-	}{
-		Event: e,
-		Name:  t.segmentIDs[i].name,
-	})
-	t.stdin.WriteString(",\n")
+	e.SegmentID = t.segmentIDs[i].identifier
+	t.moduleSet.Click(t.segmentIDs[i].index, e)
 }
 
 // Click sends a left click to the segment at position i.
@@ -249,10 +197,13 @@ func Click(i int) {
 	SendEvent(i, bar.Event{Button: bar.ButtonLeft})
 }
 
-// RightClick sends a right click event to the segment at position i.
-// This triggers the nagbar for output segments with an error.
-func RightClick(i int) {
-	SendEvent(i, bar.Event{Button: bar.ButtonRight})
+// Restart sends a left click and consumes the next output, with the
+// assumption that the module at the given index has finished. Since
+// restarting a module always causes an update, a single method to
+// restart and swallow the update makes test code cleaner.
+func RestartModule(i int) {
+	Click(i)
+	LatestOutput(i).Expect("on restart")
 }
 
 // Tick calls timing.NextTick() under the covers, allowing
@@ -262,16 +213,27 @@ func Tick() time.Time {
 	return timing.NextTick()
 }
 
-// AssertNagbar asserts that the global error handler was triggered.
-// (The default behaviour is to show i3-nagbar). It returns the full
-// text of the error that was used to trigger.
-func AssertNagbar(args ...interface{}) string {
-	t := instance.Load().(*TestBar)
-	select {
-	case e := <-t.nagbars:
-		return e
-	case <-time.After(positiveTimeout):
-		require.Fail(t, "Expected a nagbar error", args...)
+// moduleWithFinishListener wraps a bar.Module with a function that
+// notifies tests that the module is 'finished', i.e. the next click
+// will restart it. This is useful for some synchronisations that are
+// otherwise really hard to implement.
+type moduleWithFinishListener struct {
+	bar.Module
+	finished func()
+}
+
+func (m *moduleWithFinishListener) ModuleFinished() {
+	if f, ok := m.Module.(core.ModuleFinishListener); ok {
+		f.ModuleFinished()
 	}
-	return ""
+	m.finished()
+}
+
+// AddFinshListener takes a bar.Module and adds a channel that will
+// signal when the module finishes, used for synchronisation in tests.
+func AddFinishListener(m bar.Module) (bar.Module, <-chan struct{}) {
+	r := &moduleWithFinishListener{Module: m}
+	var notifyCh <-chan struct{}
+	r.finished, notifyCh = notifier.New()
+	return r, notifyCh
 }

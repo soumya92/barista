@@ -56,13 +56,13 @@ func TestWeather(t *testing.T) {
 	w := New(p)
 	testBar.Run(w)
 
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().AssertText(
 		[]string{"22.2℃ chance of meatballs (FLDSMDFR)"}, "on start")
 	require.True(true)
 
 	require.NotPanics(func() { testBar.Click(0) })
 	testBar.Tick()
-	testBar.LatestOutput().Expect("on tick")
+	testBar.NextOutput().Expect("on tick")
 
 	clickedWeathers := make(chan Weather)
 	w.OnClick(func(w Weather, e bar.Event) {
@@ -80,7 +80,7 @@ func TestWeather(t *testing.T) {
 	p.Unlock()
 
 	testBar.Tick()
-	testBar.LatestOutput().Expect("on tick")
+	testBar.NextOutput().Expect("on tick")
 	testBar.Click(0)
 
 	select {
@@ -91,7 +91,7 @@ func TestWeather(t *testing.T) {
 	}
 
 	w.Template(`{{.Temperature.Fahrenheit | printf "%.0f"}}, by {{.Attribution}}`)
-	testBar.LatestOutput().AssertText([]string{
+	testBar.NextOutput().AssertText([]string{
 		"72, by FLDSMDFR"}, "on template change")
 
 	p.Lock()
@@ -109,7 +109,7 @@ func TestWeather(t *testing.T) {
 	p.Unlock()
 
 	testBar.Tick()
-	testBar.LatestOutput().AssertError("on tick with error")
+	testBar.NextOutput().AssertError("on tick with error")
 	testBar.Click(0)
 	select {
 	case <-clickedWeathers:

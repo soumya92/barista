@@ -15,7 +15,6 @@
 package bar
 
 import (
-	"io"
 	"testing"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/testing/fail"
-	"github.com/soumya92/barista/testing/mockio"
 	"github.com/soumya92/barista/testing/module"
 	"github.com/soumya92/barista/timing"
 )
@@ -60,14 +58,14 @@ func TestOutput(t *testing.T) {
 	s.Align(bar.AlignStart)
 
 	m.Output(s)
-	LatestOutput().AssertEqual(s, "complex segment")
+	NextOutput().AssertEqual(s, "complex segment")
 
 	s.MinWidth(150)
 	m.Output(s)
 	require.Equal(t, s, NextOutput().At(0).Segment())
 
 	m.OutputText("baz")
-	LatestOutput().Expect("when output")
+	NextOutput().Expect("when output")
 
 	m.Output(nil)
 	NextOutput().AssertEmpty("on empty output")
@@ -103,7 +101,7 @@ func TestEvents(t *testing.T) {
 		outputs.Text("b").Identifier("bar"),
 		outputs.Text("c").Identifier("baz"),
 	))
-	LatestOutput().Expect("on update")
+	LatestOutput(0, 1).Expect("on update")
 	Click(0)
 	m1.AssertNotClicked("when module has no output")
 	evt := m2.AssertClicked("events based on output positions")
@@ -130,13 +128,7 @@ func TestRestartingModule(t *testing.T) {
 	require.Panics(t, func() { m.OutputText("bar") },
 		"module is not streaming")
 
-	// Died with an error, so right click will nag,
-	RightClick(0)
-	m.AssertNotStarted("on right click with error")
-	err := AssertNagbar("on right click with error")
-	require.Equal(t, "something went wrong", err)
-
-	// but left click will restart,
+	// Exited with an error, so left click will restart,
 	Click(0)
 	// and clear the error'd segment.
 	NextOutput().AssertText([]string{})
@@ -145,6 +137,40 @@ func TestRestartingModule(t *testing.T) {
 	require.NotPanics(t, func() { m.OutputText("baz") },
 		"module has restarted")
 	NextOutput().AssertText([]string{"baz"})
+}
+
+func TestFinishListener(t *testing.T) {
+	New(t)
+	actual := module.New(t)
+	m, listener := AddFinishListener(actual)
+	Run(m)
+	select {
+	case <-listener:
+		require.Fail(t, "FinishListener spuriously notified")
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	actual.AssertStarted()
+	actual.Output(outputs.Text("foo"))
+	NextOutput().AssertText([]string{"foo"})
+
+	actual.Close()
+	select {
+	case <-listener:
+		// test passed.
+	case <-time.After(time.Second):
+		require.Fail(t, "FinishListener not notified")
+	}
+
+	Click(0)
+	NextOutput().AssertText([]string{"foo"})
+
+	actual.AssertStarted()
+	select {
+	case <-listener:
+		require.Fail(t, "FinishListener spuriously notified")
+	case <-time.After(10 * time.Millisecond):
+	}
 }
 
 func TestSegment(t *testing.T) {
@@ -159,7 +185,7 @@ func TestSegment(t *testing.T) {
 		outputs.Errorf("oops"),
 	))
 
-	out := LatestOutput()
+	out := NextOutput()
 	out.At(0).AssertText("a")
 	out.At(1).AssertEqual(bar.TextSegment("b"))
 	errStr := out.At(2).AssertError()
@@ -167,7 +193,7 @@ func TestSegment(t *testing.T) {
 
 	s := bar.PangoSegment("<b>bold</b>").Urgent(true)
 	m.Output(s)
-	require.Equal(t, s, LatestOutput().At(0).Segment())
+	require.Equal(t, s, NextOutput().At(0).Segment())
 }
 
 func TestTick(t *testing.T) {
@@ -198,10 +224,6 @@ func assertFails(t *testing.T, testFunc func(*module.TestModule), args ...interf
 	}, args...)
 }
 
-func stdout() *mockio.Writable {
-	return instance.Load().(*TestBar).stdout
-}
-
 func TestNoOutput(t *testing.T) {
 	assertFails(t, func(m *module.TestModule) {
 		m.OutputText("test")
@@ -216,16 +238,11 @@ func TestEventError(t *testing.T) {
 	}, "Clicking on segment out of range")
 }
 
-func TestOutputParsingErrors(t *testing.T) {
+func TestRestartingFailure(t *testing.T) {
 	assertFails(t, func(m *module.TestModule) {
-		stdout().Write([]byte("[{x}],\n"))
-		NextOutput().Expect("should fail")
-	}, "Next output with non-json")
-
-	assertFails(t, func(m *module.TestModule) {
-		stdout().Write([]byte("foo}],\n"))
-		LatestOutput().Expect("should fail")
-	}, "Next output with non-json")
+		m.OutputText("foobar")
+		RestartModule(0)
+	})
 }
 
 func TestOutputErrors(t *testing.T) {
@@ -234,50 +251,37 @@ func TestOutputErrors(t *testing.T) {
 	}, "Next output when nothing updates")
 
 	assertFails(t, func(m *module.TestModule) {
-		LatestOutput().AssertText([]string{"abcd"})
+		LatestOutput(0).AssertText([]string{"abcd"})
 	}, "Latest output when nothing updates")
 
 	assertFails(t, func(m *module.TestModule) {
 		m.OutputText("abcd")
-		LatestOutput().AssertText([]string{"efgh"})
-	}, "Latest output with wrong text value")
+		LatestOutput(1).AssertText([]string{"abcd"})
+	}, "Latest output for different index")
 
 	assertFails(t, func(m *module.TestModule) {
 		m.OutputText("abcd")
-		stdout().ShouldError(io.ErrNoProgress)
-		LatestOutput().AssertText([]string{"abcd"})
-	}, "Output when stdout write fails")
+		NextOutput().AssertText([]string{"efgh"})
+	}, "Output with wrong text value")
 
 	assertFails(t, func(m *module.TestModule) {
-		m.OutputText("abcd")
-		stdout().ShouldError(io.ErrNoProgress)
-		LatestOutput().Expect("an output")
-	}, "Output when stdout write fails")
-
-	assertFails(t, func(m *module.TestModule) {
-		LatestOutput().AssertError()
+		NextOutput().AssertError()
 	}, "Asserting error without any output")
 
 	assertFails(t, func(m *module.TestModule) {
 		m.OutputText("1234")
-		LatestOutput().AssertError()
+		NextOutput().AssertError()
 	}, "Asserting error with non-error output")
 
 	assertFails(t, func(m *module.TestModule) {
 		m.Output(nil)
-		LatestOutput().AssertError()
+		NextOutput().AssertError()
 	}, "Asserting error with empty output")
 
 	assertFails(t, func(m *module.TestModule) {
 		m.OutputText("5678")
-		LatestOutput().AssertEmpty()
+		NextOutput().AssertEmpty()
 	}, "Asserting empty with non-empty output")
-
-	assertFails(t, func(m *module.TestModule) {
-		m.OutputText("abcd")
-		stdout().ShouldError(io.ErrNoProgress)
-		LatestOutput().AssertEmpty()
-	}, "AssertEmpty when stdout write fails")
 }
 
 func TestSegmentErrors(t *testing.T) {
@@ -291,39 +295,23 @@ func TestSegmentErrors(t *testing.T) {
 	}, "Next output segment without any output")
 
 	assertFails(t, func(m *module.TestModule) {
-		LatestOutput().At(0).AssertText("abcd")
+		LatestOutput(0).At(0).AssertText("abcd")
 	}, "Latest output segment when nothing updates")
 
 	assertFails(t, func(m *module.TestModule) {
-		m.OutputText("abcd")
-		stdout().ShouldError(io.ErrNoProgress)
-		LatestOutput().At(0).AssertText("abcd")
-	}, "Segment when stdout write fails")
-
-	assertFails(t, func(m *module.TestModule) {
-		LatestOutput().At(0).AssertError()
+		NextOutput().At(0).AssertError()
 	}, "Asserting error without any output")
 
 	assertFails(t, func(m *module.TestModule) {
 		m.OutputText("1234")
-		LatestOutput().At(0).AssertError()
+		NextOutput().At(0).AssertError()
 	}, "Asserting error with non-error output")
 
-	var seg *bar.Segment
 	assertFails(t, func(m *module.TestModule) {
 		m.Output(outputs.Group(
 			outputs.Text("1234"),
 			outputs.Text("5678"),
 		))
-		seg = LatestOutput().At(2).Segment()
+		NextOutput().At(2).Segment()
 	}, "out of range segment")
-	require.Nil(t, seg, "nil value on out of range segment")
-}
-
-func TestNagbarError(t *testing.T) {
-	assertFails(t, func(m *module.TestModule) {
-		m.OutputText("test")
-		RightClick(0)
-		AssertNagbar("on right-click")
-	}, "Asserting nagbar on non-error segment")
 }

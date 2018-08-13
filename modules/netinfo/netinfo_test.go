@@ -37,11 +37,15 @@ func TestNetinfo(t *testing.T) {
 	testBar.LatestOutput().AssertText([]string{"lo0", "", ""})
 
 	nlt.UpdateLink(link0, netlink.Link{State: netlink.Down})
+	testBar.LatestOutput(0).Expect("on link update")
 	nlt.UpdateLink(link3, netlink.Link{State: netlink.Down})
-	testBar.LatestOutput().AssertText([]string{"No net", "W:down", ""})
+	testBar.LatestOutput(0, 1).AssertText([]string{"No net", "W:down", ""})
 
 	nlt.UpdateLink(link1, netlink.Link{State: netlink.Dormant})
+	testBar.LatestOutput(0, 2).Expect("on link update")
 	nlt.UpdateLink(link2, netlink.Link{State: netlink.Up})
+	testBar.LatestOutput(0, 2).Expect("on link update")
+
 	n1.Template(`{{.State}}`)
-	testBar.LatestOutput().AssertText([]string{"6", "W:down", "E:eth1"})
+	testBar.NextOutput().AssertText([]string{"6", "W:down", "E:eth1"})
 }

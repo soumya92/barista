@@ -68,23 +68,23 @@ func TestSimpleGrouper(t *testing.T) {
 	m1.AssertStarted()
 	m2.AssertStarted()
 
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().AssertText(
 		[]string{"start", "end"}, "buttons are shown immediately")
 
 	m1.OutputText("foo")
 	testBar.AssertNoOutput("when an visible module updates")
 
 	m0.Output(nil)
-	testBar.LatestOutput().AssertText([]string{"start", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "end"})
 
 	m2.OutputText("foo")
-	testBar.LatestOutput().AssertText([]string{"start", "foo", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
 
 	testBar.Click(1)
 	m2.AssertClicked("clicks pass through the group")
 
 	m2.Output(bar.TextSegment("foo").Identifier("with;semicolon"))
-	testBar.LatestOutput().AssertText([]string{"start", "foo", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
 	testBar.Click(1)
 	e := m2.AssertClicked()
 	require.Equal(t, "with;semicolon", e.SegmentID)
@@ -157,13 +157,13 @@ func TestLockableGrouper(t *testing.T) {
 	m0.AssertStarted("On group stream")
 	m1.AssertStarted()
 	m2.AssertStarted()
-	testBar.LatestOutput().AssertText([]string{"start", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "end"})
 	locks, unlocks = g.getCounts()
 	require.Equal(t, 1, locks, "Initial output locks")
 	require.Equal(t, 1, unlocks, "Equal unlock count")
 
 	m0.OutputText("foo")
-	testBar.LatestOutput().AssertText([]string{"start", "foo", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
 	locks, unlocks = g.getCounts()
 	require.Equal(t, 2, locks, "One lock per output")
 	require.Equal(t, 2, unlocks, "Equal unlock count")
@@ -215,22 +215,23 @@ func TestSignallingGrouper(t *testing.T) {
 	m0.AssertStarted("On group stream")
 	m1.AssertStarted()
 	m2.AssertStarted()
+	testBar.NextOutput().AssertText([]string{"start", "end"})
 
 	m0.OutputText("foo")
-	testBar.LatestOutput().AssertText([]string{"start", "foo", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
 
 	m1.OutputText("baz")
 	testBar.AssertNoOutput("when hidden module updates")
 
 	g.notifyCh <- struct{}{}
-	testBar.LatestOutput().AssertText([]string{"start", "foo", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
 
 	m2.OutputText("test")
-	testBar.LatestOutput().AssertText([]string{"start", "foo", "test", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "foo", "test", "end"})
 
 	g.visible = []int{1}
 	g.notifyCh <- struct{}{}
-	testBar.LatestOutput().AssertText([]string{"start", "baz", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "baz", "end"})
 }
 
 type updatingGrouper struct {
@@ -283,10 +284,11 @@ func TestUpdatingGrouper(t *testing.T) {
 	m0.AssertStarted("On group stream")
 	m1.AssertStarted()
 	m2.AssertStarted()
+	testBar.NextOutput().AssertText([]string{"start", "end"})
 
 	m0.OutputText("foo")
 	g.AssertUpdated(t, 0, "updated called when module updates")
-	testBar.LatestOutput().AssertText([]string{"start", "foo", "end"})
+	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
 
 	m1.OutputText("baz")
 	g.AssertUpdated(t, 1, "updated called, even for hidden module")
@@ -295,7 +297,7 @@ func TestUpdatingGrouper(t *testing.T) {
 	m1.OutputText("test")
 	g.visibleCh <- []int{1}
 	g.AssertUpdated(t, 1)
-	testBar.LatestOutput().AssertText([]string{"start", "test", "end"},
+	testBar.NextOutput().AssertText([]string{"start", "test", "end"},
 		"Visibility is computed after update notification")
 
 	testBar.Click(1)

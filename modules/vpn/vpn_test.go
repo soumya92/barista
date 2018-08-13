@@ -30,17 +30,17 @@ func TestVpn(t *testing.T) {
 		`{{if not .Disconnected}}{{if .Connected}}VPN{{else}}...{{end}}{{end}}`)
 	testBar.Run(v)
 
-	testBar.LatestOutput().AssertText([]string{""})
+	testBar.NextOutput().AssertText([]string{""})
 
 	nlt.UpdateLink(link, netlink.Link{Name: "tun0", State: netlink.Dormant})
-	testBar.LatestOutput().AssertText([]string{"..."})
+	testBar.NextOutput().AssertText([]string{"..."})
 
 	nlt.UpdateLink(link, netlink.Link{Name: "tun0", State: netlink.Up})
-	testBar.LatestOutput().AssertText([]string{"VPN"})
+	testBar.NextOutput().AssertText([]string{"VPN"})
 
 	v.Template(`{{if .Disconnected}}NO VPN{{end}}`)
-	testBar.LatestOutput().AssertText([]string{""})
+	testBar.NextOutput().AssertText([]string{""})
 
 	nlt.RemoveLink(link)
-	testBar.LatestOutput().AssertText([]string{"NO VPN"})
+	testBar.NextOutput().AssertText([]string{"NO VPN"})
 }

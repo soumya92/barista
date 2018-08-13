@@ -47,26 +47,27 @@ func shouldReturn(stats diskstats) {
 
 // resetForTest resets diskio's shared state for testing purposes.
 func resetForTest() {
-	once = sync.Once{}
+	fs = afero.NewMemMapFs()
 	modules = nil
 	updater = nil
+	once = sync.Once{}
 }
 
 func TestDiskIo(t *testing.T) {
 	resetForTest()
-	fs = afero.NewMemMapFs()
 	testBar.New(t)
 
 	shouldReturn(diskstats{
 		"sda":  []int{0, 0},
 		"sda1": []int{0, 0},
 	})
+	construct()
 
 	sda1 := New("sda1").Template(`sda1: {{.Total | byterate}}`)
 	sdb1 := New("sdb1").Template(`sdb1: {{.Total | ibyterate}}`)
 	testBar.Run(sda1, sdb1)
 
-	testBar.LatestOutput().AssertEmpty("on start")
+	testBar.LatestOutput(0).Expect("on start")
 
 	shouldReturn(diskstats{
 		"sda":  []int{0, 0},
@@ -75,7 +76,7 @@ func TestDiskIo(t *testing.T) {
 	testBar.Tick()
 
 	// 9+9 sectors / 3 seconds = 6 sectors / second * 512 bytes / sector = 3072 bytes.
-	testBar.LatestOutput().At(0).AssertText("sda1: 3.1 kB/s", "on tick")
+	testBar.LatestOutput(0).At(0).AssertText("sda1: 3.1 kB/s", "on tick")
 
 	// Simpler math.
 	RefreshInterval(time.Second)
@@ -102,9 +103,8 @@ func TestDiskIo(t *testing.T) {
 	sda1.Output(func(i IO) bar.Output {
 		return outputs.Textf("sda1: %.1f", i.Total().KibibytesPerSecond())
 	})
-
-	testBar.LatestOutput().AssertText(
-		[]string{"sda1: 5.0"}, "on tick")
+	testBar.LatestOutput(0).AssertText(
+		[]string{"sda1: 5.0"}, "on output function change")
 
 	shouldReturn(diskstats{
 		"sdb":  []int{0, 0},
@@ -128,15 +128,16 @@ func TestDiskIo(t *testing.T) {
 
 func TestErrors(t *testing.T) {
 	resetForTest()
-	fs = afero.NewMemMapFs()
 	testBar.New(t)
+	construct()
 
 	sda := New("sda")
 	sda1 := New("sda1")
 	sda2 := New("sda2")
 
 	testBar.Run(sda, sda1, sda2)
-	testBar.LatestOutput().AssertError("on start with missing diskstats")
+	testBar.AssertNoOutput("on start with missing diskstats")
+
 	testBar.Tick()
 	testBar.LatestOutput().AssertError("on first tick if missing diskstats")
 

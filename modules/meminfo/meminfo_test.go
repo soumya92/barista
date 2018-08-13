@@ -39,25 +39,42 @@ func shouldReturn(info meminfo) {
 	afero.WriteFile(fs, "/proc/meminfo", out.Bytes(), 0644)
 }
 
+func resetForTest() {
+	currentInfo = base.ErrorValue{}
+	once = sync.Once{}
+	construct()
+	// TODO: Fix by adding Next to Emitter (#40)
+	// Currently required to increase determinism.
+	for {
+		select {
+		case <-currentInfo.Update():
+		default:
+			return
+		}
+	}
+}
+
 func TestMeminfo(t *testing.T) {
 	require := require.New(t)
 	fs = afero.NewMemMapFs()
-	testBar.New(t)
-	currentInfo = base.ErrorValue{}
-	once = sync.Once{}
-
 	shouldReturn(meminfo{
 		"MemAvailable": 2048,
 		"MemTotal":     4096,
 		"MemFree":      1024,
 	})
+	testBar.New(t)
+	resetForTest()
 
 	def := New()
-	avail := New().Template(`{{.Available.Kibibytes}}`)
-	free := New().Template(`{{.FreeFrac "Mem"}}`)
+	avail := New()
+	free := New()
 
 	testBar.Run(def, avail, free)
-	testBar.LatestOutput().AssertText(
+	testBar.LatestOutput().Expect("on start")
+
+	avail.Template(`{{.Available.Kibibytes}}`)
+	free.Template(`{{.FreeFrac "Mem"}}`)
+	testBar.LatestOutput(1, 2).AssertText(
 		[]string{"Mem: 2.0 MiB", "2048", "0.25"}, "on start")
 
 	shouldReturn(meminfo{
@@ -83,7 +100,7 @@ func TestMeminfo(t *testing.T) {
 		[]string{"Mem: 2.0 MiB", "2048", "0.125"}, "on tick")
 
 	def.Template(`{{.Buffers.Mebibytes}}`)
-	testBar.LatestOutput().AssertText(
+	testBar.LatestOutput(0).AssertText(
 		[]string{"0.5", "2048", "0.125"}, "on template change")
 
 	beforeTick := timing.Now()
@@ -91,21 +108,25 @@ func TestMeminfo(t *testing.T) {
 	testBar.Tick()
 	require.Equal(time.Minute, timing.Now().Sub(beforeTick), "RefreshInterval change")
 
-	testBar.LatestOutput().Expect("on refresh interval change")
+	testBar.LatestOutput().Expect("on tick after refresh interval change")
 }
 
 func TestErrors(t *testing.T) {
 	fs = afero.NewMemMapFs()
 	testBar.New(t)
-	currentInfo = base.ErrorValue{}
-	once = sync.Once{}
+	resetForTest()
 
-	availFrac := New().Template(`{{.AvailFrac}}`)
-	free := New().Template(`{{.MemFree | ibytesize}}`)
-	total := New().Template(`{{.MemTotal | bytesize}}`)
+	availFrac := New()
+	free := New()
+	total := New()
 
 	testBar.Run(availFrac, free, total)
 	testBar.LatestOutput().AssertError("on start if missing meminfo")
+
+	availFrac.Template(`{{.AvailFrac}}`)
+	free.Template(`{{.MemFree | ibytesize}}`)
+	total.Template(`{{.MemTotal | bytesize}}`)
+	testBar.LatestOutput().Expect("template")
 
 	afero.WriteFile(fs, "/proc/meminfo", []byte(`
 	-- Lines in weird formats --

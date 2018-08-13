@@ -81,7 +81,7 @@ func TestDiskspace(t *testing.T) {
 
 	diskspace := New("/")
 	testBar.Run(diskspace)
-	testBar.LatestOutput().AssertText([]string{"0.50 GB"}, "on start")
+	testBar.NextOutput().AssertText([]string{"0.50 GB"}, "on start")
 
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,

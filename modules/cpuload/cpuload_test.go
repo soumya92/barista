@@ -75,7 +75,7 @@ func TestCpuload(t *testing.T) {
 	load := New()
 	testBar.Run(load)
 
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().AssertText(
 		[]string{"0.00"}, "on start")
 
 	shouldReturn(1, 2, 3)
@@ -129,16 +129,16 @@ func TestErrors(t *testing.T) {
 
 	shouldReturn(1)
 	testBar.Tick()
-	errs := testBar.LatestOutput().AssertError("on next tick with error")
+	errs := testBar.NextOutput().AssertError("on next tick with error")
 	require.Equal("getloadavg: 1", errs[0], "error string contains getloadavg code")
 
 	shouldReturn(1, 2, 3, 4, 5)
-	testBar.Click(0) // to restart.
-	errs = testBar.LatestOutput().AssertError("on next tick with error")
+	testBar.RestartModule(0)
+	errs = testBar.NextOutput().AssertError("on next tick with error")
 	require.Equal("getloadavg: 5", errs[0], "error string contains getloadavg code")
 
 	shouldError(errors.New("test"))
-	testBar.Click(0)
-	errs = testBar.LatestOutput().AssertError("on next tick with error")
+	testBar.RestartModule(0)
+	errs = testBar.NextOutput().AssertError("on next tick with error")
 	require.Equal("test", errs[0], "error string is passed through")
 }

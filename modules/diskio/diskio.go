@@ -67,10 +67,10 @@ func construct() {
 		updater = timing.NewScheduler()
 		l.Attach(nil, updater, "diskio.updater")
 		updater.Every(3 * time.Second)
+		update()
 		go func(updater timing.Scheduler) {
-			for {
+			for range updater.Tick() {
 				update()
-				<-updater.Tick()
 			}
 		}(updater)
 	})

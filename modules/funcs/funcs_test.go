@@ -65,19 +65,24 @@ func TestOnClick(t *testing.T) {
 	require.Equal(int64(0), atomic.LoadInt64(&count),
 		"Function isn't called until module starts streaming")
 
-	testBar.Run(module)
+	m, onFinish := testBar.AddFinishListener(module)
+	testBar.Run(m)
 	testBar.NextOutput().AssertText(
 		[]string{"1"}, "Function called when streaming")
 	testBar.AssertNoOutput("Function is not called again")
 	testBar.Tick()
 	testBar.AssertNoOutput("Function is not called again")
 
+	<-onFinish
 	testBar.Click(0)
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().Expect("click causes restart")
+	testBar.NextOutput().AssertText(
 		[]string{"2"}, "Function called again on click")
 
+	<-onFinish
 	testBar.Click(0)
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().Expect("click causes restart")
+	testBar.NextOutput().AssertText(
 		[]string{"3"}, "Function called again on click")
 }
 
@@ -104,7 +109,7 @@ func TestRepeated(t *testing.T) {
 	testBar.NextOutput().AssertError("When function calls Error(...)")
 	atomic.StoreInt64(&count, 0)
 	testBar.Tick()
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().AssertText(
 		[]string{"1"}, "Function is called on tick after Error")
 	testBar.Tick()
 	testBar.NextOutput().AssertText(

@@ -43,16 +43,15 @@ func TestCputemp(t *testing.T) {
 	shouldReturn("48800", "22200")
 
 	temp0 := DefaultZone()
-
-	temp1 := Zone("thermal_zone1").
-		Template(`{{.Fahrenheit | printf "%.0f"}}`)
-
-	temp2 := Zone("thermal_zone2").
-		Template(`{{.Kelvin | printf "%.0f"}}`)
-
+	temp1 := Zone("thermal_zone1")
+	temp2 := Zone("thermal_zone2")
 	testBar.Run(temp0, temp1, temp2)
+	testBar.LatestOutput().Expect("on start")
 
-	out := testBar.LatestOutput()
+	temp1.Template(`{{.Fahrenheit | printf "%.0f"}}`)
+	temp2.Template(`{{.Kelvin | printf "%.0f"}}`)
+
+	out := testBar.LatestOutput(1) // 2 has an error.
 	out.At(0).AssertText("48.8℃", "on start")
 	out.At(1).AssertText("72", "on start")
 	out.At(2).AssertError("on start with invalid zone")
@@ -61,11 +60,11 @@ func TestCputemp(t *testing.T) {
 	testBar.AssertNoOutput("until refresh")
 	testBar.Tick()
 
-	out = testBar.LatestOutput()
+	out = testBar.LatestOutput(0, 1)
 	out.At(0).AssertText("42.1℃", "on next tick")
 
 	temp0.UrgentWhen(func(t unit.Temperature) bool { return t.Celsius() > 30 })
-	out = testBar.LatestOutput()
+	out = testBar.LatestOutput(0)
 	urgent, _ := out.At(0).Segment().IsUrgent()
 	require.True(t, urgent, "on urgent func change")
 
@@ -77,38 +76,43 @@ func TestCputemp(t *testing.T) {
 		}
 		return green
 	})
-	out = testBar.LatestOutput()
+	out = testBar.LatestOutput(1)
 	col, _ := out.At(1).Segment().GetColor()
 	require.Equal(t, green, col, "on color func change")
 
 	temp2.Template(`{{.Kelvin | printf "%.0f"}} kelvin`)
 	testBar.AssertNoOutput("on error'd template change")
-	testBar.Click(2)
-	testBar.LatestOutput().At(2).AssertError("error persists at restart")
+	testBar.RestartModule(2)
+	testBar.LatestOutput(2).At(2).AssertError("error persists at restart")
 
 	shouldReturn("22222", "22222")
 	testBar.Tick()
 
-	out = testBar.LatestOutput()
+	out = testBar.LatestOutput(0, 1)
 	out.At(0).AssertEqual(outputs.Text("22.2℃").Urgent(false))
 	out.At(1).AssertEqual(outputs.Text("72").Color(red))
 	errStr := out.At(2).AssertError()
-	require.Equal(t, "open /sys/class/thermal/thermal_zone2/temp: file does not exist", errStr)
+	require.Contains(t, errStr, "file does not exist")
 
 	temp2.RefreshInterval(time.Second)
 	testBar.AssertNoOutput("on refresh interval change")
 
 	shouldReturn("0", "0", "0")
-	testBar.Click(2)
+	testBar.RestartModule(2)
+	testBar.LatestOutput(2).Expect(
+		"after restart, because of interval change")
+	testBar.LatestOutput(2).Expect(
+		"after restart, because of format change")
 	testBar.Tick()
 	// Only temp2 has an update, since temp0 and temp1 are still
 	// on the 3 second refresh interval.
-	testBar.LatestOutput().At(2).AssertText(
+	testBar.LatestOutput(2).At(2).AssertText(
 		"273 kelvin",
 		"on next tick when zone becomes available")
 
 	shouldReturn("0", "0", "invalid")
 	testBar.Tick()
-	testBar.LatestOutput().At(2).AssertError("On invalid numeric value")
+	// 0 and 1 are unchanged, so only 2 should update.
+	testBar.LatestOutput(2).At(2).AssertError("On invalid numeric value")
 	testBar.AssertNoOutput("until tick")
 }

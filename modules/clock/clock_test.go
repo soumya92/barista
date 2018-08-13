@@ -33,7 +33,7 @@ func TestSimpleTicking(t *testing.T) {
 	timing.AdvanceTo(fixedTime)
 
 	testBar.Run(Local())
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().AssertText(
 		[]string{"00:00"}, "on start")
 
 	timing.NextTick()
@@ -52,11 +52,11 @@ func TestAutoGranularities(t *testing.T) {
 
 	local := Local().OutputFormat("15:04:05")
 	testBar.Run(local)
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().AssertText(
 		[]string{"00:00:00"}, "on start")
 
 	now := timing.NextTick()
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().AssertText(
 		[]string{"00:00:01"}, "on next tick")
 	require.Equal(1, now.Second(), "increases by granularity")
 	require.Equal(0, now.Nanosecond(), "triggers at exact granularity")
@@ -112,7 +112,7 @@ func TestManualGranularities(t *testing.T) {
 		return outputs.Text(now.Format("15:04:05"))
 	})
 	testBar.Run(local)
-	testBar.LatestOutput().AssertText(
+	testBar.NextOutput().AssertText(
 		[]string{"00:00:00"}, "on start")
 
 	timing.NextTick()
@@ -165,6 +165,6 @@ func TestZones(t *testing.T) {
 		"on tick")
 
 	berlin.Timezone(la)
-	testBar.LatestOutput().At(1).AssertText(
+	testBar.LatestOutput(1).At(1).AssertText(
 		"05:15:01", "on timezone change")
 }

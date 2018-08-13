@@ -79,10 +79,10 @@ func construct() {
 		l.Attach(nil, updater, "meminfo.updater")
 		l.Attach(&currentInfo, &infoEmitter, ".emitter")
 		updater.Every(3 * time.Second)
+		update()
 		go func(updater timing.Scheduler) {
-			for {
+			for range updater.Tick() {
 				update()
-				<-updater.Tick()
 			}
 		}(updater)
 	})

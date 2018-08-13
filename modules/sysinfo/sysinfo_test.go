@@ -53,23 +53,39 @@ var mockSysinfo = func(out *unix.Sysinfo_t) error {
 	return simulatedErr
 }
 
-func TestSysinfo(t *testing.T) {
-	require := require.New(t)
+func resetForTest() {
+	shouldReturn(unix.Sysinfo_t{})
 	sysinfo = mockSysinfo
 	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
+	construct()
+	for { // TODO (#40): see meminfo_test.go
+		select {
+		case <-currentInfo.Update():
+		default:
+			return
+		}
+	}
+}
+
+func TestSysinfo(t *testing.T) {
+	require := require.New(t)
 	testBar.New(t)
+	resetForTest()
 
-	shouldReturn(unix.Sysinfo_t{})
-
-	load := New().Template(`{{index .Loads 0}}`)
-	uptime := New().Template(`{{.Uptime}}`)
-	procs := New().Template(`{{.Procs}}`)
-	swap := New().Template(`{{.TotalSwap | ibytesize}}`)
+	load := New()
+	uptime := New()
+	procs := New()
+	swap := New()
 	testBar.Run(load, uptime, procs, swap)
+	testBar.LatestOutput().Expect("on start")
 
+	load.Template(`{{index .Loads 0}}`)
+	uptime.Template(`{{.Uptime}}`)
+	procs.Template(`{{.Procs}}`)
+	swap.Template(`{{.TotalSwap | ibytesize}}`)
 	testBar.LatestOutput().AssertText(
-		[]string{"0", "0s", "0", "0 B"}, "on start")
+		[]string{"0", "0s", "0", "0 B"}, "on template change")
 
 	shouldReturn(unix.Sysinfo_t{
 		Procs:     4,
@@ -84,7 +100,7 @@ func TestSysinfo(t *testing.T) {
 		[]string{"1", "1h0m0s", "4", "512 MiB"}, "on next tick")
 
 	load.Template(`{{index .Loads 1 | printf "%.2f"}}`)
-	testBar.LatestOutput().At(0).
+	testBar.LatestOutput(0).At(0).
 		AssertText("0.50", "on output format change")
 
 	RefreshInterval(time.Minute)
@@ -100,17 +116,15 @@ func TestSysinfo(t *testing.T) {
 
 func TestErrors(t *testing.T) {
 	require := require.New(t)
-	sysinfo = mockSysinfo
-	currentInfo = base.ErrorValue{}
-	once = sync.Once{}
 	testBar.New(t)
+	resetForTest()
 
 	testBar.Run(New())
-	testBar.LatestOutput().Expect("on start")
+	testBar.NextOutput().Expect("on start")
 
 	shouldError(errors.New("test"))
 	testBar.Tick()
 
-	errs := testBar.LatestOutput().AssertError("on next tick with error")
+	errs := testBar.NextOutput().AssertError("on next tick with error")
 	require.Equal("test", errs[0], "error string is passed through")
 }
