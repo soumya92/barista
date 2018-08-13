@@ -25,7 +25,9 @@ if [ "$1" = "BARISTA_FLAKE_TEST" ]; then
 # If the command exits successfully (or ^C), nothing happens, otherwise
 # the name of the file is printed.
 	shift
-	outfile="$(mktemp)"
+	tmpdir="$1"
+	shift
+	outfile="$(mktemp --tmpdir="$tmpdir")"
 	"$@" >"$outfile" 2>&1
 	status="$?"
 	if [ "$status" -eq 0 ] || [ "$status" -eq 127 ]; then
@@ -42,6 +44,7 @@ fi
 # TODO: Use argument parsing here.
 parallel=16
 total=96
-count=4
+tmpdir="$(mktemp -d)"
 
-seq 1 $total | xargs -n 1 -P $parallel $0 BARISTA_FLAKE_TEST go test -v -race -tags debuglog -count $count "$@" -- -finelog=
+echo "Saving results to $tmpdir"
+seq 1 $total | xargs -n 1 -P $parallel $0 BARISTA_FLAKE_TEST "$tmpdir" go test -v -race -tags debuglog "$@" -- -finelog=
