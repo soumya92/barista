@@ -28,6 +28,7 @@ import (
 type Emitter struct {
 	subMu sync.RWMutex
 	subs  []func()
+	obs   []chan struct{}
 }
 
 // Multicast allows multiple listeners for a single notifying channel by
@@ -42,10 +43,14 @@ func Multicast(source <-chan struct{}) *Emitter {
 func (e *Emitter) notifyOn(source <-chan struct{}) {
 	for range source {
 		e.subMu.RLock()
-		l.Fine("%s emit to %d listener(s)", l.ID(e), len(e.subs))
+		l.Fine("%s emit to %d+%d listener(s)", l.ID(e), len(e.subs), len(e.obs))
 		for _, notifyFn := range e.subs {
 			notifyFn()
 		}
+		for _, ob := range e.obs {
+			close(ob)
+		}
+		e.obs = nil
 		e.subMu.RUnlock()
 	}
 }
@@ -56,6 +61,17 @@ func (e *Emitter) Subscribe() <-chan struct{} {
 	e.subMu.Lock()
 	l.Attachf(e, ch, "$%d", len(e.subs))
 	e.subs = append(e.subs, fn)
+	e.subMu.Unlock()
+	return ch
+}
+
+// Next creates a new channel that will be closed when the emitter's source
+// updates next. This is an alternative to Subscribe() that does not need
+// to be cleaned up, so can be freely used in a loop.
+func (e *Emitter) Next() <-chan struct{} {
+	ch := make(chan struct{})
+	e.subMu.Lock()
+	e.obs = append(e.obs, ch)
 	e.subMu.Unlock()
 	return ch
 }

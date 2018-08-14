@@ -43,15 +43,10 @@ func resetForTest() {
 	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
 	construct()
-	// TODO: Fix by adding Next to Emitter (#40)
-	// Currently required to increase determinism.
-	for {
-		select {
-		case <-currentInfo.Update():
-		default:
-			return
-		}
-	}
+	// Flush upates for test.
+	n := infoEmitter.Next()
+	update()
+	<-n
 }
 
 func TestMeminfo(t *testing.T) {

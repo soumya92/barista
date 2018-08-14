@@ -82,7 +82,6 @@ func RefreshInterval(interval time.Duration) {
 // Module represents a bar.Module that displays memory information.
 type Module struct {
 	base.SimpleClickHandler
-	ticker     <-chan struct{}
 	outputFunc base.Value
 }
 
@@ -93,7 +92,7 @@ func defaultOutput(i Info) bar.Output {
 // New creates a new sysinfo module.
 func New() *Module {
 	construct()
-	m := &Module{ticker: infoEmitter.Subscribe()}
+	m := new(Module)
 	m.Output(defaultOutput)
 	l.Register(m, "outputFunc")
 	return m
@@ -116,6 +115,7 @@ func (m *Module) Stream(s bar.Sink) {
 	i, err := currentInfo.Get()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
 	for {
+		nextInfo := infoEmitter.Next()
 		if err != nil {
 			s.Error(err)
 		} else if info, ok := i.(Info); ok {
@@ -124,7 +124,7 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
-		case <-m.ticker:
+		case <-nextInfo:
 			i, err = currentInfo.Get()
 		}
 	}

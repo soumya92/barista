@@ -59,13 +59,10 @@ func resetForTest() {
 	currentInfo = base.ErrorValue{}
 	once = sync.Once{}
 	construct()
-	for { // TODO (#40): see meminfo_test.go
-		select {
-		case <-currentInfo.Update():
-		default:
-			return
-		}
-	}
+	// Flush upates for test.
+	n := infoEmitter.Next()
+	update()
+	<-n
 }
 
 func TestSysinfo(t *testing.T) {
@@ -127,4 +124,9 @@ func TestErrors(t *testing.T) {
 
 	errs := testBar.NextOutput().AssertError("on next tick with error")
 	require.Equal("test", errs[0], "error string is passed through")
+
+	shouldError(errors.New("something else"))
+	testBar.Tick()
+	errs = testBar.NextOutput().AssertError("on next tick with error")
+	require.Equal("something else", errs[0], "new error is propagated")
 }

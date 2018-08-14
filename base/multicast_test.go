@@ -75,3 +75,61 @@ func TestSubscription(t *testing.T) {
 		require.Fail("New subscription was not notified of value")
 	}
 }
+
+func TestNext(t *testing.T) {
+	require := require.New(t)
+	notifyFn, notifyCh := notifier.New()
+	e := Multicast(notifyCh)
+
+	var listening sync.WaitGroup
+	var notified sync.WaitGroup
+
+	for i := 0; i < 25; i++ {
+		listening.Add(1)
+		go func() {
+			listening.Done()
+			<-e.Next()
+			notified.Done()
+		}()
+		notified.Add(1)
+	}
+	listening.Wait()
+	doneChan := make(chan bool)
+	go func() {
+		notified.Wait()
+		doneChan <- true
+	}()
+
+	notifyFn()
+
+	select {
+	case <-doneChan:
+	// Test passed, all 25 subscriptions were notified.
+	case <-time.After(time.Second):
+		require.Fail("Subscriptions not notified within 1s")
+	}
+
+	select {
+	case <-e.Next():
+		require.Fail("Next() notified without changes")
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	notifyFn()
+	<-e.Subscribe()
+
+	select {
+	case <-e.Next():
+		require.Fail("Next notified for stale value")
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	next := e.Next()
+	notifyFn()
+	select {
+	case <-next:
+		// Should notify, because call to Next was before notification.
+	case <-time.After(10 * time.Millisecond):
+		require.Fail("Next not notified on subsequent value")
+	}
+}
