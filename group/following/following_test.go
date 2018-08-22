@@ -47,9 +47,6 @@ func TestFollowing(t *testing.T) {
 	tm1.OutputText("b")
 	testBar.NextOutput().AssertText([]string{"b"})
 
-	testBar.Click(0)
-	tm1.AssertClicked("Last module to output is clicked")
-
 	tm2.OutputText("c")
 	testBar.NextOutput().AssertText([]string{"c"})
 }

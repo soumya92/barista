@@ -46,7 +46,7 @@ func (m *Module) Stream(s bar.Sink) {
 	count := m.count.Get().(int)
 	format := m.format.Get().(string)
 	for {
-		s.Output(outputs.Textf(format, count))
+		s.Output(outputs.Textf(format, count).OnClick(m.click))
 		select {
 		case <-m.count.Update():
 			count = m.count.Get().(int)
@@ -65,7 +65,7 @@ func (m *Module) Format(format string) *Module {
 }
 
 // Click handles clicks on the module output.
-func (m *Module) Click(e bar.Event) {
+func (m *Module) click(e bar.Event) {
 	current := m.count.Get().(int)
 	switch e.Button {
 	case bar.ButtonLeft, bar.ScrollDown, bar.ScrollLeft, bar.ButtonBack:

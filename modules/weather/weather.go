@@ -87,13 +87,10 @@ type Provider interface {
 }
 
 // Module represents a bar.Module that displays weather information.
-// In addition to bar.Module, it also provides an expanded OnClick,
-// which allows click handlers to get the current weather.
 type Module struct {
 	provider       Provider
 	scheduler      timing.Scheduler
 	outputFunc     base.Value // of func(Weather) bar.Output
-	clickHandler   base.Value // of func(Weather, bar.Event)
 	currentWeather base.Value // of Weather
 }
 
@@ -107,7 +104,6 @@ func New(provider Provider) *Module {
 	// Default output template is just the temperature and conditions.
 	m.Template(`{{.Temperature.Celsius | printf "%.1f"}}℃ {{.Description}} ({{.Attribution}})`)
 	m.RefreshInterval(10 * time.Minute)
-	m.OnClick(nil)
 	return m
 }
 
@@ -127,23 +123,6 @@ func (m *Module) Template(template string) *Module {
 func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	m.scheduler.Every(interval)
 	return m
-}
-
-// OnClick sets a click handler for the module.
-func (m *Module) OnClick(f func(Weather, bar.Event)) *Module {
-	if f == nil {
-		f = func(w Weather, e bar.Event) {}
-	}
-	m.clickHandler.Set(f)
-	return m
-}
-
-// Click handles click events on the module's output.
-func (m *Module) Click(e bar.Event) {
-	clickHandler := m.clickHandler.Get().(func(Weather, bar.Event))
-	if w := m.currentWeather.Get(); w != nil {
-		clickHandler(w.(Weather), e)
-	}
 }
 
 // Stream starts the module.

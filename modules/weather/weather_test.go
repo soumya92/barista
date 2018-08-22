@@ -18,12 +18,9 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/martinlindhe/unit"
-	"github.com/soumya92/barista/bar"
 	testBar "github.com/soumya92/barista/testing/bar"
-	"github.com/stretchr/testify/require"
 )
 
 type testProvider struct {
@@ -43,7 +40,6 @@ func (t *testProvider) GetWeather() (*Weather, error) {
 }
 
 func TestWeather(t *testing.T) {
-	require := require.New(t)
 	testBar.New(t)
 	p := &testProvider{Weather: Weather{
 		Location:    "Swallow Falls",
@@ -58,37 +54,9 @@ func TestWeather(t *testing.T) {
 
 	testBar.NextOutput().AssertText(
 		[]string{"22.2℃ chance of meatballs (FLDSMDFR)"}, "on start")
-	require.True(true)
-
-	require.NotPanics(func() { testBar.Click(0) })
-	testBar.Tick()
-	testBar.NextOutput().Expect("on tick")
-
-	clickedWeathers := make(chan Weather)
-	w.OnClick(func(w Weather, e bar.Event) {
-		clickedWeathers <- w
-	})
-
-	select {
-	case <-clickedWeathers:
-		require.Fail("Click handler triggered by old click")
-	case <-time.After(time.Millisecond):
-	}
-
-	p.Lock()
-	p.Humidity = 0.9
-	p.Unlock()
 
 	testBar.Tick()
 	testBar.NextOutput().Expect("on tick")
-	testBar.Click(0)
-
-	select {
-	case w := <-clickedWeathers:
-		require.InDelta(0.9, w.Humidity, 1e-9)
-	case <-time.After(time.Second):
-		require.Fail("Click event did not trigger handler")
-	}
 
 	w.Template(`{{.Temperature.Fahrenheit | printf "%.0f"}}, by {{.Attribution}}`)
 	testBar.NextOutput().AssertText([]string{
@@ -100,8 +68,6 @@ func TestWeather(t *testing.T) {
 
 	testBar.Tick()
 	testBar.AssertNoOutput("on tick when weather is cached")
-	testBar.Click(0)
-	require.Equal(Cloudy, (<-clickedWeathers).Condition)
 
 	p.Lock()
 	p.cached = false
@@ -110,10 +76,4 @@ func TestWeather(t *testing.T) {
 
 	testBar.Tick()
 	testBar.NextOutput().AssertError("on tick with error")
-	testBar.Click(0)
-	select {
-	case <-clickedWeathers:
-		require.Fail("Click handler triggered during error")
-	case <-time.After(time.Millisecond):
-	}
 }

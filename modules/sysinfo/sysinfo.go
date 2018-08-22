@@ -81,7 +81,6 @@ func RefreshInterval(interval time.Duration) {
 
 // Module represents a bar.Module that displays memory information.
 type Module struct {
-	base.SimpleClickHandler
 	outputFunc base.Value
 }
 

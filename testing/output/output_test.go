@@ -147,20 +147,20 @@ func TestSegmentAssertions(t *testing.T) {
 	err := a.AssertError("with error output")
 	require.Equal(t, "something", err, "error description")
 
+	a = Segment(t, bar.TextSegment("foo"))
+	require.NotPanics(t, func() { a.Click(bar.Event{}) })
+
+	evtCh := make(chan bar.Event, 1)
+	a = Segment(t, bar.TextSegment("foo").OnClick(func(e bar.Event) { evtCh <- e }))
+	require.NotPanics(t, func() { a.Click(bar.Event{X: 40}) })
+	require.Equal(t, bar.Event{X: 40}, <-evtCh)
+
+	require.NotPanics(t, func() { a.LeftClick() })
+	require.Equal(t, bar.Event{Button: bar.ButtonLeft}, <-evtCh)
+
 	fail.AssertFails(t, func(fakeT *testing.T) {
 		a = Segment(fakeT, nil)
 	}, "Trying to assert on nil segment")
-}
-
-func TestEmptySegmentAssertions(t *testing.T) {
-	s := SegmentAssertions{require: require.New(t)}
-	s.AssertEqual(bar.TextSegment("doesn't matter"),
-		"AssertEqual without segment is nop")
-	err := s.AssertError("AssertError without segment is nop")
-	require.Empty(t, err, "AssertError returns empty result")
-	s.AssertText("whatever", "AssertText without segment is nop")
-	require.Nil(t, s.Segment(),
-		"Segment() returns nil without segment")
 }
 
 func TestSegmentAssertionErrors(t *testing.T) {

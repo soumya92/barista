@@ -43,20 +43,22 @@ func TestSwitching(t *testing.T) {
 
 	require.Equal(t, 3, ctrl.Count())
 	require.Equal(t, 0, ctrl.Current())
-	testBar.NextOutput().AssertText([]string{">"},
+	out := testBar.NextOutput()
+	out.AssertText([]string{">"},
 		"with no output from module")
 
-	testBar.Click(0)
+	out.At(0).LeftClick()
 	testBar.NextOutput().AssertText([]string{"<", ">"})
 	require.Equal(t, 1, ctrl.Current())
 
 	ctrl.Next()
-	testBar.NextOutput().AssertText([]string{"<"})
+	out = testBar.NextOutput()
+	out.AssertText([]string{"<"})
 
 	tm1.OutputText("a")
 	testBar.AssertNoOutput("on hidden module update")
 
-	testBar.Click(0)
+	out.At(0).LeftClick()
 	testBar.NextOutput().AssertText([]string{"<", "a", ">"})
 
 	ctrl.ButtonFunc(func(current, total int) (start, end bar.Output) {
@@ -68,8 +70,9 @@ func TestSwitching(t *testing.T) {
 	testBar.AssertNoOutput("on hidden module update")
 
 	ctrl.Show(0)
-	testBar.NextOutput().AssertText([]string{"/*", "0", "*/"})
-	testBar.Click(0)
+	out = testBar.NextOutput()
+	out.AssertText([]string{"/*", "0", "*/"})
+	out.At(0).LeftClick()
 	testBar.NextOutput().AssertText([]string{"/*", "*/"})
 	require.Equal(t, 2, ctrl.Current(), "wraparound on left")
 

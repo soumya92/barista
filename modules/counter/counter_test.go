@@ -26,28 +26,28 @@ func TestCounter(t *testing.T) {
 	testBar.New(t)
 	testBar.Run(ctr)
 
-	testBar.NextOutput().AssertText(
-		[]string{"C:0"}, "on start")
+	out := testBar.NextOutput()
+	out.AssertText([]string{"C:0"}, "on start")
 
 	testBar.AssertNoOutput("without any interaction")
 
-	testBar.SendEvent(0, bar.Event{Button: bar.ScrollUp})
-	testBar.NextOutput().AssertText(
-		[]string{"C:1"}, "on click")
+	out.At(0).Click(bar.Event{Button: bar.ScrollUp})
+	out = testBar.NextOutput()
+	out.AssertText([]string{"C:1"}, "on click")
 
-	testBar.SendEvent(0, bar.Event{Button: bar.ScrollDown})
-	testBar.NextOutput().AssertText(
-		[]string{"C:0"}, "on click")
+	out.At(0).Click(bar.Event{Button: bar.ScrollDown})
+	out = testBar.NextOutput()
+	out.AssertText([]string{"C:0"}, "on click")
 
-	testBar.SendEvent(0, bar.Event{Button: bar.ButtonBack})
-	testBar.NextOutput().AssertText(
-		[]string{"C:-1"}, "on click")
+	out.At(0).Click(bar.Event{Button: bar.ButtonBack})
+	out = testBar.NextOutput()
+	out.AssertText([]string{"C:-1"}, "on click")
 
 	ctr.Format("=%d=")
-	testBar.NextOutput().AssertText(
-		[]string{"=-1="}, "on format change")
+	out = testBar.NextOutput()
+	out.AssertText([]string{"=-1="}, "on format change")
 
-	testBar.SendEvent(0, bar.Event{Button: bar.ScrollUp})
+	out.At(0).Click(bar.Event{Button: bar.ScrollUp})
 	testBar.NextOutput().AssertText(
 		[]string{"=0="}, "on click after format change")
 }

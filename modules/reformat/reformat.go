@@ -114,11 +114,6 @@ func (m *Module) Stream(s bar.Sink) {
 	m.wrapped.Stream(wrappedSink(m, s))
 }
 
-// Click passes through the click event if supported by the wrapped module.
-func (m *Module) Click(e bar.Event) {
-	m.wrapped.Click(e)
-}
-
 func wrappedSink(m *Module, s bar.Sink) core.Sink {
 	return func(o bar.Segments) {
 		formatter := m.formatter.Load().(FormatFunc)

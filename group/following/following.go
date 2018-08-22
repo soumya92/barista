@@ -40,6 +40,3 @@ func (g *grouper) Updated(idx int) {
 }
 
 func (g *grouper) Buttons() (start, end bar.Output) { return nil, nil }
-
-func (g *grouper) ClickStart(bar.Event) {}
-func (g *grouper) ClickEnd(bar.Event)   {}

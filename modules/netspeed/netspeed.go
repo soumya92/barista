@@ -43,7 +43,6 @@ func (s Speeds) Total() unit.Datarate {
 // Module represents a netspeed bar module. It supports setting the output
 // format, click handler, and update frequency.
 type Module struct {
-	base.SimpleClickHandler
 	iface      string
 	scheduler  timing.Scheduler
 	outputFunc base.Value // of func(Speeds) bar.Output

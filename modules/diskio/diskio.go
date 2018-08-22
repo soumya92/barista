@@ -85,7 +85,6 @@ func RefreshInterval(interval time.Duration) {
 
 // Module represents a bar.Module for a single disk's io activity.
 type Module struct {
-	base.SimpleClickHandler
 	ioChan     <-chan IO
 	outputFunc base.Value
 }

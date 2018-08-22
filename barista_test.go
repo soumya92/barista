@@ -521,6 +521,8 @@ func TestErrorHandling(t *testing.T) {
 		"click events do not cause any updates")
 
 	module.Close()
+	require.Equal(t, []string{"Error", "regular", "other"}, readOutputTexts(t, mockStdout),
+		"new outputs on module close (for updated click handling)")
 
 	mockStdin.WriteString(fmt.Sprintf(`{"name": "%s", "button": 3},`, errorSegmentName))
 	module.AssertNotClicked("on right click of error segment")
@@ -537,6 +539,9 @@ func TestErrorHandling(t *testing.T) {
 	module.AssertStarted()
 
 	module.Output(outputsWithError)
+	out = readOutput(t, mockStdout)
+	require.Equal(t, 3, len(out), "All segments in output")
+
 	module.Close()
 	out = readOutput(t, mockStdout)
 	require.Equal(t, 3, len(out), "All segments in output")
@@ -705,8 +710,4 @@ func TestI3Map(t *testing.T) {
 	segment.Urgent(false)
 	a.Expected["urgent"] = "false"
 	a.AssertEqual("urgent = false")
-
-	segment.Identifier("ident")
-	a.Expected["instance"] = "ident"
-	a.AssertEqual("opaque instance")
 }

@@ -17,8 +17,6 @@
 package group
 
 import (
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/soumya92/barista/bar"
@@ -33,10 +31,6 @@ type Grouper interface {
 	Visible(index int) bool
 	// Button returns the bar output for the buttons on either end.
 	Buttons() (start, end bar.Output)
-	// ClickStart handles clicks to the button at the start of the output.
-	ClickStart(bar.Event)
-	// ClickEnd handles clicks to the button at the end of the output.
-	ClickEnd(bar.Event)
 }
 
 // Signaller adds an additional source of updates to the group,
@@ -103,52 +97,16 @@ func (g *group) output(moduleIdx int) (o bar.Output, changed bool) {
 	}
 	out := outputs.Group()
 	stBtn, eBtn := g.grouper.Buttons()
-	out.Append(withId("startBtn", stBtn))
+	out.Append(stBtn)
 	for idx, o := range g.moduleSet.LastOutputs() {
 		if !g.grouper.Visible(idx) {
 			continue
 		}
-		out.Append(withId(strconv.Itoa(idx), o))
+		out.Append(o)
 		if idx == moduleIdx {
 			changed = true
 		}
 	}
-	out.Append(withId("endBtn", eBtn))
+	out.Append(eBtn)
 	return out, changed
-}
-
-// Click handles click events for modules and buttons, by unwrapping
-// group-specific information from the segment ID before routing the
-// event appropriately.
-func (g *group) Click(e bar.Event) {
-	parts := strings.SplitN(e.SegmentID, ";", 2)
-	e.SegmentID = parts[1]
-	switch parts[0] {
-	case "startBtn":
-		l.Fine("%s clicked on start button", l.ID(g))
-		g.grouper.ClickStart(e)
-	case "endBtn":
-		l.Fine("%s clicked on end button", l.ID(g))
-		g.grouper.ClickEnd(e)
-	default:
-		if idx, err := strconv.Atoi(parts[0]); err == nil {
-			l.Fine("%s clicked on #%d", l.ID(g), idx)
-			g.moduleSet.Click(idx, e)
-		}
-	}
-}
-
-// withId prepends the given id and ';' to each segment in the output,
-// mirroring the process used in Click(...) to determine which module
-// (or button) the clicked segment belongs to.
-func withId(id string, orig bar.Output) bar.Output {
-	var newOut bar.Segments
-	if orig != nil {
-		for _, seg := range orig.Segments() {
-			oldId, _ := seg.GetID()
-			newOut = append(newOut,
-				seg.Clone().Identifier(id+";"+oldId))
-		}
-	}
-	return newOut
 }

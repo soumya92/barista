@@ -42,13 +42,11 @@ func finishedWithin(f func(), timeout time.Duration) bool {
 
 func TestSimple(t *testing.T) {
 	positiveTimeout = time.Second
-	m := New(t)
+	m := New(t).SkipClickHandlers(true)
 	m.AssertNotStarted("Initially not started")
 	initialOutput := outputs.Text("hello")
 	require.Panics(t, func() { m.Output(initialOutput) },
 		"Panics when output without stream")
-	require.Panics(t, func() { m.Click(bar.Event{}) },
-		"Panics when clicked without stream")
 	ch, s := sink.New()
 	go m.Stream(s)
 	m.AssertStarted("Started when streaming starts")
@@ -63,9 +61,11 @@ func TestSimple(t *testing.T) {
 	require.True(t,
 		finishedWithin(func() { out = <-ch }, time.Second),
 		"Read from channel does not block when output is buffered")
-	require.Equal(t, initialOutput, out, "Outputs are returned sequentially")
+	require.Equal(t, initialOutput.Segments(), out.Segments(),
+		"Outputs are returned sequentially")
 	out = <-ch
-	require.Equal(t, secondOutput, out, "Outputs are not dropped")
+	require.Equal(t, secondOutput.Segments(), out.Segments(),
+		"Outputs are not dropped")
 	require.False(t,
 		finishedWithin(func() { <-ch }, 10*time.Millisecond),
 		"Read from channel blocks when no output")
@@ -73,7 +73,7 @@ func TestSimple(t *testing.T) {
 
 func TestOutputBuffer(t *testing.T) {
 	positiveTimeout = time.Second
-	m := New(t)
+	m := New(t).SkipClickHandlers(true)
 	out1 := outputs.Text("1")
 	out2 := outputs.Text("2")
 	out3 := outputs.Text("3")
@@ -84,32 +84,35 @@ func TestOutputBuffer(t *testing.T) {
 	m.Output(out2)
 	actual1 := <-ch
 	actual2 := <-ch
-	require.Equal(t, out1, actual1, "buffered write")
-	require.Equal(t, out2, actual2, "buffered write")
+	require.Equal(t, out1.Segments(), actual1.Segments(), "buffered write")
+	require.Equal(t, out2.Segments(), actual2.Segments(), "buffered write")
 	m.Output(out3)
 	actual3 := <-ch
-	require.Equal(t, out3, actual3, "buffered write")
+	require.Equal(t, out3.Segments(), actual3.Segments(), "buffered write")
 }
 
 func TestClick(t *testing.T) {
 	positiveTimeout = time.Second
+	ch, s := sink.New()
 
 	m := New(t)
 	evt1 := bar.Event{X: 2}
 	evt2 := bar.Event{Y: 2}
 	evt3 := bar.Event{X: 1, Y: 1}
-	go m.Stream(sink.Null())
+	go m.Stream(s)
 	m.AssertStarted()
+	m.OutputText("foo")
 
 	m.AssertNotClicked("no events initially")
-	m.Click(evt1)
-	m.Click(evt2)
+	nextOut := (<-ch).Segments()[0]
+	nextOut.Click(evt1)
+	nextOut.Click(evt2)
 	evt := m.AssertClicked("when module is clicked")
 	require.Equal(t, evt1, evt, "events are ordered")
 	evt = m.AssertClicked("when module is clicked")
 	require.Equal(t, evt2, evt, "events are buffered")
 	m.AssertNotClicked("events cleared after assertions")
-	m.Click(evt3)
+	nextOut.Click(evt3)
 	evt = m.AssertClicked("events resume after being cleared")
 	require.Equal(t, evt3, evt, "new events received")
 	m.AssertNotClicked("no extra events")
@@ -129,19 +132,18 @@ func TestClick(t *testing.T) {
 
 	fail.AssertFails(t, func(fakeT *testing.T) {
 		m = New(fakeT)
-		go m.Stream(sink.Null())
+		ch, s := sink.New()
+		go m.Stream(s)
 		m.AssertStarted()
-		m.Click(evt1)
+		m.OutputText("foo")
+		(<-ch).Segments()[0].Click(evt1)
 		m.AssertNotClicked("fails when clicked")
 	}, "AssertNotClicked when clicked")
 }
 
 func TestClose(t *testing.T) {
 	m := New(t)
-	go func() {
-		m.Stream(sink.Null())
-		m.ModuleFinished()
-	}()
+	go m.Stream(sink.Null())
 	m.AssertStarted()
 
 	require.Panics(t, func() { m.Stream(sink.Null()) },

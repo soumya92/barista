@@ -16,6 +16,7 @@ package outputs
 
 import (
 	"testing"
+	"time"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
@@ -24,11 +25,12 @@ import (
 
 func TestSegmentGroup(t *testing.T) {
 	require := require.New(t)
+	evtCh := make(chan bar.Event)
 	out := Group(
-		bar.TextSegment("1"),
+		bar.TextSegment("1").OnClick(nil),
 		bar.TextSegment("2"),
 		bar.TextSegment("3"),
-		bar.PangoSegment("4"),
+		bar.PangoSegment("4").OnClick(func(e bar.Event) { evtCh <- e }),
 		bar.PangoSegment("5"),
 		bar.PangoSegment("6"),
 	)
@@ -130,6 +132,34 @@ func TestSegmentGroup(t *testing.T) {
 	require.True(sep, "last segment separator untouched by inner separator")
 	_, isSet = last().GetPadding()
 	require.False(isSet, "last segment separator untouched by inner separator")
+
+	groupEvtCh := make(chan bar.Event)
+	out.OnClick(func(e bar.Event) { groupEvtCh <- e })
+
+	go first().Click(bar.Event{X: 10})
+	select {
+	case <-groupEvtCh:
+		require.Fail("Click event triggered with nil handler")
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	go mid().Click(bar.Event{Y: 20})
+	select {
+	case e := <-evtCh:
+		require.Equal(bar.Event{Y: 20}, e)
+	case <-time.After(time.Second):
+		require.Fail("Click event not received in preset handler")
+	case <-groupEvtCh:
+		require.Fail("Click event triggered with preset handler")
+	}
+
+	go last().Click(bar.Event{X: 40})
+	select {
+	case e := <-groupEvtCh:
+		require.Equal(bar.Event{X: 40}, e)
+	case <-time.After(time.Second):
+		require.Fail("Click event not received in preset handler")
+	}
 
 	out.Glue()
 	pad, _ = mid().GetPadding()

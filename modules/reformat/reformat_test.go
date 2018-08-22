@@ -49,11 +49,12 @@ func TestReformat(t *testing.T) {
 		[]string{"<b>bold</b>"}, "pango content unchanged")
 
 	original.Output(outputs.Textf("foo"))
-	testBar.NextOutput().AssertText([]string{"+foo+"},
+	out := testBar.NextOutput()
+	out.AssertText([]string{"+foo+"},
 		"when original module updates after format func is set")
 
 	evt := bar.Event{Y: 1}
-	reformatted.Click(evt)
+	out.At(0).Click(evt)
 	recvEvt := original.AssertClicked("click events propagated")
 	require.Equal(t, evt, recvEvt, "click events passed through unchanged")
 
@@ -82,7 +83,7 @@ func TestReformat(t *testing.T) {
 
 	original.Output(outputs.Group(
 		outputs.Text("a"), outputs.Text("b"), outputs.Errorf("c")))
-	out := testBar.NextOutput()
+	out = testBar.NextOutput()
 	out.At(0).AssertText("#a#")
 	out.At(1).AssertText("#b#")
 	err := out.At(2).AssertError()
@@ -118,14 +119,14 @@ func TestRestart(t *testing.T) {
 	out.At(1).AssertText("+test+")
 
 	original.Close()
-	testBar.AssertNoOutput("on close")
+	out = testBar.NextOutput("on close")
 	original.AssertNotStarted("after close")
 
 	require.NotPanics(t, func() {
-		testBar.SendEvent(0, bar.Event{Button: bar.ScrollUp})
+		out.At(0).Click(bar.Event{Button: bar.ScrollUp})
 	})
 
-	testBar.Click(0)
+	out.At(0).LeftClick()
 	original.AssertStarted("when reformatted module is clicked")
 	testBar.NextOutput().AssertText([]string{"+test+"},
 		"error segments removed on restart")

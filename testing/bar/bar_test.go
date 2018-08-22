@@ -31,7 +31,7 @@ import (
 
 func TestOutput(t *testing.T) {
 	New(t)
-	m := module.New(t)
+	m := module.New(t).SkipClickHandlers(true)
 	Run(m)
 
 	m.AssertStarted()
@@ -54,7 +54,6 @@ func TestOutput(t *testing.T) {
 	s.Urgent(true)
 	s.Padding(10)
 	s.Separator(false)
-	s.Identifier("some-id")
 	s.Align(bar.AlignStart)
 
 	m.Output(s)
@@ -83,35 +82,28 @@ func TestEvents(t *testing.T) {
 	m2.AssertStarted()
 	m2.OutputText("2")
 
-	// LatestOutput sets up the segment position <-> module mappings.
-	LatestOutput().Expect("on update")
-
-	Click(0)
+	out := LatestOutput()
+	out.At(0).LeftClick()
 	m1.AssertClicked("When test bar clicks module")
 	m2.AssertNotClicked("When a different module is clicked")
 
 	e := bar.Event{X: 10, Y: 10}
-	SendEvent(1, e)
+	out.At(1).Click(e)
 	actual := m2.AssertClicked()
 	require.Equal(t, e, actual, "event properties pass through")
 
 	m1.Output(nil)
 	m2.Output(outputs.Group(
-		outputs.Text("a").Identifier("foo"),
-		outputs.Text("b").Identifier("bar"),
-		outputs.Text("c").Identifier("baz"),
+		outputs.Text("a"),
+		outputs.Text("b"),
+		outputs.Text("c"),
 	))
-	LatestOutput(0, 1).Expect("on update")
-	Click(0)
+	out = LatestOutput(0, 1)
+	out.At(0).LeftClick()
 	m1.AssertNotClicked("when module has no output")
-	evt := m2.AssertClicked("events based on output positions")
-	require.Equal(t, "foo", evt.SegmentID, "SegmentID is propagated")
-	Click(1)
-	evt = m2.AssertClicked("multiple segments from the same module")
-	require.Equal(t, "bar", evt.SegmentID)
-	Click(2)
-	evt = m2.AssertClicked()
-	require.Equal(t, "baz", evt.SegmentID)
+	m2.AssertClicked("events based on output positions")
+	out.At(1).LeftClick()
+	m2.AssertClicked("multiple segments from the same module")
 }
 
 func TestRestartingModule(t *testing.T) {
@@ -121,15 +113,17 @@ func TestRestartingModule(t *testing.T) {
 
 	m.AssertStarted()
 	m.Output(outputs.Errorf("something went wrong"))
-	m.Close()
 	errStrs := NextOutput().AssertError("on error")
 	require.Equal(t, []string{"something went wrong"}, errStrs)
+
+	m.Close()
+	out := NextOutput()
 
 	require.Panics(t, func() { m.OutputText("bar") },
 		"module is not streaming")
 
 	// Exited with an error, so left click will restart,
-	Click(0)
+	out.At(0).LeftClick()
 	// and clear the error'd segment.
 	NextOutput().AssertText([]string{})
 
@@ -139,43 +133,9 @@ func TestRestartingModule(t *testing.T) {
 	NextOutput().AssertText([]string{"baz"})
 }
 
-func TestFinishListener(t *testing.T) {
-	New(t)
-	actual := module.New(t)
-	m, listener := AddFinishListener(actual)
-	Run(m)
-	select {
-	case <-listener:
-		require.Fail(t, "FinishListener spuriously notified")
-	case <-time.After(10 * time.Millisecond):
-	}
-
-	actual.AssertStarted()
-	actual.Output(outputs.Text("foo"))
-	NextOutput().AssertText([]string{"foo"})
-
-	actual.Close()
-	select {
-	case <-listener:
-		// test passed.
-	case <-time.After(time.Second):
-		require.Fail(t, "FinishListener not notified")
-	}
-
-	Click(0)
-	NextOutput().AssertText([]string{"foo"})
-
-	actual.AssertStarted()
-	select {
-	case <-listener:
-		require.Fail(t, "FinishListener spuriously notified")
-	case <-time.After(10 * time.Millisecond):
-	}
-}
-
 func TestSegment(t *testing.T) {
 	New(t)
-	m := module.New(t)
+	m := module.New(t).SkipClickHandlers(true)
 	Run(m)
 
 	m.AssertStarted()
@@ -229,20 +189,6 @@ func TestNoOutput(t *testing.T) {
 		m.OutputText("test")
 		AssertNoOutput("with output")
 	}, "Asserting no output with output")
-}
-
-func TestEventError(t *testing.T) {
-	assertFails(t, func(m *module.TestModule) {
-		m.OutputText("test")
-		Click(1)
-	}, "Clicking on segment out of range")
-}
-
-func TestRestartingFailure(t *testing.T) {
-	assertFails(t, func(m *module.TestModule) {
-		m.OutputText("foobar")
-		RestartModule(0)
-	})
 }
 
 func TestOutputErrors(t *testing.T) {

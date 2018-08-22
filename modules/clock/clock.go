@@ -29,7 +29,6 @@ import (
 // Module represents a clock bar module. It supports setting the click handler,
 // timezone, output format, and granularity.
 type Module struct {
-	base.SimpleClickHandler
 	config base.Value
 }
 

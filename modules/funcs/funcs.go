@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/timing"
 )
 
@@ -36,7 +35,6 @@ func Once(f Func) *OnceModule {
 // If the function sets an error output, it will be restarted on
 // the next click.
 type OnceModule struct {
-	base.SimpleClickHandler
 	Func
 }
 
@@ -76,7 +74,6 @@ func Every(d time.Duration, f Func) *RepeatingModule {
 // RepeatingModule represents a bar.Module that runs a function at a fixed
 // interval (while accounting for bar paused/resumed state).
 type RepeatingModule struct {
-	base.SimpleClickHandler
 	fn       Func
 	duration time.Duration
 }

@@ -51,7 +51,6 @@ func (l LoadAvg) Min15() float64 {
 // Module represents a cpuload bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
-	base.SimpleClickHandler
 	scheduler timing.Scheduler
 	format    base.Value
 }

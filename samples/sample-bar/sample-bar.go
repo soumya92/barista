@@ -125,13 +125,12 @@ func main() {
 				now.Format("Mon Jan 2 "),
 				pango.Icon("material-access-time").Color(colors.Scheme("dim-icon")),
 				now.Format("15:04:05"),
-			)
+			).OnClick(func(e bar.Event) {
+				if e.Button == bar.ButtonLeft {
+					exec.Command("gsimplecal").Run()
+				}
+			})
 		})
-	localtime.OnClick(func(e bar.Event) {
-		if e.Button == bar.ButtonLeft {
-			exec.Command("gsimplecal").Run()
-		}
-	})
 
 	// Weather information comes from OpenWeatherMap.
 	// https://openweathermap.org/api.
@@ -219,9 +218,9 @@ func main() {
 		case s.Loads[0] > 32, s.Loads[2] > 16:
 			out.Color(colors.Scheme("degraded"))
 		}
+		out.OnClick(startTaskManager)
 		return out
 	})
-	loadAvg.OnClick(startTaskManager)
 
 	freeMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
 		out := outputs.Pango(pango.Icon("material-memory"), outputs.IBytesize(m.Available()))
@@ -236,9 +235,9 @@ func main() {
 		case freeGigs > 12:
 			out.Color(colors.Scheme("good"))
 		}
+		out.OnClick(startTaskManager)
 		return out
 	})
-	freeMem.OnClick(startTaskManager)
 
 	temp := cputemp.DefaultZone().
 		RefreshInterval(2 * time.Second).

@@ -59,7 +59,7 @@ func TestSegment(t *testing.T) {
 	assertUnset(segment.GetBackground())
 	assertUnset(segment.GetBorder())
 	assertUnset(segment.GetMinWidth())
-	assertUnset(segment.GetID())
+	require.False(segment.HasClick())
 
 	defaultUrgent := assertUnset(segment.IsUrgent())
 	require.False(defaultUrgent.(bool))
@@ -123,12 +123,20 @@ func TestSegment(t *testing.T) {
 	segment.MinWidthPlaceholder("")
 	require.Equal("", assertSet(segment.GetMinWidth()))
 
-	segment.Identifier("test")
-	require.Equal("test", assertSet(segment.GetID()))
+	require.NotPanics(func() { segment.Click(Event{}) })
+	segment.OnClick(nil)
+	require.True(segment.HasClick())
+	require.NotPanics(func() { segment.Click(Event{}) })
+	var clickedEvent *Event
+	segment.OnClick(func(e Event) { clickedEvent = &e })
+	segment.Click(Event{Button: ButtonLeft})
+	require.NotNil(clickedEvent)
+	require.Equal(Event{Button: ButtonLeft}, *clickedEvent)
 
 	segment = ErrorSegment(fmt.Errorf("something went wrong"))
-	txt, _ = segment.Content()
+	txt, pango = segment.Content()
 	require.Equal("Error", txt)
+	require.False(pango)
 	require.Equal("!", assertSet(segment.GetShortText()))
 	require.True(assertSet(segment.IsUrgent()).(bool))
 	require.Error(segment.GetError())

@@ -28,7 +28,7 @@ import (
 
 type simpleGrouper struct {
 	visible    []int
-	start, end bar.Output
+	start, end *bar.Segment
 	clicked    chan string
 }
 
@@ -41,9 +41,10 @@ func (s *simpleGrouper) Visible(index int) bool {
 	return false
 }
 
-func (s *simpleGrouper) Buttons() (st, en bar.Output) { return s.start, s.end }
-func (s *simpleGrouper) ClickStart(bar.Event)         { s.clicked <- "start" }
-func (s *simpleGrouper) ClickEnd(bar.Event)           { s.clicked <- "end" }
+func (s *simpleGrouper) Buttons() (st, en bar.Output) {
+	return s.start.OnClick(func(bar.Event) { s.clicked <- "start" }),
+		s.end.OnClick(func(bar.Event) { s.clicked <- "end" })
+}
 
 func TestSimpleGrouper(t *testing.T) {
 	testBar.New(t)
@@ -78,21 +79,16 @@ func TestSimpleGrouper(t *testing.T) {
 	testBar.NextOutput().AssertText([]string{"start", "end"})
 
 	m2.OutputText("foo")
-	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
+	out := testBar.NextOutput()
+	out.AssertText([]string{"start", "foo", "end"})
 
-	testBar.Click(1)
+	out.At(1).Click(bar.Event{})
 	m2.AssertClicked("clicks pass through the group")
 
-	m2.Output(bar.TextSegment("foo").Identifier("with;semicolon"))
-	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
-	testBar.Click(1)
-	e := m2.AssertClicked()
-	require.Equal(t, "with;semicolon", e.SegmentID)
-
-	testBar.Click(0)
+	out.At(0).Click(bar.Event{})
 	require.Equal(t, "start", <-g.clicked)
 
-	testBar.Click(2)
+	out.At(2).Click(bar.Event{})
 	require.Equal(t, "end", <-g.clicked)
 }
 
@@ -163,7 +159,8 @@ func TestLockableGrouper(t *testing.T) {
 	require.Equal(t, 1, unlocks, "Equal unlock count")
 
 	m0.OutputText("foo")
-	testBar.NextOutput().AssertText([]string{"start", "foo", "end"})
+	out := testBar.NextOutput()
+	out.AssertText([]string{"start", "foo", "end"})
 	locks, unlocks = g.getCounts()
 	require.Equal(t, 2, locks, "One lock per output")
 	require.Equal(t, 2, unlocks, "Equal unlock count")
@@ -174,11 +171,11 @@ func TestLockableGrouper(t *testing.T) {
 	require.Equal(t, 3, locks, "Locks even if visible returns false")
 	require.Equal(t, 3, unlocks)
 
-	testBar.Click(0)
+	out.At(0).Click(bar.Event{})
 	locks, unlocks = g.getCounts()
 	require.Equal(t, 3, locks, "Does not lock for button click")
 
-	testBar.Click(1)
+	out.At(1).Click(bar.Event{})
 	locks, unlocks = g.getCounts()
 	require.Equal(t, 3, locks, "Does not lock for module click")
 	require.Equal(t, 3, unlocks)
@@ -297,10 +294,11 @@ func TestUpdatingGrouper(t *testing.T) {
 	m1.OutputText("test")
 	g.visibleCh <- []int{1}
 	g.AssertUpdated(t, 1)
-	testBar.NextOutput().AssertText([]string{"start", "test", "end"},
+	out := testBar.NextOutput()
+	out.AssertText([]string{"start", "test", "end"},
 		"Visibility is computed after update notification")
 
-	testBar.Click(1)
+	out.At(1).Click(bar.Event{})
 	select {
 	case <-g.updated[1]:
 		require.Fail(t, "Expected no updated", "on click")

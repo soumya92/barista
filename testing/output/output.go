@@ -125,17 +125,11 @@ type SegmentAssertions struct {
 
 // AssertEqual asserts that the actual segment is equal to the expecte segment.
 func (a SegmentAssertions) AssertEqual(expected *bar.Segment, args ...interface{}) {
-	if a.segment == nil {
-		return
-	}
 	a.require.Equal(expected, a.segment, args...)
 }
 
 // AssertText asserts that the segment's text matches the expected string.
 func (a SegmentAssertions) AssertText(expected string, args ...interface{}) {
-	if a.segment == nil {
-		return
-	}
 	txt, _ := a.segment.Content()
 	a.require.Equal(expected, txt, args...)
 }
@@ -143,9 +137,6 @@ func (a SegmentAssertions) AssertText(expected string, args ...interface{}) {
 // AssertError asserts that the segment represents an error,
 // and returns the error description.
 func (a SegmentAssertions) AssertError(args ...interface{}) string {
-	if a.segment == nil {
-		return ""
-	}
 	err := a.segment.GetError()
 	if err == nil {
 		txt, _ := a.segment.Content()
@@ -155,6 +146,18 @@ func (a SegmentAssertions) AssertError(args ...interface{}) string {
 		return ""
 	}
 	return err.Error()
+}
+
+// Click clicks on the segment. Because it's provided on SegmentAssertions,
+// it automatically ensures that the expected segment is present.
+// e.g. testBar.NextOutput().At(2).Click(...).
+func (a SegmentAssertions) Click(e bar.Event) {
+	a.segment.Click(e)
+}
+
+// LeftClick is a convenience wrapper since left-clicking is a common operation.
+func (a SegmentAssertions) LeftClick() {
+	a.Click(bar.Event{Button: bar.ButtonLeft})
 }
 
 // Segment returns the actual segment to allow fine-grained assertions.

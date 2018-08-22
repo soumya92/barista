@@ -95,14 +95,10 @@ func TestOnce(t *testing.T) {
 
 func TestOnClick(t *testing.T) {
 	testBar.New(t)
-	module := OnClick("echo", "foo")
-	m, onFinish := testBar.AddFinishListener(module)
-	testBar.Run(m)
+	testBar.Run(OnClick("echo", "foo"))
 	testBar.NextOutput().AssertText([]string{"foo"}, "on start")
-	testBar.AssertNoOutput("after the first output")
-	<-onFinish
-	testBar.Click(0)
+	testBar.NextOutput("for restart handler").At(0).LeftClick()
+
 	testBar.NextOutput().Expect("click causes restart")
 	testBar.NextOutput().AssertText([]string{"foo"}, "on click")
-	testBar.AssertNoOutput("after the next output")
 }

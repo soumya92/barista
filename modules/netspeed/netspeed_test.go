@@ -128,12 +128,13 @@ func TestErrors(t *testing.T) {
 	n := New("if0").RefreshInterval(time.Second)
 	testBar.Run(n)
 	testBar.NextOutput().AssertError("on start for missing interface")
+	out := testBar.NextOutput("sets restart click handler")
 
 	setLink("if0", netlink.LinkStatistics{
 		RxBytes: 0,
 		TxBytes: 0,
 	})
-	go testBar.Click(0)
+	go out.At(0).LeftClick()
 	<-signalChan
 	testBar.NextOutput().AssertText([]string{},
 		"clears error on click after interface is available")

@@ -33,28 +33,22 @@ type Sink = func(bar.Segments)
 // It handles restarting the wrapped module on a left/right/middle click,
 // as well as providing an option to "replay" the last output from the module.
 type Module struct {
-	original bar.Module
-	eventCh  chan bar.Event
-	replayCh <-chan struct{}
-	replayFn func()
-}
-
-// ModuleFinishListener can be implemented by modules in test, to allow
-// synchronisation between the finished state and the test.
-type ModuleFinishListener interface {
-	ModuleFinished()
+	original  bar.Module
+	replayCh  <-chan struct{}
+	replayFn  func()
+	restartCh <-chan struct{}
+	restartFn func()
 }
 
 // NewModule wraps an existing bar.Module with core barista functionality,
 // such as restarts and the ability to replay the last output.
 func NewModule(original bar.Module) *Module {
-	m := &Module{
-		original: original,
-		eventCh:  make(chan bar.Event),
-	}
+	m := &Module{original: original}
 	m.replayFn, m.replayCh = notifier.New()
+	m.restartFn, m.restartCh = notifier.New()
 	l.Attach(original, m, "~core")
 	l.Register(m, "replayCh")
+	l.Register(m, "restartCh")
 	return m
 }
 
@@ -92,33 +86,21 @@ func (m *Module) runLoop(realSink Sink) {
 			realSink(out)
 		case <-doneCh:
 			finished = true
-			if f, ok := m.original.(ModuleFinishListener); ok {
-				f.ModuleFinished()
-			}
+			l.Fine("%s: set restart handlers", l.ID(m))
+			realSink(addRestartHandlers(out, m.restartFn))
 		case <-m.replayCh:
 			if started {
 				l.Fine("%s: replay last output", l.ID(m))
 				realSink(out)
 			}
-		case e := <-m.eventCh:
+		case <-m.restartCh:
 			if finished {
-				if isRestartableClick(e) {
-					l.Fine("%s restarted: %+v", l.ID(m.original), e)
-					realSink(stripErrors(out, l.ID(m)))
-					return // Stream will restart the run loop.
-				}
-			} else {
-				if c, ok := m.original.(bar.Clickable); ok {
-					c.Click(e)
-				}
+				l.Fine("%s restarted", l.ID(m.original))
+				realSink(stripErrors(out, l.ID(m)))
+				return // Stream will restart the run loop.
 			}
 		}
 	}
-}
-
-// Click handles a click event to the output of the wrapped module.
-func (m *Module) Click(e bar.Event) {
-	m.eventCh <- e
 }
 
 // Replay sends the last output from the wrapped module to the sink.
@@ -162,6 +144,21 @@ func stripErrors(in bar.Segments, logCtx string) bar.Segments {
 	if len(in) != len(out) {
 		l.Fine("%s removed %d error segments from output",
 			logCtx, len(in)-len(out))
+	}
+	return out
+}
+
+// addRestartHandlers replaces all click handlers with a function
+// that restarts the module. This is used on the last output of
+// the wrapped module after the original finishes.
+func addRestartHandlers(in bar.Segments, restartFn func()) bar.Segments {
+	var out bar.Segments
+	for _, s := range in {
+		out = append(out, s.Clone().OnClick(func(e bar.Event) {
+			if isRestartableClick(e) {
+				restartFn()
+			}
+		}))
 	}
 	return out
 }

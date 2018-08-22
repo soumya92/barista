@@ -28,6 +28,7 @@ type SegmentGroup struct {
 	// To support addition of segments after construction, store
 	// attributes on the group, and apply them in Segments().
 	attrSet        int
+	clickHandler   func(bar.Event)
 	color          color.Color
 	background     color.Color
 	border         color.Color
@@ -48,6 +49,13 @@ const (
 	sgaOuterSeparator
 	sgaOuterPadding
 )
+
+// OnClick sets the default click handler for the group. Any segments
+// that don't already have a click handler will delegate to this one.
+func (g *SegmentGroup) OnClick(f func(bar.Event)) *SegmentGroup {
+	g.clickHandler = f
+	return g
+}
 
 // Color sets the color for all segments in the group.
 func (g *SegmentGroup) Color(color color.Color) *SegmentGroup {
@@ -195,6 +203,9 @@ func (g *SegmentGroup) Segments() []*bar.Segment {
 		}
 		if !isSet(s.IsUrgent()) && g.attrSet&sgaUrgent != 0 {
 			c.Urgent(g.urgent)
+		}
+		if !s.HasClick() && g.clickHandler != nil {
+			c.OnClick(g.clickHandler)
 		}
 		segments = append(segments, c)
 	}

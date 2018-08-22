@@ -144,6 +144,7 @@ func TestDiskspace(t *testing.T) {
 	shouldError("/", os.ErrPermission)
 	testBar.Tick()
 	testBar.NextOutput().AssertError("on tick with error")
+	testBar.NextOutput().Expect("Sets restart click handler")
 	testBar.Tick()
 	testBar.AssertNoOutput("on subsequent tick with error")
 }

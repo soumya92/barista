@@ -124,21 +124,24 @@ func TestErrors(t *testing.T) {
 	getloadavg = mockloadavg
 	testBar.New(t)
 
+	shouldReturn(1)
 	load := New()
 	testBar.Run(load)
 
-	shouldReturn(1)
-	testBar.Tick()
-	errs := testBar.NextOutput().AssertError("on next tick with error")
+	errs := testBar.NextOutput().AssertError("on start with error")
 	require.Equal("getloadavg: 1", errs[0], "error string contains getloadavg code")
 
 	shouldReturn(1, 2, 3, 4, 5)
-	testBar.RestartModule(0)
-	errs = testBar.NextOutput().AssertError("on next tick with error")
+	out := testBar.NextOutput("with restart click handler")
+	out.At(0).LeftClick()
+	testBar.NextOutput().Expect("on restart, clears error segment")
+	errs = testBar.NextOutput().AssertError("on restart with error")
 	require.Equal("getloadavg: 5", errs[0], "error string contains getloadavg code")
 
 	shouldError(errors.New("test"))
-	testBar.RestartModule(0)
-	errs = testBar.NextOutput().AssertError("on next tick with error")
+	out = testBar.NextOutput("with restart click handler")
+	out.At(0).LeftClick()
+	testBar.NextOutput().Expect("on restart, clears error segment")
+	errs = testBar.NextOutput().AssertError("on restart with error")
 	require.Equal("test", errs[0], "error string is passed through")
 }

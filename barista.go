@@ -23,7 +23,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/lucasb-eyer/go-colorful"
@@ -55,12 +54,8 @@ type i3Bar struct {
 	// The list of modules that make up this bar.
 	modules   []bar.Module
 	moduleSet *core.ModuleSet
-	// To allow error outputs to show the full error using i3-nagbar without
-	// forcing the bar into compact mode on long errors, store the full error
-	// text for the last set of segments, and send error IDs to i3bar.
-	// When a click event comes back with an error ID, intercept right-clicks
-	// to show the error string instead of dispatching the event to the module.
-	errors map[string]error
+	// A map of previously set click handlers for each segment.
+	clickHandlers map[string]func(bar.Event)
 	// The function to call when an error segment is right-clicked.
 	errorHandler func(bar.ErrorEvent)
 	// The channel that receives a signal on module updates.
@@ -226,22 +221,9 @@ func Run(modules ...bar.Module) error {
 				return err
 			}
 		case event := <-b.events:
-			l.Fine("Clicked on '%s'", event.Name)
-			moduleID, errorID := idFromName(event.Name)
-			// If the clicked segment has an error, intercept right clicks
-			// and show nagbar. Everything else is handled as normal.
-			if errorID != "" && event.Button == bar.ButtonRight {
-				if err, ok := b.errors[errorID]; ok {
-					go b.errorHandler(bar.ErrorEvent{
-						Error: err,
-						Event: event.Event,
-					})
-				}
-				continue
+			if onClick, ok := b.clickHandlers[event.Name]; ok {
+				go onClick(event.Event)
 			}
-			// Events are stripped of the name before being dispatched to the
-			// correct module.
-			b.click(moduleID, event.Event)
 		case sig := <-signalChan:
 			switch sig {
 			case unix.SIGUSR1:
@@ -253,30 +235,6 @@ func Run(modules ...bar.Module) error {
 			return err
 		}
 	}
-}
-
-func idFromName(name string) (moduleID, errorID string) {
-	parts := strings.Split(name, "/")
-	assertLen := func(expected int) bool {
-		if len(parts) != expected {
-			l.Log("Unexpected name: %s", name)
-			return false
-		}
-		return true
-	}
-	// name format: m/$mod or e/$err/$mod.
-	switch parts[0] {
-	case "m":
-		if assertLen(2) {
-			moduleID = parts[1]
-		}
-	case "e":
-		if assertLen(3) {
-			errorID = parts[1]
-			moduleID = parts[2]
-		}
-	}
-	return moduleID, errorID
 }
 
 // DefaultErrorHandler invokes i3-nagbar to show the full error message.
@@ -313,9 +271,6 @@ func i3map(s *bar.Segment) map[string]interface{} {
 	if align, ok := s.GetAlignment(); ok {
 		i3map["align"] = align
 	}
-	if id, ok := s.GetID(); ok {
-		i3map["instance"] = id
-	}
 	if urgent, ok := s.IsUrgent(); ok {
 		i3map["urgent"] = urgent
 	}
@@ -335,25 +290,34 @@ func i3map(s *bar.Segment) map[string]interface{} {
 
 // print outputs the entire bar, using the last output for each module.
 func (b *i3Bar) print() error {
+	// Store the set of click handlers for any segments that can handle clicks.
+	// When i3bar sends us the click event, it will include an identifier that
+	// we can use to look up the function to call.
+	b.clickHandlers = map[string]func(bar.Event){}
 	// i3bar requires the entire bar to be printed at once, so we just take the
 	// last cached value for each module and construct the current bar.
-	// The bar will update any modules before calling this method, so the
-	// lastOutput property of each module will represent the current state.
-	b.errors = map[string]error{}
 	output := make([]map[string]interface{}, 0)
-	for idx, segments := range b.moduleSet.LastOutputs() {
-		name := strconv.Itoa(idx)
+	for _, segments := range b.moduleSet.LastOutputs() {
 		for _, segment := range segments {
 			out := i3map(segment)
+			var clickHandler func(bar.Event)
 			if err := segment.GetError(); err != nil {
-				errorID := strconv.Itoa(len(b.errors))
-				b.errors[errorID] = err
-				out["name"] = "e/" + errorID + "/" + name
-				if b.includeErrorsInOutput {
-					out["error"] = err.Error()
+				// because go.
+				segment := segment
+				clickHandler = func(e bar.Event) {
+					if e.Button == bar.ButtonRight {
+						b.errorHandler(bar.ErrorEvent{err, e})
+					} else {
+						segment.Click(e)
+					}
 				}
-			} else {
-				out["name"] = "m/" + name
+			} else if segment.HasClick() {
+				clickHandler = segment.Click
+			}
+			if clickHandler != nil {
+				name := strconv.Itoa(len(b.clickHandlers))
+				out["name"] = name
+				b.clickHandlers[name] = clickHandler
 			}
 			output = append(output, out)
 		}
@@ -363,20 +327,6 @@ func (b *i3Bar) print() error {
 	}
 	_, err := io.WriteString(b.writer, ",\n")
 	return err
-}
-
-// click sends the event to the module of the given "name".
-func (b *i3Bar) click(name string, evt bar.Event) {
-	index, err := strconv.Atoi(name)
-	if err != nil {
-		l.Log("Malformed module id '%s'", name)
-		return
-	}
-	if index < 0 || len(b.modules) <= index {
-		l.Log("Could not find module '%s'", name)
-		return
-	}
-	go b.moduleSet.Click(index, evt)
 }
 
 // readEvents parses the infinite stream of events received from i3.

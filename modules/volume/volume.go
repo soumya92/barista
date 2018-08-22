@@ -35,10 +35,12 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Volume represents the current audio volume and mute state.
 type Volume struct {
+	Controller
 	Min, Max, Vol int64
 	Mute          bool
 }
@@ -74,9 +76,6 @@ type moduleImpl interface {
 }
 
 // Module represents a bar.Module that displays volume information.
-// In addition to bar.Module, it also provides an expanded OnClick,
-// which allows click handlers to control the system volume, and the
-// usual output formatting options.
 type Module struct {
 	outputFunc    base.Value      // of func(Volume) bar.Output
 	clickHandler  base.Value      // of func(Volume, Controller, bar.Event)
@@ -97,45 +96,31 @@ func (m *Module) Template(template string) *Module {
 	return m
 }
 
-// OnClick sets the click handler for the module.
-func (m *Module) OnClick(f func(Volume, Controller, bar.Event)) {
-	if f == nil {
-		f = func(v Volume, c Controller, e bar.Event) {}
-	}
-	m.clickHandler.Set(f)
-}
-
-// Click handles click events on the module's output.
-func (m *Module) Click(e bar.Event) {
-	handler := m.clickHandler.Get().(func(Volume, Controller, bar.Event))
-	if vol, _ := m.currentVolume.Get(); vol != nil {
-		handler(vol.(Volume), m, e)
-	}
-}
-
 // Throttle volume updates to once every ~20ms to prevent alsa breakage.
 var alsaLimiter = rate.NewLimiter(rate.Every(20*time.Millisecond), 1)
 
-// DefaultClickHandler provides a simple example of the click handler capabilities.
+// defaultClickHandler provides a simple example of the click handler capabilities.
 // It toggles mute on left click, and raises/lowers the volume on scroll.
-func DefaultClickHandler(v Volume, c Controller, e bar.Event) {
-	if !alsaLimiter.Allow() {
-		// Don't update the volume if it was updated <20ms ago.
-		return
-	}
-	if e.Button == bar.ButtonLeft {
-		c.SetMuted(!v.Mute)
-		return
-	}
-	volStep := (v.Max - v.Min) / 100
-	if volStep == 0 {
-		volStep = 1
-	}
-	if e.Button == bar.ScrollUp {
-		c.SetVolume(v.Vol + volStep)
-	}
-	if e.Button == bar.ScrollDown {
-		c.SetVolume(v.Vol - volStep)
+func defaultClickHandler(v Volume) func(bar.Event) {
+	return func(e bar.Event) {
+		if !alsaLimiter.Allow() {
+			// Don't update the volume if it was updated <20ms ago.
+			return
+		}
+		if e.Button == bar.ButtonLeft {
+			v.SetMuted(!v.Mute)
+			return
+		}
+		volStep := (v.Max - v.Min) / 100
+		if volStep == 0 {
+			volStep = 1
+		}
+		if e.Button == bar.ScrollUp {
+			v.SetVolume(v.Vol + volStep)
+		}
+		if e.Button == bar.ScrollDown {
+			v.SetVolume(v.Vol - volStep)
+		}
 	}
 }
 
@@ -149,7 +134,9 @@ func (m *Module) Stream(s bar.Sink) {
 			return
 		}
 		if vol, ok := v.(Volume); ok {
-			s.Output(outputFunc(vol))
+			vol.Controller = m
+			s.Output(outputs.Group(outputFunc(vol)).
+				OnClick(defaultClickHandler(vol)))
 		}
 		select {
 		case <-m.currentVolume.Update():
@@ -211,7 +198,6 @@ func (m *Module) SetMuted(muted bool) {
 func createModule(impl moduleImpl) *Module {
 	m := &Module{impl: impl}
 	l.Register(m, "outputFunc", "currentVolume", "clickHandler", "impl")
-	m.OnClick(DefaultClickHandler)
 	// Default output template is just the volume %, "MUT" when muted.
 	m.Template(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`)
 	return m

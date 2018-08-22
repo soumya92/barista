@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/modules/funcs"
 	"github.com/soumya92/barista/outputs"
 )
@@ -36,7 +35,6 @@ import (
 // TailModule represents a bar.Module that displays the last line
 // of output from a shell command in the bar.
 type TailModule struct {
-	base.SimpleClickHandler
 	cmd  string
 	args []string
 }

@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
 	testModule "github.com/soumya92/barista/testing/module"
 	"github.com/stretchr/testify/require"
 )
@@ -70,30 +69,11 @@ func TestModuleSet(t *testing.T) {
 	require.Equal(t, "baz", txt)
 
 	out := ms.LastOutputs()
-	require.Equal(t,
-		[]bar.Segments{
-			{bar.TextSegment("baz")},
-			{bar.TextSegment("foo")},
-			nil,
-		}, out)
-
-	ms.Click(0, bar.Event{X: 40})
-	e := tms[0].AssertClicked("on moduleset click")
-	require.Equal(t, 40, e.X)
-
-	tms[2].Output(outputs.Errorf("something went wrong"))
-	<-updateCh
-
-	tms[2].Close()
-	assertNoUpdate(t, updateCh, "on module finish")
-
-	ms.Click(2, bar.Event{Button: bar.ScrollUp})
-	tms[2].AssertNotClicked("after finish")
-	tms[2].AssertNotStarted("when not left/right/middle clicked")
-
-	ms.Click(2, bar.Event{Button: bar.ButtonLeft})
-	require.Equal(t, 2, nextUpdate(t, updateCh, "on restart"),
-		"update notification on restart")
-	require.Empty(t, ms.LastOutput(2), "error segment removed")
-	tms[2].AssertStarted("on left click after finish")
+	require.Equal(t, 1, len(out[0]))
+	txt, _ = out[0][0].Content()
+	require.Equal(t, "baz", txt)
+	require.Equal(t, 1, len(out[1]))
+	txt, _ = out[1][0].Content()
+	require.Equal(t, "foo", txt)
+	require.Empty(t, out[2])
 }

@@ -44,7 +44,6 @@ const (
 
 // Module represents a VPN bar module.
 type Module struct {
-	base.SimpleClickHandler
 	intf       string
 	outputFunc base.Value // of func(State) bar.Output
 }

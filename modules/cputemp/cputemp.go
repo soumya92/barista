@@ -35,7 +35,6 @@ import (
 // Module represents a cputemp bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
-	base.SimpleClickHandler
 	thermalFile string
 	scheduler   timing.Scheduler
 	format      base.Value

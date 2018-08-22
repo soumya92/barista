@@ -42,14 +42,14 @@ func TestCollapsing(t *testing.T) {
 	tm2.AssertStarted()
 
 	tm0.OutputText("a")
-	testBar.NextOutput().AssertText([]string{"+"},
-		"starts collapsed")
+	out := testBar.NextOutput()
+	out.AssertText([]string{"+"}, "starts collapsed")
 
 	tm1.OutputText("b")
 	testBar.AssertNoOutput("while collapsed")
 	require.False(t, ctrl.Expanded())
 
-	testBar.Click(0)
+	out.At(0).LeftClick()
 	testBar.NextOutput().AssertText([]string{">", "a", "b", "<"},
 		"Expands on click, uses previous output")
 
@@ -65,13 +65,14 @@ func TestCollapsing(t *testing.T) {
 	testBar.AssertNoOutput("no change when already collapsed")
 
 	ctrl.Expand()
-	testBar.NextOutput().AssertText([]string{">", "a", "b", "c", "<"},
+	out = testBar.NextOutput()
+	out.AssertText([]string{">", "a", "b", "c", "<"},
 		"Uses last output when re-expanded")
 
-	testBar.Click(2)
+	out.At(2).LeftClick()
 	tm1.AssertClicked("after expansion")
 
-	testBar.Click(4)
+	out.At(4).LeftClick()
 	testBar.NextOutput().AssertText([]string{"+"})
 	require.False(t, ctrl.Expanded())
 

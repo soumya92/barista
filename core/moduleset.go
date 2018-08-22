@@ -59,10 +59,6 @@ func (m *ModuleSet) sinkFn(idx int) Sink {
 	}
 }
 
-func (m *ModuleSet) Click(idx int, e bar.Event) {
-	m.modules[idx].Click(e)
-}
-
 func (m *ModuleSet) Len() int {
 	return len(m.modules)
 }

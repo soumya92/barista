@@ -82,8 +82,10 @@ func TestCputemp(t *testing.T) {
 
 	temp2.Template(`{{.Kelvin | printf "%.0f"}} kelvin`)
 	testBar.AssertNoOutput("on error'd template change")
-	testBar.RestartModule(2)
+	out.At(2).LeftClick()
+	testBar.NextOutput("with error gone").Expect()
 	testBar.LatestOutput(2).At(2).AssertError("error persists at restart")
+	testBar.LatestOutput(2).Expect("sets restart click handler")
 
 	shouldReturn("22222", "22222")
 	testBar.Tick()
@@ -98,7 +100,10 @@ func TestCputemp(t *testing.T) {
 	testBar.AssertNoOutput("on refresh interval change")
 
 	shouldReturn("0", "0", "0")
-	testBar.RestartModule(2)
+	out.At(2).LeftClick()
+	// TODO: cleanup.
+	testBar.LatestOutput(2).Expect(
+		"after restart, to clear error segment")
 	testBar.LatestOutput(2).Expect(
 		"after restart, because of interval change")
 	testBar.LatestOutput(2).Expect(
@@ -114,5 +119,6 @@ func TestCputemp(t *testing.T) {
 	testBar.Tick()
 	// 0 and 1 are unchanged, so only 2 should update.
 	testBar.LatestOutput(2).At(2).AssertError("On invalid numeric value")
+	testBar.LatestOutput(2).Expect("set click handler to restart module")
 	testBar.AssertNoOutput("until tick")
 }

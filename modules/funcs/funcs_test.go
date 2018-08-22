@@ -65,23 +65,26 @@ func TestOnClick(t *testing.T) {
 	require.Equal(int64(0), atomic.LoadInt64(&count),
 		"Function isn't called until module starts streaming")
 
-	m, onFinish := testBar.AddFinishListener(module)
-	testBar.Run(m)
-	testBar.NextOutput().AssertText(
+	testBar.Run(module)
+	// TODO: Reduce this to one output.
+	testBar.NextOutput("first output without click handler")
+	out := testBar.NextOutput("second output with click handler")
+	out.AssertText(
 		[]string{"1"}, "Function called when streaming")
 	testBar.AssertNoOutput("Function is not called again")
 	testBar.Tick()
 	testBar.AssertNoOutput("Function is not called again")
 
-	<-onFinish
-	testBar.Click(0)
+	out.At(0).LeftClick()
 	testBar.NextOutput().Expect("click causes restart")
-	testBar.NextOutput().AssertText(
+	testBar.NextOutput().Expect("first output without click handler")
+	out = testBar.NextOutput("next with click handler")
+	out.AssertText(
 		[]string{"2"}, "Function called again on click")
 
-	<-onFinish
-	testBar.Click(0)
+	out.At(0).LeftClick()
 	testBar.NextOutput().Expect("click causes restart")
+	testBar.NextOutput().Expect("first output without click handler")
 	testBar.NextOutput().AssertText(
 		[]string{"3"}, "Function called again on click")
 }

@@ -126,7 +126,6 @@ func (i Info) SignedPower() float64 {
 // Module represents a battery bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
-	base.SimpleClickHandler
 	updateFunc func() Info
 	scheduler  timing.Scheduler
 	format     base.Value

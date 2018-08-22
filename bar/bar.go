@@ -48,8 +48,8 @@ type Segment struct {
 	// A bitmask of attributes that are set. Needed because the go default
 	// for some attributes behave differently from unset values when sent to
 	// i3bar. (e.g. the default separatorWidth is not 0).
-	attrSet    int
-	identifier string
+	attrSet int
+	onClick func(Event)
 
 	text      string
 	pango     bool
@@ -129,14 +129,13 @@ Width, Height are set to the size of the output segment.
 ScreenX, ScreenY are the event co-ordinates relative to the root window.
 */
 type Event struct {
-	Button    Button `json:"button"`
-	SegmentID string `json:"instance"`
-	X         int    `json:"relative_x,omitempty"`
-	Y         int    `json:"relative_y,omitempty"`
-	Width     int    `json:"width,omitempty"`
-	Height    int    `json:"height,omitempty"`
-	ScreenX   int    `json:"x,omitempty"`
-	ScreenY   int    `json:"y,omitempty"`
+	Button  Button `json:"button"`
+	X       int    `json:"relative_x,omitempty"`
+	Y       int    `json:"relative_y,omitempty"`
+	Width   int    `json:"width,omitempty"`
+	Height  int    `json:"height,omitempty"`
+	ScreenX int    `json:"x,omitempty"`
+	ScreenY int    `json:"y,omitempty"`
 }
 
 /*
@@ -166,11 +165,4 @@ type Module interface {
 	// The Sink passed to Stream is only valid for the one call to Stream;
 	// subsequent calls may receive different instances.
 	Stream(Sink)
-}
-
-// Clickable is an additional interface modules may implement if they handle click events.
-type Clickable interface {
-	// Click will be called by the bar when it receives a mouse event from i3 that is
-	// meant for this module.
-	Click(Event)
 }

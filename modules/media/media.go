@@ -26,6 +26,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
 
@@ -45,6 +46,7 @@ const (
 
 // Info represents the current information from the media player.
 type Info struct {
+	Controller
 	PlaybackStatus PlaybackStatus
 	Shuffle        bool
 	// From Metadata
@@ -151,12 +153,9 @@ type Controller interface {
 
 // Module represents a bar.Module that displays media information
 // from an MPRIS-compatible media player.
-// In addition to bar.Module, it also provides an expanded OnClick,
-// which allows click handlers to control the media player.
 type Module struct {
-	playerName   string
-	outputFunc   base.Value // of func(Info) bar.Output
-	clickHandler base.Value // of func(Info, Controller, bar.Event)
+	playerName string
+	outputFunc base.Value // of func(Info) bar.Output
 
 	// player state, updated from dbus signals.
 	info base.Value // of Info
@@ -171,8 +170,6 @@ func New(player string) *Module {
 	m := &Module{playerName: player}
 	l.Label(m, player)
 	l.Register(m, "outputFunc", "clickHandler", "info")
-	// Set default click handler in New(), can be overridden later.
-	m.OnClick(DefaultClickHandler)
 	// Default output template that's just the currently playing track.
 	m.Template(`{{if .Connected}}{{.Title}}{{end}}`)
 	return m
@@ -190,44 +187,30 @@ func (m *Module) Template(template string) *Module {
 	return m
 }
 
-// OnClick sets a click handler for the module.
-func (m *Module) OnClick(f func(Info, Controller, bar.Event)) *Module {
-	if f == nil {
-		f = func(i Info, c Controller, e bar.Event) {}
-	}
-	m.clickHandler.Set(f)
-	return m
-}
-
-// Click handles click events on the module's output.
-func (m *Module) Click(e bar.Event) {
-	info := m.info.Get().(Info)
-	clickHandler := m.clickHandler.Get().(func(Info, Controller, bar.Event))
-	clickHandler(info, m.player, e)
-}
-
 // Throttle seek calls to once every ~50ms to allow more control
 // and work around some programs that cannot handle rapid updates.
 var seekLimiter = rate.NewLimiter(rate.Every(50*time.Millisecond), 1)
 
-// DefaultClickHandler provides useful behaviour out of the box,
+// defaultClickHandler provides useful behaviour out of the box,
 // Click to play/pause, scroll to seek, and back/forward to switch tracks.
-func DefaultClickHandler(i Info, c Controller, e bar.Event) {
-	switch e.Button {
-	case bar.ButtonLeft:
-		c.PlayPause()
-	case bar.ScrollDown, bar.ScrollRight:
-		if seekLimiter.Allow() {
-			c.Seek(time.Second)
+func defaultClickHandler(i Info) func(bar.Event) {
+	return func(e bar.Event) {
+		switch e.Button {
+		case bar.ButtonLeft:
+			i.PlayPause()
+		case bar.ScrollDown, bar.ScrollRight:
+			if seekLimiter.Allow() {
+				i.Seek(time.Second)
+			}
+		case bar.ButtonBack:
+			i.Previous()
+		case bar.ScrollUp, bar.ScrollLeft:
+			if seekLimiter.Allow() {
+				i.Seek(-time.Second)
+			}
+		case bar.ButtonForward:
+			i.Next()
 		}
-	case bar.ButtonBack:
-		c.Previous()
-	case bar.ScrollUp, bar.ScrollLeft:
-		if seekLimiter.Allow() {
-			c.Seek(-time.Second)
-		}
-	case bar.ButtonForward:
-		c.Next()
 	}
 }
 
@@ -275,7 +258,9 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-m.outputFunc.Update():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
-			s.Output(outputFunc(info))
+			info.Controller = m.player
+			s.Output(outputs.Group(outputFunc(info)).
+				OnClick(defaultClickHandler(info)))
 		case v := <-dbusCh:
 			updates, err := m.player.handleDbusSignal(v)
 			if s.Error(err) {
@@ -291,10 +276,14 @@ func (m *Module) Stream(s bar.Sink) {
 			}
 			if updates.any() {
 				m.info.Set(info)
-				s.Output(outputFunc(info))
+				info.Controller = m.player
+				s.Output(outputs.Group(outputFunc(info)).
+					OnClick(defaultClickHandler(info)))
 			}
 		case <-positionUpdater.Tick():
-			s.Output(outputFunc(info))
+			info.Controller = m.player
+			s.Output(outputs.Group(outputFunc(info)).
+				OnClick(defaultClickHandler(info)))
 		}
 	}
 }

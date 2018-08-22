@@ -80,17 +80,14 @@ func (g *grouper) Visible(int) bool {
 }
 
 func (g *grouper) Buttons() (start, end bar.Output) {
-	return g.buttonFunc(g.expanded)
-}
-
-func (g *grouper) ClickStart(e bar.Event) {
-	if e.Button == bar.ButtonLeft {
-		g.Toggle()
+	onClick := func(e bar.Event) {
+		if e.Button == bar.ButtonLeft {
+			g.Toggle()
+		}
 	}
-}
-
-func (g *grouper) ClickEnd(e bar.Event) {
-	g.ClickStart(e)
+	start, end = g.buttonFunc(g.expanded)
+	return outputs.Group(start).OnClick(onClick),
+		outputs.Group(end).OnClick(onClick)
 }
 
 func (g *grouper) Signal() <-chan struct{} {

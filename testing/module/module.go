@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Time to wait for events that are expected. Overridden in tests.
@@ -40,6 +41,11 @@ type TestModule struct {
 	events  chan bar.Event
 	onStart chan<- bool
 	onStop  chan<- bool
+	// If true, the default click handler will not be added.
+	// Use sparingly, since this will break AssertClicked, but it can
+	// be useful when the output of this module is used in equality
+	// assertions.
+	skipClickHandlers bool
 }
 
 // New creates a new module with the given testingT that can be used
@@ -55,8 +61,8 @@ func (t *TestModule) Stream(sink bar.Sink) {
 		t.Unlock()
 		panic("already streaming!")
 	}
-	outputs := make(chan bar.Output, 100)
-	t.outputs = outputs
+	outs := make(chan bar.Output, 100)
+	t.outputs = outs
 	t.events = make(chan bar.Event, 100)
 	t.started = true
 	onStart := t.onStart
@@ -66,22 +72,33 @@ func (t *TestModule) Stream(sink bar.Sink) {
 	if onStart != nil {
 		go func() { onStart <- true }()
 	}
-	for out := range outputs {
+	for out := range outs {
+		t.Lock()
+		if !t.skipClickHandlers {
+			out = outputs.Group(out).
+				OnClick(func(e bar.Event) { t.events <- e })
+		}
+		t.Unlock()
 		sink.Output(out)
 	}
 	t.Lock()
 	t.started = false
+	onStop := t.onStop
+	t.onStop = nil
 	t.Unlock()
+	if onStop != nil {
+		go func() { onStop <- true }()
+	}
 }
 
-// Click conforms to bar.Clickable.
-func (t *TestModule) Click(e bar.Event) {
+// SkipClickHandlers configures the module to skip adding a default
+// click handler on output. Setting this will break AssertClicked, but
+// can be useful when comparing the output of this module in tests.
+func (t *TestModule) SkipClickHandlers(skip bool) *TestModule {
 	t.Lock()
-	defer t.Unlock()
-	if !t.started {
-		panic(fmt.Sprintf("not streaming! (tried to click: %+#v)", e))
-	}
-	t.events <- e
+	t.skipClickHandlers = true
+	t.Unlock()
+	return t
 }
 
 // Output queues output to be sent over the channel on the next read.
@@ -97,18 +114,6 @@ func (t *TestModule) Output(out bar.Output) {
 // OutputText is shorthand for Output(bar.TextSegment(...)).
 func (t *TestModule) OutputText(text string) {
 	t.Output(bar.TextSegment(text))
-}
-
-// ModuleFinished should be called when the module host has processed
-// the return from this module's Stream().
-func (t *TestModule) ModuleFinished() {
-	t.Lock()
-	onStop := t.onStop
-	t.onStop = nil
-	t.Unlock()
-	if onStop != nil {
-		go func() { onStop <- true }()
-	}
 }
 
 // Close closes the module's channels, allowing the bar to restart

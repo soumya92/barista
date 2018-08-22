@@ -57,7 +57,6 @@ func (i Info) Enabled() bool {
 
 // Module represents a wlan bar module.
 type Module struct {
-	base.SimpleClickHandler
 	intf       string
 	outputFunc base.Value // of func(Info) bar.Output
 }

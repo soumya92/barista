@@ -25,7 +25,6 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/core"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/testing/output"
 	"github.com/soumya92/barista/timing"
 )
@@ -34,9 +33,8 @@ import (
 // simulates a bar for testing purposes.
 type TestBar struct {
 	require.TestingT
-	moduleSet  *core.ModuleSet
-	segmentIDs []segmentID
-	outputs    chan testOutput
+	moduleSet *core.ModuleSet
+	outputs   chan testOutput
 }
 
 var instance atomic.Value // of TestBar
@@ -68,18 +66,15 @@ func Run(m ...bar.Module) {
 	go func(b *TestBar) {
 		for updated := range b.moduleSet.Stream() {
 			segments := make(bar.Segments, 0)
-			ids := make([]segmentID, 0)
 			out := b.moduleSet.LastOutputs()
-			for index, mod := range out {
+			for _, mod := range out {
 				for _, seg := range mod {
 					segments = append(segments, seg)
-					id, _ := seg.GetID()
-					ids = append(ids, segmentID{index, id})
 				}
 			}
 			l.Fine("%s new output (by %d): %v",
 				l.ID(b.moduleSet), updated, debugOut(out[updated]))
-			b.outputs <- testOutput{segments, ids, updated}
+			b.outputs <- testOutput{segments, updated}
 		}
 	}(b)
 }
@@ -90,17 +85,9 @@ var positiveTimeout = time.Second
 // Time to wait for events that are not expected.
 var negativeTimeout = 10 * time.Millisecond
 
-// segmentID stores the module index and segment identifier,
-// which together identify a segment when dispatching events.
-type segmentID struct {
-	index      int
-	identifier string
-}
-
 // testOutput groups related information about the latest output.
 type testOutput struct {
 	segments bar.Segments
-	ids      []segmentID
 	updated  int
 }
 
@@ -116,15 +103,14 @@ func AssertNoOutput(args ...interface{}) {
 }
 
 // NextOutput returns output assertions for the next output by the bar.
-func NextOutput() output.Assertions {
+func NextOutput(formatAndArgs ...interface{}) output.Assertions {
 	t := instance.Load().(*TestBar)
 	var segments bar.Segments
 	select {
 	case out := <-t.outputs:
-		t.segmentIDs = out.ids
 		segments = out.segments
 	case <-time.After(positiveTimeout):
-		require.Fail(t, "Expected an output, got none")
+		require.Fail(t, "Expected an output, got none", formatAndArgs...)
 	}
 	return output.New(t, segments)
 }
@@ -149,7 +135,6 @@ func LatestOutput(indices ...int) output.Assertions {
 		case out := <-t.outputs:
 			updated[out.updated] = true
 			if hasAllUpdates(updated, indices) {
-				t.segmentIDs = out.ids
 				segments = out.segments
 				l.Fine("%s got output from %v: %v",
 					l.ID(t.moduleSet), indices, debugOut(segments))
@@ -177,64 +162,9 @@ func hasAllUpdates(updated map[int]bool, indices []int) bool {
 	return true
 }
 
-// SendEvent sends a bar.Event to the segment at position i.
-// Important: Events are dispatched based on the segments last read.
-// Call LatestOutput or NextOutput to ensure the segment <-> module
-// mapping is up to date.
-func SendEvent(i int, e bar.Event) {
-	t := instance.Load().(*TestBar)
-	if i >= len(t.segmentIDs) {
-		require.Fail(t, "Cannot send event",
-			"Clicked on segment %d, but only have %d",
-			i, len(t.segmentIDs))
-		return
-	}
-	e.SegmentID = t.segmentIDs[i].identifier
-	t.moduleSet.Click(t.segmentIDs[i].index, e)
-}
-
-// Click sends a left click to the segment at position i.
-func Click(i int) {
-	SendEvent(i, bar.Event{Button: bar.ButtonLeft})
-}
-
-// Restart sends a left click and consumes the next output, with the
-// assumption that the module at the given index has finished. Since
-// restarting a module always causes an update, a single method to
-// restart and swallow the update makes test code cleaner.
-func RestartModule(i int) {
-	Click(i)
-	LatestOutput(i).Expect("on restart")
-}
-
 // Tick calls timing.NextTick() under the covers, allowing
 // some tests that don't need fine grained scheduling control
 // to treat timing's test mode as an implementation detail.
 func Tick() time.Time {
 	return timing.NextTick()
-}
-
-// moduleWithFinishListener wraps a bar.Module with a function that
-// notifies tests that the module is 'finished', i.e. the next click
-// will restart it. This is useful for some synchronisations that are
-// otherwise really hard to implement.
-type moduleWithFinishListener struct {
-	bar.Module
-	finished func()
-}
-
-func (m *moduleWithFinishListener) ModuleFinished() {
-	if f, ok := m.Module.(core.ModuleFinishListener); ok {
-		f.ModuleFinished()
-	}
-	m.finished()
-}
-
-// AddFinshListener takes a bar.Module and adds a channel that will
-// signal when the module finishes, used for synchronisation in tests.
-func AddFinishListener(m bar.Module) (bar.Module, <-chan struct{}) {
-	r := &moduleWithFinishListener{Module: m}
-	var notifyCh <-chan struct{}
-	r.finished, notifyCh = notifier.New()
-	return r, notifyCh
 }

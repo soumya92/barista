@@ -205,18 +205,31 @@ func (s *Segment) GetPadding() (int, bool) {
 	return 9, false
 }
 
-// Identifier sets an opaque identifier for this Segment.
-// This identifier will be passed unchanged to i3bar, and will be used
-// as the value of SegmentID in click events originating on this segment.
-func (s *Segment) Identifier(identifier string) *Segment {
-	s.identifier = identifier
+// OnClick sets a function to be called when the segment is clicked.
+// A nil function is treated as equivalent to func(Event) {}, which
+// means CanClick() will return true, but Click(Event) will do nothing.
+// Nil can therefore be used to prevent module-level default handlers
+// from being attached to a segment.
+func (s *Segment) OnClick(fn func(Event)) *Segment {
+	if fn == nil {
+		fn = func(Event) {}
+	}
+	s.onClick = fn
 	return s
 }
 
-// GetID returns the identifier for this segment.
-// The second value indicates whether it was explicitly set.
-func (s *Segment) GetID() (string, bool) {
-	return s.identifier, s.identifier != ""
+// HasClick returns whether this segment has a click handler defined.
+// Modules can use this check to assign default handlers to segments
+// where the user has not already assigned a click handler.
+func (s *Segment) HasClick() bool {
+	return s.onClick != nil
+}
+
+// Click calls a previously set click handler with the given Event.
+func (s *Segment) Click(e Event) {
+	if s.onClick != nil {
+		s.onClick(e)
+	}
 }
 
 // Segments implements bar.Output for a single Segment.

@@ -44,7 +44,6 @@ func (s State) Enabled() bool {
 
 // Module represents a netinfo bar module.
 type Module struct {
-	base.SimpleClickHandler
 	subscriber func() netlink.Subscription
 	outputFunc base.Value // of func(State) bar.Output
 }
