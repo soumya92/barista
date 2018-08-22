@@ -293,7 +293,8 @@ func colorString(c color.Color) string {
 // the format used by i3bar.
 func i3map(s *bar.Segment) map[string]interface{} {
 	i3map := make(map[string]interface{})
-	i3map["full_text"] = s.Text()
+	txt, pango := s.Content()
+	i3map["full_text"] = txt
 	if shortText, ok := s.GetShortText(); ok {
 		i3map["short_text"] = shortText
 	}
@@ -324,7 +325,7 @@ func i3map(s *bar.Segment) map[string]interface{} {
 	if padding, ok := s.GetPadding(); ok {
 		i3map["separator_block_width"] = padding
 	}
-	if s.IsPango() {
+	if pango {
 		i3map["markup"] = "pango"
 	} else {
 		i3map["markup"] = "none"

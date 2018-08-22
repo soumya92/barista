@@ -61,7 +61,8 @@ func TestModule(t *testing.T) {
 	assertNoOutput(t, ch, "on start")
 
 	tm.Output(outputs.Text("test"))
-	require.Equal(t, "test", nextOutput(t, ch)[0].Text())
+	txt, _ := nextOutput(t, ch)[0].Content()
+	require.Equal(t, "test", txt)
 
 	tm.Output(nil)
 	require.Empty(t, nextOutput(t, ch))
@@ -80,12 +81,12 @@ func TestReplay(t *testing.T) {
 	assertNoOutput(t, ch, "on start with pending Replay")
 
 	tm.Output(outputs.Text("foo"))
-	require.Equal(t, "foo",
-		nextOutput(t, ch, "on regular output")[0].Text())
+	txt, _ := nextOutput(t, ch, "on regular output")[0].Content()
+	require.Equal(t, "foo", txt)
 
 	m.Replay()
-	require.Equal(t, "foo",
-		nextOutput(t, ch, "on replay")[0].Text())
+	txt, _ = nextOutput(t, ch, "on replay")[0].Content()
+	require.Equal(t, "foo", txt)
 }
 
 type simpleModule struct{ returned chan bool }
@@ -199,6 +200,7 @@ func TestRestart(t *testing.T) {
 	m.Click(bar.Event{Button: bar.ButtonMiddle})
 	out := nextOutput(t, ch)
 	require.Equal(t, 1, len(out), "Only non-error segments on restart")
-	require.Equal(t, "test", out[0].Text())
+	txt, _ := out[0].Content()
+	require.Equal(t, "test", txt)
 	tm.AssertStarted("on middle click")
 }

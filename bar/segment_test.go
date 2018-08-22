@@ -34,8 +34,14 @@ func TestSegment(t *testing.T) {
 	require := require.New(t)
 
 	segment := TextSegment("test")
-	require.Equal("test", segment.Text())
-	require.False(segment.IsPango())
+	txt, pango := segment.Content()
+	require.Equal("test", txt)
+	require.False(pango)
+
+	segment.Pango("foo")
+	txt, pango = segment.Content()
+	require.Equal("foo", txt)
+	require.True(pango)
 
 	assertUnset := func(value interface{}, isSet bool) interface{} {
 		require.False(isSet)
@@ -65,8 +71,14 @@ func TestSegment(t *testing.T) {
 	require.Equal(9, defaultSepWidth)
 
 	segment = PangoSegment("<b>bold</b>")
-	require.Equal("<b>bold</b>", segment.Text())
-	require.True(segment.IsPango())
+	txt, pango = segment.Content()
+	require.Equal("<b>bold</b>", txt)
+	require.True(pango)
+
+	segment.Text("not-bold")
+	txt, pango = segment.Content()
+	require.Equal("not-bold", txt)
+	require.False(pango)
 
 	assertUnset(segment.GetShortText())
 	segment.ShortText("BD")
@@ -115,7 +127,8 @@ func TestSegment(t *testing.T) {
 	require.Equal("test", assertSet(segment.GetID()))
 
 	segment = ErrorSegment(fmt.Errorf("something went wrong"))
-	require.Equal("Error", segment.Text())
+	txt, _ = segment.Content()
+	require.Equal("Error", txt)
 	require.Equal("!", assertSet(segment.GetShortText()))
 	require.True(assertSet(segment.IsUrgent()).(bool))
 	require.Error(segment.GetError())

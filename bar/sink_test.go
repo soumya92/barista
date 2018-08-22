@@ -29,7 +29,8 @@ func TestOutput(t *testing.T) {
 	sink.Output(TextSegment("foo"))
 	select {
 	case out := <-ch:
-		require.Equal(t, "foo", out.Segments()[0].Text())
+		txt, _ := out.Segments()[0].Content()
+		require.Equal(t, "foo", txt)
 	default:
 		require.Fail(t, "expected output on Output(...)")
 	}

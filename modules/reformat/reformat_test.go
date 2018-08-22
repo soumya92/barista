@@ -15,6 +15,7 @@
 package reformat
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,11 +38,15 @@ func TestReformat(t *testing.T) {
 	testBar.NextOutput().AssertText([]string{"test"},
 		"when original module updates")
 
-	reformatted.Format(func(s bar.Segments) bar.Output {
-		return outputs.Textf("+%s+", s[0].Text())
-	})
+	reformatted.Format(Texts(func(s string) string {
+		return fmt.Sprintf("+%s+", s)
+	}))
 	testBar.NextOutput().AssertText([]string{"+test+"},
 		"when format function changes")
+
+	original.Output(bar.Segments{bar.PangoSegment("<b>bold</b>")})
+	testBar.NextOutput().AssertText(
+		[]string{"<b>bold</b>"}, "pango content unchanged")
 
 	original.Output(outputs.Textf("foo"))
 	testBar.NextOutput().AssertText([]string{"+foo+"},
@@ -69,7 +74,8 @@ func TestReformat(t *testing.T) {
 
 	reformatted.Format(EachSegment(SkipErrors(
 		func(in *bar.Segment) *bar.Segment {
-			return outputs.Textf("#%s#", in.Text())
+			txt, _ := in.Content()
+			return outputs.Textf("#%s#", txt)
 		})))
 	testBar.NextOutput().AssertText([]string{"#test#"},
 		"with EachSegment wrapper")
@@ -86,9 +92,9 @@ func TestReformat(t *testing.T) {
 func TestRestart(t *testing.T) {
 	testBar.New(t)
 	original := testModule.New(t)
-	reformatted := New(original).Format(func(s bar.Segments) bar.Output {
-		return outputs.Textf("+%s+", s[0].Text())
-	})
+	reformatted := New(original).Format(Texts(func(s string) string {
+		return fmt.Sprintf("+%s+", s)
+	}))
 	testBar.Run(reformatted)
 	original.AssertStarted("on stream of reformatted module")
 
@@ -97,7 +103,8 @@ func TestRestart(t *testing.T) {
 
 	reformatted.Format(EachSegment(SkipErrors(
 		func(s *bar.Segment) *bar.Segment {
-			return outputs.Textf("+%s+", s.Text())
+			txt, _ := s.Content()
+			return outputs.Textf("+%s+", txt)
 		})))
 	testBar.NextOutput().Expect("On format func change")
 
@@ -126,7 +133,8 @@ func TestRestart(t *testing.T) {
 	testBar.AssertNoOutput("until original module outputs")
 	reformatted.Format(EachSegment(
 		func(in *bar.Segment) *bar.Segment {
-			return outputs.Textf("** %s **", in.Text())
+			txt, _ := in.Content()
+			return outputs.Textf("** %s **", txt)
 		}))
 	testBar.AssertNoOutput("if format func changes before any output")
 

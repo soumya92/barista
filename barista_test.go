@@ -658,9 +658,6 @@ func TestI3Map(t *testing.T) {
 	a3.Expected["markup"] = "pango"
 	a3.AssertEqual("markup set for pango segment")
 
-	require.Equal(t, "test", segment.Text(), "text getter")
-	require.Equal(t, "test", segment2.Text(), "text getter")
-
 	a.Expected["short_text"] = "t"
 	a.AssertEqual("mutates in place")
 

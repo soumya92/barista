@@ -39,14 +39,17 @@ func TestSegmentGroup(t *testing.T) {
 	mid := func() *bar.Segment { return out.Segments()[3] }
 	last := func() *bar.Segment { return out.Segments()[5] }
 
-	require.Equal("1", first().Text())
-	require.False(first().IsPango())
+	txt, isPango := first().Content()
+	require.Equal("1", txt)
+	require.False(isPango)
 
-	require.Equal("4", mid().Text())
-	require.True(mid().IsPango())
+	txt, isPango = mid().Content()
+	require.Equal("4", txt)
+	require.True(isPango)
 
-	require.Equal("6", last().Text())
-	require.True(last().IsPango())
+	txt, isPango = last().Content()
+	require.Equal("6", txt)
+	require.True(isPango)
 
 	assertAllEqual := func(expected interface{},
 		getFunc func(s *bar.Segment) (interface{}, bool),
@@ -142,8 +145,10 @@ func TestSingleGroup(t *testing.T) {
 	require.Equal(1, len(single.Segments()))
 
 	segment := func() *bar.Segment { return single.Segments()[0] }
-	require.Equal("<b>only</b>", segment().Text())
-	require.True(segment().IsPango())
+
+	txt, isPango := segment().Content()
+	require.Equal("<b>only</b>", txt)
+	require.True(isPango)
 
 	single.Background(colors.Hex("#ff0"))
 	bg, _ := segment().GetBackground()

@@ -47,6 +47,17 @@ func Hide(in bar.Segments) bar.Output {
 	return nil
 }
 
+// Texts reformats a module's output with just the text content as input.
+func Texts(f func(string) string) func(bar.Segments) bar.Output {
+	return EachSegment(func(in *bar.Segment) *bar.Segment {
+		txt, isPango := in.Content()
+		if isPango {
+			return in
+		}
+		return in.Text(f(txt))
+	})
+}
+
 // SegmentFunc is a reformatting function at the segment level.
 type SegmentFunc func(*bar.Segment) *bar.Segment
 

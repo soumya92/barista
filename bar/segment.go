@@ -18,14 +18,14 @@ import "image/color"
 
 // TextSegment creates a new output segment with text content.
 func TextSegment(text string) *Segment {
-	return &Segment{text: text, markup: "none"}
+	return new(Segment).Text(text)
 }
 
 // PangoSegment creates a new output segment with content that uses pango
 // markup for formatting. Not all features may be supported.
 // See https://developer.gnome.org/pango/stable/PangoMarkupFormat.html.
 func PangoSegment(text string) *Segment {
-	return &Segment{text: text, markup: "pango"}
+	return new(Segment).Pango(text)
 }
 
 // ErrorSegment creates a new output segment that displays an error.
@@ -36,14 +36,26 @@ func ErrorSegment(e error) *Segment {
 	return TextSegment("Error").Error(e).ShortText("!").Urgent(true)
 }
 
-// Text returns the text content of this segment.
-func (s *Segment) Text() string {
-	return s.text
+// Text sets the text content of this segment. It clears any previous
+// content and resets the markup style.
+func (s *Segment) Text(content string) *Segment {
+	s.text = content
+	s.pango = false
+	return s
 }
 
-// IsPango returns true if the segment is using pango markup.
-func (s *Segment) IsPango() bool {
-	return s.markup == "pango"
+// Pango sets the pango content of this segment. It clears any previous
+// content and sets the markup style to pango.
+func (s *Segment) Pango(content string) *Segment {
+	s.text = content
+	s.pango = true
+	return s
+}
+
+// Content returns the text content of the segment, and whether or not
+// it is using pango markup.
+func (s *Segment) Content() (text string, isPango bool) {
+	return s.text, s.pango
 }
 
 // ShortText sets the shortened text, used if the default text

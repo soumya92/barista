@@ -29,7 +29,8 @@ import (
 func textOf(out bar.Output) string {
 	str := ""
 	for _, segment := range out.Segments() {
-		str += segment.Text()
+		txt, _ := segment.Content()
+		str += txt
 	}
 	return str
 }
@@ -37,7 +38,8 @@ func textOf(out bar.Output) string {
 func textWithSeparators(out bar.Output) string {
 	str := ""
 	for _, segment := range out.Segments() {
-		str += segment.Text()
+		txt, _ := segment.Content()
+		str += txt
 		if sep, _ := segment.HasSeparator(); sep {
 			str += "|"
 		}

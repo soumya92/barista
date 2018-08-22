@@ -55,7 +55,8 @@ func New(t require.TestingT) {
 
 func debugOut(segments bar.Segments) (texts []string) {
 	for _, s := range segments {
-		texts = append(texts, s.Text())
+		txt, _ := s.Content()
+		texts = append(texts, txt)
 	}
 	return texts
 }

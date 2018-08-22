@@ -57,7 +57,7 @@ func (a Assertions) AssertText(expected []string, args ...interface{}) {
 	segments := a.output.Segments()
 	actual := make([]string, len(segments))
 	for i, s := range segments {
-		actual[i] = s.Text()
+		actual[i], _ = s.Content()
 	}
 	a.require.Equal(expected, actual, args...)
 }
@@ -136,7 +136,8 @@ func (a SegmentAssertions) AssertText(expected string, args ...interface{}) {
 	if a.segment == nil {
 		return
 	}
-	a.require.Equal(expected, a.segment.Text(), args...)
+	txt, _ := a.segment.Content()
+	a.require.Equal(expected, txt, args...)
 }
 
 // AssertError asserts that the segment represents an error,
@@ -147,8 +148,9 @@ func (a SegmentAssertions) AssertError(args ...interface{}) string {
 	}
 	err := a.segment.GetError()
 	if err == nil {
+		txt, _ := a.segment.Content()
 		a.require.Fail(
-			"expected an error, got '"+a.segment.Text()+"'",
+			"expected an error, got '"+txt+"'",
 			args...)
 		return ""
 	}

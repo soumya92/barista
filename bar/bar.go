@@ -52,8 +52,8 @@ type Segment struct {
 	identifier string
 
 	text      string
+	pango     bool
 	shortText string
-	markup    string
 	err       error
 
 	color      color.Color

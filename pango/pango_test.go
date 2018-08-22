@@ -253,10 +253,11 @@ func TestColorAttrs(t *testing.T) {
 func TestBarOutput(t *testing.T) {
 	node := Text("something went wrong").Color(colors.Hex("#f00")).UnderlineError()
 	segment := output.New(t, node).At(0).Segment()
+	txt, isPango := segment.Content()
 	pango.AssertEqual(t,
 		"<span color='#ff0000' underline='error'>something went wrong</span>",
-		segment.Text())
-	require.True(t, segment.IsPango())
+		txt)
+	require.True(t, isPango)
 }
 
 var result string

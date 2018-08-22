@@ -29,7 +29,8 @@ func TestNewSink(t *testing.T) {
 	go s(outputs.Text("foo"))
 
 	out := <-ch
-	require.Equal(t, "foo", out.Segments()[0].Text())
+	txt, _ := out.Segments()[0].Content()
+	require.Equal(t, "foo", txt)
 
 	require.False(t, s.Error(nil))
 	select {
@@ -58,10 +59,12 @@ func TestBufferedSink(t *testing.T) {
 	s(outputs.Text("bar"))
 
 	out := <-ch
-	require.Equal(t, "foo", out.Segments()[0].Text())
+	txt, _ := out.Segments()[0].Content()
+	require.Equal(t, "foo", txt)
 
 	out = <-ch
-	require.Equal(t, "bar", out.Segments()[0].Text())
+	txt, _ = out.Segments()[0].Content()
+	require.Equal(t, "bar", txt)
 }
 
 func TestNullSink(t *testing.T) {

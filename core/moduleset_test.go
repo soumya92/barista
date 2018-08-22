@@ -66,7 +66,8 @@ func TestModuleSet(t *testing.T) {
 		"update notification on new output from module")
 
 	require.Empty(t, ms.LastOutput(2), "without any output")
-	require.Equal(t, "baz", ms.LastOutput(0)[0].Text())
+	txt, _ := ms.LastOutput(0)[0].Content()
+	require.Equal(t, "baz", txt)
 
 	out := ms.LastOutputs()
 	require.Equal(t,

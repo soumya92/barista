@@ -67,6 +67,7 @@ var templateTests = []struct {
 func TestTemplates(t *testing.T) {
 	for _, tc := range templateTests {
 		Template(tc.template, tc.function)
-		require.Equal(t, tc.expected, result.Segments()[0].Text(), tc.desc)
+		txt, _ := result.Segments()[0].Content()
+		require.Equal(t, tc.expected, txt, tc.desc)
 	}
 }
