@@ -43,12 +43,13 @@ func TestValueUpdate(t *testing.T) {
 	notified := make(chan bool)
 
 	go func() {
-		<-listening
-		<-v.Update()
+		u := v.Update()
+		listening <- true
+		<-u
 		notified <- true
 	}()
-	listening <- true
 
+	<-listening
 	v.Set("test")
 
 	select {
