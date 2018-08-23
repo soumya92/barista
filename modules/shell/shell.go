@@ -21,85 +21,80 @@ e.g. whoami, date +%s.
 package shell
 
 import (
-	"bufio"
 	"os/exec"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/modules/funcs"
+	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
-// TailModule represents a bar.Module that displays the last line
-// of output from a shell command in the bar.
-type TailModule struct {
-	cmd  string
-	args []string
+// Module represents a shell command module that can be updated
+// on a timer, or on demand.
+type Module struct {
+	cmd       string
+	args      []string
+	outf      base.Value // of func(string) bar.Output
+	notifyCh  <-chan struct{}
+	notifyFn  func()
+	scheduler timing.Scheduler
 }
 
-// Tail constructs a module that displays the last line of output from
-// a long running command. Use the reformat module to adjust the output
-// if necessary.
-func Tail(cmd string, args ...string) *TailModule {
-	return &TailModule{cmd: cmd, args: args}
+// New constructs a new shell module.
+func New(cmd string, args ...string) *Module {
+	m := &Module{cmd: cmd, args: args}
+	m.notifyFn, m.notifyCh = notifier.New()
+	m.scheduler = timing.NewScheduler()
+	m.outf.Set(func(text string) bar.Output {
+		return outputs.Text(text)
+	})
+	return m
 }
 
 // Stream starts the module.
-func (m *TailModule) Stream(s bar.Sink) {
-	cmd := exec.Command(m.cmd, m.args...)
-	// Prevent SIGUSR for bar pause/resume from propagating to the
-	// child process. Some commands don't play nice with signals.
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
+func (m *Module) Stream(s bar.Sink) {
+	out, err := exec.Command(m.cmd, m.args...).Output()
+	outf := m.outf.Get().(func(string) bar.Output)
+	for {
+		if s.Error(err) {
+			return
+		}
+		s.Output(outf(strings.TrimSpace(string(out))))
+		select {
+		case <-m.outf.Update():
+			outf = m.outf.Get().(func(string) bar.Output)
+		case <-m.notifyCh:
+			out, err = exec.Command(m.cmd, m.args...).Output()
+		case <-m.scheduler.Tick():
+			out, err = exec.Command(m.cmd, m.args...).Output()
+		}
 	}
-	stdout, err := cmd.StdoutPipe()
-	if s.Error(err) {
-		return
-	}
-	if s.Error(cmd.Start()) {
-		return
-	}
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		txt := scanner.Text()
-		s.Output(outputs.Text(txt))
-	}
-	s.Error(cmd.Wait())
 }
 
-// Every constructs a module that runs the given command at the
-// specified interval and displays the commands output in the bar.
-func Every(interval time.Duration, cmd string, args ...string) *funcs.RepeatingModule {
-	return funcs.Every(interval, func(s bar.Sink) {
-		commandOutput(s, cmd, args...)
-	})
+// Output sets the output format. The format func will be passed the
+// entire trimmed output from the command once it's done executing.
+// To process output by lines, see Tail().
+func (m *Module) Output(format func(string) bar.Output) *Module {
+	m.outf.Set(format)
+	return m
 }
 
-// Once constructs a static module that displays the output of
-// the given command in the bar.
-func Once(cmd string, args ...string) *funcs.OnceModule {
-	return funcs.Once(func(s bar.Sink) {
-		commandOutput(s, cmd, args...)
-	})
-}
-
-// OnClick constructs a module that displays the output of the given
-// command in the bar, and refreshes the output on click.
-func OnClick(cmd string, args ...string) bar.Module {
-	return funcs.OnClick(func(s bar.Sink) {
-		commandOutput(s, cmd, args...)
-	})
-}
-
-// commandOutput runs the command and sends the output or error to the sink.
-func commandOutput(s bar.Sink, cmd string, args ...string) {
-	out, err := exec.Command(cmd, args...).Output()
-	if s.Error(err) {
-		return
+// Every sets the refresh interval for the module. The command will be
+// executed repeatedly at the given interval, and the output updated.
+// A zero interval stops automatic repeats (but Refresh will still work).
+func (m *Module) Every(interval time.Duration) *Module {
+	if interval == 0 {
+		m.scheduler.Stop()
+	} else {
+		m.scheduler.Every(interval)
 	}
-	strOut := strings.TrimSpace(string(out))
-	s.Output(outputs.Text(strOut))
+	return m
+}
+
+// Refresh executes the command and updates the output.
+func (m *Module) Refresh() {
+	m.notifyFn()
 }

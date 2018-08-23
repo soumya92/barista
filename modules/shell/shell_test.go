@@ -20,42 +20,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
 )
 
-func TestTail(t *testing.T) {
-	testBar.New(t)
-	tail := Tail("bash", "-c", "for i in `seq 1 5`; do echo $i; sleep 0.075; done")
-	testBar.Run(tail)
-
-	for _, i := range []string{"1", "2", "3", "4", "5"} {
-		testBar.NextOutput().AssertText([]string{i}, i)
-	}
-
-	testBar.AssertNoOutput("when command terminates normally")
-
-	testBar.New(t)
-	tail = Tail("bash", "-c", "for i in `seq 1 3`; do echo $i; sleep 0.075; done; exit 1")
-	testBar.Run(tail)
-	for _, i := range []string{"1", "2", "3"} {
-		testBar.NextOutput().AssertText([]string{i}, i)
-	}
-
-	testBar.NextOutput().AssertError(
-		"when command terminates with an error")
-
-	testBar.New(t)
-	tail = Tail("this-is-not-a-valid-command", "--but", "'have'", "-some", "args")
-	testBar.Run(tail)
-	testBar.NextOutput().AssertError(
-		"when starting an invalid command")
-}
-
-func TestEvery(t *testing.T) {
+func TestRepeating(t *testing.T) {
 	testBar.New(t)
 
-	rep := Every(time.Second, "echo", "foo")
+	rep := New("echo", "foo").Every(time.Second)
 	testBar.Run(rep)
 
 	testBar.NextOutput().AssertText([]string{"foo"}, "on start")
@@ -73,32 +47,36 @@ func TestEvery(t *testing.T) {
 		testBar.NextOutput().Expect("on tick")
 	}
 
+	rep.Every(0)
+	testBar.Tick()
+	testBar.AssertNoOutput("on zero interval")
+
 	testBar.New(t)
-	rep = Every(time.Second, "this-is-not-a-valid-command", "foo")
+	rep = New("this-is-not-a-valid-command", "foo").Every(time.Second)
 	testBar.Run(rep)
 	testBar.NextOutput().AssertError("when starting an invalid command")
+	out := testBar.NextOutput("sets restart handler")
 	testBar.Tick()
-	testBar.NextOutput().AssertError("new error output on next tick")
-}
-
-func TestOnce(t *testing.T) {
-	testBar.New(t)
-	testBar.Run(Once("echo", "bar"))
-	testBar.NextOutput().AssertText([]string{"bar"}, "on start")
-	testBar.AssertNoOutput("after the first output")
-
-	testBar.New(t)
-	testBar.Run(Once("this-is-not-a-valid-command", "foo"))
+	testBar.AssertNoOutput("on next tick with error")
+	out.At(0).LeftClick()
+	testBar.NextOutput("clears error segment")
 	testBar.NextOutput().AssertError("when starting an invalid command")
-	testBar.AssertNoOutput("after the first output")
 }
 
-func TestOnClick(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	testBar.New(t)
-	testBar.Run(OnClick("echo", "foo"))
-	testBar.NextOutput().AssertText([]string{"foo"}, "on start")
-	testBar.NextOutput("for restart handler").At(0).LeftClick()
+	m := New("echo", "bar").Output(func(in string) bar.Output {
+		return outputs.Textf(">%s<", in)
+	})
+	testBar.Run(m)
+	testBar.NextOutput().AssertText([]string{">bar<"}, "on start")
+	testBar.AssertNoOutput("after the first output")
 
-	testBar.NextOutput().Expect("click causes restart")
-	testBar.NextOutput().AssertText([]string{"foo"}, "on click")
+	m.Output(func(in string) bar.Output {
+		return outputs.Textf("*%s*", in)
+	})
+	testBar.NextOutput("on format change").AssertText([]string{"*bar*"})
+
+	m.Refresh()
+	testBar.NextOutput("on refresh").AssertText([]string{"*bar*"})
 }
