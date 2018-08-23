@@ -16,6 +16,9 @@ package colors
 
 import (
 	"image/color"
+	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -217,5 +220,56 @@ general {
 		err := LoadFromConfig(tc.file)
 		require.Nil(t, err)
 		assertSchemeEquals(t, tc.expected, tc.file)
+	}
+}
+
+func TestBarConfig(t *testing.T) {
+	require.Error(t, LoadFromBarConfig([]byte("{invalid json}")), "invalid json")
+	require.Error(t, LoadFromBarConfig(nil), "empty config")
+
+	scheme = map[string]color.Color{}
+	require.NoError(t, LoadFromBarConfig([]byte(`
+{"id":"main","tray_padding":2,"mode":"dock",
+"colors":{"background":"#303642","statusline":"#d9d7ce","separator":"#606f80"}}
+`)))
+
+	assertSchemeEquals(t, map[string]color.Color{
+		"background": Hex("#303642"),
+		"statusline": Hex("#d9d7ce"),
+		"separator":  Hex("#606f80"),
+	}, "from bar config")
+}
+
+func TestAutoloadingBarConfig(t *testing.T) {
+	out, err := exec.Command(os.Args[0], "--bar_id=foobar").CombinedOutput()
+	if err != nil || strings.TrimSpace(string(out)) != "" {
+		t.Errorf("Failed to auto load bar config: %s\n%s\n", err, out)
+	}
+}
+
+// Needed to test autloading since it requires an argument in the parent's cmdline.
+func init() {
+	if len(os.Args) == 2 && os.Args[1] == "--bar_id=foobar" {
+		out, err := exec.Command(os.Args[0], "AutoLoadBarConfig").CombinedOutput()
+		os.Stdout.Write(out)
+		if err != nil {
+			panic(err)
+		}
+		os.Exit(0)
+	}
+	if len(os.Args) == 2 && os.Args[1] == "AutoLoadBarConfig" {
+		attemptedBarId := ""
+		getBarConfig = func(barId string) []byte {
+			attemptedBarId = barId
+			return []byte(`{}`)
+		}
+		err := AutoLoadBarConfig()
+		if err != nil {
+			panic(err)
+		}
+		if attemptedBarId != "foobar" {
+			panic("Expected barid 'foobar', actual '" + attemptedBarId + "'")
+		}
+		os.Exit(0)
 	}
 }

@@ -17,7 +17,13 @@ package colors
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"image/color"
+	"io/ioutil"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/lucasb-eyer/go-colorful"
@@ -108,4 +114,42 @@ func LoadFromConfig(filename string) error {
 		}
 	}
 	return nil
+}
+
+type barConfig struct {
+	Colors map[string]string `json:"colors"`
+}
+
+// LoadFromBarConfig loads a color scheme from an i3 bar config.
+// A bar config can be obtained using i3-msg -t get_bar_config <bar_id>.
+func LoadFromBarConfig(config []byte) error {
+	var parsed barConfig
+	err := json.Unmarshal(config, &parsed)
+	if err == nil {
+		LoadFromMap(parsed.Colors)
+	}
+	return err
+}
+
+var getBarConfig = func(barId string) []byte {
+	out, _ := exec.Command("i3-msg", "-t", "get_bar_config", barId).Output()
+	return out
+}
+
+// AutoLoadBarConfig automatically loads colors from the current bar's
+// configuration. It assumes that the parent process is the i3bar instance,
+// and the bar_id command-line flag identifies the bar id.
+func AutoLoadBarConfig() error {
+	i3barPid := os.Getppid()
+	i3barCmdline, _ := ioutil.ReadFile(
+		fmt.Sprintf("/proc/%d/cmdline", i3barPid))
+	barId := "bar0"
+	for _, arg := range bytes.Split(i3barCmdline, []byte{0}) {
+		arg := string(arg)
+		if strings.HasPrefix(arg, "--bar_id=") {
+			barId = strings.TrimPrefix(arg, "--bar_id=")
+			break
+		}
+	}
+	return LoadFromBarConfig(getBarConfig(barId))
 }
