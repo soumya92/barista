@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"time"
 
+	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/martinlindhe/unit"
 	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
@@ -111,11 +112,14 @@ func main() {
 	ionicons.LoadMd(home("Github/ionicons"))
 	fontawesome.Load(home("Github/Font-Awesome"))
 
+	colors.LoadBarConfig()
+	bg, _ := colorful.MakeColor(colors.Scheme("background"))
+	fg, _ := colorful.MakeColor(colors.Scheme("statusline"))
 	colors.LoadFromMap(map[string]string{
 		"good":     "#6d6",
 		"degraded": "#dd6",
 		"bad":      "#d66",
-		"dim-icon": "#777",
+		"dim-icon": fg.BlendRgb(bg, 0.5).Hex(),
 	})
 
 	localtime := clock.Local().
