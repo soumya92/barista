@@ -16,7 +16,6 @@
 package main
 
 import (
-	"os/exec"
 	"syscall"
 	"time"
 
@@ -57,10 +56,6 @@ func (d diskSpaceModule) Stream(sink bar.Sink) {
 		))
 		<-sch.Tick()
 	}
-}
-
-func (d diskSpaceModule) Click(e bar.Event) {
-	exec.Command("xdg-open", string(d)).Run()
 }
 
 func main() {
