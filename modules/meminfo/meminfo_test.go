@@ -44,7 +44,7 @@ func resetForTest() {
 	once = sync.Once{}
 	construct()
 	// Flush upates for test.
-	n := infoEmitter.Next()
+	n := currentInfo.Next()
 	update()
 	<-n
 }

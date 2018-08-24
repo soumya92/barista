@@ -225,7 +225,7 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-m.scheduler.Tick():
 			info = m.updateFunc()
-		case <-m.format.Update():
+		case <-m.format.Next():
 			format = m.getFormat()
 		}
 	}

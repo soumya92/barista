@@ -132,7 +132,7 @@ func (m *Module) Stream(s bar.Sink) {
 
 		select {
 		case <-sch.Tick():
-		case <-m.config.Update():
+		case <-m.config.Next():
 			cfg = m.getConfig()
 		}
 	}

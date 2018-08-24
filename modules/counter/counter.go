@@ -48,9 +48,9 @@ func (m *Module) Stream(s bar.Sink) {
 	for {
 		s.Output(outputs.Textf(format, count).OnClick(m.click))
 		select {
-		case <-m.count.Update():
+		case <-m.count.Next():
 			count = m.count.Get().(int)
-		case <-m.format.Update():
+		case <-m.format.Next():
 			format = m.format.Get().(string)
 		}
 	}

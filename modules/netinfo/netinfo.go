@@ -108,7 +108,7 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case update := <-linkCh:
 			state = State{update}
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 		}
 		s.Output(outputFunc(state))

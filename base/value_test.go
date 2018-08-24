@@ -16,6 +16,7 @@ package base
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -39,40 +40,51 @@ func TestValue(t *testing.T) {
 func TestValueUpdate(t *testing.T) {
 	require := require.New(t)
 	var v Value
-	listening := make(chan bool)
-	notified := make(chan bool)
 
+	var listening sync.WaitGroup
+	var notified sync.WaitGroup
+
+	for i := 0; i < 25; i++ {
+		listening.Add(1)
+		go func() {
+			ch := v.Next()
+			listening.Done()
+			<-ch
+			notified.Done()
+		}()
+		notified.Add(1)
+	}
+	listening.Wait()
+	doneChan := make(chan bool)
 	go func() {
-		u := v.Update()
-		listening <- true
-		<-u
-		notified <- true
+		notified.Wait()
+		doneChan <- true
 	}()
 
-	<-listening
 	v.Set("test")
 
 	select {
-	case <-notified:
-	// Test passed, channel from v.Update was notified.
+	case <-doneChan:
+	// Test passed, all Next() calls were notified.
 	case <-time.After(time.Second):
-		require.Fail("<-Update() not notified within 1s")
+		require.Fail("<-Next()s not notified within 1s")
 	}
 
 	select {
-	case <-v.Update():
-		require.Fail("<-Update() triggered without a Set(...)")
+	case <-v.Next():
+		require.Fail("<-Next() triggered without a Set(...)")
 	case <-time.After(10 * time.Millisecond):
-		// Test passed, Update() only notify of values
-		// set after the call to Update.
+		// Test passed, Next() only notify of values
+		// set after the call to Next.
 	}
 
 	v.Set("...")
 	select {
-	case <-v.Update():
-		// Test passed, should notify since value was set.
-	case <-time.After(time.Second):
-		require.Fail("<-Update() notified of value")
+	case <-v.Next():
+		require.Fail("<-Next() triggered for previous Set(...)")
+	case <-time.After(10 * time.Millisecond):
+		// Test passed, Next() only notify of values
+		// set after the call to Next.
 	}
 }
 
@@ -114,14 +126,19 @@ func TestErrorValueSubscription(t *testing.T) {
 	require := require.New(t)
 	var v ErrorValue
 
+	readyChan := make(chan bool)
 	subChan := make(chan error)
 	go func() {
-		for range v.Update() {
+		for {
+			ch := v.Next()
+			readyChan <- true
+			<-ch
 			_, err := v.Get()
 			subChan <- err
 		}
 	}()
 
+	<-readyChan
 	select {
 	case <-subChan:
 		require.Fail("Received update with no value set")
@@ -137,6 +154,7 @@ func TestErrorValueSubscription(t *testing.T) {
 		require.Fail("<-Update() not notified within 1s")
 	}
 
+	<-readyChan
 	v.Error(nil)
 	select {
 	case <-subChan:

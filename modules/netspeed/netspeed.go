@@ -101,7 +101,7 @@ func (m *Module) Stream(s bar.Sink) {
 			s.Output(outputFunc(speeds))
 		}
 		select {
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(Speeds) bar.Output)
 		case <-m.scheduler.Tick():
 			rx, tx, err := linkRxTx(m.iface)

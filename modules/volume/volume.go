@@ -139,9 +139,9 @@ func (m *Module) Stream(s bar.Sink) {
 				OnClick(defaultClickHandler(vol)))
 		}
 		select {
-		case <-m.currentVolume.Update():
+		case <-m.currentVolume.Next():
 			v, err = m.currentVolume.Get()
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(Volume) bar.Output)
 		}
 	}

@@ -94,7 +94,7 @@ func (m *Module) Stream(s bar.Sink) {
 			default:
 				state = Disconnected
 			}
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 		}
 		s.Output(outputFunc(state))

@@ -138,7 +138,7 @@ func (m *Module) Stream(s bar.Sink) {
 			s.Output(outputFunc(*weather))
 		}
 		select {
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(Weather) bar.Output)
 		case <-m.scheduler.Tick():
 			weather, err = m.provider.GetWeather()

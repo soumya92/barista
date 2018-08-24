@@ -143,7 +143,7 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-m.scheduler.Tick():
 			count, err = getloadavg(&loads, 3)
-		case <-m.format.Update():
+		case <-m.format.Next():
 			format = m.getFormat()
 		}
 	}

@@ -109,7 +109,7 @@ func (m *Module) Stream(s bar.Sink) {
 				IPs:   update.IPs,
 			}
 			fillWifiInfo(&info)
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		}
 		s.Output(outputFunc(info))

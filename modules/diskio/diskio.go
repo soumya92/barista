@@ -130,7 +130,7 @@ func (m *Module) Stream(s bar.Sink) {
 	for {
 		select {
 		case i = <-m.ioChan:
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(IO) bar.Output)
 		}
 		if s.Error(i.err) {

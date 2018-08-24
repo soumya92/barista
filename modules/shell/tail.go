@@ -81,7 +81,7 @@ func (m *TailModule) Stream(s bar.Sink) {
 		case e := <-errChan:
 			s.Error(e)
 			return
-		case <-m.outf.Update():
+		case <-m.outf.Next():
 			outf = m.outf.Get().(func(string) bar.Output)
 		case txt := <-outChan:
 			out = &txt

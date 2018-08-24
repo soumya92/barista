@@ -48,9 +48,6 @@ type Info struct {
 // currentInfo stores the last value read by the updater.
 // This allows newly created modules to start with data.
 var currentInfo base.ErrorValue // of Info
-// infoEmitter informs all registered modules about updates
-// to currentInfo.
-var infoEmitter *base.Emitter
 
 var once sync.Once
 var updater timing.Scheduler
@@ -59,10 +56,8 @@ var updater timing.Scheduler
 func construct() {
 	once.Do(func() {
 		updater = timing.NewScheduler()
-		infoEmitter = base.Multicast(currentInfo.Update())
 		l.Attach(nil, updater, "sysinfo.updater")
 		l.Attach(nil, &currentInfo, "sysinfo.currentInfo")
-		l.Attach(&currentInfo, &infoEmitter, ".emitter")
 		updater.Every(3 * time.Second)
 		update()
 		go func(updater timing.Scheduler) {
@@ -114,14 +109,14 @@ func (m *Module) Stream(s bar.Sink) {
 	i, err := currentInfo.Get()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
 	for {
-		nextInfo := infoEmitter.Next()
+		nextInfo := currentInfo.Next()
 		if err != nil {
 			s.Error(err)
 		} else if info, ok := i.(Info); ok {
 			s.Output(outputFunc(info))
 		}
 		select {
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		case <-nextInfo:
 			i, err = currentInfo.Get()

@@ -256,7 +256,7 @@ func (m *Module) Stream(s bar.Sink) {
 
 	for {
 		select {
-		case <-m.outputFunc.Update():
+		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 			info.Controller = m.player
 			s.Output(outputs.Group(outputFunc(info)).

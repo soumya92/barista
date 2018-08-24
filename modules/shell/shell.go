@@ -64,7 +64,7 @@ func (m *Module) Stream(s bar.Sink) {
 		}
 		s.Output(outf(strings.TrimSpace(string(out))))
 		select {
-		case <-m.outf.Update():
+		case <-m.outf.Next():
 			outf = m.outf.Get().(func(string) bar.Output)
 		case <-m.notifyCh:
 			out, err = exec.Command(m.cmd, m.args...).Output()
