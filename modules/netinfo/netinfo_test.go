@@ -41,10 +41,13 @@ func TestNetinfo(t *testing.T) {
 		if !s.Enabled() {
 			return nil
 		}
-		if !s.Connected() {
+		if s.Connected() {
+			return outputs.Textf("W:%s", s.Name)
+		} else if s.Connecting() {
+			return outputs.Text("W:...")
+		} else {
 			return outputs.Text("W:down")
 		}
-		return outputs.Textf("W:%s", s.Name)
 	})
 	n3 := Prefix("eth").Output(func(s State) bar.Output {
 		if !s.Connected() {
@@ -52,9 +55,10 @@ func TestNetinfo(t *testing.T) {
 		}
 		return outputs.Textf("E:%s", s.Name)
 	})
-	testBar.Run(n1, n2, n3)
+	n4 := New()
+	testBar.Run(n1, n2, n3, n4)
 
-	testBar.LatestOutput().AssertText([]string{"lo0"})
+	testBar.LatestOutput().AssertText([]string{"lo0", "lo0"})
 
 	nlt.UpdateLink(link0, netlink.Link{State: netlink.Down})
 	testBar.LatestOutput(0).Expect("on link update")
@@ -69,5 +73,5 @@ func TestNetinfo(t *testing.T) {
 	n1.Output(func(s State) bar.Output {
 		return outputs.Textf("%v", s.State)
 	})
-	testBar.NextOutput().AssertText([]string{"6", "W:down", "E:eth1"})
+	testBar.NextOutput().AssertText([]string{"6", "W:down", "E:eth1", "eth1"})
 }

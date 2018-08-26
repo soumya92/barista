@@ -28,25 +28,31 @@ func TestVpn(t *testing.T) {
 	link := nlt.AddLink(netlink.Link{Name: "tun0", State: netlink.Down})
 
 	testBar.New(t)
-	v := DefaultInterface().Output(func(s State) bar.Output {
+	v := DefaultInterface()
+
+	testBar.Run(v)
+	testBar.NextOutput().AssertText([]string{})
+
+	nlt.UpdateLink(link, netlink.Link{Name: "tun0", State: netlink.Up})
+	testBar.NextOutput().AssertText([]string{"VPN"})
+
+	v.Output(func(s State) bar.Output {
 		switch {
 		case s.Connected():
-			return outputs.Text("VPN")
+			return outputs.Text("VPN!")
 		case s.Disconnected():
 			return nil
 		default:
 			return outputs.Text("...")
 		}
 	})
-	testBar.Run(v)
-
-	testBar.NextOutput().AssertText([]string{})
+	testBar.NextOutput().AssertText([]string{"VPN!"})
 
 	nlt.UpdateLink(link, netlink.Link{Name: "tun0", State: netlink.Dormant})
 	testBar.NextOutput().AssertText([]string{"..."})
 
 	nlt.UpdateLink(link, netlink.Link{Name: "tun0", State: netlink.Up})
-	testBar.NextOutput().AssertText([]string{"VPN"})
+	testBar.NextOutput().AssertText([]string{"VPN!"})
 
 	v.Output(func(s State) bar.Output {
 		if s.Disconnected() {
