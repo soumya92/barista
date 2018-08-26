@@ -17,7 +17,6 @@ package main
 
 import (
 	"fmt"
-	"image/color"
 	"os/exec"
 	"os/user"
 	"path/filepath"
@@ -245,24 +244,20 @@ func main() {
 
 	temp := cputemp.DefaultZone().
 		RefreshInterval(2 * time.Second).
-		UrgentWhen(func(temp unit.Temperature) bool {
-			return temp.Celsius() > 90
-		}).
-		OutputColor(func(temp unit.Temperature) color.Color {
-			switch {
-			case temp.Celsius() > 70:
-				return colors.Scheme("bad")
-			case temp.Celsius() > 60:
-				return colors.Scheme("degraded")
-			default:
-				return nil
-			}
-		}).
 		Output(func(temp unit.Temperature) bar.Output {
-			return outputs.Pango(
+			out := outputs.Pango(
 				pango.Icon("mdi-fan"), spacer,
 				pango.Textf("%2d℃", int(temp.Celsius())),
 			)
+			switch {
+			case temp.Celsius() > 90:
+				out.Urgent(true)
+			case temp.Celsius() > 70:
+				out.Color(colors.Scheme("bad"))
+			case temp.Celsius() > 60:
+				out.Color(colors.Scheme("degraded"))
+			}
+			return out
 		})
 
 	net := netspeed.New("eno1").

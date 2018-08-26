@@ -17,7 +17,6 @@ package battery
 import (
 	"bytes"
 	"fmt"
-	"image/color"
 	"testing"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 )
@@ -195,32 +193,21 @@ func TestSimple(t *testing.T) {
 	require.InDelta(44.0, info.EnergyNow, 0.01)
 	require.False(info.PluggedIn())
 
-	capLt30 := func(i Info) bool { return i.Capacity < 30 }
-
 	testBar.New(t)
 
-	bat0 := Named("BAT0").
-		UrgentWhen(capLt30).
-		Output(func(i Info) bar.Output {
-			return outputs.Textf("%s", i.Status)
-		})
-
-	bat1 := Named("BAT1").
-		OutputColor(func(i Info) color.Color {
-			return colors.Hex("#ff0000")
-		})
-
-	bat2 := Named("BAT2").
-		UrgentWhen(capLt30).
-		Output(func(i Info) bar.Output {
-			return outputs.Text(i.Technology)
-		})
+	bat0 := Named("BAT0").Output(func(i Info) bar.Output {
+		return outputs.Textf("%s", i.Status)
+	})
+	bat1 := Named("BAT1")
+	bat2 := Named("BAT2").Output(func(i Info) bar.Output {
+		return outputs.Text(i.Technology).Urgent(i.Capacity < 30)
+	})
 
 	testBar.Run(bat0, bat1, bat2)
 
 	testBar.LatestOutput().AssertEqual(outputs.Group(
-		outputs.Text("Charging").Urgent(false),
-		outputs.Text("BATT 100%").Color(colors.Hex("#ff0000")),
+		outputs.Text("Charging"),
+		outputs.Text("BATT 100%"),
 		outputs.Text("NiCd").Urgent(false),
 	), "on start")
 
@@ -249,17 +236,8 @@ func TestSimple(t *testing.T) {
 		return outputs.Textf("%d", i.Capacity)
 	})
 	testBar.NextOutput().At(1).AssertEqual(
-		bar.TextSegment("100").Color(colors.Hex("#ff0000")),
+		bar.TextSegment("100"),
 		"when output format changes")
-
-	bat1.OutputColor(nil)
-	testBar.NextOutput().At(1).AssertEqual(
-		bar.TextSegment("100"), "when colour func changes")
-
-	bat1.UrgentWhen(capLt30)
-	testBar.NextOutput().At(1).AssertEqual(
-		bar.TextSegment("100").Urgent(false),
-		"when urgent func changes")
 }
 
 func TestCombined(t *testing.T) {

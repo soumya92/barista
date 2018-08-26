@@ -17,7 +17,6 @@ package cputemp
 
 import (
 	"fmt"
-	"image/color"
 	"strconv"
 	"strings"
 	"time"
@@ -37,28 +36,7 @@ import (
 type Module struct {
 	thermalFile string
 	scheduler   timing.Scheduler
-	format      base.Value
-}
-
-type format struct {
-	outputFunc func(unit.Temperature) bar.Output
-	colorFunc  func(unit.Temperature) color.Color
-	urgentFunc func(unit.Temperature) bool
-}
-
-func (f format) output(t unit.Temperature) bar.Output {
-	out := outputs.Group(f.outputFunc(t))
-	if f.urgentFunc != nil {
-		out.Urgent(f.urgentFunc(t))
-	}
-	if f.colorFunc != nil {
-		out.Color(f.colorFunc(t))
-	}
-	return out
-}
-
-func (m *Module) getFormat() format {
-	return m.format.Get().(format)
+	outputFunc  base.Value // of func(unit.Temperature) bar.Output
 }
 
 // Zone constructs an instance of the cputemp module for the specified zone.
@@ -70,7 +48,6 @@ func Zone(thermalZone string) *Module {
 	}
 	l.Label(m, thermalZone)
 	l.Register(m, "scheduler", "format")
-	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
 	// Default output, if no function is specified later.
 	m.Output(func(t unit.Temperature) bar.Output {
@@ -86,9 +63,7 @@ func DefaultZone() *Module {
 
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(unit.Temperature) bar.Output) *Module {
-	c := m.getFormat()
-	c.outputFunc = outputFunc
-	m.format.Set(c)
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -99,41 +74,22 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	return m
 }
 
-// OutputColor configures a module to change the colour of its output based on a
-// user-defined function. This allows you to set up color thresholds, or even
-// blend between two colours based on the current temperature.
-func (m *Module) OutputColor(colorFunc func(unit.Temperature) color.Color) *Module {
-	c := m.getFormat()
-	c.colorFunc = colorFunc
-	m.format.Set(c)
-	return m
-}
-
-// UrgentWhen configures a module to mark its output as urgent based on a
-// user-defined function.
-func (m *Module) UrgentWhen(urgentFunc func(unit.Temperature) bool) *Module {
-	c := m.getFormat()
-	c.urgentFunc = urgentFunc
-	m.format.Set(c)
-	return m
-}
-
 var fs = afero.NewOsFs()
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	temp, err := getTemperature(m.thermalFile)
-	format := m.getFormat()
+	outputFunc := m.outputFunc.Get().(func(unit.Temperature) bar.Output)
 	for {
 		if s.Error(err) {
 			return
 		}
-		s.Output(format.output(temp))
+		s.Output(outputFunc(temp))
 		select {
 		case <-m.scheduler.Tick():
 			temp, err = getTemperature(m.thermalFile)
-		case <-m.format.Next():
-			format = m.getFormat()
+		case <-m.outputFunc.Next():
+			outputFunc = m.outputFunc.Get().(func(unit.Temperature) bar.Output)
 		}
 	}
 }

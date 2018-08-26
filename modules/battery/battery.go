@@ -18,7 +18,6 @@ package battery
 import (
 	"bufio"
 	"fmt"
-	"image/color"
 	"math"
 	"strconv"
 	"strings"
@@ -128,28 +127,7 @@ func (i Info) SignedPower() float64 {
 type Module struct {
 	updateFunc func() Info
 	scheduler  timing.Scheduler
-	format     base.Value
-}
-
-type format struct {
-	outputFunc func(Info) bar.Output
-	colorFunc  func(Info) color.Color
-	urgentFunc func(Info) bool
-}
-
-func (f format) output(i Info) bar.Output {
-	out := outputs.Group(f.outputFunc(i))
-	if f.urgentFunc != nil {
-		out.Urgent(f.urgentFunc(i))
-	}
-	if f.colorFunc != nil {
-		out.Color(f.colorFunc(i))
-	}
-	return out
-}
-
-func (m *Module) getFormat() format {
-	return m.format.Get().(format)
+	outputFunc base.Value // of func(Info) bar.Output
 }
 
 func newModule(updateFunc func() Info) *Module {
@@ -158,7 +136,6 @@ func newModule(updateFunc func() Info) *Module {
 		scheduler:  timing.NewScheduler(),
 	}
 	l.Register(m, "scheduler", "format")
-	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just the available battery percent.
 	m.Output(func(i Info) bar.Output {
@@ -181,9 +158,7 @@ func All() *Module {
 
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
-	c := m.getFormat()
-	c.outputFunc = outputFunc
-	m.format.Set(c)
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -193,36 +168,17 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	return m
 }
 
-// OutputColor configures a module to change the colour of its output based on a
-// user-defined function. This allows you to set up color thresholds, or even
-// blend between two colours based on the current battery state.
-func (m *Module) OutputColor(colorFunc func(Info) color.Color) *Module {
-	c := m.getFormat()
-	c.colorFunc = colorFunc
-	m.format.Set(c)
-	return m
-}
-
-// UrgentWhen configures a module to mark its output as urgent based on a
-// user-defined function.
-func (m *Module) UrgentWhen(urgentFunc func(Info) bool) *Module {
-	c := m.getFormat()
-	c.urgentFunc = urgentFunc
-	m.format.Set(c)
-	return m
-}
-
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	info := m.updateFunc()
-	format := m.getFormat()
+	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
 	for {
-		s.Output(format.output(info))
+		s.Output(outputFunc(info))
 		select {
 		case <-m.scheduler.Tick():
 			info = m.updateFunc()
-		case <-m.format.Next():
-			format = m.getFormat()
+		case <-m.outputFunc.Next():
+			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		}
 	}
 }

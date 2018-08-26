@@ -16,7 +16,6 @@ package cputemp
 
 import (
 	"fmt"
-	"image/color"
 	"testing"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 )
@@ -68,23 +66,6 @@ func TestCputemp(t *testing.T) {
 	out = testBar.LatestOutput(0, 1)
 	out.At(0).AssertText("42.1℃", "on next tick")
 
-	temp0.UrgentWhen(func(t unit.Temperature) bool { return t.Celsius() > 30 })
-	out = testBar.LatestOutput(0)
-	urgent, _ := out.At(0).Segment().IsUrgent()
-	require.True(t, urgent, "on urgent func change")
-
-	red := colors.Hex("#f00")
-	green := colors.Hex("#070")
-	temp1.OutputColor(func(t unit.Temperature) color.Color {
-		if t.Celsius() > 20 {
-			return red
-		}
-		return green
-	})
-	out = testBar.LatestOutput(1)
-	col, _ := out.At(1).Segment().GetColor()
-	require.Equal(t, green, col, "on color func change")
-
 	temp2.Output(func(t unit.Temperature) bar.Output {
 		return outputs.Textf("%.0f kelvin", t.Kelvin())
 	})
@@ -98,8 +79,8 @@ func TestCputemp(t *testing.T) {
 	testBar.Tick()
 
 	out = testBar.LatestOutput(0, 1)
-	out.At(0).AssertEqual(outputs.Text("22.2℃").Urgent(false))
-	out.At(1).AssertEqual(outputs.Text("72").Color(red))
+	out.At(0).AssertEqual(outputs.Text("22.2℃"))
+	out.At(1).AssertEqual(outputs.Text("72"))
 	errStr := out.At(2).AssertError()
 	require.Contains(t, errStr, "file does not exist")
 

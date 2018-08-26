@@ -16,7 +16,6 @@ package cpuload
 
 import (
 	"errors"
-	"image/color"
 	"sync"
 	"testing"
 	"time"
@@ -24,7 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
@@ -86,29 +84,16 @@ func TestCpuload(t *testing.T) {
 		[]string{"1.00"}, "on next tick")
 
 	load.Output(func(l LoadAvg) bar.Output {
-		return outputs.Textf("%.2f", l.Min5())
-	})
-	testBar.NextOutput().AssertText(
-		[]string{"2.00"}, "on output format change")
-
-	load.UrgentWhen(func(l LoadAvg) bool {
-		return l.Min15() > 2
+		return outputs.Textf("%.2f", l.Min5()).Urgent(l.Min15() > 2)
 	})
 	testBar.NextOutput().AssertEqual(
 		outputs.Text("2.00").Urgent(true),
-		"on urgent function change")
-
-	load.OutputColor(func(l LoadAvg) color.Color {
-		return colors.Hex("#f00")
-	})
-	testBar.NextOutput().AssertEqual(
-		outputs.Text("2.00").Urgent(true).Color(colors.Hex("#f00")),
-		"on color function change")
+		"on output format change")
 
 	shouldReturn(0, 0, 0)
 	testBar.Tick()
 	testBar.NextOutput().AssertEqual(
-		outputs.Text("0.00").Urgent(false).Color(colors.Hex("#f00")),
+		outputs.Text("0.00").Urgent(false),
 		"on next tick")
 
 	load.RefreshInterval(time.Minute)

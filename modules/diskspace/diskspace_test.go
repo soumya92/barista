@@ -15,7 +15,6 @@
 package diskspace
 
 import (
-	"image/color"
 	"os"
 	"sync"
 	"testing"
@@ -27,7 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
@@ -112,13 +110,6 @@ func TestDiskspace(t *testing.T) {
 	testBar.NextOutput().AssertText(
 		[]string{"0.0"}, "on output format change, updates with existing data")
 
-	diskspace.UrgentWhen(func(i Info) bool {
-		return i.AvailFrac() < 0.5
-	})
-	testBar.NextOutput().AssertEqual(
-		outputs.Text("0.0").Urgent(true),
-		"on urgent function change, updates with existing data")
-
 	shouldReturn("/", unix.Statfs_t{
 		Bsize:  1000 * 1000,
 		Bavail: 1500,
@@ -127,13 +118,6 @@ func TestDiskspace(t *testing.T) {
 	})
 	testBar.Tick()
 	testBar.NextOutput().Expect("on tick")
-
-	diskspace.OutputColor(func(i Info) color.Color {
-		return colors.Hex("#f00")
-	})
-	testBar.NextOutput().AssertEqual(
-		outputs.Text("1500.0").Urgent(false).Color(colors.Hex("#f00")),
-		"on color function change")
 
 	diskspace.RefreshInterval(time.Minute)
 	testBar.AssertNoOutput("on refresh interval change")

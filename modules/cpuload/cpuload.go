@@ -20,7 +20,6 @@ package cpuload
 import "C"
 import (
 	"fmt"
-	"image/color"
 	"time"
 
 	"github.com/soumya92/barista/bar"
@@ -51,36 +50,14 @@ func (l LoadAvg) Min15() float64 {
 // Module represents a cpuload bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
-	scheduler timing.Scheduler
-	format    base.Value
-}
-
-type format struct {
-	outputFunc func(LoadAvg) bar.Output
-	colorFunc  func(LoadAvg) color.Color
-	urgentFunc func(LoadAvg) bool
-}
-
-func (f format) output(l LoadAvg) bar.Output {
-	out := outputs.Group(f.outputFunc(l))
-	if f.urgentFunc != nil {
-		out.Urgent(f.urgentFunc(l))
-	}
-	if f.colorFunc != nil {
-		out.Color(f.colorFunc(l))
-	}
-	return out
-}
-
-func (m *Module) getFormat() format {
-	return m.format.Get().(format)
+	scheduler  timing.Scheduler
+	outputFunc base.Value // of func(LoadAvg) bar.Output
 }
 
 // New constructs an instance of the cpuload module.
 func New() *Module {
 	m := &Module{scheduler: timing.NewScheduler()}
 	l.Register(m, "scheduler", "format")
-	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
 	// Construct a simple output that's just 2 decimals of the 1-minute load average.
 	m.Output(func(l LoadAvg) bar.Output {
@@ -91,9 +68,7 @@ func New() *Module {
 
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(LoadAvg) bar.Output) *Module {
-	c := m.getFormat()
-	c.outputFunc = outputFunc
-	m.format.Set(c)
+	m.outputFunc.Set(outputFunc)
 	return m
 }
 
@@ -103,30 +78,11 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	return m
 }
 
-// OutputColor configures a module to change the colour of its output based on a
-// user-defined function. This allows you to set up color thresholds, or even
-// blend between two colours based on the current load average.
-func (m *Module) OutputColor(colorFunc func(LoadAvg) color.Color) *Module {
-	c := m.getFormat()
-	c.colorFunc = colorFunc
-	m.format.Set(c)
-	return m
-}
-
-// UrgentWhen configures a module to mark its output as urgent based on a
-// user-defined function.
-func (m *Module) UrgentWhen(urgentFunc func(LoadAvg) bool) *Module {
-	c := m.getFormat()
-	c.urgentFunc = urgentFunc
-	m.format.Set(c)
-	return m
-}
-
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	var loads LoadAvg
 	count, err := getloadavg(&loads, 3)
-	format := m.getFormat()
+	outputFunc := m.outputFunc.Get().(func(LoadAvg) bar.Output)
 	for {
 		if s.Error(err) {
 			return
@@ -135,12 +91,12 @@ func (m *Module) Stream(s bar.Sink) {
 			s.Error(fmt.Errorf("getloadavg: %d", count))
 			return
 		}
-		s.Output(format.output(loads))
+		s.Output(outputFunc(loads))
 		select {
 		case <-m.scheduler.Tick():
 			count, err = getloadavg(&loads, 3)
-		case <-m.format.Next():
-			format = m.getFormat()
+		case <-m.outputFunc.Next():
+			outputFunc = m.outputFunc.Get().(func(LoadAvg) bar.Output)
 		}
 	}
 }
