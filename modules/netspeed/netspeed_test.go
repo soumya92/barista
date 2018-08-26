@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
@@ -79,7 +80,10 @@ func TestNetspeed(t *testing.T) {
 
 	n := New("if0").
 		RefreshInterval(time.Second).
-		Template(`{{.Rx.KibibytesPerSecond}}/{{.Tx.KibibytesPerSecond}}`)
+		Output(func(s Speeds) bar.Output {
+			return outputs.Textf("%v/%v",
+				s.Rx.KibibytesPerSecond(), s.Tx.KibibytesPerSecond())
+		})
 
 	testBar.Run(n)
 	testBar.AssertNoOutput("on start")
@@ -100,12 +104,16 @@ func TestNetspeed(t *testing.T) {
 
 	testBar.NextOutput().AssertEqual(outputs.Text("4/1"), "on tick")
 
-	n.Template(`{{.Total | ibyterate}}`)
+	n.Output(func(s Speeds) bar.Output {
+		return outputs.Text(outputs.IByterate(s.Total()))
+	})
 	testBar.NextOutput().AssertEqual(
 		outputs.Text("5.0 KiB/s"),
 		"uses previous result on output function change")
 
-	n.Template(`{{.Total | byterate}}`)
+	n.Output(func(s Speeds) bar.Output {
+		return outputs.Text(outputs.Byterate(s.Total()))
+	})
 	testBar.NextOutput().AssertEqual(
 		outputs.Text("5.1 kB/s"),
 		"uses previous result on output function change")

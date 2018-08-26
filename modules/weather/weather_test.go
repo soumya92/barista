@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/martinlindhe/unit"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 )
 
@@ -58,7 +60,9 @@ func TestWeather(t *testing.T) {
 	testBar.Tick()
 	testBar.NextOutput().Expect("on tick")
 
-	w.Template(`{{.Temperature.Fahrenheit | printf "%.0f"}}, by {{.Attribution}}`)
+	w.Output(func(w Weather) bar.Output {
+		return outputs.Textf("%.0f, by %s", w.Temperature.Fahrenheit(), w.Attribution)
+	})
 	testBar.NextOutput().AssertText([]string{
 		"72, by FLDSMDFR"}, "on template change")
 

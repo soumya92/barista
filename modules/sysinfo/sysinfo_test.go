@@ -22,7 +22,9 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
 	"github.com/stretchr/testify/require"
@@ -77,10 +79,18 @@ func TestSysinfo(t *testing.T) {
 	testBar.Run(load, uptime, procs, swap)
 	testBar.LatestOutput().Expect("on start")
 
-	load.Template(`{{index .Loads 0}}`)
-	uptime.Template(`{{.Uptime}}`)
-	procs.Template(`{{.Procs}}`)
-	swap.Template(`{{.TotalSwap | ibytesize}}`)
+	load.Output(func(s Info) bar.Output {
+		return outputs.Textf("%v", s.Loads[0])
+	})
+	uptime.Output(func(s Info) bar.Output {
+		return outputs.Textf("%v", s.Uptime)
+	})
+	procs.Output(func(s Info) bar.Output {
+		return outputs.Textf("%d", s.Procs)
+	})
+	swap.Output(func(s Info) bar.Output {
+		return outputs.Text(outputs.IBytesize(s.TotalSwap))
+	})
 	testBar.LatestOutput().AssertText(
 		[]string{"0", "0s", "0", "0 B"}, "on template change")
 
@@ -96,7 +106,9 @@ func TestSysinfo(t *testing.T) {
 	testBar.LatestOutput().AssertText(
 		[]string{"1", "1h0m0s", "4", "512 MiB"}, "on next tick")
 
-	load.Template(`{{index .Loads 1 | printf "%.2f"}}`)
+	load.Output(func(s Info) bar.Output {
+		return outputs.Textf("%.2f", s.Loads[1])
+	})
 	testBar.LatestOutput(0).At(0).
 		AssertText("0.50", "on output format change")
 

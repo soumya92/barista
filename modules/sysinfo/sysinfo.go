@@ -98,12 +98,6 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	return m
 }
 
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
-	return m
-}
-
 // Stream subscribes to sysinfo and updates the module's output.
 func (m *Module) Stream(s bar.Sink) {
 	i, err := currentInfo.Get()

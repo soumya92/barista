@@ -170,20 +170,19 @@ func New(player string) *Module {
 	m := &Module{playerName: player}
 	l.Label(m, player)
 	l.Register(m, "outputFunc", "clickHandler", "info")
-	// Default output template that's just the currently playing track.
-	m.Template(`{{if .Connected}}{{.Title}}{{end}}`)
+	// Default output is just the currently playing track.
+	m.Output(func(i Info) bar.Output {
+		if i.Connected() {
+			return outputs.Text(i.Title)
+		}
+		return nil
+	})
 	return m
 }
 
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

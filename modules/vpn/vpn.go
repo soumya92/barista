@@ -20,6 +20,7 @@ import (
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/base/watchers/netlink"
 	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // State represents the vpn state.
@@ -53,8 +54,13 @@ func New(iface string) *Module {
 	m := &Module{intf: iface}
 	l.Label(m, iface)
 	l.Register(m, "outputFunc")
-	// Default output template that's just 'VPN' when connected.
-	m.Template("{{if .Connected}}VPN{{end}}")
+	// Default output is just 'VPN' when connected.
+	m.Output(func(s State) bar.Output {
+		if s.Connected() {
+			return outputs.Text("VPN")
+		}
+		return nil
+	})
 	return m
 }
 
@@ -67,12 +73,6 @@ func DefaultInterface() *Module {
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

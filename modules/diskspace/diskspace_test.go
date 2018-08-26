@@ -106,7 +106,9 @@ func TestDiskspace(t *testing.T) {
 		Bfree:  800,
 		Blocks: 2000,
 	})
-	diskspace.Template(`{{.Available.Megabytes | printf "%.1f"}}`)
+	diskspace.Output(func(i Info) bar.Output {
+		return outputs.Textf("%.1f", i.Available.Megabytes())
+	})
 	testBar.NextOutput().AssertText(
 		[]string{"0.0"}, "on output format change, updates with existing data")
 

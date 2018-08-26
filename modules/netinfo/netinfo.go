@@ -20,6 +20,7 @@ import (
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/base/watchers/netlink"
 	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // State represents the network state.
@@ -53,8 +54,13 @@ type Module struct {
 func newWithSubscriber(subscriber func() netlink.Subscription) *Module {
 	m := &Module{subscriber: subscriber}
 	l.Register(m, "outputFunc")
-	// Default output template is the name of the connected interface.
-	m.Template("{{if .Connected}}{{.Name}}{{end}}")
+	// Default output is the name of the connected interface.
+	m.Output(func(s State) bar.Output {
+		if s.Connected() {
+			return outputs.Text(s.Name)
+		}
+		return nil
+	})
 	return m
 }
 
@@ -88,12 +94,6 @@ func Prefix(prefix string) *Module {
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

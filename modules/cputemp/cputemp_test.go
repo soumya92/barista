@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
@@ -48,8 +49,12 @@ func TestCputemp(t *testing.T) {
 	testBar.Run(temp0, temp1, temp2)
 	testBar.LatestOutput().Expect("on start")
 
-	temp1.Template(`{{.Fahrenheit | printf "%.0f"}}`)
-	temp2.Template(`{{.Kelvin | printf "%.0f"}}`)
+	temp1.Output(func(t unit.Temperature) bar.Output {
+		return outputs.Textf("%.0f", t.Fahrenheit())
+	})
+	temp2.Output(func(t unit.Temperature) bar.Output {
+		return outputs.Textf("%.0f", t.Kelvin())
+	})
 
 	out := testBar.LatestOutput(1) // 2 has an error.
 	out.At(0).AssertText("48.8℃", "on start")
@@ -80,7 +85,9 @@ func TestCputemp(t *testing.T) {
 	col, _ := out.At(1).Segment().GetColor()
 	require.Equal(t, green, col, "on color func change")
 
-	temp2.Template(`{{.Kelvin | printf "%.0f"}} kelvin`)
+	temp2.Output(func(t unit.Temperature) bar.Output {
+		return outputs.Textf("%.0f kelvin", t.Kelvin())
+	})
 	testBar.AssertNoOutput("on error'd template change")
 	out.At(2).LeftClick()
 	testBar.NextOutput("with error gone").Expect()

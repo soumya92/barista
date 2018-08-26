@@ -24,7 +24,9 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
 )
@@ -67,8 +69,12 @@ func TestMeminfo(t *testing.T) {
 	testBar.Run(def, avail, free)
 	testBar.LatestOutput().Expect("on start")
 
-	avail.Template(`{{.Available.Kibibytes}}`)
-	free.Template(`{{.FreeFrac "Mem"}}`)
+	avail.Output(func(i Info) bar.Output {
+		return outputs.Textf("%v", i.Available().Kibibytes())
+	})
+	free.Output(func(i Info) bar.Output {
+		return outputs.Textf("%v", i.FreeFrac("Mem"))
+	})
 	testBar.LatestOutput(1, 2).AssertText(
 		[]string{"Mem: 2.0 MiB", "2048", "0.25"}, "on start")
 
@@ -94,7 +100,9 @@ func TestMeminfo(t *testing.T) {
 	testBar.LatestOutput().AssertText(
 		[]string{"Mem: 2.0 MiB", "2048", "0.125"}, "on tick")
 
-	def.Template(`{{.Buffers.Mebibytes}}`)
+	def.Output(func(i Info) bar.Output {
+		return outputs.Textf("%v", i["Buffers"].Mebibytes())
+	})
 	testBar.LatestOutput(0).AssertText(
 		[]string{"0.5", "2048", "0.125"}, "on template change")
 
@@ -118,9 +126,23 @@ func TestErrors(t *testing.T) {
 	testBar.Run(availFrac, free, total)
 	testBar.LatestOutput().AssertError("on start if missing meminfo")
 
-	availFrac.Template(`{{.AvailFrac}}`)
-	free.Template(`{{.MemFree | ibytesize}}`)
-	total.Template(`{{.MemTotal | bytesize}}`)
+	availFrac.Output(func(i Info) bar.Output {
+		return outputs.Textf("%v", i.AvailFrac())
+	})
+	free.Output(func(i Info) bar.Output {
+		memFree, ok := i["MemFree"]
+		if !ok {
+			return outputs.Errorf("Missing MemFree")
+		}
+		return outputs.Text(outputs.IBytesize(memFree))
+	})
+	total.Output(func(i Info) bar.Output {
+		memTotal, ok := i["MemTotal"]
+		if !ok {
+			return outputs.Errorf("Missing MemTotal")
+		}
+		return outputs.Text(outputs.Bytesize(memTotal))
+	})
 	testBar.LatestOutput().Expect("template")
 
 	afero.WriteFile(fs, "/proc/meminfo", []byte(`

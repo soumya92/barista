@@ -23,6 +23,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
 
@@ -101,8 +102,11 @@ func New(provider Provider) *Module {
 		scheduler: timing.NewScheduler(),
 	}
 	l.Register(m, "outputFunc", "clickHandler", "currentWeather", "scheduler")
-	// Default output template is just the temperature and conditions.
-	m.Template(`{{.Temperature.Celsius | printf "%.1f"}}℃ {{.Description}} ({{.Attribution}})`)
+	// Default output is just the temperature and conditions.
+	m.Output(func(w Weather) bar.Output {
+		return outputs.Textf("%.1f℃ %s (%s)",
+			w.Temperature.Celsius(), w.Description, w.Attribution)
+	})
 	m.RefreshInterval(10 * time.Minute)
 	return m
 }
@@ -110,12 +114,6 @@ func New(provider Provider) *Module {
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(Weather) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

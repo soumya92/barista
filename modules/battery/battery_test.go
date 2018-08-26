@@ -201,7 +201,9 @@ func TestSimple(t *testing.T) {
 
 	bat0 := Named("BAT0").
 		UrgentWhen(capLt30).
-		Template(`{{.Status}}`)
+		Output(func(i Info) bar.Output {
+			return outputs.Textf("%s", i.Status)
+		})
 
 	bat1 := Named("BAT1").
 		OutputColor(func(i Info) color.Color {
@@ -243,10 +245,12 @@ func TestSimple(t *testing.T) {
 	bat1.RefreshInterval(time.Hour)
 	testBar.AssertNoOutput("On change of refresh interval")
 
-	bat1.Template(`{{.Capacity}}`)
+	bat1.Output(func(i Info) bar.Output {
+		return outputs.Textf("%d", i.Capacity)
+	})
 	testBar.NextOutput().At(1).AssertEqual(
 		bar.TextSegment("100").Color(colors.Hex("#ff0000")),
-		"when output template changes")
+		"when output format changes")
 
 	bat1.OutputColor(nil)
 	testBar.NextOutput().At(1).AssertEqual(
@@ -310,7 +314,9 @@ func TestCombined(t *testing.T) {
 	writeAll()
 
 	testBar.New(t)
-	testBar.Run(All().Template(`{{.Status}} - {{.RemainingPct}}/{{.RemainingTime}}`))
+	testBar.Run(All().Output(func(i Info) bar.Output {
+		return outputs.Textf("%s - %v/%v", i.Status, i.RemainingPct(), i.RemainingTime())
+	}))
 
 	info = allBatteriesInfo()
 	require.Equal("Li-poly,NiCd", info.Technology)

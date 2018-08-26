@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
@@ -84,7 +85,9 @@ func TestCpuload(t *testing.T) {
 	testBar.NextOutput().AssertText(
 		[]string{"1.00"}, "on next tick")
 
-	load.Template(`{{.Min5 | printf "%.2f"}}`)
+	load.Output(func(l LoadAvg) bar.Output {
+		return outputs.Textf("%.2f", l.Min5())
+	})
 	testBar.NextOutput().AssertText(
 		[]string{"2.00"}, "on output format change")
 

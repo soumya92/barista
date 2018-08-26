@@ -17,7 +17,9 @@ package netinfo
 import (
 	"testing"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base/watchers/netlink"
+	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 )
 
@@ -29,23 +31,43 @@ func TestNetinfo(t *testing.T) {
 	link3 := nlt.AddLink(netlink.Link{Name: "wlan0", State: netlink.NotPresent})
 
 	testBar.New(t)
-	n1 := New().Template(`{{if not .Connected}}No net{{else}}{{.Name}}{{end}}`)
-	n2 := Interface("wlan0").Template(`{{if .Enabled}}W:{{if .Connected}}{{.Name}}{{else}}down{{end}}{{end}}`)
-	n3 := Prefix("eth").Template(`{{if .Connected}}E:{{.Name}}{{end}}`)
+	n1 := New().Output(func(s State) bar.Output {
+		if !s.Connected() {
+			return outputs.Text("No net")
+		}
+		return outputs.Text(s.Name)
+	})
+	n2 := Interface("wlan0").Output(func(s State) bar.Output {
+		if !s.Enabled() {
+			return nil
+		}
+		if !s.Connected() {
+			return outputs.Text("W:down")
+		}
+		return outputs.Textf("W:%s", s.Name)
+	})
+	n3 := Prefix("eth").Output(func(s State) bar.Output {
+		if !s.Connected() {
+			return nil
+		}
+		return outputs.Textf("E:%s", s.Name)
+	})
 	testBar.Run(n1, n2, n3)
 
-	testBar.LatestOutput().AssertText([]string{"lo0", "", ""})
+	testBar.LatestOutput().AssertText([]string{"lo0"})
 
 	nlt.UpdateLink(link0, netlink.Link{State: netlink.Down})
 	testBar.LatestOutput(0).Expect("on link update")
 	nlt.UpdateLink(link3, netlink.Link{State: netlink.Down})
-	testBar.LatestOutput(0, 1).AssertText([]string{"No net", "W:down", ""})
+	testBar.LatestOutput(0, 1).AssertText([]string{"No net", "W:down"})
 
 	nlt.UpdateLink(link1, netlink.Link{State: netlink.Dormant})
 	testBar.LatestOutput(0, 2).Expect("on link update")
 	nlt.UpdateLink(link2, netlink.Link{State: netlink.Up})
 	testBar.LatestOutput(0, 2).Expect("on link update")
 
-	n1.Template(`{{.State}}`)
+	n1.Output(func(s State) bar.Output {
+		return outputs.Textf("%v", s.State)
+	})
 	testBar.NextOutput().AssertText([]string{"6", "W:down", "E:eth1"})
 }

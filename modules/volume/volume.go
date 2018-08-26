@@ -90,12 +90,6 @@ func (m *Module) Output(outputFunc func(Volume) bar.Output) *Module {
 	return m
 }
 
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
-	return m
-}
-
 // Throttle volume updates to once every ~20ms to prevent alsa breakage.
 var alsaLimiter = rate.NewLimiter(rate.Every(20*time.Millisecond), 1)
 
@@ -198,8 +192,13 @@ func (m *Module) SetMuted(muted bool) {
 func createModule(impl moduleImpl) *Module {
 	m := &Module{impl: impl}
 	l.Register(m, "outputFunc", "currentVolume", "clickHandler", "impl")
-	// Default output template is just the volume %, "MUT" when muted.
-	m.Template(`{{if .Mute}}MUT{{else}}{{.Pct}}%{{end}}`)
+	// Default output is just the volume %, "MUT" when muted.
+	m.Output(func(v Volume) bar.Output {
+		if v.Mute {
+			return outputs.Text("MUT")
+		}
+		return outputs.Textf("%d%%", v.Pct())
+	})
 	return m
 }
 

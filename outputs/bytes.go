@@ -15,37 +15,11 @@
 package outputs
 
 import (
-	"bytes"
 	"fmt"
-	"text/template"
 
 	"github.com/dustin/go-humanize"
 	"github.com/martinlindhe/unit"
-
-	"github.com/soumya92/barista/bar"
 )
-
-var defaultFuncs = make(template.FuncMap)
-
-// AddTemplateFunc adds template functions available to all templates.
-func AddTemplateFunc(name string, f interface{}) {
-	defaultFuncs[name] = f
-}
-
-// TextTemplate returns a function that applies the given text template.
-func TextTemplate(tpl string) func(interface{}) bar.Output {
-	t := template.Must(
-		template.New("text").
-			Funcs(template.FuncMap(defaultFuncs)).
-			Parse(tpl))
-	return func(arg interface{}) bar.Output {
-		var out bytes.Buffer
-		if err := t.Execute(&out, arg); err != nil {
-			return Error(err)
-		}
-		return bar.TextSegment(out.String())
-	}
-}
 
 // Bytesize formats a Datasize in SI units using go-humanize.
 // e.g. Bytesize(10 * unit.Megabyte) == "10 MB"
@@ -73,12 +47,4 @@ func Byterate(v unit.Datarate) string {
 func IByterate(v unit.Datarate) string {
 	intval := uint64(v.BytesPerSecond())
 	return fmt.Sprintf("%s/s", humanize.IBytes(intval))
-}
-
-// init adds some useful default template functions.
-func init() {
-	AddTemplateFunc("bytesize", Bytesize)
-	AddTemplateFunc("ibytesize", IBytesize)
-	AddTemplateFunc("byterate", Byterate)
-	AddTemplateFunc("ibyterate", IByterate)
 }

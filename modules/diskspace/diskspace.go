@@ -102,8 +102,10 @@ func New(path string) *Module {
 	l.Register(m, "scheduler", "format")
 	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
-	// Construct a simple template that's just 2 decimals of the used disk space.
-	m.Template(`{{.Used.Gigabytes | printf "%.2f"}} GB`)
+	// Construct a simple output that's just 2 decimals of the used disk space.
+	m.Output(func(i Info) bar.Output {
+		return outputs.Textf("%.2f GB", i.Used().Gigabytes())
+	})
 	return m
 }
 
@@ -112,12 +114,6 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	c := m.getFormat()
 	c.outputFunc = outputFunc
 	m.format.Set(c)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

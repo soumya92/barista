@@ -20,7 +20,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base/watchers/netlink"
+	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 )
 
@@ -30,8 +32,7 @@ func TestNoWlan(t *testing.T) {
 	wlN := Named("wlan0")
 	wlA := Any()
 	testBar.Run(wlN, wlA)
-	testBar.LatestOutput().AssertText([]string{"", ""},
-		"when no link is present")
+	testBar.LatestOutput().AssertEmpty("when no link is present")
 }
 
 // Map of interface -> map of iwgetid flag -> value.
@@ -82,18 +83,31 @@ func TestWlan(t *testing.T) {
 	testBar.Run(wl0, wl1, wlA)
 	testBar.LatestOutput().Expect("on start")
 
-	wl0.Template(`{{if .Connected}}{{.Frequency | printf "%.1g"}}{{end}}`)
-	wl1.Template(
-		`{{if .Enabled -}}
-			{{- if .Connecting -}}
-				WLAN ...
-			{{- else if .Connected -}}
-				{{.SSID}}
-			{{- else -}}
-				WL: Down
-			{{- end -}}
-		{{- end}}`)
-	wlA.Template(`{{if .Enabled}}{{.Name}}/{{.SSID}}{{else}}<no wlan>{{end}}`)
+	wl0.Output(func(i Info) bar.Output {
+		if i.Connected() {
+			return outputs.Textf("%.1g", i.Frequency)
+		}
+		return nil
+	})
+	wl1.Output(func(i Info) bar.Output {
+		if !i.Enabled() {
+			return nil
+		}
+		switch {
+		case i.Connecting():
+			return outputs.Text("WLAN ...")
+		case i.Connected():
+			return outputs.Text(i.SSID)
+		default:
+			return outputs.Text("WL: Down")
+		}
+	})
+	wlA.Output(func(i Info) bar.Output {
+		if i.Enabled() {
+			return outputs.Textf("%s/%s", i.Name, i.SSID)
+		}
+		return outputs.Text("<no wlan>")
+	})
 	testBar.LatestOutput().AssertText([]string{"5e+09", "WLAN ...", "wlan0/OtherNet"})
 
 	iwgetidShouldReturn("wlan1", map[string]string{
@@ -105,12 +119,22 @@ func TestWlan(t *testing.T) {
 	nlt.UpdateLink(link1, netlink.Link{Name: "wlan1", State: netlink.Up})
 	testBar.LatestOutput(1, 2).AssertText([]string{"5e+09", "NetworkName", "wlan0/OtherNet"})
 
-	wl0.Template(`{{index .IPs 0}}`)
+	wl0.Output(func(i Info) bar.Output {
+		if len(i.IPs) > 0 {
+			return outputs.Textf("%v", i.IPs[0])
+		}
+		return nil
+	})
 	testBar.LatestOutput(0).Expect("on template change")
 	nlt.AddIP(link0, net.IPv4(10, 0, 0, 1))
 	testBar.LatestOutput(0, 2).At(0).AssertText("10.0.0.1")
 
-	wl0.Template(`{{index .IPs 1}}`)
+	wl0.Output(func(i Info) bar.Output {
+		if len(i.IPs) > 1 {
+			return outputs.Textf("%v", i.IPs[1])
+		}
+		return nil
+	})
 	testBar.LatestOutput(0).Expect("on template change")
 	nlt.AddIP(link0, net.IPv6loopback)
 	testBar.LatestOutput(0, 2).At(0).AssertText("::1")
@@ -125,11 +149,11 @@ func TestWlan(t *testing.T) {
 		"-f": "2.4e+09",
 	})
 	nlt.UpdateLink(link1, netlink.Link{Name: "wl1", State: netlink.Up})
-	testBar.LatestOutput(1, 2).At(2).AssertText("wl1/NetworkName", "when active link is renamed")
+	testBar.LatestOutput(1, 2).AssertText([]string{"::1", "wl1/NetworkName"}, "when active link is renamed")
 
 	nlt.RemoveLink(link1)
-	testBar.LatestOutput(2).At(2).AssertText("wlan0/OtherNet", "fallback when active link is removed")
+	testBar.LatestOutput(2).AssertText([]string{"::1", "wlan0/OtherNet"}, "fallback when active link is removed")
 
 	nlt.RemoveLink(link0)
-	testBar.LatestOutput(0, 2).At(2).AssertText("<no wlan>", "when no links remain")
+	testBar.LatestOutput(0, 2).AssertText([]string{"<no wlan>"}, "when no links remain")
 }

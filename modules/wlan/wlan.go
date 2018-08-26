@@ -27,6 +27,7 @@ import (
 	"github.com/soumya92/barista/base"
 	"github.com/soumya92/barista/base/watchers/netlink"
 	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Info represents the wireless card status.
@@ -66,8 +67,13 @@ func Named(iface string) *Module {
 	m := &Module{intf: iface}
 	l.Label(m, iface)
 	l.Register(m, "outputFunc")
-	// Default output template is just the SSID when connected.
-	m.Template("{{if .Connected}}{{.SSID}}{{end}}")
+	// Default output is just the SSID when connected.
+	m.Output(func(i Info) bar.Output {
+		if i.Connected() {
+			return outputs.Text(i.SSID)
+		}
+		return nil
+	})
 	return m
 }
 
@@ -80,12 +86,6 @@ func Any() *Module {
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

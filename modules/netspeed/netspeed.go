@@ -24,6 +24,7 @@ import (
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
 	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
 )
 
@@ -57,20 +58,17 @@ func New(iface string) *Module {
 	l.Label(m, iface)
 	l.Register(m, "scheduler", "outputFunc")
 	m.RefreshInterval(3 * time.Second)
-	// Default output template that's just the up and down speeds in SI.
-	m.Template("{{.Tx | ibyterate}} up | {{.Rx | ibyterate}} down")
+	// Default output is just the up and down speeds in SI.
+	m.Output(func(s Speeds) bar.Output {
+		return outputs.Textf("%s up | %s down",
+			outputs.IByterate(s.Tx), outputs.IByterate(s.Rx))
+	})
 	return m
 }
 
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(Speeds) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

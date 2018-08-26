@@ -89,10 +89,6 @@ type Module struct {
 	outputFunc base.Value
 }
 
-func defaultOutput(i IO) bar.Output {
-	return outputs.Textf("Disk: %s", outputs.IByterate(i.Total()))
-}
-
 // New creates a diskio module that displays disk io rates for the given disk.
 func New(disk string) *Module {
 	construct()
@@ -106,19 +102,15 @@ func New(disk string) *Module {
 	m := &Module{ioChan: mInfo.makeChannel()}
 	l.Label(m, disk)
 	l.Register(m, "ioChan", "outputFunc")
-	m.Output(defaultOutput)
+	m.Output(func(i IO) bar.Output {
+		return outputs.Textf("Disk: %s", outputs.IByterate(i.Total()))
+	})
 	return m
 }
 
 // Output configures a module to display the output of a user-defined function.
 func (m *Module) Output(outputFunc func(IO) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

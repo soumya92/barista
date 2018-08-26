@@ -161,7 +161,9 @@ func newModule(updateFunc func() Info) *Module {
 	m.format.Set(format{})
 	m.RefreshInterval(3 * time.Second)
 	// Construct a simple template that's just the available battery percent.
-	m.Template(`BATT {{.RemainingPct}}%`)
+	m.Output(func(i Info) bar.Output {
+		return outputs.Textf("BATT %d%%", i.RemainingPct())
+	})
 	return m
 }
 
@@ -182,12 +184,6 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	c := m.getFormat()
 	c.outputFunc = outputFunc
 	m.format.Set(c)
-	return m
-}
-
-// Template configures a module to display the output of a template.
-func (m *Module) Template(template string) *Module {
-	base.Template(template, m.Output)
 	return m
 }
 

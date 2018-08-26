@@ -63,8 +63,12 @@ func TestDiskIo(t *testing.T) {
 	})
 	construct()
 
-	sda1 := New("sda1").Template(`sda1: {{.Total | byterate}}`)
-	sdb1 := New("sdb1").Template(`sdb1: {{.Total | ibyterate}}`)
+	sda1 := New("sda1").Output(func(i IO) bar.Output {
+		return outputs.Textf("sda1: %s", outputs.Byterate(i.Total()))
+	})
+	sdb1 := New("sdb1").Output(func(i IO) bar.Output {
+		return outputs.Textf("sdb1: %s", outputs.IByterate(i.Total()))
+	})
 	testBar.Run(sda1, sdb1)
 
 	testBar.LatestOutput(0).Expect("on start")

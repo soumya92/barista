@@ -106,11 +106,6 @@ func TestErrors(t *testing.T) {
 			Errorf("cannot add %d and %s", 1, "a"),
 			"cannot add 1 and a",
 		},
-		{
-			"error in template",
-			TextTemplate(`{{.Number.Nested}}`)(testObject),
-			"can't evaluate field Nested in type int",
-		},
 	}
 	for _, tc := range tests {
 		err := tc.output.Segments()[0].GetError()
