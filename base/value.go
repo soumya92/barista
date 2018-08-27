@@ -27,7 +27,7 @@ type Value struct {
 	value atomic.Value
 	// Observers that will be notified on the next value.
 	obs   []chan struct{}
-	obsMu sync.RWMutex
+	obsMu sync.Mutex
 }
 
 // Next returns a channel that will be closed on the next update.
@@ -49,8 +49,8 @@ func (v *Value) Get() interface{} {
 func (v *Value) Set(value interface{}) {
 	v.value.Store(value)
 	l.Fine("%s: Store %#v", l.ID(v), value)
-	v.obsMu.RLock()
-	defer v.obsMu.RUnlock()
+	v.obsMu.Lock()
+	defer v.obsMu.Unlock()
 	for _, o := range v.obs {
 		close(o)
 	}
