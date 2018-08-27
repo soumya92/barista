@@ -27,15 +27,18 @@ import (
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/outputs"
 )
 
 // TailModule represents a bar.Module that displays the last line
 // of output from a shell command in the bar.
 type TailModule struct {
-	cmd  string
-	args []string
-	outf base.Value // of func(string) bar.Output
+	cmd       string
+	args      []string
+	outf      base.Value // of func(string) bar.Output
+	refreshCh <-chan struct{}
+	refreshFn func()
 }
 
 // Tail constructs a module that displays the last line of output from
@@ -43,6 +46,7 @@ type TailModule struct {
 // if necessary.
 func Tail(cmd string, args ...string) *TailModule {
 	t := &TailModule{cmd: cmd, args: args}
+	t.refreshFn, t.refreshCh = notifier.New()
 	t.outf.Set(func(text string) bar.Output {
 		return outputs.Text(text)
 	})
@@ -85,6 +89,7 @@ func (m *TailModule) Stream(s bar.Sink) {
 			outf = m.outf.Get().(func(string) bar.Output)
 		case txt := <-outChan:
 			out = &txt
+		case <-m.refreshCh:
 		}
 		if out != nil {
 			s.Output(outf(*out))
@@ -96,4 +101,10 @@ func (m *TailModule) Stream(s bar.Sink) {
 func (m *TailModule) Output(format func(string) bar.Output) *TailModule {
 	m.outf.Set(format)
 	return m
+}
+
+// Refresh refreshes the output using the last line of output format func.
+// Useful when paired with a scheduler if your output format has a relative time.
+func (m *TailModule) Refresh() {
+	m.refreshFn()
 }

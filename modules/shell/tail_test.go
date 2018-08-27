@@ -16,10 +16,12 @@ package shell
 
 import (
 	"testing"
+	"time"
 
 	"github.com/soumya92/barista/bar"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
+	"github.com/soumya92/barista/timing"
 )
 
 func TestTail(t *testing.T) {
@@ -54,4 +56,23 @@ func TestTail(t *testing.T) {
 	testBar.Run(tail)
 	testBar.NextOutput().AssertError(
 		"when starting an invalid command")
+}
+
+func TestTailRefresh(t *testing.T) {
+	testBar.New(t)
+	tail := Tail("bash", "-c", "for i in `seq 1 5`; do echo $i; sleep 75; done").
+		Output(func(line string) bar.Output {
+			now := timing.Now()
+			return outputs.Textf("[%d:%02d] %s", now.Minute(), now.Second(), line)
+		})
+	testBar.Run(tail)
+
+	testBar.NextOutput().AssertText([]string{"[47:00] 1"})
+	testBar.AssertNoOutput("sleep is too long (75s)")
+
+	timing.AdvanceBy(15 * time.Second)
+	tail.Refresh()
+
+	testBar.NextOutput().AssertText([]string{"[47:15] 1"})
+	testBar.AssertNoOutput("sleep is still too long (75s)")
 }
