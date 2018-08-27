@@ -75,8 +75,11 @@ func (t *TestModule) Stream(sink bar.Sink) {
 	for out := range outs {
 		t.Lock()
 		if !t.skipClickHandlers {
-			out = outputs.Group(out).
-				OnClick(func(e bar.Event) { t.events <- e })
+			out = outputs.Group(out).OnClick(func(e bar.Event) {
+				t.Lock()
+				defer t.Unlock()
+				t.events <- e
+			})
 		}
 		t.Unlock()
 		sink.Output(out)
