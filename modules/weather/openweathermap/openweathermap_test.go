@@ -56,25 +56,21 @@ func TestGood(t *testing.T) {
 		Sunset:      time.Unix(1435650870, 0),
 		Updated:     time.Unix(1435658272, 0),
 		Attribution: "OpenWeatherMap",
-	}, *wthr)
+	}, wthr)
 }
 
 func TestErrors(t *testing.T) {
-	wthr, err := Provider(ts.URL + "/static/bad.json").GetWeather()
+	_, err := Provider(ts.URL + "/static/bad.json").GetWeather()
 	require.Error(t, err, "bad json")
-	require.Nil(t, wthr)
 
-	wthr, err = Provider(ts.URL + "/code/401").GetWeather()
+	_, err = Provider(ts.URL + "/code/401").GetWeather()
 	require.Error(t, err, "http error")
-	require.Nil(t, wthr)
 
-	wthr, err = Provider(ts.URL + "/static/empty.json").GetWeather()
+	_, err = Provider(ts.URL + "/static/empty.json").GetWeather()
 	require.Error(t, err, "valid json but bad response")
-	require.Nil(t, wthr)
 
-	wthr, err = Provider(ts.URL + "/redir").GetWeather()
+	_, err = Provider(ts.URL + "/redir").GetWeather()
 	require.Error(t, err, "http error")
-	require.Nil(t, wthr)
 }
 
 func TestConditions(t *testing.T) {

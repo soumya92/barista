@@ -121,16 +121,16 @@ func getCondition(icon string) weather.Condition {
 }
 
 // GetWeather gets weather information from DarkSky.
-func (ds Provider) GetWeather() (*weather.Weather, error) {
+func (ds Provider) GetWeather() (weather.Weather, error) {
 	response, err := http.Get(string(ds))
 	if err != nil {
-		return nil, err
+		return weather.Weather{}, err
 	}
 	defer response.Body.Close()
 	d := dsWeather{}
 	err = json.NewDecoder(response.Body).Decode(&d)
 	if err != nil {
-		return nil, err
+		return weather.Weather{}, err
 	}
 	w := weather.Weather{
 		Location:    fmt.Sprintf("%f,%f", d.Latitude, d.Longitude),
@@ -151,5 +151,5 @@ func (ds Provider) GetWeather() (*weather.Weather, error) {
 		w.Sunrise = time.Unix(d.Daily.Data[0].SunriseTime, 0)
 		w.Sunset = time.Unix(d.Daily.Data[0].SunsetTime, 0)
 	}
-	return &w, nil
+	return w, nil
 }

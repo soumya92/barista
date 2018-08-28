@@ -29,16 +29,12 @@ type testProvider struct {
 	sync.RWMutex
 	Weather
 	error
-	cached bool
 }
 
-func (t *testProvider) GetWeather() (*Weather, error) {
+func (t *testProvider) GetWeather() (Weather, error) {
 	t.RLock()
 	defer t.RUnlock()
-	if t.error != nil || t.cached {
-		return nil, t.error
-	}
-	return &t.Weather, nil
+	return t.Weather, t.error
 }
 
 func TestWeather(t *testing.T) {
@@ -67,14 +63,6 @@ func TestWeather(t *testing.T) {
 		"72, by FLDSMDFR"}, "on template change")
 
 	p.Lock()
-	p.cached = true
-	p.Unlock()
-
-	testBar.Tick()
-	testBar.AssertNoOutput("on tick when weather is cached")
-
-	p.Lock()
-	p.cached = false
 	p.error = errors.New("foo")
 	p.Unlock()
 

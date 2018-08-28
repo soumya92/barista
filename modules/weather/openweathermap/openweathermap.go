@@ -174,21 +174,21 @@ func getCondition(owmCondition int) weather.Condition {
 }
 
 // GetWeather gets weather information from OpenWeatherMap.
-func (owm Provider) GetWeather() (*weather.Weather, error) {
+func (owm Provider) GetWeather() (weather.Weather, error) {
 	response, err := http.Get(string(owm))
 	if err != nil {
-		return nil, err
+		return weather.Weather{}, err
 	}
 	defer response.Body.Close()
 	o := owmWeather{}
 	err = json.NewDecoder(response.Body).Decode(&o)
 	if err != nil {
-		return nil, err
+		return weather.Weather{}, err
 	}
 	if len(o.Weather) < 1 {
-		return nil, fmt.Errorf("Bad response from OWM")
+		return weather.Weather{}, fmt.Errorf("Bad response from OWM")
 	}
-	return &weather.Weather{
+	return weather.Weather{
 		Location:    o.Name,
 		Condition:   getCondition(o.Weather[0].ID),
 		Description: o.Weather[0].Description,

@@ -65,6 +65,7 @@ type Provider struct {
 	url              string
 	stripRemarks     bool
 	includeFlightCat bool
+	lastWeather      weather.Weather
 }
 
 // Build builds a weather provider from the configuration.
@@ -294,10 +295,10 @@ func (m metar) getCondition() weather.Condition {
 }
 
 // GetWeather gets weather information from NOAA ADDS.
-func (p Provider) GetWeather() (*weather.Weather, error) {
+func (p Provider) GetWeather() (weather.Weather, error) {
 	response, err := http.Get(p.url)
 	if err != nil {
-		return nil, err
+		return weather.Weather{}, err
 	}
 	defer response.Body.Close()
 
@@ -305,31 +306,31 @@ func (p Provider) GetWeather() (*weather.Weather, error) {
 		// The METAR server occasionally times out and throws 5xx
 		// errors. Don't treat these as an error - just keep using
 		// the last weather report, and try again later.
-		return nil, nil
+		return p.lastWeather, nil
 	} else if response.StatusCode != 200 {
 		err = fmt.Errorf("Could not fetch METAR: %s", response.Status)
-		return nil, err
+		return weather.Weather{}, err
 	}
 
 	var resp addsResponse
 	err = xml.NewDecoder(response.Body).Decode(&resp)
 	if err != nil {
-		return nil, err
+		return weather.Weather{}, err
 	}
 
 	if len(resp.Metars) != 1 {
 		err = fmt.Errorf("Expected one METAR in response body, got %d", len(resp.Metars))
-		return nil, err
+		return weather.Weather{}, err
 	}
 
 	m := resp.Metars[0]
 
 	updated, err := time.Parse(time.RFC3339, m.ObservationTime)
 	if err != nil {
-		return nil, err
+		return weather.Weather{}, err
 	}
 
-	return &weather.Weather{
+	w := weather.Weather{
 		Location:    m.StationID,
 		Condition:   m.getCondition(),
 		Description: m.encodeMetar(p.stripRemarks, p.includeFlightCat),
@@ -343,5 +344,7 @@ func (p Provider) GetWeather() (*weather.Weather, error) {
 		CloudCover:  m.getCloudCover(),
 		Updated:     updated,
 		Attribution: "NWS",
-	}, nil
+	}
+	p.lastWeather = w
+	return w, nil
 }

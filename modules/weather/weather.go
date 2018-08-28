@@ -84,7 +84,7 @@ type Direction int
 // Provider is an interface for weather providers,
 // implemented by the various provider packages.
 type Provider interface {
-	GetWeather() (*Weather, error)
+	GetWeather() (Weather, error)
 }
 
 // Module represents a bar.Module that displays weather information.
@@ -131,10 +131,8 @@ func (m *Module) Stream(s bar.Sink) {
 		if s.Error(err) {
 			return
 		}
-		if weather != nil {
-			m.currentWeather.Set(*weather)
-			s.Output(outputFunc(*weather))
-		}
+		m.currentWeather.Set(weather)
+		s.Output(outputFunc(weather))
 		select {
 		case <-m.outputFunc.Next():
 			outputFunc = m.outputFunc.Get().(func(Weather) bar.Output)
