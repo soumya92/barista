@@ -122,6 +122,13 @@ var stringifyingTests = []struct {
 		"<span underline='error'><span stretch='condensed' color='#ff0000'>c</span>foo</span>",
 	},
 	{
+		"concat helper methods",
+		Text("c").Condensed().Color(colors.Hex("#ff0000")).
+			ConcatText("foo", "bar").UnderlineError().
+			ConcatTextf(" - %.2f", 3.14159),
+		"<span underline='error'><span stretch='condensed' color='#ff0000'>c</span>foobar</span> - 3.14",
+	},
+	{
 		"complex",
 		complex(),
 		`<span weight='600' rise='400' size='14336' face='monospace'

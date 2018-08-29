@@ -125,6 +125,23 @@ func (n *Node) Concat(nodes ...*Node) *Node {
 	return n.Append(nodes...)
 }
 
+// ConcatText is a shortcut for Concat(pango.Text(...), pango.Text(...), ...)
+func (n *Node) ConcatText(texts ...string) *Node {
+	nodes := make([]*Node, len(texts))
+	for i, t := range texts {
+		nodes[i] = &Node{nodeType: ntText, content: t}
+	}
+	return n.Concat(nodes...)
+}
+
+// ConcatTextf is a shortcut for Append(pango.Textf(...))
+func (n *Node) ConcatTextf(format string, args ...interface{}) *Node {
+	return n.Concat(&Node{
+		nodeType: ntText,
+		content:  fmt.Sprintf(format, args...),
+	})
+}
+
 // Pango returns a pango-formatted version of the node.
 func (n *Node) String() string {
 	if n.nodeType == ntText {
