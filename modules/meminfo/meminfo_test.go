@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
@@ -42,7 +42,7 @@ func shouldReturn(info meminfo) {
 }
 
 func resetForTest() {
-	currentInfo = base.ErrorValue{}
+	currentInfo = value.ErrorValue{}
 	once = sync.Once{}
 	construct()
 	// Flush upates for test.

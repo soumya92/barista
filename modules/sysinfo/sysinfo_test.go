@@ -23,7 +23,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	"github.com/soumya92/barista/outputs"
 	testBar "github.com/soumya92/barista/testing/bar"
 	"github.com/soumya92/barista/timing"
@@ -58,7 +58,7 @@ var mockSysinfo = func(out *unix.Sysinfo_t) error {
 func resetForTest() {
 	shouldReturn(unix.Sysinfo_t{})
 	sysinfo = mockSysinfo
-	currentInfo = base.ErrorValue{}
+	currentInfo = value.ErrorValue{}
 	once = sync.Once{}
 	construct()
 	// Flush upates for test.

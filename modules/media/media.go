@@ -24,7 +24,7 @@ import (
 	"github.com/godbus/dbus"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -155,10 +155,10 @@ type Controller interface {
 // from an MPRIS-compatible media player.
 type Module struct {
 	playerName string
-	outputFunc base.Value // of func(Info) bar.Output
+	outputFunc value.Value // of func(Info) bar.Output
 
 	// player state, updated from dbus signals.
-	info base.Value // of Info
+	info value.Value // of Info
 
 	// To simplify adding/removing matches and querying metadata,
 	// store references to bus and player dbus objects.

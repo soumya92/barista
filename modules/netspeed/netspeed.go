@@ -22,7 +22,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -46,7 +46,7 @@ func (s Speeds) Total() unit.Datarate {
 type Module struct {
 	iface      string
 	scheduler  timing.Scheduler
-	outputFunc base.Value // of func(Speeds) bar.Output
+	outputFunc value.Value // of func(Speeds) bar.Output
 }
 
 // New constructs an instance of the netspeed module for the given interface.

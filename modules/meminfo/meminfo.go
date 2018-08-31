@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -61,7 +61,7 @@ func (i Info) AvailFrac() float64 {
 
 // currentInfo stores the last value read by the updater.
 // This allows newly created modules to start with data.
-var currentInfo base.ErrorValue // of Info
+var currentInfo value.ErrorValue // of Info
 
 var once sync.Once
 var updater timing.Scheduler
@@ -91,7 +91,7 @@ func RefreshInterval(interval time.Duration) {
 
 // Module represents a bar.Module that displays memory information.
 type Module struct {
-	outputFunc base.Value
+	outputFunc value.Value
 }
 
 func defaultOutput(i Info) bar.Output {

@@ -24,7 +24,7 @@ import (
 	"github.com/martinlindhe/unit"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -67,7 +67,7 @@ func (i Info) AvailPct() int {
 type Module struct {
 	path       string
 	scheduler  timing.Scheduler
-	outputFunc base.Value // of func(Info) bar.Output
+	outputFunc value.Value // of func(Info) bar.Output
 }
 
 // New constructs an instance of the diskusage module for the given disk path.

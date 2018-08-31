@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -37,7 +37,7 @@ import (
 type Module struct {
 	cmd       string
 	args      []string
-	outf      base.Value // of func(string) bar.Output
+	outf      value.Value // of func(string) bar.Output
 	notifyCh  <-chan struct{}
 	notifyFn  func()
 	scheduler timing.Scheduler

@@ -26,7 +26,7 @@ import (
 	"syscall"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/outputs"
 )
@@ -36,7 +36,7 @@ import (
 type TailModule struct {
 	cmd       string
 	args      []string
-	outf      base.Value // of func(string) bar.Output
+	outf      value.Value // of func(string) bar.Output
 	refreshCh <-chan struct{}
 	refreshFn func()
 }

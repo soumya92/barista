@@ -67,7 +67,7 @@ func TestShorten(t *testing.T) {
 			"mod:weather/darksky.Provider.GetWeather"},
 		{"github.com/soumya92/barista/modules/clock", "mod:clock"},
 		{"github.com/soumya92/barista/core.Module", "core:Module"},
-		{"github.com/soumya92/barista/base.(Value).Set", "bar:base.Value.Set"},
+		{"github.com/soumya92/barista/value.(Value).Set", "bar:value.Value.Set"},
 		{"github.com/golang/go/pkg.Type.Method",
 			"github.com/golang/go/pkg.Type.Method"},
 		{"builtin.Type.Method", "builtin.Type.Method"},

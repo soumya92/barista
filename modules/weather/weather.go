@@ -21,7 +21,7 @@ import (
 	"github.com/martinlindhe/unit"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -91,8 +91,8 @@ type Provider interface {
 type Module struct {
 	provider       Provider
 	scheduler      timing.Scheduler
-	outputFunc     base.Value // of func(Weather) bar.Output
-	currentWeather base.Value // of Weather
+	outputFunc     value.Value // of func(Weather) bar.Output
+	currentWeather value.Value // of Weather
 }
 
 // New constructs an instance of the weather module with the provided configuration.

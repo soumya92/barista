@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -36,7 +36,7 @@ import (
 type Module struct {
 	thermalFile string
 	scheduler   timing.Scheduler
-	outputFunc  base.Value // of func(unit.Temperature) bar.Output
+	outputFunc  value.Value // of func(unit.Temperature) bar.Output
 }
 
 // Zone constructs an instance of the cputemp module for the specified zone.

@@ -17,7 +17,7 @@ package vpn
 
 import (
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	"github.com/soumya92/barista/base/watchers/netlink"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
@@ -46,7 +46,7 @@ const (
 // Module represents a VPN bar module.
 type Module struct {
 	intf       string
-	outputFunc base.Value // of func(State) bar.Output
+	outputFunc value.Value // of func(State) bar.Output
 }
 
 // New constructs an instance of the VPN module for the specified interface.

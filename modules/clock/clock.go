@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -29,7 +29,7 @@ import (
 // Module represents a clock bar module. It supports setting the click handler,
 // timezone, output format, and granularity.
 type Module struct {
-	config base.Value
+	config value.Value
 }
 
 type config struct {

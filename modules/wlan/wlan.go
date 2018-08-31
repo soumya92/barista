@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	"github.com/soumya92/barista/base/watchers/netlink"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
@@ -59,7 +59,7 @@ func (i Info) Enabled() bool {
 // Module represents a wlan bar module.
 type Module struct {
 	intf       string
-	outputFunc base.Value // of func(Info) bar.Output
+	outputFunc value.Value // of func(Info) bar.Output
 }
 
 // Named constructs an instance of the wlan module for the specified interface.

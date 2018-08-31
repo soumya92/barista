@@ -33,7 +33,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 )
@@ -72,14 +72,14 @@ type moduleImpl interface {
 	setVolume(volume int64) error
 
 	// Infinite loop: push updates and errors to the provided s.
-	worker(s *base.ErrorValue)
+	worker(s *value.ErrorValue)
 }
 
 // Module represents a bar.Module that displays volume information.
 type Module struct {
-	outputFunc    base.Value      // of func(Volume) bar.Output
-	clickHandler  base.Value      // of func(Volume, Controller, bar.Event)
-	currentVolume base.ErrorValue // of Volume
+	outputFunc    value.Value      // of func(Volume) bar.Output
+	clickHandler  value.Value      // of func(Volume, Controller, bar.Event)
+	currentVolume value.ErrorValue // of Volume
 	impl          moduleImpl
 }
 
@@ -254,7 +254,7 @@ func (m *alsaModule) setMuted(muted bool) error {
 }
 
 // worker waits for signals from alsa and updates the stored volume.
-func (m *alsaModule) worker(s *base.ErrorValue) {
+func (m *alsaModule) worker(s *value.ErrorValue) {
 	cardName := C.CString(m.cardName)
 	defer C.free(unsafe.Pointer(cardName))
 	mixerName := C.CString(m.mixerName)
@@ -434,7 +434,7 @@ func (m *paModule) openFallbackSink() error {
 	return m.openSink(path.Value().(dbus.ObjectPath))
 }
 
-func (m *paModule) updateVolume(s *base.ErrorValue) {
+func (m *paModule) updateVolume(s *value.ErrorValue) {
 	v := Volume{}
 	v.Min = 0
 
@@ -465,7 +465,7 @@ func (m *paModule) updateVolume(s *base.ErrorValue) {
 	s.Set(v)
 }
 
-func (m *paModule) worker(s *base.ErrorValue) {
+func (m *paModule) worker(s *value.ErrorValue) {
 	conn, err := openPulseAudio()
 	if s.Error(err) {
 		return

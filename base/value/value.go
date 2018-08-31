@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package base provides some helpers to make constructing bar modules easier.
-package base
+// Package value provides atomic values with update notifications.
+package value
 
 import (
 	"sync"

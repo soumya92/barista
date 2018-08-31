@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -86,7 +86,7 @@ func RefreshInterval(interval time.Duration) {
 // Module represents a bar.Module for a single disk's io activity.
 type Module struct {
 	ioChan     <-chan IO
-	outputFunc base.Value
+	outputFunc value.Value
 }
 
 // New creates a diskio module that displays disk io rates for the given disk.

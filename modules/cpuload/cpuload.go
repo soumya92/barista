@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 	"github.com/soumya92/barista/timing"
@@ -51,7 +51,7 @@ func (l LoadAvg) Min15() float64 {
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
 	scheduler  timing.Scheduler
-	outputFunc base.Value // of func(LoadAvg) bar.Output
+	outputFunc value.Value // of func(LoadAvg) bar.Output
 }
 
 // New constructs an instance of the cpuload module.

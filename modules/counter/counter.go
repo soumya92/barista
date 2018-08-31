@@ -19,7 +19,7 @@ package counter
 
 import (
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
 )
@@ -28,8 +28,8 @@ import (
 // in the given format, and adjusts the count on click/scroll.
 // This module exemplifies the event-based architecture of barista.
 type Module struct {
-	count  base.Value // of int
-	format base.Value // of string
+	count  value.Value // of int
+	format value.Value // of string
 }
 
 // New constructs a new counter module.

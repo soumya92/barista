@@ -17,7 +17,7 @@ package netinfo
 
 import (
 	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base"
+	"github.com/soumya92/barista/base/value"
 	"github.com/soumya92/barista/base/watchers/netlink"
 	l "github.com/soumya92/barista/logging"
 	"github.com/soumya92/barista/outputs"
@@ -46,7 +46,7 @@ func (s State) Enabled() bool {
 // Module represents a netinfo bar module.
 type Module struct {
 	subscriber func() netlink.Subscription
-	outputFunc base.Value // of func(State) bar.Output
+	outputFunc value.Value // of func(State) bar.Output
 }
 
 // netWithSubscriber constructs a netinfo module using the given
