@@ -136,10 +136,10 @@ func addIP(index LinkIndex, addr net.IP) {
 func ipPriority(ip net.IP) int {
 	priorities := []func(net.IP) bool{
 		net.IP.IsGlobalUnicast,
-		net.IP.IsMulticast,
-		net.IP.IsInterfaceLocalMulticast,
-		net.IP.IsLinkLocalMulticast,
 		net.IP.IsLinkLocalUnicast,
+		net.IP.IsLinkLocalMulticast,
+		net.IP.IsInterfaceLocalMulticast,
+		net.IP.IsMulticast,
 		net.IP.IsLoopback,
 	}
 	for pri, fn := range priorities {
