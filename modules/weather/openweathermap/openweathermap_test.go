@@ -176,12 +176,15 @@ func TestProviderBuilder(t *testing.T) {
 }
 
 func TestLive(t *testing.T) {
-	cron.Test(t, func(t *testing.T) {
+	cron.Test(t, func() error {
 		wthr, err := Zipcode("94043", "US").
 			APIKey(os.Getenv("WEATHER_OWM_API_KEY")).
 			Build().
 			GetWeather()
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		require.NotNil(t, wthr)
+		return nil
 	})
 }

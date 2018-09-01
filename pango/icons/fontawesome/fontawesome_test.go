@@ -59,7 +59,18 @@ $fa-var-other-icon: \62;
 // keeping default tests hermetic.
 func TestLive(t *testing.T) {
 	fs = githubfs.New()
-	cron.Test(t, func(t *testing.T) {
-		require.NoError(t, Load("/FortAwesome/Font-Awesome/master"))
+	cron.Test(t, func() error {
+		if err := Load("/FortAwesome/Font-Awesome/master"); err != nil {
+			return err
+		}
+		// At least one of these icons should be loaded.
+		testIcons := pango.New(
+			pango.Icon("fa-arrow-circle-right"),
+			pango.Icon("fa-cloud"),
+			pango.Icon("fa-music"),
+			pango.Icon("fa-tags"),
+		)
+		require.NotEmpty(t, testIcons.String(), "No expected icons were loaded")
+		return nil
 	})
 }

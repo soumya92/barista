@@ -74,7 +74,18 @@ func TestValid(t *testing.T) {
 // keeping default tests hermetic.
 func TestLive(t *testing.T) {
 	fs = githubfs.New()
-	cron.Test(t, func(t *testing.T) {
-		require.NoError(t, Load("/stephenhutchings/typicons.font/master"))
+	cron.Test(t, func() error {
+		if err := Load("/stephenhutchings/typicons.font/master"); err != nil {
+			return err
+		}
+		// At least one of these icons should be loaded.
+		testIcons := pango.New(
+			pango.Icon("typecn-pen"),
+			pango.Icon("typecn-flag-outline"),
+			pango.Icon("typecn-plus"),
+			pango.Icon("typecn-beaker"),
+		)
+		require.NotEmpty(t, testIcons.String(), "No expected icons were loaded")
+		return nil
 	})
 }

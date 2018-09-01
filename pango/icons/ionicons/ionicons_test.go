@@ -77,7 +77,18 @@ func TestValid(t *testing.T) {
 // keeping default tests hermetic.
 func TestLive(t *testing.T) {
 	fs = githubfs.New()
-	cron.Test(t, func(t *testing.T) {
-		require.NoError(t, Load("/ionic-team/ionicons/master"))
+	cron.Test(t, func() error {
+		if err := Load("/ionic-team/ionicons/master"); err != nil {
+			return err
+		}
+		// At least one of these icons should be loaded.
+		testIcons := pango.New(
+			pango.Icon("ion-md-book"),
+			pango.Icon("ion-ios-help"),
+			pango.Icon("ion-md-headset"),
+			pango.Icon("ion-ios-trash"),
+		)
+		require.NotEmpty(t, testIcons.String(), "No expected icons were loaded")
+		return nil
 	})
 }

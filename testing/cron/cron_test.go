@@ -15,6 +15,7 @@
 package cron
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -28,14 +29,14 @@ func init() {
 	waits = []int{0, 1, 2, 3}
 }
 
-func failNTimes(n int) func(*testing.T) {
+func failNTimes(n int) func() error {
 	count := 0
-	return func(t *testing.T) {
+	return func() error {
 		count++
 		if count > n {
-			return
+			return nil
 		}
-		require.Fail(t, "Failing N Times", "%d out of %d", count, n)
+		return fmt.Errorf("Failing N Times: %d out of %d", count, n)
 	}
 }
 
@@ -50,8 +51,9 @@ func mockGetenv(eventType string) func(string) string {
 
 func TestNotCron(t *testing.T) {
 	getenv = mockGetenv("not-cron")
-	Test(t, func(*testing.T) {
+	Test(t, func() error {
 		require.Fail(t, "test func called but not a cron build")
+		return nil
 	})
 }
 
@@ -70,4 +72,11 @@ func TestCron(t *testing.T) {
 	end = time.Now()
 	require.WithinDuration(t, start.Add(1*time.Second), end, time.Second,
 		"Test should only wait 0+1 seconds (for the 2 failures)")
+
+	called := false
+	Test(t, func() error {
+		require.False(t, called, "test func called again after no error")
+		called = true
+		return nil
+	})
 }

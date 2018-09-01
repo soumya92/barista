@@ -29,21 +29,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soumya92/barista/testing/fail"
+	"github.com/stretchr/testify/require"
 )
 
 var getenv = os.Getenv
 var waits = []int{1, 3, 7, 15}
 
-func Test(t *testing.T, testFunc func(t *testing.T)) {
+func Test(t *testing.T, testFunc func() error) {
 	if evt := getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
 		t.Skipf("Skipping LiveVersion test for event type '%s'", evt)
 	}
 	for _, wait := range waits {
-		if !fail.Failed(testFunc) {
+		err := testFunc()
+		if err == nil {
 			return
 		}
+		t.Logf("Waiting %ds due to %v", wait, err)
 		time.Sleep(time.Duration(wait) * time.Second)
 	}
-	testFunc(t)
+	require.NoError(t, testFunc(), "On last cron attempt")
 }

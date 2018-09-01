@@ -113,12 +113,15 @@ func TestProviderBuilder(t *testing.T) {
 }
 
 func TestLive(t *testing.T) {
-	cron.Test(t, func(t *testing.T) {
+	cron.Test(t, func() error {
 		wthr, err := Coords(42.3601, -71.0589).
 			APIKey(os.Getenv("WEATHER_DS_API_KEY")).
 			Build().
 			GetWeather()
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		require.NotNil(t, wthr)
+		return nil
 	})
 }

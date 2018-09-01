@@ -96,7 +96,18 @@ $mdi-icons: (
 // keeping default tests hermetic.
 func TestLive(t *testing.T) {
 	fs = githubfs.New()
-	cron.Test(t, func(t *testing.T) {
-		require.NoError(t, Load("/Templarian/MaterialDesign-Webfont/master"))
+	cron.Test(t, func() error {
+		if err := Load("/Templarian/MaterialDesign-Webfont/master"); err != nil {
+			return err
+		}
+		// At least one of these icons should be loaded.
+		testIcons := pango.New(
+			pango.Icon("mdi-arrow-right-thick"),
+			pango.Icon("mdi-bullhorn"),
+			pango.Icon("mdi-close-octagon"),
+			pango.Icon("mdi-scale-balance"),
+		)
+		require.NotEmpty(t, testIcons.String(), "No expected icons were loaded")
+		return nil
 	})
 }
