@@ -20,8 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/soumya92/barista/base/notifier"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/notifier"
 )
 
 // scheduler implements a Scheduler tied to actual time.

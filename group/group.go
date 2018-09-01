@@ -45,7 +45,7 @@ type Signaller interface {
 // updates its output.
 type UpdateListener interface {
 	// Updated is called with the index of the module that just updated
-	// its outpu, before the calls to Button(...) or Visble(...)
+	// its output, before the calls to Button(...) or Visble(...)
 	Updated(index int)
 }
 

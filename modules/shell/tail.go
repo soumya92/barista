@@ -26,8 +26,8 @@ import (
 	"syscall"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/notifier"
 	"github.com/soumya92/barista/base/value"
-	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/outputs"
 )
 

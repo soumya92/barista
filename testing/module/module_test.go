@@ -21,8 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/sink"
 	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/sink"
 	"github.com/soumya92/barista/testing/fail"
 )
 

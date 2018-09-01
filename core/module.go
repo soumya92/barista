@@ -18,9 +18,9 @@ package core
 
 import (
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/notifier"
+	"github.com/soumya92/barista/base/sink"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/notifier"
-	"github.com/soumya92/barista/sink"
 )
 
 // Sink is a specialisation of bar.Sink that provides bar.Segments

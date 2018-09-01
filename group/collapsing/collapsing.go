@@ -25,9 +25,9 @@ import (
 	"sync"
 
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/notifier"
 	"github.com/soumya92/barista/group"
 	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/notifier"
 	"github.com/soumya92/barista/outputs"
 )
 
