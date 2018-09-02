@@ -9,10 +9,7 @@ curl -O https://raw.githubusercontent.com/soumya92/barista/master/samples/sample
 go build -o ~/bin/mybar -i sample-bar.go
 	```
 
-	<!--
-		TODO
-		*You can also download a pre-built linux/amd64 [binary release](https://github.com/soumya92/barista/releases)*
-	-->
+	*You can also download a pre-built linux/amd64 [binary release](https://github.com/soumya92/barista/releases)*
 
 - Set the status_command of the bar to this new binary
 
