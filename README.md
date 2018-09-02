@@ -11,19 +11,10 @@ Barista is an i3 status bar written in golang.
 
 **This is not an official Google product**
 
-*This project is in progress. The core API is stable, but user bars may still
-break on updates. See the [Release (v1) Project](https://github.com/soumya92/barista/projects/3)
-for progress towards a stable release.*
-
-Also look at the [stable-api sample](https://github.com/soumya92/barista/tree/master/samples/stable-api)
-to see what APIs are considered stable. As a general rule, any code in the
-stable-api sample will continue to work across updates.
-
 ## Features
 
-- Based on push rather than fixed interval polling. Currently only media and
-  volume benefit from this, but this opens the door to async updates from
-  shell scripts, irc, &c.
+- Based on push rather than fixed interval polling. This allows immediate updates
+  for many modules, like volume, media, shell, etc.
 
 - Produces a single binary via go build. This makes it easy to set up the bar
   executable, since no import paths, environment variables, et al. need to be
@@ -54,4 +45,4 @@ bar {
 }
 ```
 
-See the [wiki](https://github.com/soumya92/barista/wiki) for more details
+See the [quickstart](https://barista.run/#quickstart) for more details.
