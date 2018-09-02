@@ -35,27 +35,27 @@ There are a few simple steps to using an icon font in your bar:
 
 ## Supported Fonts
 
-- [Material Design Icons](material)
+- [Material Design Icons](/pango/icons/material)
   
   Delightful, beautifully crafted symbols for common actions and items  
   `pango.Icon("material-settings-ethernet")`
 
-	- [Community-led Iconography](mdi)
+	- [Community-led Iconography](/pango/icons/mdi)
 
 	  2700+ Material Design Icons from the Community  
 	  `pango.Icon("mdi-music-circle")`
 
-- [FontAwesome Free](fontawesome)
+- [FontAwesome Free](/pango/icons/fontawesome)
   
   "the web’s most popular icon set and toolkit"  
   `pango.Icon("fa-comment-dots")`
 
-- [Ionicons](ionicons)
+- [Ionicons](/pango/icons/ionicons)
   
   The premium icon pack for Ionic Framework  
   `pango.Icon("ion-stats")`
 
-- [Typicons](typicons)
+- [Typicons](/pango/icons/typicons)
   
   A Free Icon Font by Stephen Hutchings  
   `pango.Icon("typecn-flag-outline")`
