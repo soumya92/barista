@@ -25,6 +25,8 @@ bar {
 
 - Restart i3
 
+![Screenshot](/assets/images/sample-bar-screenshot.png)
+
 If the icons are missing from the bar, you may need to [install the icon fonts](pango/icons#default-installation)
 to `~/Github/`, or adjust the code if they are already available in a different location.
 
