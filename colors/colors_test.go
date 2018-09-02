@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
@@ -39,6 +40,9 @@ func assertColorEquals(t *testing.T, expected, actual color.Color, args ...inter
 func TestCreation(t *testing.T) {
 	scheme["test"] = Hex("#abcdef")
 	scheme["empty"] = nil
+	Set("nil", nil)
+	Set("transparent", color.Transparent)
+	Set("black", color.Black)
 
 	creationTests := []struct {
 		desc     string
@@ -51,6 +55,9 @@ func TestCreation(t *testing.T) {
 		{"scheme empty", Scheme("empty"), nil},
 		{"scheme color", Scheme("test"), color.RGBA{0xab, 0xcd, 0xef, 0xff}},
 		{"scheme non-existent", Scheme("undefined"), nil},
+		{"Set(nil)", Scheme("nil"), nil},
+		{"Set(transparent)", Scheme("transparent"), nil},
+		{"Set(black)", Scheme("black"), color.RGBA{0, 0, 0, 0xff}},
 	}
 
 	for _, tc := range creationTests {
@@ -78,7 +85,7 @@ func TestLoadFromArgs(t *testing.T) {
 	}
 
 	for _, tc := range emptySchemeTests {
-		scheme = map[string]color.Color{}
+		scheme = map[string]*colorful.Color{}
 		LoadFromArgs(tc.args)
 		require.Empty(t, scheme, tc.desc)
 	}
@@ -111,7 +118,7 @@ func TestLoadFromArgs(t *testing.T) {
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]color.Color{}
+		scheme = map[string]*colorful.Color{}
 		LoadFromArgs(tc.args)
 		assertSchemeEquals(t, tc.expected, tc.desc)
 	}
@@ -153,7 +160,7 @@ func TestLoadFromMap(t *testing.T) {
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]color.Color{}
+		scheme = map[string]*colorful.Color{}
 		LoadFromMap(tc.args)
 		assertSchemeEquals(t, tc.expected, tc.desc)
 	}
@@ -216,7 +223,7 @@ general {
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]color.Color{}
+		scheme = map[string]*colorful.Color{}
 		err := LoadFromConfig(tc.file)
 		require.Nil(t, err)
 		assertSchemeEquals(t, tc.expected, tc.file)
@@ -224,7 +231,7 @@ general {
 }
 
 func TestLoadingBarConfig(t *testing.T) {
-	scheme = map[string]color.Color{}
+	scheme = map[string]*colorful.Color{}
 	attemptedBarId := ""
 	getBarConfig = func(barId string) []byte {
 		attemptedBarId = barId

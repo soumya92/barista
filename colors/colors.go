@@ -32,18 +32,29 @@ import (
 
 // Hex sanity-checks and constructs a color from a hex-string.
 // Any string that can be parsed by colorful is acceptable.
-func Hex(hex string) color.Color {
+func Hex(hex string) *colorful.Color {
 	c, err := colorful.Hex(hex)
 	if err != nil {
 		return nil
 	}
-	return c
+	return &c
 }
 
 // Scheme gets a color from the user-defined color scheme.
 // Some common names are 'good', 'bad', and 'degraded'.
-func Scheme(name string) color.Color {
+func Scheme(name string) *colorful.Color {
 	return scheme[name]
+}
+
+// Set sets a named scheme color to the given value.
+func Set(name string, color color.Color) {
+	if color == nil {
+		delete(scheme, name)
+		return
+	}
+	if c, ok := colorful.MakeColor(color); ok {
+		scheme[name] = &c
+	}
 }
 
 // scheme holds the mapping of "name" to colour values.
@@ -51,7 +62,7 @@ func Scheme(name string) color.Color {
 // by using the commonly accepted names "good", "bad", and "degraded".
 // Bar authors can also define arbitrary names, e.g. to load XResource based colours
 // from i3 using the "LoadFromArgs" method.
-var scheme = map[string]color.Color{}
+var scheme = map[string]*colorful.Color{}
 
 func splitAtLastEqual(s string) (string, string, bool) {
 	idx := strings.LastIndex(s, "=")
