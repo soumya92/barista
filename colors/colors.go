@@ -30,19 +30,36 @@ import (
 	"github.com/spf13/afero"
 )
 
+// ColorfulColor extends image/color.Color with the ability
+// to get a go-colorful.Color. This is simpler than using
+// go-colorful.MakeColor because the backing implementation
+// already has a colorful value.
+type ColorfulColor interface {
+	color.Color
+	Colorful() colorful.Color
+}
+
+type colorfulColor struct {
+	colorful.Color
+}
+
+func (c *colorfulColor) Colorful() colorful.Color {
+	return c.Color
+}
+
 // Hex sanity-checks and constructs a color from a hex-string.
 // Any string that can be parsed by colorful is acceptable.
-func Hex(hex string) *colorful.Color {
+func Hex(hex string) ColorfulColor {
 	c, err := colorful.Hex(hex)
 	if err != nil {
 		return nil
 	}
-	return &c
+	return &colorfulColor{c}
 }
 
 // Scheme gets a color from the user-defined color scheme.
 // Some common names are 'good', 'bad', and 'degraded'.
-func Scheme(name string) *colorful.Color {
+func Scheme(name string) ColorfulColor {
 	return scheme[name]
 }
 
@@ -53,7 +70,7 @@ func Set(name string, color color.Color) {
 		return
 	}
 	if c, ok := colorful.MakeColor(color); ok {
-		scheme[name] = &c
+		scheme[name] = &colorfulColor{c}
 	}
 }
 
@@ -62,7 +79,7 @@ func Set(name string, color color.Color) {
 // by using the commonly accepted names "good", "bad", and "degraded".
 // Bar authors can also define arbitrary names, e.g. to load XResource based colours
 // from i3 using the "LoadFromArgs" method.
-var scheme = map[string]*colorful.Color{}
+var scheme = map[string]ColorfulColor{}
 
 func splitAtLastEqual(s string) (string, string, bool) {
 	idx := strings.LastIndex(s, "=")

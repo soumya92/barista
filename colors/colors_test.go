@@ -21,7 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +37,8 @@ func assertColorEquals(t *testing.T, expected, actual color.Color, args ...inter
 }
 
 func TestCreation(t *testing.T) {
-	scheme["test"] = Hex("#abcdef")
+	scheme = map[string]ColorfulColor{}
+	scheme["test"] = Hex("#abcdef").(*colorfulColor)
 	scheme["empty"] = nil
 	Set("nil", nil)
 	Set("transparent", color.Transparent)
@@ -65,6 +65,13 @@ func TestCreation(t *testing.T) {
 	}
 }
 
+func TestColorful(t *testing.T) {
+	scheme = map[string]ColorfulColor{}
+	Set("cyan", color.RGBA{0x00, 0x77, 0xff, 0xff})
+	require.Equal(t, "#0077ff", Scheme("cyan").Colorful().Hex())
+	require.True(t, Scheme("notfound") == nil, "nil checks work")
+}
+
 func assertSchemeEquals(t *testing.T, expected map[string]color.Color, desc string) {
 	for name, expectedValue := range expected {
 		assertColorEquals(t, expectedValue, Scheme(name), desc)
@@ -85,7 +92,7 @@ func TestLoadFromArgs(t *testing.T) {
 	}
 
 	for _, tc := range emptySchemeTests {
-		scheme = map[string]*colorful.Color{}
+		scheme = map[string]ColorfulColor{}
 		LoadFromArgs(tc.args)
 		require.Empty(t, scheme, tc.desc)
 	}
@@ -118,7 +125,7 @@ func TestLoadFromArgs(t *testing.T) {
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]*colorful.Color{}
+		scheme = map[string]ColorfulColor{}
 		LoadFromArgs(tc.args)
 		assertSchemeEquals(t, tc.expected, tc.desc)
 	}
@@ -160,7 +167,7 @@ func TestLoadFromMap(t *testing.T) {
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]*colorful.Color{}
+		scheme = map[string]ColorfulColor{}
 		LoadFromMap(tc.args)
 		assertSchemeEquals(t, tc.expected, tc.desc)
 	}
@@ -223,7 +230,7 @@ general {
 	}
 
 	for _, tc := range schemeTests {
-		scheme = map[string]*colorful.Color{}
+		scheme = map[string]ColorfulColor{}
 		err := LoadFromConfig(tc.file)
 		require.Nil(t, err)
 		assertSchemeEquals(t, tc.expected, tc.file)
@@ -231,7 +238,7 @@ general {
 }
 
 func TestLoadingBarConfig(t *testing.T) {
-	scheme = map[string]*colorful.Color{}
+	scheme = map[string]ColorfulColor{}
 	attemptedBarId := ""
 	getBarConfig = func(barId string) []byte {
 		attemptedBarId = barId
