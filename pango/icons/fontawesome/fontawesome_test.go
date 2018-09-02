@@ -30,27 +30,76 @@ func TestInvalid(t *testing.T) {
 	fs = afero.NewMemMapFs()
 	require.Error(t, Load("/src/no-such-directory"))
 
-	afero.WriteFile(fs, "/src/fa-error-1/web-fonts-with-css/scss/_variables.scss", []byte(
-		`
-$blah: "red";
-$fa-var-xy: xy;
-$fa-var-foobar: \61;
-`,
+	afero.WriteFile(fs, "/src/fa-error-1/advanced-options/metadata/icons.yml", []byte(
+		`-- Invalid YAML --`,
 	), 0644)
 	require.Error(t, Load("/src/fa-error-1"))
+
+	afero.WriteFile(fs, "/src/fa-error-2/advanced-options/metadata/icons.yml", nil, 0644)
+	require.Error(t, Load("/src/fa-error-2"))
+
+	afero.WriteFile(fs, "/src/fa-error-3/advanced-options/metadata/icons.yml", []byte(
+		`some-icon:
+  changes:
+    - '4.4'
+    - 5.0.0
+  label: Should Not Matter
+  styles:
+    - solid
+  unicode: abcd
+bad-icon:
+  styles:
+    - regular
+  unicode: ghij
+`,
+	), 0644)
+	require.Error(t, Load("/src/fa-error-3"))
+
+	afero.WriteFile(fs, "/src/fa-error-4/advanced-options/metadata/icons.yml", []byte(
+		`some-icon:
+  label: Should Not Matter
+  styles:
+    - unknownstyle
+  unicode: abcd
+`,
+	), 0644)
+	require.Error(t, Load("/src/fa-error-4"))
 }
 
 func TestValid(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	afero.WriteFile(fs, "/src/fa/web-fonts-with-css/scss/_variables.scss", []byte(
+	afero.WriteFile(fs, "/src/fa/advanced-options/metadata/icons.yml", []byte(
 		`
-$fa-var-some-icon: \61;
-$fa-var-other-icon: \62;
+some-icon:
+  styles:
+    - solid
+  unicode: 61
+other-icon:
+  styles:
+    - regular
+  unicode: 62
+brand-icon:
+  styles:
+    - brands
+  unicode: 63
+all-icon:
+  styles:
+    - brands
+    - regular
+    - solid
+  unicode: 64
 `,
 	), 0644)
 	require.NoError(t, Load("/src/fa"))
+
 	pangoTesting.AssertText(t, "a", pango.Icon("fa-some-icon").String())
-	pangoTesting.AssertText(t, "b", pango.Icon("fa-other-icon").String())
+	pangoTesting.AssertText(t, "b", pango.Icon("far-other-icon").String())
+	pangoTesting.AssertText(t, "c", pango.Icon("fab-brand-icon").String())
+
+	pangoTesting.AssertText(t, "d", pango.Icon("fa-all-icon").String())
+	pangoTesting.AssertText(t, "d", pango.Icon("far-all-icon").String())
+	pangoTesting.AssertText(t, "d", pango.Icon("fab-all-icon").String())
+
 }
 
 // TestLive tests that current master branch of the icon font works with
@@ -70,7 +119,23 @@ func TestLive(t *testing.T) {
 			pango.Icon("fa-music"),
 			pango.Icon("fa-tags"),
 		)
-		require.NotEmpty(t, testIcons.String(), "No expected icons were loaded")
+		require.NotEmpty(t, testIcons.String(), "No expected solid icons were loaded")
+
+		testIcons = pango.New(
+			pango.Icon("far-bell"),
+			pango.Icon("far-compass"),
+			pango.Icon("far-paper-plane"),
+			pango.Icon("far-user-circle"),
+		)
+		require.NotEmpty(t, testIcons.String(), "No expected regular icons were loaded")
+
+		testIcons = pango.New(
+			pango.Icon("fab-android"),
+			pango.Icon("fab-css3-alt"),
+			pango.Icon("fab-empire"),
+			pango.Icon("fab-linux"),
+		)
+		require.NotEmpty(t, testIcons.String(), "No expected brand icons were loaded")
 		return nil
 	})
 }

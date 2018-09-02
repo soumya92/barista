@@ -22,46 +22,63 @@ and requires fonts/fontawesome-webfont.ttf to be installed.
 package fontawesome
 
 import (
-	"bufio"
+	"fmt"
 	"path/filepath"
-	"strings"
-	"unicode"
 
 	"github.com/spf13/afero"
+	"gopkg.in/yaml.v2"
 
+	"github.com/soumya92/barista/pango"
 	"github.com/soumya92/barista/pango/icons"
 )
+
+type faMetadata struct {
+	Code   string   `yaml:"unicode"`
+	Styles []string `yaml:"styles"`
+}
 
 var fs = afero.NewOsFs()
 
 // Load initialises the fontawesome icon provider from the given repo.
 func Load(repoPath string) error {
-	f, err := fs.Open(filepath.Join(repoPath, "web-fonts-with-css/scss/_variables.scss"))
+	f, err := fs.Open(filepath.Join(repoPath, "advanced-options/metadata/icons.yml"))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	fa := icons.NewProvider("fa")
-	fa.Font("Font Awesome 5 Free")
-	s := bufio.NewScanner(f)
-	s.Split(bufio.ScanLines)
-	for s.Scan() {
-		line := strings.TrimSpace(s.Text())
-		colon := strings.Index(line, ":")
-		if colon < 0 {
-			continue
-		}
-		name := line[:colon]
-		if !strings.HasPrefix(name, "$fa-var-") {
-			continue
-		}
-		name = strings.TrimPrefix(name, "$fa-var-")
-		value := strings.TrimFunc(line[colon+1:], func(r rune) bool {
-			return unicode.IsSpace(r) || r == '"' || r == '\\' || r == ';'
-		})
-		err = fa.Hex(name, value)
-		if err != nil {
-			return err
+
+	// Defaults to solid since that style has the most icons available.
+	faSolid := icons.NewProvider("fa")
+	faSolid.Font("Font Awesome 5 Free")
+	faSolid.AddStyle(func(n *pango.Node) { n.Weight(900) })
+
+	faBrands := icons.NewProvider("fab")
+	faBrands.Font("Font Awesome 5 Brands")
+
+	faRegular := icons.NewProvider("far")
+	faRegular.Font("Font Awesome 5 Free")
+
+	styles := map[string]*icons.Provider{
+		"solid":   faSolid,
+		"regular": faRegular,
+		"brands":  faBrands,
+	}
+
+	var glyphs map[string]faMetadata
+	err = yaml.NewDecoder(f).Decode(&glyphs)
+	if err != nil {
+		return err
+	}
+	for name, meta := range glyphs {
+		for _, style := range meta.Styles {
+			p, ok := styles[style]
+			if !ok {
+				return fmt.Errorf("Unknown FontAwesome style: '%s'", style)
+			}
+			err = p.Hex(name, meta.Code)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
