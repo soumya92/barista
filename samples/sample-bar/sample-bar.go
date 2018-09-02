@@ -16,7 +16,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"os/user"
 	"path/filepath"
@@ -26,6 +28,7 @@ import (
 	"github.com/martinlindhe/unit"
 	"github.com/soumya92/barista"
 	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/watchers/netlink"
 	"github.com/soumya92/barista/colors"
 	"github.com/soumya92/barista/group/collapsing"
 	"github.com/soumya92/barista/modules/clock"
@@ -104,6 +107,34 @@ func home(path string) string {
 	return filepath.Join(usr.HomeDir, path)
 }
 
+type freegeoipResponse struct {
+	Lat float64 `json:"latitude"`
+	Lng float64 `json:"longitude"`
+}
+
+func whereami() (lat float64, lng float64, err error) {
+	resp, err := http.Get("https://freegeoip.app/json/")
+	if err != nil {
+		return 0, 0, err
+	}
+	var res freegeoipResponse
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		return 0, 0, err
+	}
+	return res.Lat, res.Lng, nil
+}
+
+type autoWeatherProvider struct{}
+
+func (a autoWeatherProvider) GetWeather() (weather.Weather, error) {
+	lat, lng, err := whereami()
+	if err != nil {
+		return weather.Weather{}, err
+	}
+	return openweathermap.Coords(lat, lng).Build().GetWeather()
+}
+
 func main() {
 	material.Load(home("Github/material-design-icons"))
 	mdi.Load(home("Github/MaterialDesign-Webfont"))
@@ -112,14 +143,22 @@ func main() {
 	fontawesome.Load(home("Github/Font-Awesome"))
 
 	colors.LoadBarConfig()
-	bg, _ := colorful.MakeColor(colors.Scheme("background"))
-	fg, _ := colorful.MakeColor(colors.Scheme("statusline"))
-	colors.LoadFromMap(map[string]string{
-		"good":     "#6d6",
-		"degraded": "#dd6",
-		"bad":      "#d66",
-		"dim-icon": fg.BlendRgb(bg, 0.5).Hex(),
-	})
+	bg := colors.Scheme("background")
+	fg := colors.Scheme("statusline")
+	if fg != nil && bg != nil {
+		iconColor := fg.Colorful().BlendHcl(bg.Colorful(), 0.5).Clamped()
+		colors.Set("dim-icon", iconColor)
+		_, fgC, fgL := fg.Colorful().Hcl()
+		if fgC < 0.8 {
+			fgC = 0.8
+		}
+		if fgL < 0.7 {
+			fgL = 0.7
+		}
+		colors.Set("bad", colorful.Hcl(40, fgC, fgL).Clamped())
+		colors.Set("degraded", colorful.Hcl(90, fgC, fgL).Clamped())
+		colors.Set("good", colorful.Hcl(120, fgC, fgL).Clamped())
+	}
 
 	localtime := clock.Local().
 		Output(time.Second, func(now time.Time) bar.Output {
@@ -137,9 +176,7 @@ func main() {
 
 	// Weather information comes from OpenWeatherMap.
 	// https://openweathermap.org/api.
-	wthr := weather.New(
-		openweathermap.Zipcode("94043", "US").Build(),
-	).Output(func(w weather.Weather) bar.Output {
+	wthr := weather.New(autoWeatherProvider{}).Output(func(w weather.Weather) bar.Output {
 		iconName := ""
 		switch w.Condition {
 		case weather.Thunderstorm,
@@ -260,7 +297,10 @@ func main() {
 			return out
 		})
 
-	net := netspeed.New("eno1").
+	sub := netlink.Any()
+	iface := (<-sub).Name
+	sub.Unsubscribe()
+	net := netspeed.New(iface).
 		RefreshInterval(2 * time.Second).
 		Output(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
