@@ -42,7 +42,7 @@ func finishedWithin(f func(), timeout time.Duration) bool {
 
 func TestSimple(t *testing.T) {
 	positiveTimeout = time.Second
-	m := New(t).SkipClickHandlers(true)
+	m := New(t).SkipClickHandlers()
 	m.AssertNotStarted("Initially not started")
 	initialOutput := outputs.Text("hello")
 	require.Panics(t, func() { m.Output(initialOutput) },
@@ -73,7 +73,7 @@ func TestSimple(t *testing.T) {
 
 func TestOutputBuffer(t *testing.T) {
 	positiveTimeout = time.Second
-	m := New(t).SkipClickHandlers(true)
+	m := New(t).SkipClickHandlers()
 	out1 := outputs.Text("1")
 	out2 := outputs.Text("2")
 	out3 := outputs.Text("3")

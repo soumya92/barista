@@ -97,7 +97,7 @@ func (t *TestModule) Stream(sink bar.Sink) {
 // SkipClickHandlers configures the module to skip adding a default
 // click handler on output. Setting this will break AssertClicked, but
 // can be useful when comparing the output of this module in tests.
-func (t *TestModule) SkipClickHandlers(skip bool) *TestModule {
+func (t *TestModule) SkipClickHandlers() *TestModule {
 	t.Lock()
 	t.skipClickHandlers = true
 	t.Unlock()

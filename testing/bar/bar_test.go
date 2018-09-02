@@ -31,7 +31,7 @@ import (
 
 func TestOutput(t *testing.T) {
 	New(t)
-	m := module.New(t).SkipClickHandlers(true)
+	m := module.New(t).SkipClickHandlers()
 	Run(m)
 
 	m.AssertStarted()
@@ -135,7 +135,7 @@ func TestRestartingModule(t *testing.T) {
 
 func TestSegment(t *testing.T) {
 	New(t)
-	m := module.New(t).SkipClickHandlers(true)
+	m := module.New(t).SkipClickHandlers()
 	Run(m)
 
 	m.AssertStarted()

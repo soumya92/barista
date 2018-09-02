@@ -52,7 +52,7 @@ func nullSink(bar.Segments) {}
 
 func TestModule(t *testing.T) {
 	tm := testModule.New(t)
-	tm.SkipClickHandlers(true) // needed for nil output.
+	tm.SkipClickHandlers() // needed for nil output.
 	m := NewModule(tm)
 	ch, sink := chanSink()
 
