@@ -9,9 +9,32 @@ addons:
 
 script:
   - ./travis.sh
+  - go build -o sample-bar ./samples/sample-bar
+  - go build -o i3status ./samples/i3status
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
+
+before_deploy:
+  - git config credential.helper "store --file=.gitcredentials"
+  - echo "https://${GH_TOKEN}:@github.com" > .gitcredentials
+  - git push --delete origin "autorelease" || true
+  - git tag "autorelease" --force
+deploy:
+  provider: releases
+  api_key: "${GH_TOKEN}"
+  file:
+    - sample-bar
+    - i3status
+  name: "Samples"
+  body: "Automated build of samples/sample-bar and samples/i3status"
+  skip_cleanup: true
+  on:
+    repo: soumya92/barista
+
+branches:
+  except:
+  - autorelease
 
 notifications:
   pushover:
