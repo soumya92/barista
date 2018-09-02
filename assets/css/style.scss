@@ -1,0 +1,55 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+h1 a {
+	color: inherit;
+	text-decoration: none;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+header img {
+	float: right;
+}
+
+@media (max-width: 480px) {
+	header img {
+		display: none;
+	}	
+}
+
+h1.pkg-header {
+	display: inline;
+}
+
+a.godoc {
+	margin-left: 1em;
+}
+
+a:hover {
+	text-decoration: none;
+}
+
+.module-example-out {
+	float: right;
+	font: monospace;
+	background: rgba(0,0,0,0.7);
+	border: 1px solid rgba(255,255,255,0.4);
+	color: #b5e853;
+	padding: 0.1em 0.4em;
+	margin-left: 0.5em;
+
+	& span:not(:first-child) {
+		border-left: 1px solid rgba(255,255,255,0.4);
+		padding-left: 0.25em;
+		margin-left: 0.25em;
+	}
+}
+
+pre.highlight {
+	tab-size: 3;
+}
