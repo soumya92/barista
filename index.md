@@ -5,7 +5,7 @@
 	and build it locally, storing the binary somewhere easy to access.
 
 	```shell
-curl -O https://raw.githubusercontent.com/soumya92/barista/master/samples/sample-bar/sample-bar.go
+curl -L https://git.io/fA4qJ -o sample-bar.go
 go build -o ~/bin/mybar -i sample-bar.go
 	```
 
