@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package funcs provides the ability to construct i3bar modules from simple Funcs.
-package funcs
+package funcs // import "barista.run/modules/funcs"
 
 import (
 	"time"

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package sink provides functions to create test sinks.
-package sink
+package sink // import "barista.run/base/sink"
 
 import "barista.run/bar"
 

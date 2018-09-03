@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package cputemp implements an i3bar module that shows the CPU temperature.
-package cputemp
+package cputemp // import "barista.run/modules/cputemp"
 
 import (
 	"fmt"

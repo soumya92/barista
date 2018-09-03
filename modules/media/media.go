@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package media provides an i3bar module for an MPRIS-compatible media player.
-package media
+package media // import "barista.run/modules/media"
 
 import (
 	"strings"

@@ -18,7 +18,7 @@ It supports both long-running commands, where the output is the last line,
 e.g. dmesg or tail -f /var/log/some.log, and repeatedly running commands,
 e.g. whoami, date +%s.
 */
-package shell
+package shell // import "barista.run/modules/shell"
 
 import (
 	"os/exec"

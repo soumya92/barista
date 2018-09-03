@@ -16,7 +16,7 @@
 Package openweathermap provides weather using the OpenWeatherMap API,
 available at https://openweathermap.org/api.
 */
-package openweathermap
+package openweathermap // import "barista.run/modules/weather/openweathermap"
 
 import (
 	"encoding/json"

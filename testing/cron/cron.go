@@ -22,7 +22,7 @@ non-hermetic and run against live (usually http) endpoints. Since the
 live endpoints could occasionally throw errors, there is built-in retry
 with delays between attempts.
 */
-package cron
+package cron // import "barista.run/testing/cron"
 
 import (
 	"os"

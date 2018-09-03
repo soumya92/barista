@@ -19,7 +19,7 @@ from https://github.com/google/material-design-icons
 It uses iconfont/codepoints to get the list of icons,
 and requires iconfont/MaterialIcons-Regular.ttf to be installed.
 */
-package material
+package material // import "barista.run/pango/icons/material"
 
 import (
 	"bufio"

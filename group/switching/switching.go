@@ -14,7 +14,7 @@
 
 // Package switching provides a group that displays modules one at a time,
 // and a controller to switch to the next/previous/specific module.
-package switching
+package switching // import "barista.run/group/switching"
 
 import (
 	"sync"

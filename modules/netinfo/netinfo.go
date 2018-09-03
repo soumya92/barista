@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package netinfo provides an i3bar module for network information.
-package netinfo
+package netinfo // import "barista.run/modules/netinfo"
 
 import (
 	"barista.run/bar"

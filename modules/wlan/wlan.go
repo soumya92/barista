@@ -15,7 +15,7 @@
 // Package wlan provides an i3bar module for wireless information.
 // NOTE: This module REQUIRES the external command "iwgetid",
 // because getting the SSID is a privileged operation.
-package wlan
+package wlan // import "barista.run/modules/wlan"
 
 import (
 	"net"

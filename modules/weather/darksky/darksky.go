@@ -16,7 +16,7 @@
 Package darksky provides weather using the Dark Sky API,
 available at https://darksky.net/.
 */
-package darksky
+package darksky // import "barista.run/modules/weather/darksky"
 
 import (
 	"encoding/json"

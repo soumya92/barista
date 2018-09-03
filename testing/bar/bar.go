@@ -14,7 +14,7 @@
 
 // Package bar provides utilities for testing barista modules
 // using a fake bar instance.
-package bar
+package bar // import "barista.run/testing/bar"
 
 import (
 	"sync/atomic"

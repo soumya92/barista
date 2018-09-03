@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package diskspace provides an i3bar module for disk space usage.
-package diskspace
+package diskspace // import "barista.run/modules/diskspace"
 
 import (
 	"os"

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package mockio provides infinite streams that can be used for testing stdin/stdout.
-package mockio
+package mockio // import "barista.run/testing/mockio"
 
 import (
 	"bytes"

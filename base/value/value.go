@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package value provides atomic values with update notifications.
-package value
+package value // import "barista.run/base/value"
 
 import (
 	"sync"

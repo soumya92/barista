@@ -34,7 +34,7 @@ This will automatically suspend processing when the bar is hidden.
 Modules should also use timing.Now() instead of time.Now() to control time
 during tests.
 */
-package timing
+package timing // import "barista.run/timing"
 
 import "time"
 

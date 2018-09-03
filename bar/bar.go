@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package bar allows a user to create a go binary that follows the i3bar protocol.
-package bar
+package bar // import "barista.run/bar"
 
 import "image/color"
 

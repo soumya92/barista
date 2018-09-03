@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package diskio implements an i3bar module to show disk IO rates.
-package diskio
+package diskio // import "barista.run/modules/diskio"
 
 import (
 	"bufio"

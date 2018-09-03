@@ -19,7 +19,7 @@ from https://github.com/driftyco/ionicons
 It uses scss/_ionicons-variables.scss to get the list of icons,
 and requires fonts/ionicons.ttf to be installed.
 */
-package ionicons
+package ionicons // import "barista.run/pango/icons/ionicons"
 
 import (
 	"encoding/json"

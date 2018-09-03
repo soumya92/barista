@@ -14,7 +14,7 @@
 
 // Package following provides a group that always shows the output from
 // the most recently updated module in the set.
-package following
+package following // import "barista.run/group/following"
 
 import (
 	"sync/atomic"

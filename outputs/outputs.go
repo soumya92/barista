@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package outputs provides helper functions to construct bar.Outputs.
-package outputs
+package outputs // import "barista.run/outputs"
 
 import (
 	"fmt"

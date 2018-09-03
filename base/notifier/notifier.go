@@ -20,7 +20,7 @@ will not be created. This is useful in scenarios like formatting changes,
 where if multiple updates come in before the first one is processed, it
 is preferable to apply just the final format, ignoring the intermediate ones.
 */
-package notifier
+package notifier // import "barista.run/base/notifier"
 
 import (
 	l "barista.run/logging"

@@ -15,7 +15,7 @@
 // Package counter demonstrates an extremely simple i3bar module that shows a counter
 // which can be chnaged by clicking on it. It showcases the asynchronous nature of
 // i3bar modules when written in go.
-package counter
+package counter // import "barista.run/modules/counter"
 
 import (
 	"barista.run/bar"

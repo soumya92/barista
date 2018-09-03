@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package netlink uses the netlink library to watch for changes in link states.
-package netlink
+package netlink // import "barista.run/base/watchers/netlink"
 
 import (
 	"net"

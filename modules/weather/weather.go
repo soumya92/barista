@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package weather provides an i3bar module that displays weather info.
-package weather
+package weather // import "barista.run/modules/weather"
 
 import (
 	"time"

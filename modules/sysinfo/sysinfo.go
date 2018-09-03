@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package sysinfo implements i3bar modules that show system information.
-package sysinfo
+package sysinfo // import "barista.run/modules/sysinfo"
 
 import (
 	"sync"

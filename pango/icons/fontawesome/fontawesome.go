@@ -19,7 +19,7 @@ from https://github.com/FortAwesome/Font-Awesome
 It uses scss/_variables.scss to get the list of icons,
 and requires fonts/fontawesome-webfont.ttf to be installed.
 */
-package fontawesome
+package fontawesome // import "barista.run/pango/icons/fontawesome"
 
 import (
 	"fmt"

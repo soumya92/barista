@@ -14,7 +14,7 @@
 
 // Package cpuload implements an i3bar module that shows load averages.
 // Deprecated in favour of SysInfo, which can show more than just load average.
-package cpuload
+package cpuload // import "barista.run/modules/cpuload"
 
 //#include <stdlib.h>
 import "C"

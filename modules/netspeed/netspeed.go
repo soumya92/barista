@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package netspeed provides an i3bar module to display network utilisation.
-package netspeed
+package netspeed // import "barista.run/modules/netspeed"
 
 import (
 	"time"

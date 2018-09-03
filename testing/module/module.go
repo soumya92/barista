@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package module provides a test module that can be used in tests.
-package module
+package module // import "barista.run/testing/module"
 
 import (
 	"fmt"

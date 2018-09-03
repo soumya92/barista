@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package output provides utilities for testing barista outputs and segments.
-package output
+package output // import "barista.run/testing/output"
 
 import (
 	"barista.run/bar"

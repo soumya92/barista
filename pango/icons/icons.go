@@ -32,7 +32,7 @@ Example usage:
   return pango.Icon("material-today").Color(colors.Hex("#ddd")).
       Append(pango.Text(now.Sprintf("%H:%M")))
 */
-package icons
+package icons // import "barista.run/pango/icons"
 
 import (
 	"strconv"

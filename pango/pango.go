@@ -31,7 +31,7 @@ or:
    Color(colors.Hex("#ff0000")).
    Append(pango.Text("Bold Text").Bold())
 */
-package pango
+package pango // import "barista.run/pango"
 
 import (
 	"bytes"

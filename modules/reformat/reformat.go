@@ -24,7 +24,7 @@ which don't allow for colours or borders. You can add those using reformat:
    return o.Background("red").Padding(20)
  })
 */
-package reformat
+package reformat // import "barista.run/modules/reformat"
 
 import (
 	"sync/atomic"

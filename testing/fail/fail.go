@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package fail provides methods to test and verify failing assertions.
-package fail
+package fail // import "barista.run/testing/fail"
 
 import (
 	"testing"

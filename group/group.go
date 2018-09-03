@@ -14,7 +14,7 @@
 
 // Package group provides a module that groups existing modules, and uses
 // a provided Grouper to selectively display output from these modules.
-package group
+package group // import "barista.run/group"
 
 import (
 	"sync"

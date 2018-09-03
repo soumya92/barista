@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package meminfo provides an i3bar module that shows memory information.
-package meminfo
+package meminfo // import "barista.run/modules/meminfo"
 
 import (
 	"bufio"

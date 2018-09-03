@@ -14,7 +14,7 @@
 
 // Package volume provides an i3bar module that interfaces with alsa
 // to display and control the system volume.
-package volume
+package volume // import "barista.run/modules/volume"
 
 /*
   #cgo pkg-config: alsa

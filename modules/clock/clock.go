@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package clock displays a clock.
-package clock
+package clock // import "barista.run/modules/clock"
 
 import (
 	"strings"

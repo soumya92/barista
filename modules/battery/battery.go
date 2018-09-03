@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package battery provides a battery status i3bar module.
-package battery
+package battery // import "barista.run/modules/battery"
 
 import (
 	"bufio"

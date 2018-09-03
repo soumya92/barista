@@ -14,7 +14,7 @@
 
 // Package cycling provides a group that continuously cycles between
 // all modules at a fixed interval.
-package cycling
+package cycling // import "barista.run/group/cycling"
 
 import (
 	"sync"

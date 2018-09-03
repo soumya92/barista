@@ -17,7 +17,7 @@ Package metar provides weather using the METAR API from
 the NOAA Aviation Digital Data Service,
 available at https://www.aviationweather.gov/.
 */
-package metar
+package metar // import "barista.run/modules/weather/metar"
 
 import (
 	"encoding/xml"

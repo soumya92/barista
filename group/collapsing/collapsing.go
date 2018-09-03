@@ -19,7 +19,7 @@ and a controller to allow programmatic expansion/collapse.
 When collapsed (default state), only a button to expand is visible.
 When expanded, all module outputs are shown, and buttons to collapse.
 */
-package collapsing
+package collapsing // import "barista.run/group/collapsing"
 
 import (
 	"sync"
