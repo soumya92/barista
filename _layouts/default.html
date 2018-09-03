@@ -6,9 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision | relative_url }}">
     {% unless page.pkg == 'none' %}
-      {% capture import_path %}{{ page.url | split: "" | reverse | join: "" | replace_first: "lmth.", "" | split: "" | reverse | join: "" }}{% endcapture %}
-      {% if import_path == '/' %}{% assign import_path = '' %}{% endif %}
-      <meta name="go-import" content="barista.run{{import_path}} git https://github.com/soumya92/barista.git{{import_path}}">
+      <meta name="go-import" content="barista.run git https://github.com/soumya92/barista.git">
     {% endunless %}
     {% seo %}
   </head>
@@ -38,7 +36,9 @@
             <h1>{{page.title}}</h1>
           {% else %}
             <h1 class="pkg-header">{{page.title}}</h1>
-            <a class="godoc" href="https://godoc.org/github.com/soumya92/barista{{ import_path }}">godoc</a>
+            {% capture import_path %}{{ page.url | split: "" | reverse | join: "" | replace_first: "lmth.", "" | split: "" | reverse | join: "" }}{% endcapture %}
+            {% if import_path == '/' %}{% assign import_path = '' %}{% endif %}
+            <a class="godoc" href="https://godoc.org/barista.run{{ import_path }}">godoc</a>
             {% capture import_md %}{% include syntax-highlighted-import.md %}{% endcapture %}
             {{ import_md | markdownify }}
           {% endif %}
