@@ -29,6 +29,7 @@ import (
 	"barista.run/base/watchers/netlink"
 	"barista.run/colors"
 	"barista.run/group/collapsing"
+	"barista.run/modules/battery"
 	"barista.run/modules/clock"
 	"barista.run/modules/cputemp"
 	"barista.run/modules/media"
@@ -224,6 +225,53 @@ func main() {
 		)
 	})
 
+	getBattIcon := func(i battery.Info) *pango.Node {
+		if i.Status == battery.Disconnected || i.Status == battery.Unknown {
+			return nil
+		}
+		iconName := "battery-"
+		if i.Status == battery.Charging {
+			iconName += "charging-"
+		}
+		tenth := i.RemainingPct() / 10
+		switch {
+		case tenth == 0:
+			iconName += "outline"
+		case tenth < 10:
+			iconName += fmt.Sprintf("%d0", tenth)
+		}
+		return pango.Icon("mdi-" + iconName)
+	}
+	var showBattPct, showBattTime func(battery.Info) bar.Output
+
+	batt := battery.All()
+	showBattPct = func(i battery.Info) bar.Output {
+		n := getBattIcon(i)
+		if n == nil {
+			return nil
+		}
+		return outputs.Pango(n, pango.Textf("%d%%", i.RemainingPct())).
+			OnClick(func(e bar.Event) {
+				if e.Button == bar.ButtonLeft {
+					batt.Output(showBattTime)
+				}
+			})
+	}
+	showBattTime = func(i battery.Info) bar.Output {
+		n := getBattIcon(i)
+		if n == nil {
+			return nil
+		}
+		rem := i.RemainingTime()
+		return outputs.Pango(n, pango.Textf("%d:%02d", int(rem.Hours()), int(rem.Minutes())%60)).
+			OnClick(func(e bar.Event) {
+				if e.Button == bar.ButtonLeft {
+					batt.Output(showBattPct)
+				}
+			})
+	}
+	batt.Output(showBattPct)
+
 	vol := volume.DefaultMixer().Output(func(v volume.Volume) bar.Output {
 		if v.Mute {
 			return outputs.
@@ -319,6 +367,7 @@ func main() {
 		rhythmbox,
 		grp,
 		vol,
+		batt,
 		wthr,
 		localtime,
 	))
