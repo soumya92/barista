@@ -44,7 +44,7 @@ func Load(repoPath string) error {
 	defer f.Close()
 	material := icons.NewProvider("material")
 	material.Font("Material Icons")
-	material.AddStyle(func(n *pango.Node) { n.UltraLight().Rise(-1600) })
+	material.AddStyle(func(n *pango.Node) { n.UltraLight().Rise(-4000) })
 	s := bufio.NewScanner(f)
 	s.Split(bufio.ScanLines)
 	for s.Scan() {
