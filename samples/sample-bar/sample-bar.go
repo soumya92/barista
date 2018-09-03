@@ -280,7 +280,7 @@ func main() {
 		return out
 	})
 
-	temp := cputemp.DefaultZone().
+	temp := cputemp.New().
 		RefreshInterval(2 * time.Second).
 		Output(func(temp unit.Temperature) bar.Output {
 			out := outputs.Pango(

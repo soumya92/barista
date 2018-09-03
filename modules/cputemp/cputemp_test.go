@@ -28,6 +28,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func setTypes(types ...string) {
+	for zoneIndex, typ := range types {
+		tempFile := fmt.Sprintf("/sys/class/thermal/thermal_zone%d/type", zoneIndex)
+		afero.WriteFile(fs, tempFile, []byte(typ), 0644)
+	}
+}
+
 func shouldReturn(temps ...string) {
 	for zoneIndex, temp := range temps {
 		tempFile := fmt.Sprintf("/sys/class/thermal/thermal_zone%d/temp", zoneIndex)
@@ -39,9 +46,10 @@ func TestCputemp(t *testing.T) {
 	fs = afero.NewMemMapFs()
 	testBar.New(t)
 
+	setTypes("x86_pkg_temp")
 	shouldReturn("48800", "22200")
 
-	temp0 := DefaultZone()
+	temp0 := New()
 	temp1 := Zone("thermal_zone1")
 	temp2 := Zone("thermal_zone2")
 	testBar.Run(temp0, temp1, temp2)
@@ -109,4 +117,31 @@ func TestCputemp(t *testing.T) {
 	testBar.LatestOutput(2).At(2).AssertError("On invalid numeric value")
 	testBar.LatestOutput(2).Expect("set click handler to restart module")
 	testBar.AssertNoOutput("until tick")
+}
+
+func TestDefaultZoneDetection(t *testing.T) {
+	fs = afero.NewMemMapFs()
+	testBar.New(t)
+
+	setTypes("acpitz", "iwlwifi")
+	shouldReturn("0", "0")
+
+	tempDefault := New()
+	tempWifi := OfType("iwlwifi")
+	testBar.Run(tempDefault, tempWifi)
+	out := testBar.LatestOutput()
+	out.At(0).AssertError("no x86_pkg_temp")
+	out.At(1).AssertText("0.0℃")
+
+	testBar.New(t)
+
+	setTypes("acpitz", "iwlwifi", "x86_pkg_temp")
+	shouldReturn("0", "0")
+
+	tempDefault = New()
+	tempNotFound := OfType("not_found")
+	testBar.Run(tempDefault, tempNotFound)
+	out = testBar.LatestOutput()
+	out.At(0).AssertError("temperature missing")
+	out.At(1).AssertError("no zone of type")
 }

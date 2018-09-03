@@ -56,9 +56,27 @@ func Zone(thermalZone string) *Module {
 	return m
 }
 
-// DefaultZone constructs an instance of the cputemp module for the default zone.
-func DefaultZone() *Module {
-	return Zone("thermal_zone0")
+// OfType constructs an instance of the cputemp module for the *first* available
+// sensor of the given type. "x86_pkg_temp" usually represents the temperature
+// of the actual CPU package, while others may be available depending on the
+// system, e.g. "iwlwifi" for wifi, or "acpitz" for the motherboard.
+func OfType(typ string) *Module {
+	files, _ := afero.ReadDir(fs, "/sys/class/thermal")
+	for _, file := range files {
+		name := file.Name()
+		typFile := fmt.Sprintf("/sys/class/thermal/%s/type", name)
+		typBytes, _ := afero.ReadFile(fs, typFile)
+		if strings.TrimSpace(string(typBytes)) == typ {
+			return Zone(name)
+		}
+	}
+	return Zone("")
+}
+
+// New constructs an instance of the cputemp module for zone type "x86_pkg_temp".
+// Returns nil of the x86_pkg_temp thermal zone is unavailable.
+func New() *Module {
+	return OfType("x86_pkg_temp")
 }
 
 // Output configures a module to display the output of a user-defined function.
