@@ -2,9 +2,9 @@
 title: Pango Formatting
 ---
 
-When using a Pango font, i3bar supports formatting the output using [Pango Markup]
-(https://developer.gnome.org/pango/stable/PangoMarkupFormat.html). This allows for rich in-line
-formatting in each segment of the output.
+When using a Pango font, i3bar supports formatting the output using
+[Pango Markup](https://developer.gnome.org/pango/stable/PangoMarkupFormat.html). This allows rich
+in-line formatting in each segment of the output.
 
 Barista provides formatting primitives that allow type-safe construction of markup strings,
 wutomatically handling escaping and some unit conversions. A pango "document" is just a set of
