@@ -21,7 +21,7 @@ import (
 	"strings"
 	"sync"
 
-	l "github.com/soumya92/barista/logging"
+	l "barista.run/logging"
 )
 
 // OperState represents the operating state of a link.

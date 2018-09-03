@@ -25,11 +25,11 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"barista.run/pango"
+	"barista.run/pango/icons"
+
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"
-
-	"github.com/soumya92/barista/pango"
-	"github.com/soumya92/barista/pango/icons"
 )
 
 type faMetadata struct {

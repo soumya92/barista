@@ -25,10 +25,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"barista.run/pango/icons"
+
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"
-
-	"github.com/soumya92/barista/pango/icons"
 )
 
 type typiconsConfig struct {

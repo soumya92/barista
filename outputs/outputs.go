@@ -18,8 +18,8 @@ package outputs
 import (
 	"fmt"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/pango"
+	"barista.run/bar"
+	"barista.run/pango"
 )
 
 // Errorf constructs a bar output that indicates an error,

@@ -25,10 +25,10 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/notifier"
-	"github.com/soumya92/barista/base/value"
-	"github.com/soumya92/barista/outputs"
+	"barista.run/bar"
+	"barista.run/base/notifier"
+	"barista.run/base/value"
+	"barista.run/outputs"
 )
 
 // TailModule represents a bar.Module that displays the last line

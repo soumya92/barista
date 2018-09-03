@@ -20,11 +20,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/notifier"
-	"github.com/soumya92/barista/group"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/timing"
+	"barista.run/bar"
+	"barista.run/base/notifier"
+	"barista.run/group"
+	l "barista.run/logging"
+	"barista.run/timing"
 )
 
 // Controller provides an interface to control a collapsing group.

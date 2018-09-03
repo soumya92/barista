@@ -26,9 +26,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/afero"
+	"barista.run/pango/icons"
 
-	"github.com/soumya92/barista/pango/icons"
+	"github.com/spf13/afero"
 )
 
 type ioniconsConfig struct {

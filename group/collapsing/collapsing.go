@@ -24,11 +24,11 @@ package collapsing
 import (
 	"sync"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/notifier"
-	"github.com/soumya92/barista/group"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
+	"barista.run/bar"
+	"barista.run/base/notifier"
+	"barista.run/group"
+	l "barista.run/logging"
+	"barista.run/outputs"
 )
 
 // ButtonFunc produces outputs for buttons in a collapsing group.

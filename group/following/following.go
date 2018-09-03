@@ -19,8 +19,8 @@ package following
 import (
 	"sync/atomic"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/group"
+	"barista.run/bar"
+	"barista.run/group"
 )
 
 // grouper implements a following grouper.

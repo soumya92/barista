@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
+	"barista.run/modules/weather"
+	"barista.run/testing/cron"
+	testServer "barista.run/testing/httpserver"
+
 	"github.com/martinlindhe/unit"
 	"github.com/stretchr/testify/require"
-
-	"github.com/soumya92/barista/modules/weather"
-	"github.com/soumya92/barista/testing/cron"
-	testServer "github.com/soumya92/barista/testing/httpserver"
 )
 
 var ts *httptest.Server

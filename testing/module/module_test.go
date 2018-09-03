@@ -18,12 +18,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/bar"
+	"barista.run/base/sink"
+	"barista.run/outputs"
+	"barista.run/testing/fail"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/sink"
-	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/testing/fail"
+	"github.com/stretchr/testify/require"
 )
 
 func finishedWithin(f func(), timeout time.Duration) bool {

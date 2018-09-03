@@ -19,7 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	l "github.com/soumya92/barista/logging"
+	l "barista.run/logging"
 )
 
 // Value provides atomic value storage with update notifications.

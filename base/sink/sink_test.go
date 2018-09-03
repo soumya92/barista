@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/outputs"
 
-	"github.com/soumya92/barista/outputs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewSink(t *testing.T) {

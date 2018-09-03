@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	l "github.com/soumya92/barista/logging"
+	l "barista.run/logging"
 )
 
 type testScheduler struct {

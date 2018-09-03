@@ -18,11 +18,11 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/colors"
+	"barista.run/testing/output"
+	"barista.run/testing/pango"
 
-	"github.com/soumya92/barista/colors"
-	"github.com/soumya92/barista/testing/output"
-	"github.com/soumya92/barista/testing/pango"
+	"github.com/stretchr/testify/require"
 )
 
 var stringifyingTests = []struct {

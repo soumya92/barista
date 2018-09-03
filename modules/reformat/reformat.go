@@ -29,9 +29,9 @@ package reformat
 import (
 	"sync/atomic"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/core"
-	l "github.com/soumya92/barista/logging"
+	"barista.run/bar"
+	"barista.run/core"
+	l "barista.run/logging"
 )
 
 // FormatFunc takes the module's output and returns a modified version.

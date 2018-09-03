@@ -15,7 +15,7 @@
 // Package sink provides functions to create test sinks.
 package sink
 
-import "github.com/soumya92/barista/bar"
+import "barista.run/bar"
 
 // New creates a new sink and returns a channel that
 // will emit any outputs sent to the sink.

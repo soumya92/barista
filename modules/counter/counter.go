@@ -18,10 +18,10 @@
 package counter
 
 import (
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/value"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
+	"barista.run/bar"
+	"barista.run/base/value"
+	l "barista.run/logging"
+	"barista.run/outputs"
 )
 
 // Module represents a "counter" module that displays a count

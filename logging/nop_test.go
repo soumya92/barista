@@ -20,9 +20,9 @@ import (
 	"log"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/testing/mockio"
 
-	"github.com/soumya92/barista/testing/mockio"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNopMethods(t *testing.T) {

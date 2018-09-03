@@ -17,8 +17,8 @@ package core
 import (
 	"sync"
 
-	"github.com/soumya92/barista/bar"
-	l "github.com/soumya92/barista/logging"
+	"barista.run/bar"
+	l "barista.run/logging"
 )
 
 type ModuleSet struct {

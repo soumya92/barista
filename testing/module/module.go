@@ -20,10 +20,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/bar"
+	"barista.run/outputs"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
+	"github.com/stretchr/testify/require"
 )
 
 // Time to wait for events that are expected. Overridden in tests.

@@ -20,13 +20,13 @@ import (
 	"testing"
 	"time"
 
+	"barista.run/bar"
+	"barista.run/outputs"
+	testBar "barista.run/testing/bar"
+	"barista.run/timing"
+
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
-	testBar "github.com/soumya92/barista/testing/bar"
-	"github.com/soumya92/barista/timing"
 )
 
 type testLink netlink.LinkStatistics

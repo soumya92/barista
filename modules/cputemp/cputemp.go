@@ -21,14 +21,14 @@ import (
 	"strings"
 	"time"
 
+	"barista.run/bar"
+	"barista.run/base/value"
+	l "barista.run/logging"
+	"barista.run/outputs"
+	"barista.run/timing"
+
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"
-
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/value"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/timing"
 )
 
 // Module represents a cputemp bar module. It supports setting the output

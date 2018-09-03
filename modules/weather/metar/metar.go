@@ -29,9 +29,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/martinlindhe/unit"
+	"barista.run/modules/weather"
 
-	"github.com/soumya92/barista/modules/weather"
+	"github.com/martinlindhe/unit"
 )
 
 // Config represents NOAA ADDS configuration

@@ -18,7 +18,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/soumya92/barista/bar"
+	"barista.run/bar"
 )
 
 // SegmentGroup represents a group of Segments to be

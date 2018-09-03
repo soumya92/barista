@@ -29,13 +29,13 @@ import (
 	"time"
 	"unsafe"
 
+	"barista.run/bar"
+	"barista.run/base/value"
+	l "barista.run/logging"
+	"barista.run/outputs"
+
 	"github.com/godbus/dbus"
 	"golang.org/x/time/rate"
-
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/value"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
 )
 
 // Volume represents the current audio volume and mute state.

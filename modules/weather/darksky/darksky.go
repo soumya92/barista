@@ -25,9 +25,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/martinlindhe/unit"
+	"barista.run/modules/weather"
 
-	"github.com/soumya92/barista/modules/weather"
+	"github.com/martinlindhe/unit"
 )
 
 // Config represents Dark Sky API configuration

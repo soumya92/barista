@@ -16,9 +16,9 @@
 package output
 
 import (
-	"github.com/stretchr/testify/require"
+	"barista.run/bar"
 
-	"github.com/soumya92/barista/bar"
+	"github.com/stretchr/testify/require"
 )
 
 // New creates an object that provides assertions on a bar.Output,

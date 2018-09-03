@@ -19,11 +19,11 @@ import (
 	"io"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/bar"
+	"barista.run/pango"
+	pangoTesting "barista.run/testing/pango"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/pango"
-	pangoTesting "github.com/soumya92/barista/testing/pango"
+	"github.com/stretchr/testify/require"
 )
 
 func textOf(out bar.Output) string {

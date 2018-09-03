@@ -17,7 +17,7 @@ package pango
 import (
 	"testing"
 
-	"github.com/soumya92/barista/testing/fail"
+	"barista.run/testing/fail"
 )
 
 func TestEqual(t *testing.T) {

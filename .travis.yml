@@ -1,5 +1,6 @@
 language: go
 go: "1.10"
+go_import_path: barista.run
 sudo: false
 
 addons:

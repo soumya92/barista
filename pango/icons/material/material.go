@@ -27,10 +27,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/afero"
+	"barista.run/pango"
+	"barista.run/pango/icons"
 
-	"github.com/soumya92/barista/pango"
-	"github.com/soumya92/barista/pango/icons"
+	"github.com/spf13/afero"
 )
 
 var fs = afero.NewOsFs()

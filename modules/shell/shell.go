@@ -25,11 +25,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/notifier"
-	"github.com/soumya92/barista/base/value"
-	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/timing"
+	"barista.run/bar"
+	"barista.run/base/notifier"
+	"barista.run/base/value"
+	"barista.run/outputs"
+	"barista.run/timing"
 )
 
 // Module represents a shell command module that can be updated

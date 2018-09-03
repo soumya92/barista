@@ -18,8 +18,8 @@ package funcs
 import (
 	"time"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/timing"
+	"barista.run/bar"
+	"barista.run/timing"
 )
 
 // Func receives a bar.Sink and uses it for output.

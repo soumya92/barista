@@ -23,7 +23,7 @@ is preferable to apply just the final format, ignoring the intermediate ones.
 package notifier
 
 import (
-	l "github.com/soumya92/barista/logging"
+	l "barista.run/logging"
 )
 
 // New constructs a new notifier. It returns a func that triggers a notification,

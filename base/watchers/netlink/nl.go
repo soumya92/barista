@@ -19,10 +19,10 @@ import (
 	"sync"
 	"syscall"
 
+	l "barista.run/logging"
+
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
-
-	l "github.com/soumya92/barista/logging"
 )
 
 var native = nl.NativeEndian()

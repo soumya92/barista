@@ -23,13 +23,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/afero"
+	"barista.run/bar"
+	"barista.run/base/value"
+	l "barista.run/logging"
+	"barista.run/outputs"
+	"barista.run/timing"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/base/value"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/timing"
+	"github.com/spf13/afero"
 )
 
 // Status represents a normalised battery status.

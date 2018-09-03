@@ -19,10 +19,10 @@ package group
 import (
 	"sync"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/core"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/outputs"
+	"barista.run/bar"
+	"barista.run/core"
+	l "barista.run/logging"
+	"barista.run/outputs"
 )
 
 // Grouper controls how a group displays the output from it's modules.

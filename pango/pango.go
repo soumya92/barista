@@ -38,7 +38,7 @@ import (
 	"fmt"
 	"html"
 
-	"github.com/soumya92/barista/bar"
+	"barista.run/bar"
 )
 
 type nodeType int

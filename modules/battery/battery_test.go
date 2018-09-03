@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
+	"barista.run/bar"
+	"barista.run/outputs"
+	testBar "barista.run/testing/bar"
+
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
-
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/outputs"
-	testBar "github.com/soumya92/barista/testing/bar"
 )
 
 type battery map[string]interface{}

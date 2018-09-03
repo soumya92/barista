@@ -18,15 +18,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/bar"
+	"barista.run/colors"
+	"barista.run/outputs"
+	"barista.run/pango"
+	"barista.run/testing/fail"
+	"barista.run/testing/module"
+	"barista.run/timing"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/colors"
-	"github.com/soumya92/barista/outputs"
-	"github.com/soumya92/barista/pango"
-	"github.com/soumya92/barista/testing/fail"
-	"github.com/soumya92/barista/testing/module"
-	"github.com/soumya92/barista/timing"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOutput(t *testing.T) {

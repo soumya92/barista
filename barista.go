@@ -25,13 +25,13 @@ import (
 	"strconv"
 	"sync"
 
+	"barista.run/bar"
+	"barista.run/core"
+	l "barista.run/logging"
+	"barista.run/timing"
+
 	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/sys/unix"
-
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/core"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/timing"
 )
 
 // i3Event instances are received from i3bar on stdin.

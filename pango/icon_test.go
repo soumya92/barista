@@ -17,9 +17,9 @@ package pango
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/testing/pango"
 
-	"github.com/soumya92/barista/testing/pango"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNoProviders(t *testing.T) {

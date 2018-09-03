@@ -18,8 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/colors"
+	"barista.run/bar"
+	"barista.run/colors"
+
 	"github.com/stretchr/testify/require"
 )
 

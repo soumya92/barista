@@ -14,7 +14,7 @@ fi
 
 # Run tests with coverage for all barista packages
 go list ./... \
-| grep -v barista/samples \
+| grep -v /samples/ \
 | tac \
 | xargs -n1 -P4 -IPKG sh -c \
 'go test -coverprofile=profiles/$(echo "PKG" | sed "s|/|_|g").out -race -covermode=atomic "PKG"'

@@ -20,13 +20,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"barista.run/bar"
+	"barista.run/core"
+	l "barista.run/logging"
+	"barista.run/testing/output"
+	"barista.run/timing"
 
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/core"
-	l "github.com/soumya92/barista/logging"
-	"github.com/soumya92/barista/testing/output"
-	"github.com/soumya92/barista/timing"
+	"github.com/stretchr/testify/require"
 )
 
 // TestBar represents a minimal wrapper around core.ModuleSet that

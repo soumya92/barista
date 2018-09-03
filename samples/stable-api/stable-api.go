@@ -19,11 +19,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dustin/go-humanize"
+	"barista.run"
+	"barista.run/bar"
+	"barista.run/timing"
 
-	"github.com/soumya92/barista"
-	"github.com/soumya92/barista/bar"
-	"github.com/soumya92/barista/timing"
+	"github.com/dustin/go-humanize"
 )
 
 type simpleClockModule struct {
