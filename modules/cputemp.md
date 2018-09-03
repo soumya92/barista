@@ -2,8 +2,9 @@
 title: CPU Temperature
 ---
 
-Display the temperature of the first thermal sensor: `cputemp.DefaultZone()`.  
-Display the temperature of a specific sensor: `cputemp.Zone("thermal_zone7")`.
+Display the temperature of the cpu package sensor: `cputemp.New()`.  
+Display the temperature of a specific sensor: `cputemp.Zone("thermal_zone7")`.  
+Display the temperature of the first sensor of a specific type: `cputemp.OfType("iwlwifi")`.
 
 ## Configuration
 
