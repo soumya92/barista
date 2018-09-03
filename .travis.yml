@@ -27,6 +27,7 @@ deploy:
   file:
     - sample-bar
     - i3status
+  overwrite: true
   name: "Samples"
   body: "Automated build of samples/sample-bar and samples/i3status"
   skip_cleanup: true
