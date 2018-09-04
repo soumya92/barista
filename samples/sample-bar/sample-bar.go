@@ -225,7 +225,7 @@ func main() {
 		)
 	})
 
-	getBattIcon := func(i battery.Info) *pango.Node {
+	buildBattOutput := func(i battery.Info, disp *pango.Node) *bar.Segment {
 		if i.Status == battery.Disconnected || i.Status == battery.Unknown {
 			return nil
 		}
@@ -240,35 +240,43 @@ func main() {
 		case tenth < 10:
 			iconName += fmt.Sprintf("-%d0", tenth)
 		}
-		return pango.Icon("mdi-" + iconName)
+		out := outputs.Pango(pango.Icon("mdi-"+iconName), disp)
+		switch {
+		case i.RemainingPct() <= 5:
+			out.Urgent(true)
+		case i.RemainingPct() <= 15:
+			out.Color(colors.Scheme("bad"))
+		case i.RemainingPct() <= 25:
+			out.Color(colors.Scheme("degraded"))
+		}
+		return out
 	}
 	var showBattPct, showBattTime func(battery.Info) bar.Output
 
 	batt := battery.All()
 	showBattPct = func(i battery.Info) bar.Output {
-		n := getBattIcon(i)
-		if n == nil {
+		out := buildBattOutput(i, pango.Textf("%d%%", i.RemainingPct()))
+		if out == nil {
 			return nil
 		}
-		return outputs.Pango(n, pango.Textf("%d%%", i.RemainingPct())).
-			OnClick(func(e bar.Event) {
-				if e.Button == bar.ButtonLeft {
-					batt.Output(showBattTime)
-				}
-			})
+		return out.OnClick(func(e bar.Event) {
+			if e.Button == bar.ButtonLeft {
+				batt.Output(showBattTime)
+			}
+		})
 	}
 	showBattTime = func(i battery.Info) bar.Output {
-		n := getBattIcon(i)
-		if n == nil {
+		rem := i.RemainingTime()
+		out := buildBattOutput(i, pango.Textf(
+			"%d:%02d", int(rem.Hours()), int(rem.Minutes())%60))
+		if out == nil {
 			return nil
 		}
-		rem := i.RemainingTime()
-		return outputs.Pango(n, pango.Textf("%d:%02d", int(rem.Hours()), int(rem.Minutes())%60)).
-			OnClick(func(e bar.Event) {
-				if e.Button == bar.ButtonLeft {
-					batt.Output(showBattPct)
-				}
-			})
+		return out.OnClick(func(e bar.Event) {
+			if e.Button == bar.ButtonLeft {
+				batt.Output(showBattPct)
+			}
+		})
 	}
 	batt.Output(showBattPct)
 
