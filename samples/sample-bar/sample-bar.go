@@ -229,16 +229,16 @@ func main() {
 		if i.Status == battery.Disconnected || i.Status == battery.Unknown {
 			return nil
 		}
-		iconName := "battery-"
+		iconName := "battery"
 		if i.Status == battery.Charging {
-			iconName += "charging-"
+			iconName += "-charging"
 		}
 		tenth := i.RemainingPct() / 10
 		switch {
 		case tenth == 0:
-			iconName += "outline"
+			iconName += "-outline"
 		case tenth < 10:
-			iconName += fmt.Sprintf("%d0", tenth)
+			iconName += fmt.Sprintf("-%d0", tenth)
 		}
 		return pango.Icon("mdi-" + iconName)
 	}
