@@ -78,6 +78,9 @@ func TestWatchOnExistingFile(t *testing.T) {
 
 	ioutil.WriteFile(tmpFile, []byte(`bar`), 0644)
 	assertNotified(t, w.Updates, "On write")
+
+	ioutil.ReadFile(tmpFile)
+	assertNotNotified(t, w.Updates, "On read")
 }
 
 func TestDeleteAndRecreate(t *testing.T) {
