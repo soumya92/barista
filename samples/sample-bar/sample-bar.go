@@ -150,16 +150,13 @@ func main() {
 	if fg != nil && bg != nil {
 		iconColor := fg.Colorful().BlendHcl(bg.Colorful(), 0.5).Clamped()
 		colors.Set("dim-icon", iconColor)
-		_, fgC, fgL := fg.Colorful().Hcl()
-		if fgC < 0.8 {
-			fgC = 0.8
+		_, _, v := fg.Colorful().Hsv()
+		if v < 0.3 {
+			v = 0.3
 		}
-		if fgL < 0.7 {
-			fgL = 0.7
-		}
-		colors.Set("bad", colorful.Hcl(40, fgC, fgL).Clamped())
-		colors.Set("degraded", colorful.Hcl(90, fgC, fgL).Clamped())
-		colors.Set("good", colorful.Hcl(120, fgC, fgL).Clamped())
+		colors.Set("bad", colorful.Hcl(40, 1.0, v).Clamped())
+		colors.Set("degraded", colorful.Hcl(90, 1.0, v).Clamped())
+		colors.Set("good", colorful.Hcl(120, 1.0, v).Clamped())
 	}
 
 	localtime := clock.Local().
