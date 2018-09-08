@@ -16,6 +16,7 @@
 package yubikey
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -34,7 +35,7 @@ type Module struct {
 	outputFunc         value.Value // of func(bool, bool) bar.Output
 }
 
-const U2FAuthPendingPath = "/var/run/user/1000/pam-u2f-authpending"
+var U2FAuthPendingPath = fmt.Sprintf("/var/run/user/%d/pam-u2f-authpending", os.Getuid())
 
 func ForPaths(u2fAuthPendingPath string, gpgPubringPath string) *Module {
 	m := &Module{
