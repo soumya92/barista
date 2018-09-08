@@ -87,4 +87,7 @@ using `funcs.Every()`. See [an example](modules/funcs#example-1) in the funcs pa
 Or if you just need the output from a command, use the `shell` package. Some [examples](modules/shell#examples)
 of shell commands being used for bar output are available in the package documentation.
 
-For more details and a complete example, see the guide to [writing a module](docs/writing-a-module).
+For more details and a complete example, see the guide to [writing a module](docs/writing-a-module). For an example
+of integrating a third-party go package, see the
+[yubikey sample module](https://github.com/soumya92/barista/blob/master/samples/yubikey/yubikey.go).
+
