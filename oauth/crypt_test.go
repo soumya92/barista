@@ -81,8 +81,6 @@ func TestCryptStore(t *testing.T) {
 	require.NoError(t, storeToken("simple.json", &oauth2.Token{
 		AccessToken:  "foobar",
 		RefreshToken: "supersecret",
-		// TODO: Investigate why this fails on CI.
-		// Expiry:       time.Unix(1500000000, 0),
 	}))
 	savedFile, _ = afero.ReadFile(fs, "simple.json")
 	expectedFile, _ = ioutil.ReadFile("testdata/simple.json")
