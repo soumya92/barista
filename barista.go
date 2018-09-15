@@ -28,6 +28,7 @@ import (
 	"barista.run/bar"
 	"barista.run/core"
 	l "barista.run/logging"
+	"barista.run/oauth"
 	"barista.run/timing"
 
 	"github.com/lucasb-eyer/go-colorful"
@@ -156,6 +157,11 @@ func SetErrorHandler(handler func(bar.ErrorEvent)) {
 // This allows both styles of bar construction:
 // `bar.Add(a); bar.Add(b); bar.Run()`, and `bar.Run(a, b)`.
 func Run(modules ...bar.Module) error {
+	// Oauth configs are setup by modules when they're created.
+	// Now that all modules are created, the oauth system knows about all providers.
+	// So if the 'setup-oauth' arg was given, enter interactive setup instead.
+	// (InteractiveSetup calls os.Exit, so the rest of the bar will not run).
+	oauth.InteractiveSetup()
 	construct()
 	// To allow TestMode to work, we need to avoid any references
 	// to instance in the run loop.
