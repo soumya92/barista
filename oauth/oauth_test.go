@@ -239,7 +239,7 @@ func TestOauthSavedToken(t *testing.T) {
 \[1 of 1\] barista\.run/oauth\.\w+
 \* Domain: 127\.0\.0\.1
 \* Scopes: a, b
-\+ Using saved token, expires .*?
+\+ Using saved token, never expires
 
 All tokens updated successfully
 `, mockStdout.ReadNow())

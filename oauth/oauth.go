@@ -152,8 +152,8 @@ func (c *Config) prompt(index, total int) bool {
 			// Even if the time is not expired, the token could be invalidated
 			// through other means, e.g password change or access revocation.
 			// Currently the only solution is for the user to delete the json.
-			fmt.Fprintf(stdout, "+ Using saved token, expires %s\n",
-				c.token.Expiry.Format(time.RFC822))
+			fmt.Fprintf(stdout, "+ Using saved token, %s\n",
+				formatExpiry(c.token.Expiry))
 			return true
 		}
 		fmt.Fprintf(stdout, "! Automatic refresh failed\n")
@@ -172,9 +172,16 @@ func (c *Config) prompt(index, total int) bool {
 		fmt.Fprintf(stdout, "! Failed to update token: %v\n", err)
 		return false
 	}
-	fmt.Fprintf(stdout, "+ Successfully updated token, expires %s\n",
-		c.token.Expiry.Format(time.RFC822))
+	fmt.Fprintf(stdout, "+ Successfully updated token, %s\n",
+		formatExpiry(c.token.Expiry))
 	return true
+}
+
+func formatExpiry(expiry time.Time) string {
+	if expiry.IsZero() {
+		return "never expires"
+	}
+	return fmt.Sprintf("expires %s", expiry.Format(time.RFC822))
 }
 
 func (c *Config) autoUpdateToken() error {
