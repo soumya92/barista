@@ -53,4 +53,12 @@ func TestWrapper(t *testing.T) {
 	r, err = client.Get("https://test.example.org/not-found")
 	require.NoError(t, err)
 	require.Equal(t, 200, r.StatusCode)
+
+	req, err := http.NewRequest("GET", "https://api.example.net/endpoint", nil)
+	require.NoError(t, err)
+	require.Equal(t, "https://api.example.net/endpoint", req.URL.String())
+	r, err = client.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, 200, r.StatusCode)
+	require.Equal(t, "https://api.example.net/endpoint", req.URL.String())
 }
