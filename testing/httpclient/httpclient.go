@@ -21,7 +21,7 @@ import (
 )
 
 type rewritingTransport struct {
-	newHost   string
+	newURL    *url.URL
 	transport http.RoundTripper
 }
 
@@ -30,7 +30,8 @@ func (r rewritingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	*newReq = *req
 	newReq.URL = &url.URL{}
 	*newReq.URL = *req.URL
-	newReq.URL.Host = r.newHost
+	newReq.URL.Scheme = r.newURL.Scheme
+	newReq.URL.Host = r.newURL.Host
 	return r.transport.RoundTrip(newReq)
 }
 
@@ -40,7 +41,7 @@ func (r rewritingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 func Wrap(client *http.Client, newURL string) {
 	u, _ := url.Parse(newURL)
 	client.Transport = rewritingTransport{
-		newHost:   u.Host,
+		newURL:    u,
 		transport: client.Transport,
 	}
 }

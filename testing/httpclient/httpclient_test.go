@@ -49,4 +49,8 @@ func TestWrapper(t *testing.T) {
 
 	_, err = client.Get(redirLoop)
 	require.NoError(t, err)
+
+	r, err = client.Get("https://test.example.org/not-found")
+	require.NoError(t, err)
+	require.Equal(t, 200, r.StatusCode)
 }
