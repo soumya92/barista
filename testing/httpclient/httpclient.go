@@ -18,6 +18,10 @@ package httpclient // import "barista.run/testing/httpclient"
 import (
 	"net/http"
 	"net/url"
+
+	l "barista.run/logging"
+
+	"golang.org/x/oauth2"
 )
 
 type rewritingTransport struct {
@@ -43,5 +47,17 @@ func Wrap(client *http.Client, newURL string) {
 	client.Transport = rewritingTransport{
 		newURL:    u,
 		transport: client.Transport,
+	}
+}
+
+// FreezeOauthToken sets the client's token source to a static token source that
+// always provides the given access token.
+func FreezeOauthToken(client *http.Client, accessToken string) {
+	if t, ok := client.Transport.(*oauth2.Transport); ok {
+		t.Source = oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: accessToken})
+	} else {
+		l.Log("Client %v does not use an oauth transport (%T)",
+			client, client.Transport)
 	}
 }

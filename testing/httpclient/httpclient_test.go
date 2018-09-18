@@ -15,18 +15,21 @@
 package httpclient
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"barista.run/testing/httpserver"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 )
 
 func TestWrapper(t *testing.T) {
-	okServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
+	okServer := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
 	defer okServer.Close()
 
 	testServer := httpserver.New()
@@ -61,4 +64,64 @@ func TestWrapper(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 200, r.StatusCode)
 	require.Equal(t, "https://api.example.net/endpoint", req.URL.String())
+}
+
+func TestOauthTokenFreezing(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Authorization") != "Bearer mocktoken" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+	defer tokenServer.Close()
+	var someURL = tokenServer.URL + "/foo"
+
+	client := tokenServer.Client()
+	r, err := client.Get(someURL)
+	require.NoError(t, err)
+	require.Equal(t, 403, r.StatusCode)
+
+	FreezeOauthToken(client, "mocktoken")
+	r, err = client.Get(someURL)
+	require.NoError(t, err)
+	require.Equal(t, 403, r.StatusCode)
+
+	oauthClient := (&oauth2.Config{
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  tokenServer.URL + "/auth",
+			TokenURL: tokenServer.URL + "/token",
+		},
+		ClientID:     "whatever",
+		ClientSecret: "not-really-secret",
+	}).Client(context.Background(), nil)
+
+	_, err = oauthClient.Get(someURL)
+	require.Error(t, err)
+
+	FreezeOauthToken(oauthClient, "mocktoken")
+	r, err = oauthClient.Get(someURL)
+	require.NoError(t, err)
+	require.Equal(t, 200, r.StatusCode)
+
+	oauthClient = (&oauth2.Config{
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  tokenServer.URL + "/auth",
+			TokenURL: tokenServer.URL + "/token",
+		},
+		ClientID:     "whatever",
+		ClientSecret: "not-really-secret",
+	}).Client(context.Background(), &oauth2.Token{
+		AccessToken: "wrongtoken",
+	})
+
+	_, err = oauthClient.Get(someURL)
+	require.NoError(t, err)
+	require.Equal(t, 200, r.StatusCode)
+
+	FreezeOauthToken(oauthClient, "mocktoken")
+	r, err = oauthClient.Get(someURL)
+	require.NoError(t, err)
+	require.Equal(t, 200, r.StatusCode)
 }
