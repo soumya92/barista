@@ -23,6 +23,16 @@ bar {
 }
 ```
 
+- If you haven't previously setup oauth, and you want to see GitHub notifications in the bar:
+
+  ```shell
+  ~/bin/mybar setup-oauth
+  ```
+
+  This will prompt you to go through an oauth flow, and save **encrypted** tokens in `~/.config/barista`
+  (or `$XDG_CONFIG_HOME/barista` if defined). The encryption key will be saved to the `login` keyring.
+  See [the `go-keyring` README](https://github.com/zalando/go-keyring#linux) for more details.
+
 - Restart i3
 
 ![Screenshot](/assets/images/sample-bar-screenshot.png)
@@ -43,6 +53,7 @@ Barista provides several modules out of the box:
 - [diskspace](modules/diskspace): Shows available space for a disk.
 - [funcs](modules/funcs): Provides modules that execute a given go function,
 	either on click, or at a fixed interval.
+- [github](modules/github): Shows unread notification count from GitHub, using oauth.
 - [media](modules/media): Shows the currently playing track from an MPRIS player,
 	and controls it using mouse events.
 - [meminfo](modules/meminfo): Shows memory information.
