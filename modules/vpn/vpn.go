@@ -80,6 +80,7 @@ func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	state := Disconnected
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	linkCh := netlink.ByName(m.intf)
 	defer linkCh.Unsubscribe()
 
@@ -94,7 +95,8 @@ func (m *Module) Stream(s bar.Sink) {
 			default:
 				state = Disconnected
 			}
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 		}
 		s.Output(outputFunc(state))

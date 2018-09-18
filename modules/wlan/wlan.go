@@ -93,6 +93,7 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	info := Info{}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	var updateChan netlink.Subscription
 	if m.intf == "" {
 		updateChan = netlink.WithPrefix("wl")
@@ -109,7 +110,8 @@ func (m *Module) Stream(s bar.Sink) {
 				IPs:   update.IPs,
 			}
 			fillWifiInfo(&info)
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		}
 		s.Output(outputFunc(info))

@@ -91,6 +91,7 @@ func (m *Module) Stream(sink bar.Sink) {
 	gpg := false
 	u2f := false
 	outf := m.outputFunc.Get().(func(bool, bool) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	for {
 		sink.Output(outf(gpg, u2f))
 		select {
@@ -105,7 +106,8 @@ func (m *Module) Stream(sink bar.Sink) {
 			case notifier.U2F_OFF:
 				u2f = false
 			}
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outf = m.outputFunc.Get().(func(bool, bool) bar.Output)
 		}
 	}

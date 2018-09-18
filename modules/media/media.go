@@ -231,6 +231,7 @@ func (m *Module) Stream(s bar.Sink) {
 
 	info := Info{}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 
 	m.player = newMprisPlayer(sessionBus, m.playerName, &info)
 	if s.Error(m.player.err) {
@@ -254,7 +255,8 @@ func (m *Module) Stream(s bar.Sink) {
 
 	for {
 		select {
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 			info.Controller = m.player
 			s.Output(outputs.Group(outputFunc(info)).

@@ -117,6 +117,7 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	i, err := currentInfo.Get()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	for {
 		nextInfo := currentInfo.Next()
 		if err != nil {
@@ -125,7 +126,8 @@ func (m *Module) Stream(s bar.Sink) {
 			s.Output(outputFunc(info))
 		}
 		select {
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		case <-nextInfo:
 			i, err = currentInfo.Get()

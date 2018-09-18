@@ -123,6 +123,7 @@ func (m *Module) Stream(s bar.Sink) {
 	go m.impl.worker(&m.currentVolume)
 	v, err := m.currentVolume.Get()
 	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	for {
 		if s.Error(err) {
 			return
@@ -135,7 +136,8 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-m.currentVolume.Next():
 			v, err = m.currentVolume.Get()
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Volume) bar.Output)
 		}
 	}

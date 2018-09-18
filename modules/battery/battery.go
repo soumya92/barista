@@ -172,12 +172,14 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	info := m.updateFunc()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	for {
 		s.Output(outputFunc(info))
 		select {
 		case <-m.scheduler.Tick():
 			info = m.updateFunc()
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		}
 	}

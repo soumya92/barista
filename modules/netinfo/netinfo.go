@@ -101,6 +101,7 @@ func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	var state State
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	linkCh := m.subscriber()
 	defer linkCh.Unsubscribe()
 
@@ -108,7 +109,8 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case update := <-linkCh:
 			state = State{update}
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 		}
 		s.Output(outputFunc(state))

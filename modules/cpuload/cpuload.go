@@ -83,6 +83,7 @@ func (m *Module) Stream(s bar.Sink) {
 	var loads LoadAvg
 	count, err := getloadavg(&loads, 3)
 	outputFunc := m.outputFunc.Get().(func(LoadAvg) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	for {
 		if s.Error(err) {
 			return
@@ -95,7 +96,8 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-m.scheduler.Tick():
 			count, err = getloadavg(&loads, 3)
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(LoadAvg) bar.Output)
 		}
 	}

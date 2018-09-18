@@ -119,10 +119,12 @@ func (m *Module) Output(outputFunc func(IO) bar.Output) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	var i IO
 	outputFunc := m.outputFunc.Get().(func(IO) bar.Output)
+	nextOutputFunc := m.outputFunc.Next()
 	for {
 		select {
 		case i = <-m.ioChan:
-		case <-m.outputFunc.Next():
+		case <-nextOutputFunc:
+			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(IO) bar.Output)
 		}
 		if s.Error(i.err) {
