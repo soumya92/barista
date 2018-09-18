@@ -17,12 +17,14 @@
 package bar // import "barista.run/testing/bar"
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"barista.run/bar"
 	"barista.run/core"
 	l "barista.run/logging"
+	"barista.run/oauth"
 	"barista.run/testing/output"
 	"barista.run/timing"
 
@@ -38,6 +40,7 @@ type TestBar struct {
 }
 
 var instance atomic.Value // of TestBar
+var encryptionKeySet sync.Once
 
 // New creates a new TestBar. This must be called before any modules
 // are constructed, to ensure globals like timing.NewScheduler() are
@@ -49,6 +52,9 @@ func New(t require.TestingT) {
 	}
 	instance.Store(b)
 	timing.TestMode()
+	encryptionKeySet.Do(func() {
+		oauth.SetEncryptionKey([]byte(`not-an-encryption-key`))
+	})
 }
 
 func debugOut(segments bar.Segments) (texts []string) {
