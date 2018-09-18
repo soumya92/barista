@@ -16,9 +16,12 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
@@ -32,6 +35,7 @@ import (
 	"barista.run/modules/battery"
 	"barista.run/modules/clock"
 	"barista.run/modules/cputemp"
+	"barista.run/modules/github"
 	"barista.run/modules/media"
 	"barista.run/modules/meminfo"
 	"barista.run/modules/netspeed"
@@ -39,6 +43,7 @@ import (
 	"barista.run/modules/volume"
 	"barista.run/modules/weather"
 	"barista.run/modules/weather/openweathermap"
+	"barista.run/oauth"
 	"barista.run/outputs"
 	"barista.run/pango"
 	"barista.run/pango/icons/fontawesome"
@@ -49,6 +54,7 @@ import (
 
 	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/martinlindhe/unit"
+	keyring "github.com/zalando/go-keyring"
 )
 
 var spacer = pango.Text(" ").XXSmall()
@@ -137,6 +143,38 @@ func (a autoWeatherProvider) GetWeather() (weather.Weather, error) {
 	return openweathermap.Coords(lat, lng).Build().GetWeather()
 }
 
+func setupOauthEncryption() error {
+	const service = "barista-sample-bar"
+	var username string
+	if u, err := user.Current(); err == nil {
+		username = u.Username
+	} else {
+		username = fmt.Sprintf("user-%d", os.Getuid())
+	}
+	var secretBytes []byte
+	// IMPORTANT: The oauth tokens used by some modules are very sensitive, so
+	// we encrypt them with a random key and store that random key using
+	// libsecret (gnome-keyring or equivalent). If no secret provider is
+	// available, there is no way to store tokens (since the version of
+	// sample-bar used for setup-oauth will have a different key from the one
+	// running in i3bar). See also https://github.com/zalando/go-keyring#linux.
+	secret, err := keyring.Get(service, username)
+	if err == nil {
+		secretBytes, err = base64.RawURLEncoding.DecodeString(secret)
+	}
+	if err != nil {
+		secretBytes = make([]byte, 64)
+		_, err := rand.Read(secretBytes)
+		if err != nil {
+			return err
+		}
+		secret = base64.RawURLEncoding.EncodeToString(secretBytes)
+		keyring.Set(service, username, secret)
+	}
+	oauth.SetEncryptionKey(secretBytes)
+	return nil
+}
+
 func main() {
 	material.Load(home("Github/material-design-icons"))
 	mdi.Load(home("Github/MaterialDesign-Webfont"))
@@ -157,6 +195,10 @@ func main() {
 		colors.Set("bad", colorful.Hcl(40, 1.0, v).Clamped())
 		colors.Set("degraded", colorful.Hcl(90, 1.0, v).Clamped())
 		colors.Set("good", colorful.Hcl(120, 1.0, v).Clamped())
+	}
+
+	if err := setupOauthEncryption(); err != nil {
+		panic(fmt.Sprintf("Could not setup oauth token encryption: %v", err))
 	}
 
 	localtime := clock.Local().
@@ -368,9 +410,29 @@ func main() {
 
 	grp, _ := collapsing.Group(net, temp, freeMem, loadAvg)
 
+	ghNotify := github.New().Output(func(n github.Notifications) bar.Output {
+		if n.Total() == 0 {
+			return nil
+		}
+		out := outputs.Group(
+			pango.Icon("fab-github").
+				Concat(spacer).
+				ConcatTextf("%d", n.Total()))
+		mentions := n["mention"] + n["team_mention"]
+		if mentions > 0 {
+			out.Append(spacer)
+			out.Append(outputs.Pango(
+				pango.Icon("mdi-bell").
+					ConcatTextf("%d", mentions)).
+				Urgent(true))
+		}
+		return out.Glue()
+	})
+
 	panic(barista.Run(
 		rhythmbox,
 		grp,
+		ghNotify,
 		vol,
 		batt,
 		wthr,
