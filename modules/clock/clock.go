@@ -124,6 +124,7 @@ func (m *Module) Stream(s bar.Sink) {
 	sch := timing.NewScheduler()
 	l.Attach(m, sch, ".scheduler")
 	cfg := m.getConfig()
+	nextCfg := m.config.Next()
 	for {
 		now := timing.Now()
 		next := now.Add(cfg.granularity).Truncate(cfg.granularity)
@@ -132,7 +133,8 @@ func (m *Module) Stream(s bar.Sink) {
 
 		select {
 		case <-sch.Tick():
-		case <-m.config.Next():
+		case <-nextCfg:
+			nextCfg = m.config.Next()
 			cfg = m.getConfig()
 		}
 	}
