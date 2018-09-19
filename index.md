@@ -54,6 +54,7 @@ Barista provides several modules out of the box:
 - [funcs](modules/funcs): Provides modules that execute a given go function,
 	either on click, or at a fixed interval.
 - [github](modules/github): Shows unread notification count from GitHub, using oauth.
+- [gmail](modules/gsuite/gmail): Shows unread thread count from Gmail, using oauth.
 - [media](modules/media): Shows the currently playing track from an MPRIS player,
 	and controls it using mouse events.
 - [meminfo](modules/meminfo): Shows memory information.
