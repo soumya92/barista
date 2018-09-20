@@ -6,6 +6,11 @@
 
 	```shell
 curl -L https://git.io/fA4qJ -o sample-bar.go
+```
+
+    edit sample-bar.go to set the GitHub OAuth client ID and secret, then
+    
+    ```shell
 go build -o ~/bin/mybar -i sample-bar.go
 	```
 
