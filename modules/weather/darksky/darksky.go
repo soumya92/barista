@@ -30,32 +30,18 @@ import (
 	"github.com/martinlindhe/unit"
 )
 
-// Config represents Dark Sky API configuration
+// Config represents Dark Sky API configuration (just the API key)
 // from which a weather.Provider can be built.
-type Config struct {
-	lat    float64
-	lon    float64
-	apiKey string
+type Config string
+
+// New creats a new DarkSky API configuration.
+func New(apiKey string) Config {
+	return Config(apiKey)
 }
 
 // Coords creates a dark sky configuration for the given
 // geographical co-ordinates.
-func Coords(lat, lon float64) *Config {
-	return &Config{lat: lat, lon: lon}
-}
-
-// APIKey sets the API key.
-func (c *Config) APIKey(apiKey string) *Config {
-	c.apiKey = apiKey
-	return c
-}
-
-// Provider wraps a Dark Sky API url so that
-// it can be used as a weather.Provider.
-type Provider string
-
-// Build builds a weather provider from the configuration.
-func (c *Config) Build() weather.Provider {
+func (c Config) Coords(lat, lon float64) weather.Provider {
 	// Build the Dark Sky URL.
 	qp := url.Values{}
 	qp.Add("exclude", "minutely,hourly,alerts,flags")
@@ -63,11 +49,15 @@ func (c *Config) Build() weather.Provider {
 	dsURL := url.URL{
 		Scheme:   "https",
 		Host:     "api.darksky.net",
-		Path:     fmt.Sprintf("/forecast/%s/%f,%f", c.apiKey, c.lat, c.lon),
+		Path:     fmt.Sprintf("/forecast/%s/%f,%f", c, lat, lon),
 		RawQuery: qp.Encode(),
 	}
 	return Provider(dsURL.String())
 }
+
+// Provider wraps a Dark Sky API url so that
+// it can be used as a weather.Provider.
+type Provider string
 
 // dsWeather represents a dark sky json response.
 type dsWeather struct {

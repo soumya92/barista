@@ -101,22 +101,21 @@ func TestConditions(t *testing.T) {
 func TestProviderBuilder(t *testing.T) {
 	for _, tc := range []struct {
 		expected string
-		actual   *Config
+		actual   weather.Provider
 	}{
-		{"/apikey/40.689200,-74.044500", Coords(40.6892, -74.0445).APIKey("apikey")},
-		{"//-37.422000,122.084100", Coords(-37.4220, 122.0841)},
+		{"/apikey/40.689200,-74.044500", New("apikey").Coords(40.6892, -74.0445)},
+		{"/foobar/-37.422000,122.084100", New("foobar").Coords(-37.4220, 122.0841)},
 	} {
 		expected := "https://api.darksky.net/forecast" + tc.expected +
 			"?exclude=minutely%2Chourly%2Calerts%2Cflags&units=us"
-		require.Equal(t, expected, string(tc.actual.Build().(Provider)))
+		require.Equal(t, expected, string(tc.actual.(Provider)))
 	}
 }
 
 func TestLive(t *testing.T) {
 	cron.Test(t, func() error {
-		wthr, err := Coords(42.3601, -71.0589).
-			APIKey(os.Getenv("WEATHER_DS_API_KEY")).
-			Build().
+		wthr, err := New(os.Getenv("WEATHER_DS_API_KEY")).
+			Coords(42.3601, -71.0589).
 			GetWeather()
 		if err != nil {
 			return err
