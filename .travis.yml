@@ -15,8 +15,7 @@ after_success:
   - bash <(curl -s https://codecov.io/bash)
 
 before_deploy:
-  - sed -i "s/%%GITHUB_CLIENT_SECRET%%/$GH_CLIENT_SECRET/g" samples/sample-bar/sample-bar.go
-  - go build -o sample-bar ./samples/sample-bar
+  - ./build.sh
   - go build -o i3status ./samples/i3status
   - git config credential.helper "store --file=.gitcredentials"
   - echo "https://${GH_TOKEN}:@github.com" > .gitcredentials
