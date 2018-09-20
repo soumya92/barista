@@ -140,7 +140,10 @@ func (a autoWeatherProvider) GetWeather() (weather.Weather, error) {
 	if err != nil {
 		return weather.Weather{}, err
 	}
-	return openweathermap.Coords(lat, lng).Build().GetWeather()
+	return openweathermap.
+		New("%%OWM_API_KEY%%").
+		Coords(lat, lng).
+		GetWeather()
 }
 
 func setupOauthEncryption() error {
@@ -410,7 +413,7 @@ func main() {
 
 	grp, _ := collapsing.Group(net, temp, freeMem, loadAvg)
 
-	ghNotify := github.New("73d10000096fbc956d69", "%%GITHUB_CLIENT_SECRET%%").
+	ghNotify := github.New("%%GITHUB_CLIENT_ID%%", "%%GITHUB_CLIENT_SECRET%%").
 		Output(func(n github.Notifications) bar.Output {
 			if n.Total() == 0 {
 				return nil

@@ -151,35 +151,25 @@ func TestConditions(t *testing.T) {
 }
 
 func TestProviderBuilder(t *testing.T) {
-	defaultApiKey := "appid=9c51204f81fc8e1998981de83a7cabc9"
-
 	for _, tc := range []struct {
 		expected    string
-		actual      *Config
+		actual      weather.Provider
 		description string
 	}{
-		{defaultApiKey + "&id=1234", CityID("1234"), "CityID"},
-		{"appid=foo&id=1234", CityID("1234").APIKey("foo"), "CityID+ApiKey"},
-
-		{defaultApiKey + "&q=London%2CUK", CityName("London", "UK"), "CityName"},
-		{"appid=foo&q=London%2CUK", CityName("London", "UK").APIKey("foo"), "CityName+ApiKey"},
-
-		{defaultApiKey + "&lat=10.000000&lon=40.000000", Coords(10.0, 40.0), "Coords"},
-		{"appid=foo&lat=10.000000&lon=40.000000", Coords(10.0, 40.0).APIKey("foo"), "Coords+ApiKey"},
-
-		{defaultApiKey + "&zip=85719%2CUS", Zipcode("85719", "US"), "Zipcode"},
-		{"appid=foo&zip=85719%2CUS", Zipcode("85719", "US").APIKey("foo"), "Zipcode+ApiKey"},
+		{"appid=foo&id=1234", New("foo").CityID("1234"), "CityID"},
+		{"appid=foo&q=London%2CUK", New("foo").CityName("London", "UK"), "CityName"},
+		{"appid=foo&lat=10.000000&lon=40.000000", New("foo").Coords(10.0, 40.0), "Coords"},
+		{"appid=foo&zip=85719%2CUS", New("foo").Zipcode("85719", "US"), "Zipcode"},
 	} {
 		expected := "http://api.openweathermap.org/data/2.5/weather?" + tc.expected
-		require.Equal(t, expected, string(tc.actual.Build().(Provider)), tc.description)
+		require.Equal(t, expected, string(tc.actual.(Provider)), tc.description)
 	}
 }
 
 func TestLive(t *testing.T) {
 	cron.Test(t, func() error {
-		wthr, err := Zipcode("94043", "US").
-			APIKey(os.Getenv("WEATHER_OWM_API_KEY")).
-			Build().
+		wthr, err := New(os.Getenv("WEATHER_OWM_API_KEY")).
+			Zipcode("94043", "US").
 			GetWeather()
 		if err != nil {
 			return err

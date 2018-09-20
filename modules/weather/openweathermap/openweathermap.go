@@ -30,46 +30,42 @@ import (
 	"github.com/martinlindhe/unit"
 )
 
-// Config represents open weather map API configuration
+// Config represents open weather map API configuration (just the API key)
 // from which a weather.Provider can be built.
-type Config struct {
-	query  [][2]string
-	apiKey string
+type Config string
+
+// New creates a new OpenWeatherMap API configuration.
+func New(apiKey string) Config {
+	return Config(apiKey)
 }
 
 // CityID queries OWM by city id. Recommended.
-func CityID(cityID string) *Config {
-	return &Config{query: [][2]string{
+func (c Config) CityID(cityID string) weather.Provider {
+	return c.build([][2]string{
 		{"id", cityID},
-	}}
+	})
 }
 
 // CityName queries OWM using a named city. Least accurate.
-func CityName(city, country string) *Config {
-	return &Config{query: [][2]string{
+func (c Config) CityName(city, country string) weather.Provider {
+	return c.build([][2]string{
 		{"q", fmt.Sprintf("%s,%s", city, country)},
-	}}
+	})
 }
 
 // Coords queries OWM using lat/lon co-ordinates.
-func Coords(lat, lon float64) *Config {
-	return &Config{query: [][2]string{
+func (c Config) Coords(lat, lon float64) weather.Provider {
+	return c.build([][2]string{
 		{"lat", fmt.Sprintf("%.6f", lat)},
 		{"lon", fmt.Sprintf("%.6f", lon)},
-	}}
+	})
 }
 
 // Zipcode queries OWM using a zip code or post code and country.
-func Zipcode(zip, country string) *Config {
-	return &Config{query: [][2]string{
+func (c Config) Zipcode(zip, country string) weather.Provider {
+	return c.build([][2]string{
 		{"zip", fmt.Sprintf("%s,%s", zip, country)},
-	}}
-}
-
-// APIKey sets the API key if a different api key is preferred.
-func (c *Config) APIKey(apiKey string) *Config {
-	c.apiKey = apiKey
-	return c
+	})
 }
 
 // Provider wraps an open weather map API url so that
@@ -77,16 +73,11 @@ func (c *Config) APIKey(apiKey string) *Config {
 type Provider string
 
 // Build builds a weather provider from the configuration.
-func (c *Config) Build() weather.Provider {
+func (c Config) build(query [][2]string) weather.Provider {
 	// Build the OWM URL.
 	qp := url.Values{}
-	apiKey := c.apiKey
-	// Use barista's API key if no API key was explicitly provided.
-	if apiKey == "" {
-		apiKey = "9c51204f81fc8e1998981de83a7cabc9"
-	}
-	qp.Add("appid", apiKey)
-	for _, value := range c.query {
+	qp.Add("appid", string(c))
+	for _, value := range query {
 		qp.Add(value[0], value[1])
 	}
 	owmURL := url.URL{
