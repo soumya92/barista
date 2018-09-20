@@ -59,7 +59,7 @@ type Module struct {
 
 var oauthConfigs = map[string]*oauth.Config{}
 
-func NewWithClientID(clientID, clientSecret string) *Module {
+func New(clientID, clientSecret string) *Module {
 	config, ok := oauthConfigs[clientID]
 	if !ok {
 		config = oauth.Register(&oauth2.Config{
@@ -81,13 +81,6 @@ func NewWithClientID(clientID, clientSecret string) *Module {
 		return outputs.Textf("GH: %d", n.Total())
 	})
 	return m
-}
-
-func New() *Module {
-	return NewWithClientID(
-		/* clientID = */ "73d10000096fbc956d69",
-		/* clientSecret = */ "18e5bfaf0602f3c7cc7ffc07549bfda490d49789",
-	)
 }
 
 type ghNotification struct {

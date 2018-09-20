@@ -410,24 +410,25 @@ func main() {
 
 	grp, _ := collapsing.Group(net, temp, freeMem, loadAvg)
 
-	ghNotify := github.New().Output(func(n github.Notifications) bar.Output {
-		if n.Total() == 0 {
-			return nil
-		}
-		out := outputs.Group(
-			pango.Icon("fab-github").
-				Concat(spacer).
-				ConcatTextf("%d", n.Total()))
-		mentions := n["mention"] + n["team_mention"]
-		if mentions > 0 {
-			out.Append(spacer)
-			out.Append(outputs.Pango(
-				pango.Icon("mdi-bell").
-					ConcatTextf("%d", mentions)).
-				Urgent(true))
-		}
-		return out.Glue()
-	})
+	ghNotify := github.New("73d10000096fbc956d69", "%%GITHUB_CLIENT_SECRET%%").
+		Output(func(n github.Notifications) bar.Output {
+			if n.Total() == 0 {
+				return nil
+			}
+			out := outputs.Group(
+				pango.Icon("fab-github").
+					Concat(spacer).
+					ConcatTextf("%d", n.Total()))
+			mentions := n["mention"] + n["team_mention"]
+			if mentions > 0 {
+				out.Append(spacer)
+				out.Append(outputs.Pango(
+					pango.Icon("mdi-bell").
+						ConcatTextf("%d", mentions)).
+					Urgent(true))
+			}
+			return out.Glue()
+		})
 
 	panic(barista.Run(
 		rhythmbox,

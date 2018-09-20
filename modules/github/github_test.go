@@ -59,7 +59,7 @@ func TestSimple(t *testing.T) {
 		io.WriteString(w, "[]")
 	})
 
-	gh := New()
+	gh := New("clientid", "clientsecret")
 	testBar.Run(gh)
 
 	testBar.NextOutput().AssertEmpty("with no notifications")
@@ -128,7 +128,7 @@ func TestErrors(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 	})
 
-	gh := New()
+	gh := New("clientid", "clientsecret")
 	testBar.Run(gh)
 
 	err := testBar.NextOutput().AssertError("On HTTP Error")
