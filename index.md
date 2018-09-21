@@ -21,15 +21,15 @@ bar {
 }
 ```
 
-- If you haven't previously setup oauth, and you want to see GitHub notifications in the bar:
+- If you haven't previously setup oauth:
 
   ```shell
   ~/bin/mybar setup-oauth
   ```
 
-  This will prompt you to go through an oauth flow, and save **encrypted** tokens in `~/.config/barista`
-  (or `$XDG_CONFIG_HOME/barista` if defined). The encryption key will be saved to the `login` keyring.
-  See [the `go-keyring` README](https://github.com/zalando/go-keyring#linux) for more details.
+  This will prompt you to go through the required oauth flow(s), and save **encrypted** tokens in
+  `~/.config/barista` (or `$XDG_CONFIG_HOME/barista` if defined). The encryption key will be saved
+  to the `login` keyring. See [the `go-keyring` README](https://github.com/zalando/go-keyring#linux) for more details.
 
 - Restart i3
 
