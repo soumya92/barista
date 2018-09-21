@@ -36,6 +36,7 @@ import (
 	"barista.run/modules/clock"
 	"barista.run/modules/cputemp"
 	"barista.run/modules/github"
+	"barista.run/modules/gsuite/gmail"
 	"barista.run/modules/media"
 	"barista.run/modules/meminfo"
 	"barista.run/modules/netspeed"
@@ -177,6 +178,16 @@ func setupOauthEncryption() error {
 	oauth.SetEncryptionKey(secretBytes)
 	return nil
 }
+
+var gsuiteOauthConfig = []byte(`{"installed": {
+	"client_id":"%%GOOGLE_CLIENT_ID%%",
+	"project_id":"i3-barista",
+	"auth_uri":"https://accounts.google.com/o/oauth2/auth",
+	"token_uri":"https://www.googleapis.com/oauth2/v3/token",
+	"auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs",
+	"client_secret":"%%GOOGLE_CLIENT_SECRET%%",
+	"redirect_uris":["urn:ietf:wg:oauth:2.0:oob","http://localhost"]
+}}`)
 
 func main() {
 	material.Load(home("Github/material-design-icons"))
@@ -433,9 +444,20 @@ func main() {
 			return out.Glue()
 		})
 
+	gm := gmail.New(gsuiteOauthConfig, "INBOX").
+		Output(func(i gmail.Info) bar.Output {
+			if i.Unread["INBOX"] == 0 {
+				return nil
+			}
+			return pango.Icon("material-email").
+				Concat(spacer).
+				ConcatTextf("%d", i.Unread["INBOX"])
+		})
+
 	panic(barista.Run(
 		rhythmbox,
 		grp,
+		gm,
 		ghNotify,
 		vol,
 		batt,
