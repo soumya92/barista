@@ -1,20 +1,13 @@
 <!-- untitled -->
 # Quickstart
 
-- Download the [sample-bar](https://github.com/soumya92/barista/blob/master/samples/sample-bar/sample-bar.go)
-	and build it locally, storing the binary somewhere easy to access.
+- Download the precompiled [sample-bar](https://github.com/soumya92/barista/blob/master/samples/sample-bar/sample-bar.go)
+	somewhere memorable, and make it executable.
 
 	```shell
-curl -L https://git.io/fA4qJ -o sample-bar.go
+curl -L https://git.io/fA7iT -o ~/bin/mybar
+chmod +x ~/bin/mybar
 ```
-
-    edit sample-bar.go to set the GitHub OAuth client ID and secret, then
-    
-    ```shell
-go build -o ~/bin/mybar -i sample-bar.go
-	```
-
-	*You can also download a pre-built linux/amd64 [binary release](https://github.com/soumya92/barista/releases)*
 
 - Set the status_command of the bar to this new binary
 
@@ -44,6 +37,9 @@ bar {
 
 If the icons are missing from the bar, you may need to [install the icon fonts](pango/icons#default-installation)
 to `~/Github/`, or adjust the code if they are already available in a different location.
+
+See [Customising Barista](/customising) for how to get started with building your own version, where
+you can customise the output format, the modules and their order, and add arbitrary go code.
 
 # Built-in Modules
 
