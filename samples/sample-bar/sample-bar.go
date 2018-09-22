@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"time"
 
 	"barista.run"
 	"barista.run/bar"
+	"barista.run/base/click"
 	"barista.run/base/watchers/netlink"
 	"barista.run/colors"
 	"barista.run/group/collapsing"
@@ -102,11 +102,7 @@ func mediaFormatFunc(m media.Info) bar.Output {
 	return outputs.Pango(iconAndPosition, spacer, title, " - ", artist)
 }
 
-func startTaskManager(e bar.Event) {
-	if e.Button == bar.ButtonLeft {
-		exec.Command("xfce4-taskmanager").Run()
-	}
-}
+var startTaskManager = click.RunLeft("xfce4-taskmanager")
 
 func home(path string) string {
 	usr, err := user.Current()
@@ -222,11 +218,7 @@ func main() {
 				now.Format("Mon Jan 2 "),
 				pango.Icon("material-access-time").Color(colors.Scheme("dim-icon")),
 				now.Format("15:04:05"),
-			).OnClick(func(e bar.Event) {
-				if e.Button == bar.ButtonLeft {
-					exec.Command("gsimplecal").Run()
-				}
-			})
+			).OnClick(click.RunLeft("gsimplecal"))
 		})
 
 	// Weather information comes from OpenWeatherMap.
@@ -312,11 +304,9 @@ func main() {
 		if out == nil {
 			return nil
 		}
-		return out.OnClick(func(e bar.Event) {
-			if e.Button == bar.ButtonLeft {
-				batt.Output(showBattTime)
-			}
-		})
+		return out.OnClick(click.Left(func() {
+			batt.Output(showBattTime)
+		}))
 	}
 	showBattTime = func(i battery.Info) bar.Output {
 		rem := i.RemainingTime()
@@ -325,11 +315,9 @@ func main() {
 		if out == nil {
 			return nil
 		}
-		return out.OnClick(func(e bar.Event) {
-			if e.Button == bar.ButtonLeft {
-				batt.Output(showBattPct)
-			}
-		})
+		return out.OnClick(click.Left(func() {
+			batt.Output(showBattPct)
+		}))
 	}
 	batt.Output(showBattPct)
 
@@ -441,7 +429,8 @@ func main() {
 						ConcatTextf("%d", mentions)).
 					Urgent(true))
 			}
-			return out.Glue()
+			return out.Glue().OnClick(
+				click.RunLeft("xdg-open", "https://github.com/notifications"))
 		})
 
 	gm := gmail.New(gsuiteOauthConfig, "INBOX").
@@ -449,9 +438,11 @@ func main() {
 			if i.Unread["INBOX"] == 0 {
 				return nil
 			}
-			return pango.Icon("material-email").
-				Concat(spacer).
-				ConcatTextf("%d", i.Unread["INBOX"])
+			return outputs.Pango(
+				pango.Icon("material-email"),
+				spacer,
+				pango.Textf("%d", i.Unread["INBOX"]),
+			).OnClick(click.RunLeft("xdg-open", "https://mail.google.com"))
 		})
 
 	panic(barista.Run(
