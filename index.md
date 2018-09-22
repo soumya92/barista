@@ -33,7 +33,11 @@ bar {
 
 - Restart i3
 
-![Screenshot](/assets/images/sample-bar-screenshot.png)
+<div style="text-align: center">
+	<img src="/assets/images/sample-bar-light-screenshot.png" alt="Another screenshot" height="22" />
+	<br />
+	<img src="/assets/images/sample-bar-screenshot.png" alt="Screenshot" height="22" />
+</div>
 
 If the icons are missing from the bar, you may need to [install the icon fonts](pango/icons#default-installation)
 to `~/Github/`, or adjust the code if they are already available in a different location.
