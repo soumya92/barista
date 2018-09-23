@@ -57,19 +57,13 @@ type Module struct {
 	lastModified string
 }
 
-var oauthConfigs = map[string]*oauth.Config{}
-
 func New(clientID, clientSecret string) *Module {
-	config, ok := oauthConfigs[clientID]
-	if !ok {
-		config = oauth.Register(&oauth2.Config{
-			Endpoint:     github.Endpoint,
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-			Scopes:       []string{"notifications"},
-		})
-		oauthConfigs[clientID] = config
-	}
+	config := oauth.Register(&oauth2.Config{
+		Endpoint:     github.Endpoint,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Scopes:       []string{"notifications"},
+	})
 	m := &Module{
 		config:    config,
 		scheduler: timing.NewScheduler(),

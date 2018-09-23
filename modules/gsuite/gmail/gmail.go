@@ -57,23 +57,16 @@ type Module struct {
 	outputFunc value.Value // of func(Info) bar.Output
 }
 
-var oauthConfigs = map[string]*oauth.Config{}
-
 func New(clientConfig []byte, labels ...string) *Module {
 	config, err := google.ConfigFromJSON(clientConfig, gmail.GmailLabelsScope)
 	if err != nil {
 		panic("Bad client config: " + err.Error())
 	}
-	oConfig, ok := oauthConfigs[config.ClientID]
-	if !ok {
-		oConfig = oauth.Register(config)
-		oauthConfigs[config.ClientID] = oConfig
-	}
 	if len(labels) == 0 {
 		labels = []string{"INBOX"}
 	}
 	m := &Module{
-		config:    oConfig,
+		config:    oauth.Register(config),
 		labels:    labels,
 		scheduler: timing.NewScheduler(),
 	}

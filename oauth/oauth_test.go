@@ -44,45 +44,6 @@ func TestConfigDir(t *testing.T) {
 	require.Equal(t, os.ExpandEnv("$HOME/.config/barista/oauth"), getConfigDir())
 }
 
-func TestNoOauthSetup(t *testing.T) {
-	defer func(args []string) { os.Args = args }(os.Args)
-
-	mockStdin := mockio.Stdin()
-	stdin = mockStdin
-	mockStdout := mockio.Stdout()
-	stdout = mockStdout
-	exitCode := make(chan int, 1)
-	osExit = func(code int) { exitCode <- code }
-	resetKey([]byte("test"))
-
-	os.Args = []string{"arg0", "setup-oauth"}
-	go InteractiveSetup()
-	require.Equal(t, 0, <-exitCode, "exits even if no tokens are registered")
-	out := mockStdout.ReadNow()
-	require.Equal(t, "Nothing to update\n", out,
-		"simple setup process when no tokens are registered")
-
-	os.Args = []string{}
-	InteractiveSetup()
-	select {
-	case <-exitCode:
-		require.Fail(t, "os.Exit called in non-oauth setup mode")
-	default:
-	}
-	require.Empty(t, mockStdout.ReadNow(),
-		"no writes when not running oauth setup")
-
-	os.Args = []string{"foo", "bar"}
-	InteractiveSetup()
-	select {
-	case <-exitCode:
-		require.Fail(t, "os.Exit called in non-oauth setup mode")
-	default:
-	}
-	require.Empty(t, mockStdout.ReadNow(),
-		"no writes when not running oauth setup")
-}
-
 func assertExitCode(t *testing.T, exitCode <-chan int, expected int) {
 	select {
 	case code := <-exitCode:
@@ -95,7 +56,9 @@ func assertExitCode(t *testing.T, exitCode <-chan int, expected int) {
 func resetForTest() (mockStdout *mockio.Writable, mockStdin *mockio.Readable, exitCode chan int) {
 	registeredConfigsMu.Lock()
 	defer registeredConfigsMu.Unlock()
+	setupHasBeenCalled = 0
 	registeredConfigs = nil
+	registeredConfigsMap = map[string]*Config{}
 	fs = afero.NewMemMapFs()
 	randRead = successfulRandRead
 	mockStdin = mockio.Stdin()
@@ -107,6 +70,40 @@ func resetForTest() (mockStdout *mockio.Writable, mockStdin *mockio.Readable, ex
 	osExit = func(code int) { exitCode <- code }
 	resetKey([]byte("test"))
 	return // mockStdout, mockStdin, exitCode
+}
+
+func TestNoOauthSetup(t *testing.T) {
+	defer func(args []string) { os.Args = args }(os.Args)
+
+	mockStdout, _, exitCode := resetForTest()
+	os.Args = []string{"arg0", "setup-oauth"}
+	go InteractiveSetup()
+	require.Equal(t, 0, <-exitCode, "exits even if no tokens are registered")
+	out := mockStdout.ReadNow()
+	require.Equal(t, "Nothing to update\n", out,
+		"simple setup process when no tokens are registered")
+
+	mockStdout, _, exitCode = resetForTest()
+	os.Args = []string{}
+	InteractiveSetup()
+	select {
+	case <-exitCode:
+		require.Fail(t, "os.Exit called in non-oauth setup mode")
+	default:
+	}
+	require.Empty(t, mockStdout.ReadNow(),
+		"no writes when not running oauth setup")
+
+	mockStdout, _, exitCode = resetForTest()
+	os.Args = []string{"foo", "bar"}
+	InteractiveSetup()
+	select {
+	case <-exitCode:
+		require.Fail(t, "os.Exit called in non-oauth setup mode")
+	default:
+	}
+	require.Empty(t, mockStdout.ReadNow(),
+		"no writes when not running oauth setup")
 }
 
 func TestOauthSetup(t *testing.T) {
@@ -129,7 +126,7 @@ func TestOauthSetup(t *testing.T) {
 	require.Regexp(
 		`Updating registered Oauth configurations:
 
-\[1 of 1\] barista.run/oauth.\w+
+\[1 of 1\] barista.run/oauth\.\w+
 \* Domain: 127\.0\.0\.1
 \* Scopes: a, b
 - Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
@@ -188,19 +185,19 @@ func TestOauthMultiSetup(t *testing.T) {
 	require.Regexp(
 		`Updating registered Oauth configurations:
 
-\[1 of 3\] barista.run/oauth.\w+
+\[1 of 3\] barista.run/oauth\.\w+
 \* Domain: 127\.0\.0\.1
 \* Scopes: a, b
 - Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
 > \+ Successfully updated token, expires .*?
 
-\[2 of 3\] barista.run/oauth.\w+
+\[2 of 3\] barista.run/oauth\.\w+
 \* Domain: 127\.0\.0\.1
 \* Scopes: a, b
 - Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
 > \+ Successfully updated token, expires .*?
 
-\[3 of 3\] barista.run/oauth.\w+
+\[3 of 3\] barista.run/oauth\.\w+
 \* Domain: 127\.0\.0\.1
 \* Scopes: c
 - Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
@@ -303,7 +300,7 @@ func TestOauthInvalidSavedToken(t *testing.T) {
 	require.Regexp(
 		`Updating registered Oauth configurations:
 
-\[1 of 1\] barista.run/oauth.\w+
+\[1 of 1\] barista.run/oauth\.\w+
 \* Domain: 127\.0\.0\.1
 \* Scopes: a, b
 \+ Attempting automatic token refresh
@@ -490,6 +487,92 @@ func TestOauthLoadInvalidSavedToken(t *testing.T) {
 	client := conf.Client()
 	resp, _ := client.Get(checkUrl)
 	require.Equal(401, resp.StatusCode)
+}
+
+func registerA() *Config {
+	return Register(&oauth2.Config{
+		Endpoint:     testEndpoint,
+		ClientID:     "ClientID",
+		ClientSecret: "not-really-secret",
+		RedirectURL:  "localhost:1",
+		Scopes:       []string{"a", "b"},
+	})
+}
+
+func registerB() *Config {
+	return Register(&oauth2.Config{
+		Endpoint:     testEndpoint,
+		ClientID:     "ClientID",
+		ClientSecret: "not-really-secret",
+		RedirectURL:  "localhost:1",
+		Scopes:       []string{"a", "b"},
+	})
+}
+
+func registerC() *Config {
+	return Register(&oauth2.Config{
+		Endpoint:     testEndpoint,
+		ClientID:     "ClientID",
+		ClientSecret: "not-really-secret",
+		RedirectURL:  "localhost:1",
+		Scopes:       []string{"c"},
+	})
+}
+
+func TestOauthConfigReuse(t *testing.T) {
+	require := require.New(t)
+	mockStdout, mockStdin, exitCode := resetForTest()
+
+	confA := registerA()
+	confA2 := registerA()
+	confB := registerB()
+	confC := registerC()
+
+	require.NotEqual(confA, confC, "different scopes")
+	require.True(confA == confA2, "re-uses config")
+	require.True(confA == confB, "re-uses config across methods")
+
+	os.Args = []string{"arg0", "setup-oauth"}
+	go InteractiveSetup()
+	mockStdin.Write([]byte("authcode\n"))
+	mockStdin.Write([]byte("authcode\n"))
+	assertExitCode(t, exitCode, 0)
+
+	require.Regexp(
+		`Updating registered Oauth configurations:
+
+\[1 of 2\] barista.run/oauth\.registerA, barista.run/oauth\.registerB
+\* Domain: 127\.0\.0\.1
+\* Scopes: a, b
+- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
+> \+ Successfully updated token, expires .*?
+
+\[2 of 2\] barista.run/oauth\.registerC
+\* Domain: 127\.0\.0\.1
+\* Scopes: c
+- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
+> \+ Successfully updated token, expires .*?
+
+All tokens updated successfully
+`, mockStdout.ReadNow())
+}
+
+func TestOauthRegisterAfterSetup(t *testing.T) {
+	require := require.New(t)
+	_, _, exitCode := resetForTest()
+
+	require.NotPanics(func() { registerA() }, "Register before setup")
+	require.NoError(storeToken(configFile,
+		&oauth2.Token{
+			AccessToken:  "mocktoken",
+			RefreshToken: "mockrefreshtoken",
+		}))
+
+	os.Args = []string{"arg0", "setup-oauth"}
+	go InteractiveSetup()
+	assertExitCode(t, exitCode, 0)
+
+	require.Panics(func() { registerB() }, "Register after setup")
 }
 
 func TestMain(m *testing.M) {

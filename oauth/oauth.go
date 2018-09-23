@@ -28,7 +28,10 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	l "barista.run/logging"
 
 	"golang.org/x/oauth2"
 )
@@ -40,8 +43,8 @@ type Config struct {
 	config   *oauth2.Config
 	filename string
 	// For more context during interactive auth
-	domain string
-	caller string
+	domain  string
+	callers []string
 	// To support automatic saving of refreshed tokens.
 	tokenSource oauth2.TokenSource
 	token       *oauth2.Token
@@ -50,10 +53,15 @@ type Config struct {
 
 // Track all registered configs, so that InteractiveSetup() can work.
 var (
-	registeredConfigs   = []*Config{}
-	registeredConfigsMu sync.Mutex
+	registeredConfigs    = []*Config{}
+	registeredConfigsMap = map[string]*Config{}
+	registeredConfigsMu  sync.Mutex
 )
 var configDir = getConfigDir()
+
+// Since any tokens registered *after* setup has been called will not work,
+// we'll track when setup is called and panic on registrations after.
+var setupHasBeenCalled int32 // atomic bool
 
 // getConfigDir gets an XDG compliant directory for storing encrypted tokens.
 func getConfigDir() string {
@@ -69,15 +77,18 @@ func getConfigDir() string {
 // added to the interactive oauth setup, so modules should usually call this
 // either in init() or in their New() functions.
 func Register(config *oauth2.Config) *Config {
+	if atomic.LoadInt32(&setupHasBeenCalled) != 0 {
+		panic("Cannot register after setup has been called!")
+	}
 	providerU, _ := url.Parse(config.Endpoint.AuthURL)
 	c := &Config{
 		config: config,
 		domain: providerU.Hostname(),
 	}
-	c.caller = "<unknown>"
+	caller := "<unknown>"
 	pc, _, _, ok := runtime.Caller(1)
 	if ok {
-		c.caller = runtime.FuncForPC(pc).Name()
+		caller = runtime.FuncForPC(pc).Name()
 	}
 	hasher := sha256.New224()
 	// Each token will be stored in config dir, in the form $provider_$hash.
@@ -96,9 +107,25 @@ func Register(config *oauth2.Config) *Config {
 	// ~/.config/barista/oauth/accounts.google.com_MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3OA.json
 	c.filename = filename
 	registeredConfigsMu.Lock()
+	defer registeredConfigsMu.Unlock()
+	existing, ok := registeredConfigsMap[filename]
+	if ok {
+		existing.addCaller(caller)
+		return existing
+	}
+	c.callers = []string{caller}
 	registeredConfigs = append(registeredConfigs, c)
-	registeredConfigsMu.Unlock()
+	registeredConfigsMap[filename] = c
 	return c
+}
+
+func (c *Config) addCaller(caller string) {
+	for _, cr := range c.callers {
+		if cr == caller {
+			return
+		}
+	}
+	c.callers = append(c.callers, caller)
 }
 
 // for tests.
@@ -111,6 +138,10 @@ var osExit = os.Exit
 // valid token. Only intended for use by barista's Run() method, calling it
 // at the wrong time can leave you unable to save tokens for some configs.
 func InteractiveSetup() {
+	if !atomic.CompareAndSwapInt32(&setupHasBeenCalled, 0, 1) {
+		l.Log("Setup called more than once!")
+		return
+	}
 	if len(os.Args) < 2 || os.Args[1] != "setup-oauth" {
 		return
 	}
@@ -137,9 +168,13 @@ func InteractiveSetup() {
 	osExit(0)
 }
 
+func commas(s []string) string {
+	return strings.Join(s, ", ")
+}
+
 func (c *Config) prompt(index, total int) bool {
 	fmt.Fprintf(stdout, "\n[%d of %d] %s\n* Domain: %s\n* Scopes: %s\n",
-		index+1, total, c.caller, c.domain, strings.Join(c.config.Scopes, ", "))
+		index+1, total, commas(c.callers), c.domain, commas(c.config.Scopes))
 
 	err := c.autoUpdateToken()
 	if err == nil {
