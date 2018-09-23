@@ -249,6 +249,8 @@ func (c *Config) Token() (*oauth2.Token, error) {
 
 // Client returns an http client that authorises requests using the previously
 // saved token for this configuration.
-func (c *Config) Client() *http.Client {
-	return oauth2.NewClient(context.Background(), c)
+func (c *Config) Client() (*http.Client, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return oauth2.NewClient(context.Background(), c), c.autoUpdateToken()
 }

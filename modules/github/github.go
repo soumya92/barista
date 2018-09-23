@@ -86,7 +86,7 @@ type ghNotification struct {
 var wrapForTest func(*http.Client)
 
 func (m *Module) Stream(sink bar.Sink) {
-	client := m.config.Client()
+	client, _ := m.config.Client()
 	if wrapForTest != nil {
 		wrapForTest(client)
 	}

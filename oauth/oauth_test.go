@@ -144,7 +144,8 @@ All tokens updated successfully
 	exists, _ = afero.Exists(fs, configFile)
 	require.True(exists, "file created on success")
 
-	client := conf.Client()
+	client, err := conf.Client()
+	require.NoError(err)
 	resp, _ := client.Get(checkUrl)
 	require.Equal(200, resp.StatusCode)
 }
@@ -418,7 +419,8 @@ func TestOauthLoadSavedToken(t *testing.T) {
 			RefreshToken: "mockrefreshtoken",
 		}))
 
-	client := conf.Client()
+	client, err := conf.Client()
+	require.NoError(err)
 	resp, _ := client.Get(checkUrl)
 	require.Equal(200, resp.StatusCode)
 }
@@ -435,8 +437,10 @@ func TestOauthLoadNoSavedToken(t *testing.T) {
 		Scopes:       []string{"a", "b"},
 	})
 
-	client := conf.Client()
-	_, err := client.Get(checkUrl)
+	client, err := conf.Client()
+	require.Error(err, "when no token is available")
+	require.NotNil(client, "Still returns a client")
+	_, err = client.Get(checkUrl)
 	require.Error(err, "when no token is available")
 }
 
@@ -458,7 +462,8 @@ func TestOauthTokenAutoRefresh(t *testing.T) {
 			Expiry:       time.Now().Add(-time.Hour),
 		}))
 
-	client := conf.Client()
+	client, err := conf.Client()
+	require.NoError(err)
 	resp, _ := client.Get(checkUrl)
 	require.Equal(200, resp.StatusCode)
 
@@ -484,7 +489,8 @@ func TestOauthLoadInvalidSavedToken(t *testing.T) {
 			RefreshToken: "not-mockrefreshtoken",
 		}))
 
-	client := conf.Client()
+	client, err := conf.Client()
+	require.NoError(err, "Even if stored token is invalid")
 	resp, _ := client.Get(checkUrl)
 	require.Equal(401, resp.StatusCode)
 }
@@ -559,7 +565,7 @@ All tokens updated successfully
 
 func TestOauthRegisterAfterSetup(t *testing.T) {
 	require := require.New(t)
-	_, _, exitCode := resetForTest()
+	mockStdout, _, exitCode := resetForTest()
 
 	require.NotPanics(func() { registerA() }, "Register before setup")
 	require.NoError(storeToken(configFile,
@@ -571,8 +577,16 @@ func TestOauthRegisterAfterSetup(t *testing.T) {
 	os.Args = []string{"arg0", "setup-oauth"}
 	go InteractiveSetup()
 	assertExitCode(t, exitCode, 0)
+	mockStdout.ReadNow() // empty the buffer.
 
 	require.Panics(func() { registerB() }, "Register after setup")
+	InteractiveSetup() // should be nop, so main thread is fine.
+	select {
+	case <-exitCode:
+		require.Fail("Should not call os.Exit on second call to setup")
+	default:
+	}
+	require.Empty(mockStdout.ReadNow(), "No output on second call to setup")
 }
 
 func TestMain(m *testing.M) {
