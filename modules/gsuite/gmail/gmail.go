@@ -100,20 +100,12 @@ func (m *Module) Stream(sink bar.Sink) {
 	for _, l := range r.Labels {
 		labelIDs[l.Name] = l.Id
 	}
+	i, err := m.fetch(srv, labelIDs)
 	outf := m.outputFunc.Get().(func(Info) bar.Output)
 	nextOutputFunc := m.outputFunc.Next()
 	for {
-		i := Info{
-			Threads: map[string]int64{},
-			Unread:  map[string]int64{},
-		}
-		for _, l := range m.labels {
-			r, err := srv.Users.Labels.Get("me", labelIDs[l]).Do()
-			if sink.Error(err) {
-				return
-			}
-			i.Threads[l] = r.ThreadsTotal
-			i.Unread[l] = r.ThreadsUnread
+		if sink.Error(err) {
+			return
 		}
 		sink.Output(outf(i))
 		select {
@@ -121,8 +113,25 @@ func (m *Module) Stream(sink bar.Sink) {
 			nextOutputFunc = m.outputFunc.Next()
 			outf = m.outputFunc.Get().(func(Info) bar.Output)
 		case <-m.scheduler.Tick():
+			i, err = m.fetch(srv, labelIDs)
 		}
 	}
+}
+
+func (m *Module) fetch(srv *gmail.Service, labelIDs map[string]string) (Info, error) {
+	i := Info{
+		Threads: map[string]int64{},
+		Unread:  map[string]int64{},
+	}
+	for _, l := range m.labels {
+		r, err := srv.Users.Labels.Get("me", labelIDs[l]).Do()
+		if err != nil {
+			return i, err
+		}
+		i.Threads[l] = r.ThreadsTotal
+		i.Unread[l] = r.ThreadsUnread
+	}
+	return i, nil
 }
 
 func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
