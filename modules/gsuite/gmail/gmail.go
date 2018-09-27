@@ -100,7 +100,7 @@ func (m *Module) Stream(sink bar.Sink) {
 	for _, l := range r.Labels {
 		labelIDs[l.Name] = l.Id
 	}
-	i, err := m.fetch(srv, labelIDs)
+	i, err := fetch(srv, m.labels, labelIDs)
 	outf := m.outputFunc.Get().(func(Info) bar.Output)
 	nextOutputFunc := m.outputFunc.Next()
 	for {
@@ -113,17 +113,17 @@ func (m *Module) Stream(sink bar.Sink) {
 			nextOutputFunc = m.outputFunc.Next()
 			outf = m.outputFunc.Get().(func(Info) bar.Output)
 		case <-m.scheduler.Tick():
-			i, err = m.fetch(srv, labelIDs)
+			i, err = fetch(srv, m.labels, labelIDs)
 		}
 	}
 }
 
-func (m *Module) fetch(srv *gmail.Service, labelIDs map[string]string) (Info, error) {
+func fetch(srv *gmail.Service, labels []string, labelIDs map[string]string) (Info, error) {
 	i := Info{
 		Threads: map[string]int64{},
 		Unread:  map[string]int64{},
 	}
-	for _, l := range m.labels {
+	for _, l := range labels {
 		r, err := srv.Users.Labels.Get("me", labelIDs[l]).Do()
 		if err != nil {
 			return i, err
