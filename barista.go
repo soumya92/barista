@@ -312,7 +312,7 @@ func (b *i3Bar) print() error {
 				segment := segment
 				clickHandler = func(e bar.Event) {
 					if e.Button == bar.ButtonRight {
-						b.errorHandler(bar.ErrorEvent{err, e})
+						b.errorHandler(bar.ErrorEvent{Error: err, Event: e})
 					} else {
 						segment.Click(e)
 					}

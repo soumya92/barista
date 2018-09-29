@@ -29,6 +29,7 @@ import (
 
 var root = "https://raw.githubusercontent.com"
 
+// Fs represents an in-memory filesystem backed by GitHub.
 type Fs struct {
 	// readonly view into the backing fs.
 	afero.Fs
@@ -99,7 +100,7 @@ func (f *Fs) Stat(name string) (os.FileInfo, error) {
 	return f.Fs.Stat(name)
 }
 
-// The name of this FileSystem
+// Name returns the name of this FileSystem
 func (f *Fs) Name() string {
 	return fmt.Sprintf("GitHubFS/backed by %s", f.Fs.Name())
 }

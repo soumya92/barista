@@ -21,6 +21,8 @@ import (
 	l "barista.run/logging"
 )
 
+// ModuleSet is a group of modules. It provides a channel for identifying module
+// updates, and methods to get the last output of the set or a specific module.
 type ModuleSet struct {
 	modules   []*Module
 	updateCh  chan int
@@ -28,6 +30,7 @@ type ModuleSet struct {
 	outputsMu sync.RWMutex
 }
 
+// NewModuleSet creates a ModuleSet with the given modules.
 func NewModuleSet(modules []bar.Module) *ModuleSet {
 	set := &ModuleSet{
 		modules:  make([]*Module, len(modules)),
@@ -41,11 +44,13 @@ func NewModuleSet(modules []bar.Module) *ModuleSet {
 	return set
 }
 
-func (set *ModuleSet) Stream() <-chan int {
-	for i, m := range set.modules {
-		go m.Stream(set.sinkFn(i))
+// Stream starts streaming all modules and returns a channel that receives the
+// index of the module any time one updates with new output.
+func (m *ModuleSet) Stream() <-chan int {
+	for i, mod := range m.modules {
+		go mod.Stream(m.sinkFn(i))
 	}
-	return set.updateCh
+	return m.updateCh
 }
 
 func (m *ModuleSet) sinkFn(idx int) Sink {
@@ -59,16 +64,22 @@ func (m *ModuleSet) sinkFn(idx int) Sink {
 	}
 }
 
+// Len returns the number of modules in this ModuleSet.
 func (m *ModuleSet) Len() int {
 	return len(m.modules)
 }
 
+// LastOutput returns the last output from the module at a specific position.
+// If the module has not yet updated, an empty output will be used.
 func (m *ModuleSet) LastOutput(idx int) bar.Segments {
 	m.outputsMu.RLock()
 	defer m.outputsMu.RUnlock()
 	return m.outputs[idx]
 }
 
+// LastOutputs returns the last output from all modules in order. The returned
+// slice will have exactly Len() elements, and if a module has not yet updated
+// an empty output will be placed in its position.
 func (m *ModuleSet) LastOutputs() []bar.Segments {
 	m.outputsMu.RLock()
 	defer m.outputsMu.RUnlock()

@@ -29,11 +29,16 @@ import (
 	gmail "google.golang.org/api/gmail/v1"
 )
 
+// Info represents the unread and total thread counts for labels.
+// The keys are the names (not IDs) of the labels, and the values are the thread
+// counts (Threads is total threads, while Unread is just unread threads).
 type Info struct {
 	Threads map[string]int64
 	Unread  map[string]int64
 }
 
+// TotalUnread is the total number of unread threads across all labels. (as set
+// during construction).
 func (i Info) TotalUnread() int64 {
 	t := int64(0)
 	for _, u := range i.Unread {
@@ -42,6 +47,7 @@ func (i Info) TotalUnread() int64 {
 	return t
 }
 
+// TotalThreads is the total number of threads across all configured labels.
 func (i Info) TotalThreads() int64 {
 	t := int64(0)
 	for _, c := range i.Threads {
@@ -50,6 +56,7 @@ func (i Info) TotalThreads() int64 {
 	return t
 }
 
+// Module represents a Gmail barista module.
 type Module struct {
 	config     *oauth.Config
 	labels     []string
@@ -57,6 +64,8 @@ type Module struct {
 	outputFunc value.Value // of func(Info) bar.Output
 }
 
+// New creates a gmail module from the given oauth config, that fetches unread
+// and total thread counts for the given set of labels.
 func New(clientConfig []byte, labels ...string) *Module {
 	config, err := google.ConfigFromJSON(clientConfig, gmail.GmailLabelsScope)
 	if err != nil {
@@ -83,6 +92,7 @@ func New(clientConfig []byte, labels ...string) *Module {
 // for tests, to wrap the client in a transport that redirects requests.
 var wrapForTest func(*http.Client)
 
+// Stream starts the module.
 func (m *Module) Stream(sink bar.Sink) {
 	client, _ := m.config.Client()
 	if wrapForTest != nil {
@@ -134,11 +144,13 @@ func fetch(srv *gmail.Service, labels []string, labelIDs map[string]string) (Inf
 	return i, nil
 }
 
+// Output sets the output format for the module.
 func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
+// RefreshInterval sets the interval between consecutive checks for new mail.
 func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	m.scheduler.Every(interval)
 	return m

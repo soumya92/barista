@@ -239,9 +239,9 @@ general {
 
 func TestLoadingBarConfig(t *testing.T) {
 	scheme = map[string]ColorfulColor{}
-	attemptedBarId := ""
-	getBarConfig = func(barId string) []byte {
-		attemptedBarId = barId
+	attemptedBarID := ""
+	getBarConfig = func(barID string) []byte {
+		attemptedBarID = barID
 		return []byte(`
 {"id":"main","tray_padding":2,"mode":"dock",
 "colors":{"background":"#303642","statusline":"#d9d7ce","separator":"#606f80"}}
@@ -249,7 +249,7 @@ func TestLoadingBarConfig(t *testing.T) {
 	}
 
 	LoadBarConfig()
-	require.Equal(t, "bar0", attemptedBarId, "Defaults to bar0")
+	require.Equal(t, "bar0", attemptedBarID, "Defaults to bar0")
 	assertSchemeEquals(t, map[string]color.Color{
 		"background": Hex("#303642"),
 		"statusline": Hex("#d9d7ce"),
@@ -273,14 +273,14 @@ func init() {
 		os.Exit(0)
 	}
 	if len(os.Args) == 2 && os.Args[1] == "LoadBarConfig" {
-		attemptedBarId := ""
-		getBarConfig = func(barId string) []byte {
-			attemptedBarId = barId
+		attemptedBarID := ""
+		getBarConfig = func(barID string) []byte {
+			attemptedBarID = barID
 			return []byte(`{}`)
 		}
 		LoadBarConfig()
-		if attemptedBarId != "foobar" {
-			panic("Expected barid 'foobar', actual '" + attemptedBarId + "'")
+		if attemptedBarID != "foobar" {
+			panic("Expected barid 'foobar', actual '" + attemptedBarID + "'")
 		}
 		os.Exit(0)
 	}

@@ -140,8 +140,8 @@ func TestMain(m *testing.M) {
 		labelsMu.Lock()
 		defer labelsMu.Unlock()
 		path := strings.Split(r.URL.Path, "/")
-		labelId := path[len(path)-1]
-		label, ok := labels[labelId]
+		labelID := path[len(path)-1]
+		label, ok := labels[labelID]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
 			return

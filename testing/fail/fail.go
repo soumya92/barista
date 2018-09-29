@@ -47,7 +47,7 @@ func AssertFails(t *testing.T, fn func(*testing.T), formatAndArgs ...interface{}
 	}
 }
 
-// Setup represents an already set up test environment, which provides
+// TestSetup represents an already set up test environment, which provides
 // a variant on AssertFails that fails the test as normal, but also fails
 // the test if the setup function causes test failures.
 type TestSetup struct {
@@ -55,7 +55,7 @@ type TestSetup struct {
 	fakeT       *testing.T
 }
 
-// WithSetup shares the fake testing.T instance between a setup method
+// Setup shares the fake testing.T instance between a setup method
 // and a test method, providing an AssertFails method that fails the test
 // if the setup fails, or if the test method does not.
 func Setup(setupFn func(*testing.T)) *TestSetup {

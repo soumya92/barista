@@ -56,10 +56,10 @@ func handleError(w http.ResponseWriter, err error) bool {
 	return true
 }
 
-// handleHttpCode handles the '/code/' path. It parses the arg as an
+// handleHTTPCode handles the '/code/' path. It parses the arg as an
 // http status code, writes a header with that code, and writes the
 // corresponding message in the body (e.g. '/code/404' => 'Not Found').
-func handleHttpCode(w http.ResponseWriter, arg string) {
+func handleHTTPCode(w http.ResponseWriter, arg string) {
 	code, err := strconv.ParseInt(arg, 10, 32)
 	if handleError(w, err) {
 		return
@@ -97,7 +97,7 @@ func handleBasic(w http.ResponseWriter, arg string) {
 	case "empty":
 		w.WriteHeader(200)
 	default:
-		handleHttpCode(w, "404")
+		handleHTTPCode(w, "404")
 	}
 }
 
@@ -106,7 +106,7 @@ func handleBasic(w http.ResponseWriter, arg string) {
 func handleStatic(w http.ResponseWriter, arg string) {
 	file, err := fs.Open(filepath.Join("testdata", arg))
 	if os.IsNotExist(err) {
-		handleHttpCode(w, "404")
+		handleHTTPCode(w, "404")
 		return
 	}
 	if handleError(w, err) {
@@ -124,7 +124,7 @@ func handleTemplate(w http.ResponseWriter, arg string, queryParams url.Values) {
 	tplFileName := filepath.Join("testdata", arg+".tpl")
 	tplFile, err := afero.ReadFile(fs, tplFileName)
 	if os.IsNotExist(err) {
-		handleHttpCode(w, "404")
+		handleHTTPCode(w, "404")
 		return
 	}
 	if handleError(w, err) {
@@ -141,12 +141,13 @@ func handleTemplate(w http.ResponseWriter, arg string, queryParams url.Values) {
 	handleError(w, t.Execute(w, data))
 }
 
+// New creates a new test server with some pre-configured special routes.
 func New() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cmd, arg := parsePath(r.URL.Path)
 		switch cmd {
 		case "code":
-			handleHttpCode(w, arg)
+			handleHTTPCode(w, arg)
 		case "redir":
 			handleRedirect(w, r.URL.Path)
 		case "modtime":
@@ -158,7 +159,7 @@ func New() *httptest.Server {
 		case "tpl":
 			handleTemplate(w, arg, r.URL.Query())
 		default:
-			handleHttpCode(w, "404")
+			handleHTTPCode(w, "404")
 		}
 	}))
 }

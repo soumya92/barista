@@ -29,14 +29,20 @@ import (
 	"github.com/maximbaz/yubikey-touch-detector/notifier"
 )
 
+// Module represents a yubikey barista module that shows an indicator whenever
+// the plugged-in yubikey is waiting for user input.
 type Module struct {
 	u2fAuthPendingPath string
 	gpgPubringPath     string
 	outputFunc         value.Value // of func(bool, bool) bar.Output
 }
 
+// U2FAuthPendingPath is the default path for the u2f pending file. This file is
+// created whenever the yubikey is waiting for input to complete u2f authentication.
 var U2FAuthPendingPath = fmt.Sprintf("/var/run/user/%d/pam-u2f-authpending", os.Getuid())
 
+// ForPaths constructs a yubikey module with the given paths for the u2f pending
+// file and gpg keyring.
 func ForPaths(u2fAuthPendingPath string, gpgPubringPath string) *Module {
 	m := &Module{
 		u2fAuthPendingPath: u2fAuthPendingPath,
@@ -58,6 +64,8 @@ func ForPaths(u2fAuthPendingPath string, gpgPubringPath string) *Module {
 	return m
 }
 
+// New constructs a new yubikey module using the default paths for the u2f
+// pending file and gpg keyring.
 func New() *Module {
 	gpgHome := os.Getenv("GNUPGHOME")
 	if gpgHome != "" {
@@ -66,11 +74,13 @@ func New() *Module {
 	return ForPaths(U2FAuthPendingPath, os.ExpandEnv("$HOME/.gnupg/pubring.kbx"))
 }
 
+// Output sets the output format for the module.
 func (m *Module) Output(outputFunc func(bool, bool) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
+// Stream starts the module.
 func (m *Module) Stream(sink bar.Sink) {
 	ykChan := make(chan notifier.Message, 10)
 	notifiers := map[string]chan notifier.Message{"barista": ykChan}

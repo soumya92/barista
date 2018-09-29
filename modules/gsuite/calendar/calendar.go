@@ -80,6 +80,7 @@ type config struct {
 	showDeclined bool
 }
 
+// Module represents a Google Calendar barista module.
 type Module struct {
 	oauthConfig *oauth.Config
 	config      value.Value // of config
@@ -87,6 +88,7 @@ type Module struct {
 	outputFunc  value.Value // of func(*Event, *Event) (bar.Output, time.Duration)
 }
 
+// New creates a calendar module from the given oauth config.
 func New(clientConfig []byte) *Module {
 	conf, err := google.ConfigFromJSON(clientConfig, calendar.CalendarReadonlyScope)
 	if err != nil {
@@ -125,6 +127,7 @@ func New(clientConfig []byte) *Module {
 // for tests, to wrap the client in a transport that redirects requests.
 var wrapForTest func(*http.Client)
 
+// Stream starts the module.
 func (m *Module) Stream(sink bar.Sink) {
 	client, _ := m.oauthConfig.Client()
 	if wrapForTest != nil {
@@ -241,11 +244,15 @@ func getCurrentEvent(events []Event, conf config) (*Event, int) {
 	return nil, -1
 }
 
+// Output sets the output format for the module.
 func (m *Module) Output(outputFunc func(*Event, *Event) (bar.Output, time.Duration)) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
+// RefreshInterval sets the interval for fetching new events. Note that this is
+// distinct from the rendering interval, which is returned by the output func
+// on each new output.
 func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	m.scheduler.Every(interval)
 	return m
@@ -255,6 +262,7 @@ func (m *Module) getConfig() config {
 	return m.config.Get().(config)
 }
 
+// CalendarID sets the ID of the calendar to fetch events for.
 func (m *Module) CalendarID(id string) *Module {
 	c := m.getConfig()
 	c.calendar = id
@@ -262,6 +270,7 @@ func (m *Module) CalendarID(id string) *Module {
 	return m
 }
 
+// TimeWindow controls the search window when calling the calendar API.
 func (m *Module) TimeWindow(past, future time.Duration) *Module {
 	c := m.getConfig()
 	c.lookbehind = past
@@ -270,6 +279,7 @@ func (m *Module) TimeWindow(past, future time.Duration) *Module {
 	return m
 }
 
+// ShowDeclined controls whether declined events are shown or ignored.
 func (m *Module) ShowDeclined(show bool) *Module {
 	c := m.getConfig()
 	c.showDeclined = show

@@ -34,7 +34,7 @@ import (
 const configFile = "/conf/dir/127.0.0.1_SK3VYxHdcs7MqflZ6QeO0YmAS0jCBLwdq73pqA.json"
 
 var testEndpoint oauth2.Endpoint
-var checkUrl string
+var checkURL string
 var tokenExpirySeconds = 120
 
 func TestConfigDir(t *testing.T) {
@@ -146,7 +146,7 @@ All tokens updated successfully
 
 	client, err := conf.Client()
 	require.NoError(err)
-	resp, _ := client.Get(checkUrl)
+	resp, _ := client.Get(checkURL)
 	require.Equal(200, resp.StatusCode)
 }
 
@@ -421,7 +421,7 @@ func TestOauthLoadSavedToken(t *testing.T) {
 
 	client, err := conf.Client()
 	require.NoError(err)
-	resp, _ := client.Get(checkUrl)
+	resp, _ := client.Get(checkURL)
 	require.Equal(200, resp.StatusCode)
 }
 
@@ -440,7 +440,7 @@ func TestOauthLoadNoSavedToken(t *testing.T) {
 	client, err := conf.Client()
 	require.Error(err, "when no token is available")
 	require.NotNil(client, "Still returns a client")
-	_, err = client.Get(checkUrl)
+	_, err = client.Get(checkURL)
 	require.Error(err, "when no token is available")
 }
 
@@ -464,7 +464,7 @@ func TestOauthTokenAutoRefresh(t *testing.T) {
 
 	client, err := conf.Client()
 	require.NoError(err)
-	resp, _ := client.Get(checkUrl)
+	resp, _ := client.Get(checkURL)
 	require.Equal(200, resp.StatusCode)
 
 	tok, err := loadToken(configFile)
@@ -491,7 +491,7 @@ func TestOauthLoadInvalidSavedToken(t *testing.T) {
 
 	client, err := conf.Client()
 	require.NoError(err, "Even if stored token is invalid")
-	resp, _ := client.Get(checkUrl)
+	resp, _ := client.Get(checkURL)
 	require.Equal(401, resp.StatusCode)
 }
 
@@ -627,7 +627,7 @@ func TestMain(m *testing.M) {
 		AuthURL:  server.URL + "/auth",
 		TokenURL: server.URL + "/token",
 	}
-	checkUrl = server.URL + "/check"
+	checkURL = server.URL + "/check"
 
 	os.Exit(m.Run())
 }

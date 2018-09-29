@@ -35,6 +35,10 @@ import (
 var getenv = os.Getenv
 var waits = []int{1, 3, 7, 15}
 
+// Test runs a test if running in the CI's cron mode. It handles retries if the
+// test returns an error, but passes through failures to the test suite. This
+// allows the test function to retry by returning transient errors, while not
+// wasting attempts on non-retryable failures.
 func Test(t *testing.T, testFunc func() error) {
 	if evt := getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
 		t.Skipf("Skipping LiveVersion test for event type '%s'", evt)

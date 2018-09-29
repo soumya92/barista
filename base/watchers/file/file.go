@@ -27,6 +27,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// Watcher watches for changes to a single named file or directory. It notifies
+// the Updates chan on any changes to the watched file, while also handling
+// parts of the path heirarchy to the file being removed and recreated.
 type Watcher struct {
 	Updates <-chan struct{}
 	Errors  <-chan error
@@ -49,6 +52,7 @@ type Watcher struct {
 	started int32 // atomic bool.
 }
 
+// Unsubscribe stops listening for updates and frees any resources used.
 func (w *Watcher) Unsubscribe() {
 	if atomic.CompareAndSwapInt32(&w.done, 0, 1) {
 		l.Fine("%s done", l.ID(w))
@@ -150,6 +154,7 @@ func (w *Watcher) tryWatch(restarted bool) error {
 	}
 }
 
+// Watch creates a new file watcher for the given filename.
 func Watch(filename string) *Watcher {
 	w := &Watcher{filename: filename}
 	l.Labelf(w, filename)

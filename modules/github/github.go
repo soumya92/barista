@@ -39,6 +39,7 @@ import (
 // for a list of reasons.
 type Notifications map[string]int
 
+// Total returns the total number of unread notifications across all categories.
 func (n Notifications) Total() int {
 	t := 0
 	for _, c := range n {
@@ -47,6 +48,7 @@ func (n Notifications) Total() int {
 	return t
 }
 
+// Module represents a GitHub barista module that displays notification counts.
 type Module struct {
 	config     *oauth.Config
 	outputFunc value.Value // of func(Notifications) bar.Output
@@ -57,6 +59,7 @@ type Module struct {
 	lastModified string
 }
 
+// New creates a GitHub module using the given clientID and secret.
 func New(clientID, clientSecret string) *Module {
 	config := oauth.Register(&oauth2.Config{
 		Endpoint:     github.Endpoint,
@@ -85,6 +88,7 @@ type ghNotification struct {
 // for tests, to wrap the client in a transport that redirects requests.
 var wrapForTest func(*http.Client)
 
+// Stream starts the module.
 func (m *Module) Stream(sink bar.Sink) {
 	client, _ := m.config.Client()
 	if wrapForTest != nil {
@@ -157,6 +161,7 @@ func (m *Module) getNotifications(client *http.Client) (Notifications, error) {
 	return info, nil
 }
 
+// Output sets the output format for this module.
 func (m *Module) Output(outputFunc func(Notifications) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m

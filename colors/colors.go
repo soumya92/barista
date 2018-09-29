@@ -148,8 +148,8 @@ type barConfig struct {
 	Colors map[string]string `json:"colors"`
 }
 
-var getBarConfig = func(barId string) []byte {
-	out, _ := exec.Command("i3-msg", "-t", "get_bar_config", barId).Output()
+var getBarConfig = func(barID string) []byte {
+	out, _ := exec.Command("i3-msg", "-t", "get_bar_config", barID).Output()
 	return out
 }
 
@@ -160,15 +160,15 @@ func LoadBarConfig() {
 	i3barPid := os.Getppid()
 	i3barCmdline, _ := ioutil.ReadFile(
 		fmt.Sprintf("/proc/%d/cmdline", i3barPid))
-	barId := "bar0"
+	barID := "bar0"
 	for _, arg := range bytes.Split(i3barCmdline, []byte{0}) {
 		arg := string(arg)
 		if strings.HasPrefix(arg, "--bar_id=") {
-			barId = strings.TrimPrefix(arg, "--bar_id=")
+			barID = strings.TrimPrefix(arg, "--bar_id=")
 			break
 		}
 	}
 	var parsed barConfig
-	json.Unmarshal(getBarConfig(barId), &parsed)
+	json.Unmarshal(getBarConfig(barID), &parsed)
 	LoadFromMap(parsed.Colors)
 }
