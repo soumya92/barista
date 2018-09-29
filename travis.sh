@@ -12,6 +12,14 @@ if test -n "$CC_TEST_REPORTER_ID" && curl -LSs "$CC_TEST_REPORTER_LOC" >./cc-tes
 	./cc-test-reporter before-build
 fi
 
+# For local runs, use golint from PATH,
+GOLINT="$(which golint)"
+# but fallback to the Travis CI path otherwise.
+[ -n "$GOLINT" ] || GOLINT="$HOME/gopath/bin/golint"
+
+$GOLINT ./...
+go vet
+
 # Run tests with coverage for all barista packages
 go list ./... \
 | grep -v /samples/ \

@@ -8,6 +8,10 @@ addons:
     packages:
       - libasound2-dev
 
+install:
+  - go get github.com/golang/lint/golint
+  - go get -t ./...
+
 script:
   - ./travis.sh
 
