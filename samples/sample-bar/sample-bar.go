@@ -36,6 +36,7 @@ import (
 	"barista.run/modules/clock"
 	"barista.run/modules/cputemp"
 	"barista.run/modules/github"
+	"barista.run/modules/gsuite/calendar"
 	"barista.run/modules/gsuite/gmail"
 	"barista.run/modules/media"
 	"barista.run/modules/meminfo"
@@ -141,6 +142,17 @@ func (a autoWeatherProvider) GetWeather() (weather.Weather, error) {
 		New("%%OWM_API_KEY%%").
 		Coords(lat, lng).
 		GetWeather()
+}
+
+func calendarNotifyHandler(e calendar.Event) func(bar.Event) {
+	notifyBody := e.Start.Format("15:04")
+	if !e.End.Equal(e.Start) {
+		notifyBody += " - " + e.End.Format("15:04")
+	}
+	if e.Location != "" {
+		notifyBody += "\n" + e.Location
+	}
+	return click.RunLeft("notify-send", e.Summary, notifyBody)
 }
 
 func setupOauthEncryption() error {
@@ -445,10 +457,39 @@ func main() {
 			).OnClick(click.RunLeft("xdg-open", "https://mail.google.com"))
 		})
 
+	cal := calendar.New(gsuiteOauthConfig).
+		Output(func(evts calendar.EventList) (bar.Output, time.Time) {
+			evtsOfInterest := append(evts.InProgress, evts.Alerting...)
+			if len(evtsOfInterest) == 0 && len(evts.Upcoming) > 0 {
+				evtsOfInterest = append(evtsOfInterest, evts.Upcoming[0])
+			}
+			if len(evtsOfInterest) == 0 {
+				return nil, time.Time{}
+			}
+			now := time.Now()
+			refreshTime := now.Add(24 * time.Hour)
+			out := outputs.Group().InnerSeparators(false)
+			out.Append(pango.Icon("mdi-calendar"))
+			for _, e := range evtsOfInterest {
+				out.Append(outputs.Textf("%s", e.Start.Format("15:04")).
+					OnClick(calendarNotifyHandler(e)))
+				switch {
+				case e.Start.After(now) && e.Start.Before(refreshTime):
+					refreshTime = e.Start
+				case e.Alert.After(now) && e.Alert.Before(refreshTime):
+					refreshTime = e.Alert
+				case e.End.After(now) && e.End.Before(refreshTime):
+					refreshTime = e.End
+				}
+			}
+			return out, refreshTime
+		})
+
 	panic(barista.Run(
 		rhythmbox,
 		grp,
 		gm,
+		cal,
 		ghNotify,
 		vol,
 		batt,
