@@ -42,6 +42,16 @@ type attendee struct {
 	ResponseStatus string `json:"responseStatus"`
 }
 
+type reminder struct {
+	Method  string `json:"method"`
+	Minutes int    `json:"minutes"`
+}
+
+type reminders struct {
+	UseDefault bool       `json:"useDefault"`
+	Reminders  []reminder `json:"overrides"`
+}
+
 // test events mapped more to the calendar api.
 type event struct {
 	Start       datetime   `json:"start"`
@@ -50,6 +60,7 @@ type event struct {
 	Attendees   []attendee `json:"attendees"`
 	Location    string     `json:"location"`
 	Summary     string     `json:"summary"`
+	Reminders   reminders  `json:"reminders"`
 }
 
 var (
@@ -102,34 +113,40 @@ func TestCalendar(t *testing.T) {
 	e1 := event{Summary: "Test event"}
 	e1.Start.DateTime = fixedTime.Format(time.RFC3339)
 	e1.End.DateTime = fixedTime.Add(15 * time.Minute).Format(time.RFC3339)
+	e1.Reminders.UseDefault = true
 
 	newTime := fixedTime.Add(45 * time.Minute)
 	e2 := event{Summary: "Declined event",
 		Attendees: []attendee{{false, "needsAction"}, {true, "declined"}}}
 	e2.Start.DateTime = newTime.Format(time.RFC3339)
 	e2.End.DateTime = newTime.Add(45 * time.Minute).Format(time.RFC3339)
+	e2.Reminders.UseDefault = true
 
 	newTime = fixedTime.Add(time.Hour)
 	e3 := event{Summary: "Cancelled event", EventStatus: "cancelled"}
 	e3.Start.DateTime = newTime.Format(time.RFC3339)
 	e3.End.DateTime = newTime.Add(15 * time.Minute).Format(time.RFC3339)
+	e3.Reminders.UseDefault = true
 
 	newTime = fixedTime.Add(90 * time.Minute)
 	e4 := event{Summary: "Instant"}
 	e4.Start.DateTime = newTime.Format(time.RFC3339)
 	e4.End.DateTime = newTime.Format(time.RFC3339)
+	e4.Reminders.UseDefault = true
 
 	newTime = fixedTime.Add(2 * time.Hour)
 	e5 := event{Summary: "Later event"}
 	e5.Start.DateTime = newTime.Format(time.RFC3339)
 	e5.End.DateTime = newTime.Add(15 * time.Minute).Format(time.RFC3339)
+	e5.Reminders.UseDefault = false
+	e5.Reminders.Reminders = []reminder{{"email", 40}, {"popup", 4}, {"popup", 8}}
 
 	setEvents("primary", e0, e1, e2, e3, e4, e5)
 
 	testBar.New(t)
-	timing.AdvanceTo(fixedTime.Add(-time.Hour))
+	timing.AdvanceTo(fixedTime.Add(-15 * time.Minute))
 
-	cal := New(fakeClientConfig).TimeWindow(2*time.Minute, 24*time.Hour)
+	cal := New(fakeClientConfig).TimeWindow(24 * time.Hour)
 	testBar.Run(cal)
 
 	testBar.NextOutput().AssertText([]string{"00:00: Test event"})
@@ -154,19 +171,35 @@ func TestCalendar(t *testing.T) {
 	testBar.NextOutput().AssertText([]string{"01:30: Instant"})
 
 	cal.ShowDeclined(true)
-	testBar.NextOutput().AssertText([]string{"ends 01:30: Declined event"},
+	testBar.NextOutput().AssertText(
+		[]string{"ends 01:30: Declined event", "01:30: Instant"},
 		"On configuration change")
 
 	// Ensures that a fetch is not performed, since all events will disappear
 	// on next fetch.
 	setEvents("primary")
-	cal.Output(func(e, next *Event) (bar.Output, time.Duration) {
-		if e == nil {
-			return nil, 0
+	cal.Output(func(l EventList) (bar.Output, time.Time) {
+		var e *Event
+		switch {
+		case len(l.InProgress) > 0:
+			e = &l.InProgress[0]
+		case len(l.Alerting) > 0:
+			e = &l.Alerting[0]
+		case len(l.Upcoming) > 0:
+			e = &l.Upcoming[0]
 		}
-		refresh := e.UntilStart()
-		if refresh < 0 {
-			refresh = e.UntilEnd()
+		refresh := time.Time{}
+		if e == nil {
+			return nil, refresh
+		}
+		if e.UntilEnd() > 0 {
+			refresh = e.End
+		}
+		if e.UntilStart() > 0 {
+			refresh = e.Start
+		}
+		if e.UntilAlert() > 0 {
+			refresh = e.Alert
 		}
 		return outputs.Textf("%s: %s", e.Start.Format("15:04"), e.Summary), refresh
 	})
@@ -175,6 +208,10 @@ func TestCalendar(t *testing.T) {
 
 	newTime = timing.NextTick()
 	require.Equal(t, "01:30", newTime.Format("15:04"))
+	testBar.NextOutput().AssertText([]string{"02:00: Later event"})
+
+	newTime = timing.NextTick()
+	require.Equal(t, "01:52", newTime.Format("15:04"))
 	testBar.NextOutput().AssertText([]string{"02:00: Later event"})
 
 	newTime = timing.NextTick()
@@ -237,12 +274,19 @@ func TestMain(m *testing.M) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		evts := struct {
-			Items []event `json:"items"`
-		}{Items: []event{}}
+		var evts struct {
+			Reminders []reminder `json:"defaultReminders"`
+			Items     []event    `json:"items"`
+		}
 		for _, e := range calEvents {
 			evts.Items = append(evts.Items, e)
 		}
+		evts.Reminders = append(evts.Reminders,
+			reminder{"email", 60},
+			reminder{"popup", 1},
+			reminder{"popup", 3},
+			reminder{"popup", 5},
+		)
 		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(evts)

@@ -17,6 +17,7 @@ package calendar // import "barista.run/modules/gsuite/calendar"
 
 import (
 	"net/http"
+	"sort"
 	"time"
 
 	"barista.run/bar"
@@ -46,6 +47,7 @@ const (
 type Event struct {
 	Start       time.Time
 	End         time.Time
+	Alert       time.Time
 	EventStatus Status
 	Response    Status
 	Location    string
@@ -62,21 +64,27 @@ func (e Event) UntilEnd() time.Duration {
 	return e.End.Sub(timing.Now())
 }
 
-// InProgress returns true if the event is currently in progress.
-func (e Event) InProgress() bool {
-	now := timing.Now()
-	return !e.Start.After(now) && e.End.After(now)
+// UntilAlert returns the time remaining until a notification should be
+// displayed for this event.
+func (e Event) UntilAlert() time.Duration {
+	return e.Alert.Sub(timing.Now())
 }
 
-// Finished returns true if the event is over.
-func (e Event) Finished() bool {
-	return !e.End.After(timing.Now())
+// EventList represents the list of events split by the temporal state of each
+// event: in progress, alerting (upcoming but within notification duration), or
+// upcoming beyond the notification duration.
+type EventList struct {
+	// All events currently in progress
+	InProgress []Event
+	// Events where the time until start is less than the notification duration
+	Alerting []Event
+	// All other future events
+	Upcoming []Event
 }
 
 type config struct {
-	calendar     string
+	calendarID   string
 	lookahead    time.Duration
-	lookbehind   time.Duration
 	showDeclined bool
 }
 
@@ -85,7 +93,7 @@ type Module struct {
 	oauthConfig *oauth.Config
 	config      value.Value // of config
 	scheduler   timing.Scheduler
-	outputFunc  value.Value // of func(*Event, *Event) (bar.Output, time.Duration)
+	outputFunc  value.Value // of func(EventList) (bar.Output, time.Time)
 }
 
 // New creates a calendar module from the given oauth config.
@@ -98,28 +106,37 @@ func New(clientConfig []byte) *Module {
 		oauthConfig: oauth.Register(conf),
 		scheduler:   timing.NewScheduler(),
 	}
-	m.config.Set(config{calendar: "primary"})
+	m.config.Set(config{calendarID: "primary"})
 	m.RefreshInterval(10 * time.Minute)
-	m.TimeWindow(5*time.Minute, 18*time.Hour)
-	m.Output(func(e, next *Event) (bar.Output, time.Duration) {
-		const alertTime = -5 * time.Minute
-		if e == nil || e.Finished() {
-			// If e is nil or finished, next will not be defined.
-			return nil, 0
+	m.TimeWindow(18 * time.Hour)
+	m.Output(func(evts EventList) (bar.Output, time.Time) {
+		refreshTimes := []time.Time{}
+		out := outputs.Group()
+		for _, e := range evts.InProgress {
+			out.Append(outputs.Textf("ends %s: %s",
+				e.End.Format("15:04"), e.Summary))
+			refreshTimes = append(refreshTimes, e.End)
 		}
-		refresh := e.UntilEnd()
-		if next != nil && next.Start.Add(alertTime).Before(e.End) {
-			refresh = next.UntilStart() + alertTime
+		for _, e := range evts.Alerting {
+			out.Append(outputs.Textf("%s: %s",
+				e.Start.Format("15:04"), e.Summary))
+			refreshTimes = append(refreshTimes, e.Start)
 		}
-		if e.InProgress() {
-			return outputs.Textf("ends %s: %s", e.End.Format("15:04"), e.Summary), refresh
+		for _, e := range evts.Upcoming {
+			if len(refreshTimes) == 0 {
+				// If no other events have been displayed, show next upcoming.
+				out.Append(outputs.Textf("%s: %s",
+					e.Start.Format("15:04"), e.Summary))
+			}
+			refreshTimes = append(refreshTimes, e.Alert)
 		}
-		out := outputs.Textf("%s: %s", e.Start.Format("15:04"), e.Summary)
-		refresh = e.UntilStart()
-		if timing.Now().After(e.Start.Add(alertTime)) {
-			return out.Urgent(true), refresh
+		if len(refreshTimes) == 0 {
+			return nil, time.Time{}
 		}
-		return out, refresh + alertTime
+		sort.Slice(refreshTimes, func(i, j int) bool {
+			return refreshTimes[i].Before(refreshTimes[j])
+		})
+		return out, refreshTimes[0]
 	})
 	return m
 }
@@ -133,11 +150,8 @@ func (m *Module) Stream(sink bar.Sink) {
 	if wrapForTest != nil {
 		wrapForTest(client)
 	}
-	srv, err := calendar.New(client)
-	if sink.Error(err) {
-		return
-	}
-	outf := m.outputFunc.Get().(func(*Event, *Event) (bar.Output, time.Duration))
+	srv, _ := calendar.New(client)
+	outf := m.outputFunc.Get().(func(EventList) (bar.Output, time.Time))
 	nextOutputFunc := m.outputFunc.Next()
 	conf := m.getConfig()
 	nextConfig := m.config.Next()
@@ -147,21 +161,15 @@ func (m *Module) Stream(sink bar.Sink) {
 		if sink.Error(err) {
 			return
 		}
-		evt, idx := getCurrentEvent(evts, conf)
-		var nextEvt *Event
-		if idx > 0 && idx < len(evts) {
-			nextEvt, _ = getCurrentEvent(evts[idx:], conf)
-		}
-		out, refresh := outf(evt, nextEvt)
-		if refresh > 0 {
-			refresh++
-			renderer.After(refresh)
+		out, refresh := outf(makeEventList(evts))
+		if !refresh.IsZero() {
+			renderer.At(refresh.Add(time.Duration(1)))
 		}
 		sink.Output(out)
 		select {
 		case <-nextOutputFunc:
 			nextOutputFunc = m.outputFunc.Next()
-			outf = m.outputFunc.Get().(func(*Event, *Event) (bar.Output, time.Duration))
+			outf = m.outputFunc.Get().(func(EventList) (bar.Output, time.Time))
 		case <-nextConfig:
 			nextConfig = m.config.Next()
 			conf = m.getConfig()
@@ -174,22 +182,22 @@ func (m *Module) Stream(sink bar.Sink) {
 }
 
 func fetch(srv *calendar.Service, conf config) ([]Event, error) {
-	timeMin := timing.Now().Add(-conf.lookbehind)
-	timeMax := timing.Now().Add(conf.lookahead)
+	timeMin := timing.Now()
+	timeMax := timeMin.Add(conf.lookahead)
 
-	req := srv.Events.List(conf.calendar)
+	req := srv.Events.List(conf.calendarID)
 	req.MaxAttendees(1)
-	req.MaxResults(15)
 	req.OrderBy("startTime")
 	// Simplify recurring events by converting them to single events.
 	req.SingleEvents(true)
-	req.TimeMax(timeMax.Format(time.RFC3339))
 	req.TimeMin(timeMin.Format(time.RFC3339))
-	req.Fields("items(end,location,start,status,summary,attendees,reminders)")
+	req.TimeMax(timeMax.Format(time.RFC3339))
+	req.Fields("items(end,location,start,status,summary,attendees,reminders),defaultReminders")
 	res, err := req.Do()
 	if err != nil {
 		return nil, err
 	}
+	defaultAlert := getEarliestPopupReminder(res.DefaultReminders)
 	events := []Event{}
 	for _, e := range res.Items {
 		if e.Start.DateTime == "" || e.End.DateTime == "" {
@@ -213,10 +221,21 @@ func fetch(srv *calendar.Service, conf config) ([]Event, error) {
 				selfStatus = Status(at.ResponseStatus)
 			}
 		}
+		if !conf.showDeclined && selfStatus == StatusDeclined {
+			continue
+		}
+		alert := defaultAlert
+		if e.Reminders != nil && !e.Reminders.UseDefault {
+			alert = getEarliestPopupReminder(e.Reminders.Overrides)
+		}
 		eventStatus := Status(e.Status)
+		if eventStatus == StatusCancelled {
+			continue
+		}
 		events = append(events, Event{
 			Start:       start,
 			End:         end,
+			Alert:       start.Add(-alert),
 			EventStatus: eventStatus,
 			Response:    selfStatus,
 			Location:    e.Location,
@@ -226,26 +245,40 @@ func fetch(srv *calendar.Service, conf config) ([]Event, error) {
 	return events, nil
 }
 
-func getCurrentEvent(events []Event, conf config) (*Event, int) {
-	now := timing.Now()
-	for i, e := range events {
-		if e.End.Before(now) {
+func getEarliestPopupReminder(rs []*calendar.EventReminder) time.Duration {
+	duration := time.Duration(0)
+	for _, r := range rs {
+		if r.Method != "popup" {
 			continue
 		}
-		if e.EventStatus == StatusCancelled || e.Response == StatusCancelled {
-			continue
+		rDuration := time.Duration(r.Minutes) * time.Minute
+		if rDuration > duration {
+			duration = rDuration
 		}
-		if e.Response == StatusDeclined && !conf.showDeclined {
-			continue
-		}
-		return &e, i + 1
 	}
-	// Didn't find any event.
-	return nil, -1
+	return duration
+}
+
+func makeEventList(events []Event) EventList {
+	now := timing.Now()
+	list := EventList{}
+	for _, e := range events {
+		switch {
+		case now.After(e.End):
+			continue
+		case now.After(e.Start) && e.End.After(now):
+			list.InProgress = append(list.InProgress, e)
+		case now.After(e.Alert) && e.Start.After(now):
+			list.Alerting = append(list.Alerting, e)
+		default:
+			list.Upcoming = append(list.Upcoming, e)
+		}
+	}
+	return list
 }
 
 // Output sets the output format for the module.
-func (m *Module) Output(outputFunc func(*Event, *Event) (bar.Output, time.Duration)) *Module {
+func (m *Module) Output(outputFunc func(EventList) (bar.Output, time.Time)) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
@@ -265,16 +298,15 @@ func (m *Module) getConfig() config {
 // CalendarID sets the ID of the calendar to fetch events for.
 func (m *Module) CalendarID(id string) *Module {
 	c := m.getConfig()
-	c.calendar = id
+	c.calendarID = id
 	m.config.Set(c)
 	return m
 }
 
-// TimeWindow controls the search window when calling the calendar API.
-func (m *Module) TimeWindow(past, future time.Duration) *Module {
+// TimeWindow controls the search window for future events.
+func (m *Module) TimeWindow(window time.Duration) *Module {
 	c := m.getConfig()
-	c.lookbehind = past
-	c.lookahead = future
+	c.lookahead = window
 	m.config.Set(c)
 	return m
 }
