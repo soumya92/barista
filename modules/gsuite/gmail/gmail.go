@@ -98,10 +98,7 @@ func (m *Module) Stream(sink bar.Sink) {
 	if wrapForTest != nil {
 		wrapForTest(client)
 	}
-	srv, err := gmail.New(client)
-	if sink.Error(err) {
-		return
-	}
+	srv, _ := gmail.New(client)
 	r, err := srv.Users.Labels.List("me").Do()
 	if sink.Error(err) {
 		return
