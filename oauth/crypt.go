@@ -18,7 +18,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/json"
 	"os"
 	"sync"
@@ -78,7 +78,7 @@ func loadToken(filename string) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	dk := pbkdf2.Key(key, eTok.Salt, pbkdf2Iterations, aes256KeySize, sha1.New)
+	dk := pbkdf2.Key(key, eTok.Salt, pbkdf2Iterations, aes256KeySize, sha256.New)
 	block, _ := aes.NewCipher(dk) // no error, key size is fixed.
 	cipher.NewCFBDecrypter(block, eTok.IV).XORKeyStream(eTok.Token, eTok.Token)
 	tok := &oauth2.Token{}
@@ -99,7 +99,7 @@ func storeToken(filename string, token *oauth2.Token) error {
 	if _, err := randRead(eTok.Salt); err != nil {
 		return err
 	}
-	ek := pbkdf2.Key(key, eTok.Salt, pbkdf2Iterations, aes256KeySize, sha1.New)
+	ek := pbkdf2.Key(key, eTok.Salt, pbkdf2Iterations, aes256KeySize, sha256.New)
 	block, _ := aes.NewCipher(ek) // no error, key size is fixed.
 	if _, err := randRead(eTok.IV); err != nil {
 		return err
