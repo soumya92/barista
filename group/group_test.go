@@ -307,3 +307,36 @@ func TestUpdatingGrouper(t *testing.T) {
 		// test passed, expected no udpate.
 	}
 }
+
+func TestSimple(t *testing.T) {
+	testBar.New(t)
+
+	m0 := testModule.New(t)
+	m1 := testModule.New(t)
+	m2 := testModule.New(t)
+
+	grp := Simple(m0, m1, m2)
+	m0.AssertNotStarted("On group construction")
+	m1.AssertNotStarted()
+	m2.AssertNotStarted()
+
+	testBar.Run(grp)
+	m0.AssertStarted("On group stream")
+	m1.AssertStarted()
+	m2.AssertStarted()
+
+	testBar.NextOutput().AssertEmpty("on start")
+
+	m1.OutputText("foo")
+	testBar.NextOutput().AssertText([]string{"foo"})
+
+	m0.Output(nil)
+	testBar.NextOutput().AssertText([]string{"foo"})
+
+	m2.OutputText("baz")
+	out := testBar.NextOutput()
+	out.AssertText([]string{"foo", "baz"})
+
+	out.At(1).Click(bar.Event{})
+	m2.AssertClicked("clicks pass through the group")
+}

@@ -110,3 +110,15 @@ func (g *group) output(moduleIdx int) (o bar.Output, changed bool) {
 	out.Append(eBtn)
 	return out, changed
 }
+
+// nopGrouper implements a grouper that shows all modules.
+type nopGrouper bool
+
+func (n nopGrouper) Visible(int) bool                 { return true }
+func (n nopGrouper) Buttons() (start, end bar.Output) { return }
+
+// Simple groups modules together with no extra controls. This is useful if you
+// need multiple modules where only one module is accepted.
+func Simple(mods ...bar.Module) bar.Module {
+	return New(nopGrouper(true), mods...)
+}
