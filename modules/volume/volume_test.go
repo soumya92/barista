@@ -14,4 +14,8 @@
 
 package volume
 
-// Empty test file for more accurate code coverage.
+import "testing"
+
+// Empty test for more accurate code coverage.
+func TestNop(t *testing.T) {
+}
