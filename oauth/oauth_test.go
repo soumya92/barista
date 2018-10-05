@@ -19,7 +19,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +34,14 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const configFile = "/conf/dir/127.0.0.1_SK3VYxHdcs7MqflZ6QeO0YmAS0jCBLwdq73pqA.json"
+func testHostname() string {
+	u, _ := url.Parse(checkURL)
+	return u.Hostname()
+}
+
+func configFile() string {
+	return fmt.Sprintf("/conf/dir/%s_SK3VYxHdcs7MqflZ6QeO0YmAS0jCBLwdq73pqA.json", testHostname())
+}
 
 var testEndpoint oauth2.Endpoint
 var checkURL string
@@ -70,6 +80,30 @@ func resetForTest() (mockStdout *mockio.Writable, mockStdin *mockio.Readable, ex
 	osExit = func(code int) { exitCode <- code }
 	resetKey([]byte("test"))
 	return // mockStdout, mockStdin, exitCode
+}
+
+func myPackage() string {
+	pc, _, _, _ := runtime.Caller(0)
+	return strings.TrimSuffix(runtime.FuncForPC(pc).Name(), ".myPackage")
+}
+
+var pkgName = myPackage()
+var testMethod = regexp.MustCompile(`\.Test\w+`)
+var authURL = regexp.MustCompile(`http://(127\.\d+\.\d+\.\d+|\[::1\])\:\d+\/auth\?[^ ]+`)
+var expiry = regexp.MustCompile(`\d{1,2} \w{3} \d{1,2} \d{1,2}:\d{2} \w+`)
+
+// sanitiseOauthOutput replaces some dynamic values with placeholders to allow
+// equality assertions in tests. Using equality in tests instead of regexes has
+// two advantages:
+// - no need to escape the expected output.
+// - nice diff view when the test fails.
+func sanitiseOauthOutput(str string) string {
+	str = testMethod.ReplaceAllString(str, ".#testName#")
+	str = authURL.ReplaceAllString(str, "#authURL#")
+	str = expiry.ReplaceAllString(str, "#expiry#")
+	str = strings.Replace(str, pkgName, "#pkg#", -1)
+	str = strings.Replace(str, testHostname(), "#host#", -1)
+	return str
 }
 
 func TestNoOauthSetup(t *testing.T) {
@@ -117,31 +151,31 @@ func TestOauthSetup(t *testing.T) {
 		RedirectURL:  "localhost:1",
 		Scopes:       []string{"a", "b"},
 	})
-	exists, _ := afero.Exists(fs, configFile)
+	exists, _ := afero.Exists(fs, configFile())
 	require.False(exists, "file not created on registration")
 
 	os.Args = []string{"arg0", "setup-oauth"}
 	go InteractiveSetup()
 	out, _ := mockStdout.ReadUntil('>', time.Second)
-	require.Regexp(
+	require.Equal(
 		`Updating registered Oauth configurations:
 
-\[1 of 1\] barista.run/oauth\.\w+
-\* Domain: 127\.0\.0\.1
-\* Scopes: a, b
-- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
->`, out)
+[1 of 1] #pkg#.#testName#
+* Domain: #host#
+* Scopes: a, b
+- Visit #authURL# and enter the code here:
+>`, sanitiseOauthOutput(out))
 
 	mockStdout.ReadUntil(' ', time.Second)
 	mockStdin.Write([]byte("authcode\n"))
 	assertExitCode(t, exitCode, 0)
-	require.Regexp(
-		`\+ Successfully updated token, expires .*?
+	require.Equal(
+		`+ Successfully updated token, expires #expiry#
 
 All tokens updated successfully
-`, mockStdout.ReadNow())
+`, sanitiseOauthOutput(mockStdout.ReadNow()))
 
-	exists, _ = afero.Exists(fs, configFile)
+	exists, _ = afero.Exists(fs, configFile())
 	require.True(exists, "file created on success")
 
 	client, err := conf.Client()
@@ -183,29 +217,29 @@ func TestOauthMultiSetup(t *testing.T) {
 	mockStdin.Write([]byte("authcode\n"))
 	assertExitCode(t, exitCode, 0)
 
-	require.Regexp(
+	require.Equal(
 		`Updating registered Oauth configurations:
 
-\[1 of 3\] barista.run/oauth\.\w+
-\* Domain: 127\.0\.0\.1
-\* Scopes: a, b
-- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
-> \+ Successfully updated token, expires .*?
+[1 of 3] #pkg#.#testName#
+* Domain: #host#
+* Scopes: a, b
+- Visit #authURL# and enter the code here:
+> + Successfully updated token, expires #expiry#
 
-\[2 of 3\] barista.run/oauth\.\w+
-\* Domain: 127\.0\.0\.1
-\* Scopes: a, b
-- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
-> \+ Successfully updated token, expires .*?
+[2 of 3] #pkg#.#testName#
+* Domain: #host#
+* Scopes: a, b
+- Visit #authURL# and enter the code here:
+> + Successfully updated token, expires #expiry#
 
-\[3 of 3\] barista.run/oauth\.\w+
-\* Domain: 127\.0\.0\.1
-\* Scopes: c
-- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
-> \+ Successfully updated token, expires .*?
+[3 of 3] #pkg#.#testName#
+* Domain: #host#
+* Scopes: c
+- Visit #authURL# and enter the code here:
+> + Successfully updated token, expires #expiry#
 
 All tokens updated successfully
-`, mockStdout.ReadNow())
+`, sanitiseOauthOutput(mockStdout.ReadNow()))
 
 	entries, _ := afero.ReadDir(fs, "/conf/dir/")
 	require.Equal(3, len(entries), "All tokens saved to separate files")
@@ -222,7 +256,7 @@ func TestOauthSavedToken(t *testing.T) {
 		RedirectURL:  "localhost:1",
 		Scopes:       []string{"a", "b"},
 	})
-	require.NoError(storeToken(configFile,
+	require.NoError(storeToken(configFile(),
 		&oauth2.Token{
 			AccessToken:  "mocktoken",
 			RefreshToken: "mockrefreshtoken",
@@ -231,16 +265,16 @@ func TestOauthSavedToken(t *testing.T) {
 	os.Args = []string{"arg0", "setup-oauth"}
 	go InteractiveSetup()
 	assertExitCode(t, exitCode, 0)
-	require.Regexp(
+	require.Equal(
 		`Updating registered Oauth configurations:
 
-\[1 of 1\] barista\.run/oauth\.\w+
-\* Domain: 127\.0\.0\.1
-\* Scopes: a, b
-\+ Using saved token, never expires
+[1 of 1] #pkg#.#testName#
+* Domain: #host#
+* Scopes: a, b
++ Using saved token, never expires
 
 All tokens updated successfully
-`, mockStdout.ReadNow())
+`, sanitiseOauthOutput(mockStdout.ReadNow()))
 }
 
 func TestOauthExpiredToken(t *testing.T) {
@@ -254,7 +288,7 @@ func TestOauthExpiredToken(t *testing.T) {
 		RedirectURL:  "localhost:1",
 		Scopes:       []string{"a", "b"},
 	})
-	require.NoError(storeToken(configFile,
+	require.NoError(storeToken(configFile(),
 		&oauth2.Token{
 			AccessToken:  "mocktoken",
 			RefreshToken: "mockrefreshtoken",
@@ -264,17 +298,17 @@ func TestOauthExpiredToken(t *testing.T) {
 	os.Args = []string{"arg0", "setup-oauth"}
 	go InteractiveSetup()
 	assertExitCode(t, exitCode, 0)
-	require.Regexp(
+	require.Equal(
 		`Updating registered Oauth configurations:
 
-\[1 of 1\] barista\.run/oauth\.\w+
-\* Domain: 127\.0\.0\.1
-\* Scopes: a, b
-\+ Attempting automatic token refresh
-\+ Using saved token, expires .*?
+[1 of 1] #pkg#.#testName#
+* Domain: #host#
+* Scopes: a, b
++ Attempting automatic token refresh
++ Using saved token, expires #expiry#
 
 All tokens updated successfully
-`, mockStdout.ReadNow())
+`, sanitiseOauthOutput(mockStdout.ReadNow()))
 }
 
 func TestOauthInvalidSavedToken(t *testing.T) {
@@ -288,7 +322,7 @@ func TestOauthInvalidSavedToken(t *testing.T) {
 		RedirectURL:  "localhost:1",
 		Scopes:       []string{"a", "b"},
 	})
-	require.NoError(storeToken(configFile,
+	require.NoError(storeToken(configFile(),
 		&oauth2.Token{
 			AccessToken:  "not-mocktoken",
 			RefreshToken: "not-mockrefreshtoken",
@@ -298,25 +332,25 @@ func TestOauthInvalidSavedToken(t *testing.T) {
 	os.Args = []string{"arg0", "setup-oauth"}
 	go InteractiveSetup()
 	out, _ := mockStdout.ReadUntil('>', time.Second)
-	require.Regexp(
+	require.Equal(
 		`Updating registered Oauth configurations:
 
-\[1 of 1\] barista.run/oauth\.\w+
-\* Domain: 127\.0\.0\.1
-\* Scopes: a, b
-\+ Attempting automatic token refresh
+[1 of 1] #pkg#.#testName#
+* Domain: #host#
+* Scopes: a, b
++ Attempting automatic token refresh
 ! Automatic refresh failed
-- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
->`, out)
+- Visit #authURL# and enter the code here:
+>`, sanitiseOauthOutput(out))
 
 	mockStdout.ReadUntil(' ', time.Second)
 	mockStdin.Write([]byte("authcode\n"))
 	assertExitCode(t, exitCode, 0)
-	require.Regexp(
-		`\+ Successfully updated token, expires .*?
+	require.Equal(
+		`+ Successfully updated token, expires #expiry#
 
 All tokens updated successfully
-`, mockStdout.ReadNow())
+`, sanitiseOauthOutput(mockStdout.ReadNow()))
 }
 
 func TestOauthSetupStdinError(t *testing.T) {
@@ -413,7 +447,7 @@ func TestOauthLoadSavedToken(t *testing.T) {
 		RedirectURL:  "localhost:1",
 		Scopes:       []string{"a", "b"},
 	})
-	require.NoError(storeToken(configFile,
+	require.NoError(storeToken(configFile(),
 		&oauth2.Token{
 			AccessToken:  "mocktoken",
 			RefreshToken: "mockrefreshtoken",
@@ -455,7 +489,7 @@ func TestOauthTokenAutoRefresh(t *testing.T) {
 		RedirectURL:  "localhost:1",
 		Scopes:       []string{"a", "b"},
 	})
-	require.NoError(storeToken(configFile,
+	require.NoError(storeToken(configFile(),
 		&oauth2.Token{
 			AccessToken:  "whatever",
 			RefreshToken: "mockrefreshtoken",
@@ -467,7 +501,7 @@ func TestOauthTokenAutoRefresh(t *testing.T) {
 	resp, _ := client.Get(checkURL)
 	require.Equal(200, resp.StatusCode)
 
-	tok, err := loadToken(configFile)
+	tok, err := loadToken(configFile())
 	require.NoError(err)
 	require.Equal("mocktoken", tok.AccessToken, "updated token written to file")
 }
@@ -483,7 +517,7 @@ func TestOauthLoadInvalidSavedToken(t *testing.T) {
 		RedirectURL:  "localhost:1",
 		Scopes:       []string{"a", "b"},
 	})
-	require.NoError(storeToken(configFile,
+	require.NoError(storeToken(configFile(),
 		&oauth2.Token{
 			AccessToken:  "not-mocktoken",
 			RefreshToken: "not-mockrefreshtoken",
@@ -544,23 +578,23 @@ func TestOauthConfigReuse(t *testing.T) {
 	mockStdin.Write([]byte("authcode\n"))
 	assertExitCode(t, exitCode, 0)
 
-	require.Regexp(
+	require.Equal(
 		`Updating registered Oauth configurations:
 
-\[1 of 2\] barista.run/oauth\.registerA, barista.run/oauth\.registerB
-\* Domain: 127\.0\.0\.1
-\* Scopes: a, b
-- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
-> \+ Successfully updated token, expires .*?
+[1 of 2] #pkg#.registerA, #pkg#.registerB
+* Domain: #host#
+* Scopes: a, b
+- Visit #authURL# and enter the code here:
+> + Successfully updated token, expires #expiry#
 
-\[2 of 2\] barista.run/oauth\.registerC
-\* Domain: 127\.0\.0\.1
-\* Scopes: c
-- Visit http://127.0.0.1:\d+/auth\?.*? and enter the code here:
-> \+ Successfully updated token, expires .*?
+[2 of 2] #pkg#.registerC
+* Domain: #host#
+* Scopes: c
+- Visit #authURL# and enter the code here:
+> + Successfully updated token, expires #expiry#
 
 All tokens updated successfully
-`, mockStdout.ReadNow())
+`, sanitiseOauthOutput(mockStdout.ReadNow()))
 }
 
 func TestOauthRegisterAfterSetup(t *testing.T) {
@@ -568,7 +602,7 @@ func TestOauthRegisterAfterSetup(t *testing.T) {
 	mockStdout, _, exitCode := resetForTest()
 
 	require.NotPanics(func() { registerA() }, "Register before setup")
-	require.NoError(storeToken(configFile,
+	require.NoError(storeToken(configFile(),
 		&oauth2.Token{
 			AccessToken:  "mocktoken",
 			RefreshToken: "mockrefreshtoken",
