@@ -23,8 +23,10 @@ package collapsing // import "barista.run/group/collapsing"
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"barista.run/bar"
+	"barista.run/base/click"
 	"barista.run/base/notifier"
 	"barista.run/group"
 	l "barista.run/logging"
@@ -32,7 +34,7 @@ import (
 )
 
 // ButtonFunc produces outputs for buttons in a collapsing group.
-type ButtonFunc func(expanded bool) (start, end bar.Output)
+type ButtonFunc func(Controller) (start, end bar.Output)
 
 // Controller provides an interface to control a collapsing group.
 type Controller interface {
@@ -50,7 +52,7 @@ type Controller interface {
 
 // grouper implements a collapsing grouper.
 type grouper struct {
-	expanded   bool
+	expanded   atomic.Value // of bool
 	buttonFunc ButtonFunc
 
 	sync.Mutex
@@ -61,6 +63,7 @@ type grouper struct {
 // Group returns a new collapsing group, and a linked controller.
 func Group(m ...bar.Module) (bar.Module, Controller) {
 	g := &grouper{buttonFunc: DefaultButtons}
+	g.expanded.Store(false)
 	g.notifyFn, g.notifyCh = notifier.New()
 	return group.New(g, m...), g
 }
@@ -68,26 +71,20 @@ func Group(m ...bar.Module) (bar.Module, Controller) {
 // DefaultButtons returns the default button outputs:
 // - When expanded, a '>' and '<' on either side.
 // - When collapsed, a single '+'.
-func DefaultButtons(expanded bool) (start, end bar.Output) {
-	if expanded {
-		return outputs.Text(">"), outputs.Text("<")
+func DefaultButtons(c Controller) (start, end bar.Output) {
+	if c.Expanded() {
+		return outputs.Text(">").OnClick(click.Left(c.Collapse)),
+			outputs.Text("<").OnClick(click.Left(c.Collapse))
 	}
-	return outputs.Text("+"), nil
+	return outputs.Text("+").OnClick(click.Left(c.Expand)), nil
 }
 
 func (g *grouper) Visible(int) bool {
-	return g.expanded
+	return g.Expanded()
 }
 
 func (g *grouper) Buttons() (start, end bar.Output) {
-	onClick := func(e bar.Event) {
-		if e.Button == bar.ButtonLeft {
-			g.Toggle()
-		}
-	}
-	start, end = g.buttonFunc(g.expanded)
-	return outputs.Group(start).OnClick(onClick),
-		outputs.Group(end).OnClick(onClick)
+	return g.buttonFunc(g)
 }
 
 func (g *grouper) Signal() <-chan struct{} {
@@ -95,35 +92,32 @@ func (g *grouper) Signal() <-chan struct{} {
 }
 
 func (g *grouper) Expanded() bool {
-	g.Lock()
-	defer g.Unlock()
-	return g.expanded
+	return g.expanded.Load().(bool)
 }
 
 func (g *grouper) Collapse() {
-	g.Lock()
-	defer g.Unlock()
 	g.setExpanded(false)
 }
 
 func (g *grouper) Expand() {
-	g.Lock()
-	defer g.Unlock()
 	g.setExpanded(true)
 }
 
 func (g *grouper) Toggle() {
-	g.Lock()
-	defer g.Unlock()
-	g.setExpanded(!g.expanded)
+	g.setExpanded(!g.Expanded())
 }
 
 func (g *grouper) setExpanded(expanded bool) {
-	if g.expanded == expanded {
+	// Group calls Visible once for each module. To ensure a consistent value
+	// across the entire set, we prevent changes to expanded while the lock is
+	// held. Group only releases the lock once it's done with the grouper.
+	g.Lock()
+	defer g.Unlock()
+	if g.Expanded() == expanded {
 		return
 	}
 	l.Fine("%s.expanded = %v", l.ID(g), expanded)
-	g.expanded = expanded
+	g.expanded.Store(expanded)
 	g.notifyFn()
 }
 

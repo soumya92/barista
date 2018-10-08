@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"barista.run/bar"
+	"barista.run/base/click"
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
 	testModule "barista.run/testing/module"
@@ -77,11 +78,12 @@ func TestCollapsing(t *testing.T) {
 	testBar.NextOutput().AssertText([]string{"+"})
 	require.False(t, ctrl.Expanded())
 
-	ctrl.ButtonFunc(func(expanded bool) (start, end bar.Output) {
-		if expanded {
-			return outputs.Text("->"), outputs.Text("<-")
+	ctrl.ButtonFunc(func(c Controller) (start, end bar.Output) {
+		if c.Expanded() {
+			return outputs.Text("->").OnClick(click.Left(c.Collapse)),
+				outputs.Text("<-").OnClick(click.Left(c.Collapse))
 		}
-		return outputs.Text("<->"), nil
+		return outputs.Text("<->").OnClick(click.Left(c.Expand)), nil
 	})
 	testBar.NextOutput().AssertText([]string{"<->"},
 		"On button func change")

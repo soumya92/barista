@@ -18,8 +18,10 @@ package switching // import "barista.run/group/switching"
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"barista.run/bar"
+	"barista.run/base/click"
 	"barista.run/base/notifier"
 	"barista.run/group"
 	l "barista.run/logging"
@@ -27,7 +29,7 @@ import (
 )
 
 // ButtonFunc produces outputs for buttons in a switching group.
-type ButtonFunc func(current, len int) (start, end bar.Output)
+type ButtonFunc func(Controller) (start, end bar.Output)
 
 // Controller provides an interface to control a switching group.
 type Controller interface {
@@ -47,7 +49,7 @@ type Controller interface {
 
 // grouper implements a switching grouper.
 type grouper struct {
-	current    int
+	current    atomic.Value // of int
 	count      int
 	buttonFunc ButtonFunc
 
@@ -59,6 +61,7 @@ type grouper struct {
 // Group returns a new switching group, and a linked controller.
 func Group(m ...bar.Module) (bar.Module, Controller) {
 	g := &grouper{count: len(m), buttonFunc: DefaultButtons}
+	g.current.Store(0)
 	g.notifyFn, g.notifyCh = notifier.New()
 	return group.New(g, m...), g
 }
@@ -66,34 +69,22 @@ func Group(m ...bar.Module) (bar.Module, Controller) {
 // DefaultButtons provides the default switching buttons:
 // - '<' at the start, if there are modules before the current one,
 // - '>' at the end, if there are modules after the current one.
-func DefaultButtons(current, count int) (start, end bar.Output) {
-	if current > 0 {
-		start = outputs.Textf("<")
+func DefaultButtons(c Controller) (start, end bar.Output) {
+	if c.Current() > 0 {
+		start = outputs.Textf("<").OnClick(click.Left(c.Previous))
 	}
-	if current+1 < count {
-		end = outputs.Textf(">")
+	if c.Current()+1 < c.Count() {
+		end = outputs.Textf(">").OnClick(click.Left(c.Next))
 	}
 	return start, end
 }
 
 func (g *grouper) Visible(idx int) bool {
-	return g.current == idx
+	return g.Current() == idx
 }
 
 func (g *grouper) Buttons() (start, end bar.Output) {
-	start, end = g.buttonFunc(g.current, g.count)
-	startClick := func(e bar.Event) {
-		if e.Button == bar.ButtonLeft {
-			g.Previous()
-		}
-	}
-	endClick := func(e bar.Event) {
-		if e.Button == bar.ButtonLeft {
-			g.Next()
-		}
-	}
-	return outputs.Group(start).OnClick(startClick),
-		outputs.Group(end).OnClick(endClick)
+	return g.buttonFunc(g)
 }
 
 func (g *grouper) Signal() <-chan struct{} {
@@ -101,39 +92,35 @@ func (g *grouper) Signal() <-chan struct{} {
 }
 
 func (g *grouper) Current() int {
-	g.Lock()
-	defer g.Unlock()
-	return g.current
+	return g.current.Load().(int)
 }
 
 func (g *grouper) Previous() {
-	g.Lock()
-	defer g.Unlock()
-	g.setIndex(g.current - 1)
+	g.setIndex(g.Current() - 1)
 }
 
 func (g *grouper) Next() {
-	g.Lock()
-	defer g.Unlock()
-	g.setIndex(g.current + 1)
+	g.setIndex(g.Current() + 1)
 }
 
 func (g *grouper) Show(index int) {
-	g.Lock()
-	defer g.Unlock()
 	g.setIndex(index)
 }
 
 func (g *grouper) Count() int {
-	g.Lock()
-	defer g.Unlock()
 	return g.count
 }
 
 func (g *grouper) setIndex(index int) {
+	// Group calls Visible once for each module. To ensure a consistent value
+	// across the entire set, we prevent changes to current while the lock is
+	// held. Group only releases the lock once it's done with the grouper.
+	g.Lock()
+	defer g.Unlock()
 	// Handle wrap around on either side.
-	g.current = (index + g.count) % g.count
-	l.Fine("%s switched to #%d", l.ID(g), g.current)
+	current := (index + g.count) % g.count
+	l.Fine("%s switched to #%d", l.ID(g), current)
+	g.current.Store(current)
 	g.notifyFn()
 }
 

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"barista.run/bar"
+	"barista.run/base/click"
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
 	testModule "barista.run/testing/module"
@@ -62,8 +63,9 @@ func TestSwitching(t *testing.T) {
 	out.At(0).LeftClick()
 	testBar.NextOutput().AssertText([]string{"<", "a", ">"})
 
-	ctrl.ButtonFunc(func(current, total int) (start, end bar.Output) {
-		return outputs.Text("/*"), outputs.Text("*/")
+	ctrl.ButtonFunc(func(c Controller) (start, end bar.Output) {
+		return outputs.Text("/*").OnClick(click.Left(c.Previous)),
+			outputs.Text("*/").OnClick(click.Left(c.Next))
 	})
 	testBar.NextOutput().AssertText([]string{"/*", "a", "*/"})
 
