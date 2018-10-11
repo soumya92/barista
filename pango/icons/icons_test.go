@@ -55,22 +55,22 @@ func TestIconProvider(t *testing.T) {
 
 	tests := []struct{ desc, icon, expected string }{
 		{"no output for unknown icon", "unknown", ""},
-		{"simple icon", "test", "<span face='testfont' weight='200'>a</span>"},
-		{"emoji", "lgtm", "<span face='testfont' weight='200'>👍</span>"},
-		{"ligature", "ligature-font", "<span face='testfont' weight='200'>home</span>"},
+		{"simple icon", "test", "<span fallback='false' face='testfont' weight='200'>a</span>"},
+		{"emoji", "lgtm", "<span fallback='false' face='testfont' weight='200'>👍</span>"},
+		{"ligature", "ligature-font", "<span fallback='false' face='testfont' weight='200'>home</span>"},
 	}
 	for _, tc := range tests {
 		pangoTesting.AssertEqual(t, tc.expected, pango.Icon("test-"+tc.icon).String(), tc.desc)
 	}
 
 	pangoTesting.AssertEqual(t,
-		"<span color='#ff0000'><span face='testfont' weight='200'>a</span></span>",
+		"<span color='#ff0000'><span fallback='false' face='testfont' weight='200'>a</span></span>",
 		pango.Icon("test-test").Color(colors.Hex("#f00")).String(),
 		"Attributes are added to a wrapping <span>",
 	)
 
 	pangoTesting.AssertEqual(t,
-		`<span style='italic'><span weight='200' face='testfont'>home</span
+		`<span style='italic'><span fallback='false' weight='200' face='testfont'>home</span
 		><span weight='bold'>foobar</span></span>`,
 		pango.Icon("test-ligature-font").Italic().Append(pango.Text("foobar").Bold()).String(),
 		"Append adds new elements without icon font styling",

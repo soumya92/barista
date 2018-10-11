@@ -42,6 +42,7 @@ func Icon(ident string) *Node {
 	if p, ok := iconProviders[provider]; ok {
 		node := p(name)
 		if node != nil {
+			node.attributes["fallback"] = "false"
 			return New(node)
 		}
 	}
