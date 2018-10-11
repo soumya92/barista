@@ -23,6 +23,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type intStringer int
+
+func (i intStringer) String() string {
+	return fmt.Sprintf("%d", i)
+}
+
+type floatStringer float64
+
+func (f floatStringer) String() string {
+	return fmt.Sprintf("%g", f)
+}
+
+type pointerStringer struct{}
+
+func (p *pointerStringer) String() string {
+	return "pointer"
+}
+
 func TestValue(t *testing.T) {
 	require := require.New(t)
 	var v Value
@@ -32,9 +50,25 @@ func TestValue(t *testing.T) {
 
 	v.Set("foobar")
 	require.Equal("foobar", v.Get())
+}
 
-	require.Panics(func() { v.Set(int64(5)) },
-		"Setting value of different type panics")
+func TestInterfaceValue(t *testing.T) {
+	require := require.New(t)
+	var v Value
+
+	v.Set(intStringer(4))
+	require.Equal("4", v.Get().(fmt.Stringer).String())
+
+	require.NotPanics(func() { v.Set(floatStringer(5.1)) },
+		"Storing different concrete type for an interface")
+	require.Equal("5.1", v.Get().(fmt.Stringer).String())
+
+	var s *pointerStringer
+	require.NotPanics(func() { v.Set(s) },
+		"Storing interface-typed nil value")
+	stringer, ok := v.Get().(fmt.Stringer)
+	require.True(ok, "casting to interface for typed nil")
+	require.Equal("pointer", stringer.String())
 }
 
 func TestValueUpdate(t *testing.T) {
@@ -101,10 +135,6 @@ func TestErrorValue(t *testing.T) {
 	val, err = v.Get()
 	require.Equal("foobar", val)
 	require.NoError(err, "When value was set")
-
-	// TODO: This should work.
-	// require.Panics(func() { v.Set(int64(5)) },
-	// 	"Setting value of different type panics")
 
 	require.True(v.Error(fmt.Errorf("blah")),
 		"Error returns true for non-nil error")

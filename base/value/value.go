@@ -22,6 +22,12 @@ import (
 	l "barista.run/logging"
 )
 
+// To allow storing different concrete types in the atomic.Value, for example
+// when the value just needs to store an interface.
+type box struct {
+	value interface{}
+}
+
 // Value provides atomic value storage with update notifications.
 type Value struct {
 	value atomic.Value
@@ -42,12 +48,15 @@ func (v *Value) Next() <-chan struct{} {
 
 // Get returns the currently stored value.
 func (v *Value) Get() interface{} {
-	return v.value.Load()
+	if b, ok := v.value.Load().(box); ok {
+		return b.value
+	}
+	return nil
 }
 
 // Set updates the stored values and notifies any subscribers.
 func (v *Value) Set(value interface{}) {
-	v.value.Store(value)
+	v.value.Store(box{value})
 	l.Fine("%s: Store %#v", l.ID(v), value)
 	v.obsMu.Lock()
 	defer v.obsMu.Unlock()
