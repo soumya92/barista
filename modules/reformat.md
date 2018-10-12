@@ -7,7 +7,7 @@ bar. It also provides utility functions to make transformations easier.
 
 Reformatting an existing module: `reformat.New(existingModule).Format(formatFunc)`.
 
-- `type FormatFunc = func(bar.Output) bar.Output` operates at the output level.
+- `type FormatFunc = func(bar.Segments) bar.Output` operates at the output level.
 - `type SegmentFunc = func(*bar.Segment) *bar.Segment` operates at the segment level.
 
 ## Default Formatters
@@ -15,6 +15,7 @@ Reformatting an existing module: `reformat.New(existingModule).Format(formatFunc
 There are some formatting functions available out of the box:
 - `Original`: a.k.a. Identity. Returns the input unchanged.
 - `Hide`: Returns nil, hiding the original module from the bar.
+- `Texts(func(string) string)`: Transforms only text segments, replacing them with new text segments.
 - `EachSegment(SegmentFunc)`: Transforms each segment of the original output individually.
 
 In addition, reformat also provides `SkipErrors(SegmentFunc)` that wraps an existing SegmentFunc
