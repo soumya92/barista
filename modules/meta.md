@@ -5,8 +5,8 @@ pkg: 'noimport'
 
 `modules/meta` provides modules that operate on other modules.
 
-* [reformat](reformat): Transforms the output from an existing module before
+* [reformat](/modules/meta/reformat): Transforms the output from an existing module before
   sending it to the bar.
 
-* [split](split): Splits the output from an existing module and returns two
+* [split](/modules/meta/split): Splits the output from an existing module and returns two
   separate modules.

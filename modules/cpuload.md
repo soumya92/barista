@@ -4,7 +4,7 @@ title: CPU Load Average
 
 Display CPU load information: `cpuload.New()`.
 
-The [`sysinfo`](sysinfo) module can show load averages and additional information, and also shares
+The [`sysinfo`](/sysinfo) module can show load averages and additional information, and also shares
 updates between all sysinfo module instances, so it should be used over cpuload when possible. 
 
 ## Configuration
