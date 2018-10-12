@@ -74,11 +74,11 @@ func (m *module) Stream(sink bar.Sink) {
 	}
 }
 
-// SplitModule splits the output from a module at index n, and returns two
-// modules. The first module displays segments 0 through n (inclusive), while
-// the second module displays all remaining segments. One or both of the modules
-// will show an empty output if there are not enough segments.
-func SplitModule(original bar.Module, n int) (first, rest bar.Module) {
+// New splits the output from a module at index n, and returns two modules.
+// The first module displays segments 0 through n (inclusive), while the second
+// module displays all remaining segments. One or both of the modules will show
+// an empty output if there are not enough segments in the original output.
+func New(original bar.Module, n int) (first, rest bar.Module) {
 	segments := new(value.Value)
 	coreModule := core.NewModule(original)
 

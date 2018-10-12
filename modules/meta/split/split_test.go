@@ -28,7 +28,7 @@ func TestSplit(t *testing.T) {
 	testBar.New(t)
 
 	original := testModule.New(t)
-	first, rest := SplitModule(original, 2)
+	first, rest := New(original, 2)
 
 	// To delineate the portions of the output coming from first and rest.
 	start := testModule.New(t)
