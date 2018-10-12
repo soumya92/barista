@@ -7,3 +7,6 @@ pkg: 'noimport'
 
 * [reformat](reformat): Transforms the output from an existing module before
   sending it to the bar.
+
+* [split](split): Splits the output from an existing module and returns two
+  separate modules.
