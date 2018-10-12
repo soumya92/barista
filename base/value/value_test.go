@@ -63,12 +63,18 @@ func TestInterfaceValue(t *testing.T) {
 		"Storing different concrete type for an interface")
 	require.Equal("5.1", v.Get().(fmt.Stringer).String())
 
-	var s *pointerStringer
+	var p *pointerStringer
+	require.NotPanics(func() { v.Set(p) },
+		"Storing nil-value implementation of interface")
+	stringer, ok := v.Get().(fmt.Stringer)
+	require.True(ok, "casting to interface with nil value")
+	require.Equal("pointer", stringer.String())
+
+	var s fmt.Stringer
 	require.NotPanics(func() { v.Set(s) },
 		"Storing interface-typed nil value")
-	stringer, ok := v.Get().(fmt.Stringer)
-	require.True(ok, "casting to interface for typed nil")
-	require.Equal("pointer", stringer.String())
+	stringer, _ = v.Get().(fmt.Stringer)
+	require.Nil(stringer)
 }
 
 func TestValueUpdate(t *testing.T) {
