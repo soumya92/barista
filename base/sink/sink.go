@@ -15,7 +15,10 @@
 // Package sink provides functions to create test sinks.
 package sink // import "barista.run/base/sink"
 
-import "barista.run/bar"
+import (
+	"barista.run/bar"
+	"barista.run/base/value"
+)
 
 // New creates a new sink and returns a channel that
 // will emit any outputs sent to the sink.
@@ -37,4 +40,16 @@ func Null() bar.Sink {
 		}
 	}()
 	return sink
+}
+
+// Value returns a sink that sends output to a base.Value.
+func Value() (*value.Value, bar.Sink) {
+	ch, sink := New()
+	val := new(value.Value)
+	go func(ch <-chan bar.Output, val *value.Value) {
+		for o := range ch {
+			val.Set(o)
+		}
+	}(ch, val)
+	return val, sink
 }

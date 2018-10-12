@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"barista.run/bar"
 	"barista.run/outputs"
 
 	"github.com/stretchr/testify/require"
@@ -83,4 +84,22 @@ func TestNullSink(t *testing.T) {
 	case <-time.After(time.Second):
 		require.Fail(t, "Null sink failed to dump 1000 entries in 1s")
 	}
+}
+
+func TestValueSink(t *testing.T) {
+	v, s := Value()
+
+	next := v.Next()
+	s.Output(outputs.Text("foo"))
+
+	<-next
+	out := v.Get().(bar.Output)
+	txt, _ := out.Segments()[0].Content()
+	require.Equal(t, "foo", txt)
+
+	next = v.Next()
+	s.Output(nil)
+
+	<-next
+	require.Nil(t, v.Get(), "nil output")
 }
