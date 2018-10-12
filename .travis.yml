@@ -45,8 +45,8 @@ branches:
 notifications:
   pushover:
     template: "%{repository_slug}: %{message} (%{duration})\n%{commit_subject} %{build_url}"
-    on_success: always
-    on_failure: always
+    on_success: never
+    on_failure: change
     users:
       - secure: MsqGtKJseiagCPHFONX4bqkUZwNcN3hs+gZRwfO7JhWshu2LZPFiLWBi6Fn/0gfRp3vaS6a4MmHzCLwD3lHWI+RU0lvOfTbCvjO/oB65rYf2xCkjkGpLn5BhOWdZe5O2+W3yXd/Ak3OtUuy3s6z2qYsyjBFKR8+LfEgkUaiAW6CKtL9fdKAf1Or9JY+qPiMEqOx0JhbLk7R5j4YwfmYhUVMgW3jd7zT4QWqDxABgYeLCuAOS0g5KwUjF9tNUicSvWp4coILMZXqY08vR6zA6ZyAh1U+D3vSwR3807Xt42BDdBdkCnVpVlHJV4XaJMOqYupN4TjUEel4KRY3uMvqxxnbB/RXVwsbng+pu5o96eeuBz07x5XTbdAZAZ1oWLVz5ynZaRBJ5zICZvbWvhbvP0B0SoKp3oUIKFp+R3QhYiACBW7bmHU/EK6lYSpAxIAxpZxboVNhcKhbU0LQTlXL2jH9ZObOyk+2ldA982o6/j87wQBIADeiRLTo/wt+c3KDZp70W17FZCjDpyqUAKfSYATsp5lMSUP9gu1YbXjjlU2dwbkzRMKyuAU/+511IexHW+kjw/YzQOQt2NN7f8e8XYccd4Orn1A3StXrIQhyCSJzD9t1YrP38WrJAeqJaG05rQGGt4qOeIELxnOUWlkVzhRGdMeYEQtH7dAWSc16DmG8=
     api_key:
