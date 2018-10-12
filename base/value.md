@@ -36,9 +36,7 @@ func (m *Module) Stream(sink bar.Sink) {
 
 * `Get() interface{}`: Gets the previously stored value, or `nil` if nothing was stored.
 
-* `Set(interface{})`: Stores a new value and notifies any listeners of the update. Because Value
-  is backed by an [`atomic.Value`](https://golang.org/pkg/sync/atomic/#Value), once Set only values
-  of the same type can be stored without causing a panic.
+* `Set(interface{})`: Stores a new value and notifies any listeners of the update.
 
 * `Next() <-chan struct{}`: Listens for the next value update. Each call to `Next()` creates a new
   channel that will be closed the next time the value changes, so once the channel notifies it is

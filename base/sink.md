@@ -18,6 +18,10 @@ testing or wrapping existing modules.
 
   Returns a sink that discards all output sent to it.
 
+- `sink.Value()`
+
+  Returns a sink that stores the latest output in a [base/value](/base/value).
+
 ## Example
 
 ```go
