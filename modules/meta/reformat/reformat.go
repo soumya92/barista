@@ -13,8 +13,9 @@
 // limitations under the License.
 
 /*
-Package reformat provides a module that "wraps" an existing module and transforms it's output.
-This can be useful for adding extra formatting simple bar modules.
+Package reformat provides a module that "wraps" an existing module and
+transforms it's output. This can be useful for adding extra formatting simple
+bar modules.
 
 For example, a time module might use strftime-style format strings,
 which don't allow for colours or borders. You can add those using reformat:
@@ -24,7 +25,7 @@ which don't allow for colours or borders. You can add those using reformat:
    return o.Background("red").Padding(20)
  })
 */
-package reformat // import "barista.run/modules/reformat"
+package reformat // import "barista.run/modules/meta/reformat"
 
 import (
 	"sync/atomic"
