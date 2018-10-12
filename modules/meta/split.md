@@ -6,6 +6,8 @@ Split splits the output from an existing module into two distinct modules,
 making it easy to show part of the modules output in a different location or
 on-demand instead of always.
 
+Splitting a module output: `first2, remaining := split.New(existingModule, 2)`.
+
 ## Example
 
 <div class="module-example-out"><span>Mail:5</span><span>+</span></div>
@@ -22,7 +24,7 @@ mail := mailProvider.New(labels...).
 		}
 		return o
 	})
-inbox, others := split.SplitModule(mail, 1)
+inbox, others := split.New(mail, 1)
 
 // Add inbox, and hide others behind a collapsible group.
 grp, _ := collapsing.Group(others)
