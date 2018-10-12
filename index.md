@@ -67,7 +67,7 @@ Barista provides several modules out of the box:
 - [netinfo](modules/netinfo): Shows network link information, such as connection state,
 	hardware address, or IP addresses.
 - [netspeed](modules/netspeed): Shows data transfer rates for a network interface.
-- [reformat](modules/reformat): Wraps an existing module but changes the output format.
+- [meta](modules/meta): Meta-modules: modules that operate on other modules.
 - [shell](modules/shell): Provides a module to show the output of a shell command (periodically or on-demand),
 	and another one to show the last line of output from a long-running shell command.
 - [sysinfo](modules/sysinfo): Shows system information.
