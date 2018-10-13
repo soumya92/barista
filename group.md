@@ -10,6 +10,18 @@ There are several default groups:
 * [Cycling](/group/cycling): Cycle through the modules one at a time at a fixed time interval.
 * [Following](/group/following): Show the most recently updated module.
 
+## group.Simple
+
+In addition to the more functional default groups, barista also includes `group.Simple(...)` that
+simply concatenates several modules into one:
+
+```go
+newModule = group.Simple(mod1, mod2, mod3)
+```
+
+Allowing multiple modules to be added anywhere a single module is expected, for example, in the
+cycling or switching groups.
+
 ## Implementing a Custom Group
 
 If none of the built-in groupers are a perfect fit, you can also write your own grouper. The basic
