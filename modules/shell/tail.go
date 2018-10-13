@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package shell provides modules to display the output of shell commands.
-It supports both long-running commands, where the output is the last line,
-e.g. dmesg or tail -f /var/log/some.log, and repeatedly running commands,
-e.g. whoami, date +%s.
-*/
 package shell
 
 import (
@@ -31,8 +25,8 @@ import (
 	"barista.run/outputs"
 )
 
-// TailModule represents a bar.Module that displays the last line
-// of output from a shell command in the bar.
+// TailModule represents a bar.Module that displays the last line of output from
+// a shell command in the bar.
 type TailModule struct {
 	cmd       string
 	args      []string
@@ -41,9 +35,8 @@ type TailModule struct {
 	refreshFn func()
 }
 
-// Tail constructs a module that displays the last line of output from
-// a long running command. Use the reformat module to adjust the output
-// if necessary.
+// Tail constructs a module that displays the last line of output from a long
+// running command.
 func Tail(cmd string, args ...string) *TailModule {
 	t := &TailModule{cmd: cmd, args: args}
 	t.refreshFn, t.refreshCh = notifier.New()
@@ -104,7 +97,7 @@ func (m *TailModule) Output(format func(string) bar.Output) *TailModule {
 }
 
 // Refresh refreshes the output using the last line of output format func.
-// Useful when paired with a scheduler if your output format has a relative time.
+// Useful when paired with a scheduler if the output format has a relative time.
 func (m *TailModule) Refresh() {
 	m.refreshFn()
 }

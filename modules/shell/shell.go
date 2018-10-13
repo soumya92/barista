@@ -32,8 +32,7 @@ import (
 	"barista.run/timing"
 )
 
-// Module represents a shell command module that can be updated
-// on a timer, or on demand.
+// Module represents a shell module that updates on a timer or on demand.
 type Module struct {
 	cmd       string
 	args      []string
@@ -74,17 +73,17 @@ func (m *Module) Stream(s bar.Sink) {
 	}
 }
 
-// Output sets the output format. The format func will be passed the
-// entire trimmed output from the command once it's done executing.
-// To process output by lines, see Tail().
+// Output sets the output format. The format func will be passed the entire
+// trimmed output from the command once it's done executing. To process output
+// by lines, see Tail().
 func (m *Module) Output(format func(string) bar.Output) *Module {
 	m.outf.Set(format)
 	return m
 }
 
-// Every sets the refresh interval for the module. The command will be
-// executed repeatedly at the given interval, and the output updated.
-// A zero interval stops automatic repeats (but Refresh will still work).
+// Every sets the refresh interval for the module. The command will be executed
+// repeatedly at the given interval, and the output updated. A zero interval
+// stops automatic repeats (but Refresh will still work).
 func (m *Module) Every(interval time.Duration) *Module {
 	if interval == 0 {
 		m.scheduler.Stop()
