@@ -249,6 +249,12 @@ var colorAttrTests = []struct {
 		Text("color").UnderlineColor(nil),
 		"<span>color</span>",
 	},
+
+	{
+		"fg, alpha only, no colour",
+		Text("dim").Alpha(0.5),
+		"<span alpha='32768'>dim</span>",
+	},
 }
 
 func TestColorAttrs(t *testing.T) {

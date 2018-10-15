@@ -15,6 +15,7 @@
 package pango
 
 import (
+	"fmt"
 	"image/color"
 	"strconv"
 
@@ -109,6 +110,11 @@ func (n *Node) Color(c color.Color) *Node {
 	col, alpha := colorAndAlpha(c)
 	n.setAttr("alpha", alpha)
 	return n.setAttr("color", col)
+}
+
+// Alpha applies just a foreground alpha, keeping the default text colour.
+func (n *Node) Alpha(alpha float64) *Node {
+	return n.setAttr("alpha", fmt.Sprintf("%.0f", 65535.0*alpha))
 }
 
 // Background applies a background color and alpha.
