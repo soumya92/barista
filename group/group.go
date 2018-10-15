@@ -74,7 +74,7 @@ func (g *group) Stream(sink bar.Sink) {
 	for {
 		out, changed := g.output(idx)
 		if changed || idx < 0 {
-			sink(out)
+			sink.Output(out)
 		}
 		select {
 		case <-signalCh:

@@ -27,10 +27,10 @@ import (
 
 func TestNewSink(t *testing.T) {
 	ch, s := New()
-	go s(outputs.Text("foo"))
+	go s(bar.Segments{bar.TextSegment("foo")})
 
 	out := <-ch
-	txt, _ := out.Segments()[0].Content()
+	txt, _ := out[0].Content()
 	require.Equal(t, "foo", txt)
 
 	require.False(t, s.Error(nil))
@@ -48,7 +48,7 @@ func TestNewSink(t *testing.T) {
 	}()
 	select {
 	case out := <-ch:
-		require.Error(t, out.Segments()[0].GetError())
+		require.Error(t, out[0].GetError())
 	case <-doneChan:
 		require.Fail(t, "expected error output on channel")
 	}
@@ -56,8 +56,8 @@ func TestNewSink(t *testing.T) {
 
 func TestBufferedSink(t *testing.T) {
 	ch, s := Buffered(5)
-	s(outputs.Text("foo"))
-	s(outputs.Text("bar"))
+	s.Output(outputs.Text("foo"))
+	s.Output(outputs.Text("bar"))
 
 	out := <-ch
 	txt, _ := out.Segments()[0].Content()

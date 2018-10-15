@@ -22,14 +22,14 @@ import (
 
 // New creates a new sink and returns a channel that
 // will emit any outputs sent to the sink.
-func New() (<-chan bar.Output, bar.Sink) {
+func New() (<-chan bar.Segments, bar.Sink) {
 	return Buffered(0)
 }
 
 // Buffered creates a new buffered sink.
-func Buffered(bufCount int) (<-chan bar.Output, bar.Sink) {
-	ch := make(chan bar.Output, bufCount)
-	return ch, func(o bar.Output) { ch <- o }
+func Buffered(bufCount int) (<-chan bar.Segments, bar.Sink) {
+	ch := make(chan bar.Segments, bufCount)
+	return ch, func(o bar.Segments) { ch <- o }
 }
 
 // Null returns a sink that swallows any output sent to it.
@@ -46,7 +46,7 @@ func Null() bar.Sink {
 func Value() (*value.Value, bar.Sink) {
 	ch, sink := New()
 	val := new(value.Value)
-	go func(ch <-chan bar.Output, val *value.Value) {
+	go func(ch <-chan bar.Segments, val *value.Value) {
 		for o := range ch {
 			val.Set(o)
 		}

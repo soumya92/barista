@@ -33,7 +33,7 @@ func (m *Module) Stream(sink bar.Sink) {
 	for {
 		next := m.output.Next()
 		out, _ := m.output.Get().(bar.Output)
-		sink(out)
+		sink.Output(out)
 		<-next
 	}
 }

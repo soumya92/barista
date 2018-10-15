@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/sink"
 	"barista.run/outputs"
 	testModule "barista.run/testing/module"
 
@@ -44,18 +45,11 @@ func assertNoOutput(t *testing.T, ch <-chan bar.Segments, formatAndArgs ...inter
 	}
 }
 
-func chanSink() (<-chan bar.Segments, Sink) {
-	ch := make(chan bar.Segments)
-	return ch, func(s bar.Segments) { ch <- s }
-}
-
-func nullSink(bar.Segments) {}
-
 func TestModule(t *testing.T) {
 	tm := testModule.New(t)
 	tm.SkipClickHandlers() // needed for nil output.
 	m := NewModule(tm)
-	ch, sink := chanSink()
+	ch, sink := sink.New()
 
 	tm.AssertNotStarted("before stream")
 	go m.Stream(sink)
@@ -73,7 +67,7 @@ func TestModule(t *testing.T) {
 func TestReplay(t *testing.T) {
 	tm := testModule.New(t)
 	m := NewModule(tm)
-	ch, sink := chanSink()
+	ch, sink := sink.New()
 
 	m.Replay()
 	// If this didn't panic, test passed.
@@ -94,14 +88,14 @@ func TestReplay(t *testing.T) {
 type simpleModule struct{ returned chan bool }
 
 func (s *simpleModule) Stream(sink bar.Sink) {
-	sink(outputs.Text("foo"))
+	sink.Output(outputs.Text("foo"))
 	s.returned <- true
 }
 
 func TestRestart(t *testing.T) {
 	tm := testModule.New(t)
 	m := NewModule(tm)
-	ch, sink := chanSink()
+	ch, sink := sink.New()
 
 	tm.AssertNotStarted("before stream")
 	go m.Stream(sink)

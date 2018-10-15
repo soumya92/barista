@@ -115,7 +115,7 @@ func (m *Module) Stream(s bar.Sink) {
 	m.wrapped.Stream(wrappedSink(m, s))
 }
 
-func wrappedSink(m *Module, s bar.Sink) core.Sink {
+func wrappedSink(m *Module, s bar.Sink) bar.Sink {
 	return func(o bar.Segments) {
 		formatter := m.formatter.Load().(FormatFunc)
 		s.Output(formatter(o))

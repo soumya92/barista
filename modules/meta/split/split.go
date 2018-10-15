@@ -40,6 +40,7 @@ import (
 	"sync"
 
 	"barista.run/bar"
+	"barista.run/base/sink"
 	"barista.run/base/value"
 	"barista.run/core"
 )
@@ -79,13 +80,13 @@ func (m *module) Stream(sink bar.Sink) {
 // module displays all remaining segments. One or both of the modules will show
 // an empty output if there are not enough segments in the original output.
 func New(original bar.Module, n int) (first, rest bar.Module) {
-	segments := new(value.Value)
+	segments, sink := sink.Value()
 	coreModule := core.NewModule(original)
 
 	var once sync.Once
 	start := func() {
 		once.Do(func() {
-			coreModule.Stream(func(s bar.Segments) { segments.Set(s) })
+			coreModule.Stream(sink)
 		})
 	}
 

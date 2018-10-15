@@ -154,7 +154,7 @@ type ErrorEvent struct {
 }
 
 // Sink represents a destination for module output.
-type Sink func(Output)
+type Sink func(Segments)
 
 // Module represents a single bar module. A bar is just a list of modules.
 type Module interface {

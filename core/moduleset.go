@@ -53,7 +53,7 @@ func (m *ModuleSet) Stream() <-chan int {
 	return m.updateCh
 }
 
-func (m *ModuleSet) sinkFn(idx int) Sink {
+func (m *ModuleSet) sinkFn(idx int) bar.Sink {
 	return func(out bar.Segments) {
 		l.Fine("%s new output from %s",
 			l.ID(m), l.ID(m.modules[idx].original))

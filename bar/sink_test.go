@@ -23,26 +23,26 @@ import (
 
 func TestOutput(t *testing.T) {
 	var sink Sink
-	ch := make(chan Output, 1)
-	sink = func(o Output) { ch <- o }
+	ch := make(chan Segments, 1)
+	sink = func(o Segments) { ch <- o }
 
 	sink.Output(TextSegment("foo"))
 	select {
 	case out := <-ch:
-		txt, _ := out.Segments()[0].Content()
+		txt, _ := out[0].Content()
 		require.Equal(t, "foo", txt)
 	default:
 		require.Fail(t, "expected output on Output(...)")
 	}
 
 	sink.Output(nil)
-	require.Nil(t, <-ch)
+	require.Empty(t, <-ch)
 }
 
 func TestError(t *testing.T) {
 	var sink Sink
-	ch := make(chan Output, 1)
-	sink = func(o Output) { ch <- o }
+	ch := make(chan Segments, 1)
+	sink = func(o Segments) { ch <- o }
 
 	require.False(t, sink.Error(nil), "nil error returns false")
 	select {
@@ -55,7 +55,7 @@ func TestError(t *testing.T) {
 	require.True(t, sink.Error(io.EOF), "non-nil error returns true")
 	select {
 	case out := <-ch:
-		require.Error(t, out.Segments()[0].GetError(),
+		require.Error(t, out[0].GetError(),
 			"output sent on Error(...) has error segment")
 	default:
 		require.Fail(t, "Expected an error output on Error(...)")

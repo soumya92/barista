@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"barista.run/bar"
+	"barista.run/base/sink"
 	"barista.run/base/value"
 	"barista.run/core"
 )
@@ -45,12 +46,12 @@ func (m module) Stream(sink bar.Sink) {
 // times, and mirrors the output of the original module at each location.
 // IMPORTANT: The original module must not be added to the bar.
 func New(original bar.Module) bar.Module {
-	output := new(value.Value)
+	output, sink := sink.Value()
 	coreModule := core.NewModule(original)
 	var once sync.Once
 	start := func() {
 		once.Do(func() {
-			coreModule.Stream(func(s bar.Segments) { output.Set(s) })
+			coreModule.Stream(sink)
 		})
 	}
 	return module{output, start}

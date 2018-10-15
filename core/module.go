@@ -23,10 +23,6 @@ import (
 	l "barista.run/logging"
 )
 
-// Sink is a specialisation of bar.Sink that provides bar.Segments
-// instead of bar.Outputs, allowing range without nil checks.
-type Sink = func(bar.Segments)
-
 // Module represents a bar.Module wrapped with core barista functionality.
 // It is used as a building block for the main bar, modules that manipulate
 // other modules (group, reformat), and for writing tests.
@@ -54,7 +50,7 @@ func NewModule(original bar.Module) *Module {
 
 // Stream runs the module with the given sink, automatically handling
 // terminations/restarts of the wrapped module.
-func (m *Module) Stream(sink Sink) {
+func (m *Module) Stream(sink bar.Sink) {
 	for {
 		m.runLoop(sink)
 	}
@@ -64,7 +60,7 @@ func (m *Module) Stream(sink Sink) {
 // module, and multiplexes events, replay notifications, and module output.
 // It returns when the underlying module is ready to be restarted (i.e. it
 // was stopped and an eligible click event was received).
-func (m *Module) runLoop(realSink Sink) {
+func (m *Module) runLoop(realSink bar.Sink) {
 	started := false
 	finished := false
 	outputCh, innerSink := sink.New()
@@ -80,9 +76,8 @@ func (m *Module) runLoop(realSink Sink) {
 	var out bar.Segments
 	for {
 		select {
-		case o := <-outputCh:
+		case out = <-outputCh:
 			started = true
-			out = toSegments(o)
 			realSink(out)
 		case <-doneCh:
 			finished = true
@@ -114,23 +109,6 @@ func isRestartableClick(e bar.Event) bool {
 	return e.Button == bar.ButtonLeft ||
 		e.Button == bar.ButtonRight ||
 		e.Button == bar.ButtonMiddle
-}
-
-// toSegments creates a copy of the bar output as bar.Segments.
-// This means that nil checks are no longer needed, since bar.Segments
-// is just a slice, and nil slice will not cause panics. It also means
-// that implementations of bar.Output that have a large backing data
-// structure can be gc'd, since only their output segments will be
-// stored here.
-func toSegments(out bar.Output) bar.Segments {
-	if out == nil {
-		return nil
-	}
-	var segs bar.Segments
-	for _, s := range out.Segments() {
-		segs = append(segs, s.Clone())
-	}
-	return segs
 }
 
 // stripErrors strips any error segments from the given list.
