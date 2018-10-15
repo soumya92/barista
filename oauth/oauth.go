@@ -145,6 +145,8 @@ func InteractiveSetup() {
 	if len(os.Args) < 2 || os.Args[1] != "setup-oauth" {
 		return
 	}
+	// TODO: Argument parsing here.
+	forceUpdate := len(os.Args) > 2 && os.Args[2] == "force-refresh"
 	registeredConfigsMu.Lock()
 	defer registeredConfigsMu.Unlock()
 	if len(registeredConfigs) == 0 {
@@ -156,7 +158,7 @@ func InteractiveSetup() {
 	success := true
 	fmt.Fprintln(stdout, "Updating registered Oauth configurations:")
 	for idx, c := range registeredConfigs {
-		if !c.prompt(idx, len(registeredConfigs)) {
+		if !c.prompt(idx, len(registeredConfigs), forceUpdate) {
 			success = false
 		}
 	}
@@ -172,12 +174,16 @@ func commas(s []string) string {
 	return strings.Join(s, ", ")
 }
 
-func (c *Config) prompt(index, total int) bool {
+func (c *Config) prompt(index, total int, force bool) bool {
 	fmt.Fprintf(stdout, "\n[%d of %d] %s\n* Domain: %s\n* Scopes: %s\n",
 		index+1, total, commas(c.callers), c.domain, commas(c.config.Scopes))
 
 	err := c.autoUpdateToken()
 	if err == nil {
+		if force && c.token.RefreshToken != "" {
+			c.tokenSource = c.config.TokenSource(context.Background(), c.token)
+			c.token.Expiry = time.Now().Add(-time.Hour)
+		}
 		if !c.token.Valid() {
 			fmt.Fprintf(stdout, "+ Attempting automatic token refresh\n")
 			_, err = c.Token()

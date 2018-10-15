@@ -311,6 +311,78 @@ All tokens updated successfully
 `, sanitiseOauthOutput(mockStdout.ReadNow()))
 }
 
+func TestOauthUnExpiredToken(t *testing.T) {
+	require := require.New(t)
+	mockStdout, _, exitCode := resetForTest()
+
+	Register(&oauth2.Config{
+		Endpoint:     testEndpoint,
+		ClientID:     "ClientID",
+		ClientSecret: "not-really-secret",
+		RedirectURL:  "localhost:1",
+		Scopes:       []string{"a", "b"},
+	})
+	require.NoError(storeToken(configFile(),
+		&oauth2.Token{
+			AccessToken:  "mocktoken",
+			RefreshToken: "mockrefreshtoken",
+			Expiry:       time.Now().Add(time.Hour),
+		}))
+
+	os.Args = []string{"arg0", "setup-oauth"}
+	go InteractiveSetup()
+	assertExitCode(t, exitCode, 0)
+	require.Equal(
+		`Updating registered Oauth configurations:
+
+[1 of 1] #pkg#.#testName#
+* Domain: #host#
+* Scopes: a, b
++ Using saved token, expires #expiry#
+
+All tokens updated successfully
+`, sanitiseOauthOutput(mockStdout.ReadNow()))
+}
+
+func TestOauthUnExpiredTokenForce(t *testing.T) {
+	require := require.New(t)
+	mockStdout, _, exitCode := resetForTest()
+
+	conf := Register(&oauth2.Config{
+		Endpoint:     testEndpoint,
+		ClientID:     "ClientID",
+		ClientSecret: "not-really-secret",
+		RedirectURL:  "localhost:1",
+		Scopes:       []string{"a", "b"},
+	})
+	require.NoError(storeToken(configFile(),
+		&oauth2.Token{
+			AccessToken:  "unexpired-but-wrong-token",
+			RefreshToken: "mockrefreshtoken",
+			Expiry:       time.Now().Add(time.Hour),
+		}))
+
+	os.Args = []string{"arg0", "setup-oauth", "force-refresh"}
+	go InteractiveSetup()
+	assertExitCode(t, exitCode, 0)
+	require.Equal(
+		`Updating registered Oauth configurations:
+
+[1 of 1] #pkg#.#testName#
+* Domain: #host#
+* Scopes: a, b
++ Attempting automatic token refresh
++ Using saved token, expires #expiry#
+
+All tokens updated successfully
+`, sanitiseOauthOutput(mockStdout.ReadNow()))
+
+	client, err := conf.Client()
+	require.NoError(err)
+	resp, _ := client.Get(checkURL)
+	require.Equal(200, resp.StatusCode)
+}
+
 func TestOauthInvalidSavedToken(t *testing.T) {
 	require := require.New(t)
 	mockStdout, mockStdin, exitCode := resetForTest()
