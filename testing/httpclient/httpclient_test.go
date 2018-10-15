@@ -116,9 +116,9 @@ func TestOauthTokenFreezing(t *testing.T) {
 		AccessToken: "wrongtoken",
 	})
 
-	_, err = oauthClient.Get(someURL)
+	r, err = oauthClient.Get(someURL)
 	require.NoError(t, err)
-	require.Equal(t, 200, r.StatusCode)
+	require.Equal(t, 403, r.StatusCode)
 
 	FreezeOauthToken(oauthClient, "mocktoken")
 	r, err = oauthClient.Get(someURL)
