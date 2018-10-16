@@ -17,7 +17,6 @@ KEYS=(
 )
 
 TARGET_FILE="./samples/sample-bar/sample-bar.go"
-TARGET_PACKAGE="./samples/sample-bar"
 
 # Save the current sample-bar, so we can revert it after building, to
 # prevent accidentally checking in the keys. We can't use git checkout
@@ -41,5 +40,5 @@ done
 # Build the sample bar with all the keys set. Pass all arguments to the
 # `go build` command, allowing e.g. `./build.sh -o ~/bin/mybar`, or even
 # `./build.sh -race -tags debuglog`.
-go build "$@" -i "$TARGET_PACKAGE"
+go build "$@"
 

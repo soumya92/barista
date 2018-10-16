@@ -19,7 +19,7 @@ after_success:
   - bash <(curl -s https://codecov.io/bash)
 
 before_deploy:
-  - ./build.sh
+  - ./build.sh -o sample-bar ./samples/sample-bar
   - go build -o i3status ./samples/i3status
   - git config credential.helper "store --file=.gitcredentials"
   - echo "https://${GH_TOKEN}:@github.com" > .gitcredentials
