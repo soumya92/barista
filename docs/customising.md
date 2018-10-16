@@ -53,6 +53,15 @@ i3-msg restart
 The rest of the steps, for saving oauth tokens and setting up icon fonts, are the same as the
 [quickstart](/#quickstart).
 
+## Caching HTTP Requests for Development
+
+When customising the bar, you may need to rebuild and restart the bar a lot, and each restart will
+issue HTTP requests to external services (weather, calendar, etc.). To avoid consuming excessive
+quota during development, it may be desirable to use the [`httpcache`](/testing/httpcache) package.
+
+See the package documentation for a simple example of setting up global HTTP caching for the binary.
+Remember to remove the caching once you're satisfied with your barista setup.
+
 # OAuth and Client Keys
 
 Quick links to the sign-up pages for the various available services:
