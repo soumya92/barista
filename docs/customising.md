@@ -23,13 +23,11 @@ curl -L https://git.io/fA7iZ -o build.sh
 chmod +x build.sh
 ```
 
-  - Edit `build.sh` and change `TARGET_FILE` and `TARGET_PACKAGE` to match your configuration.
-    `TARGET_FILE` should point to the go file with the placeholders, while `TARGET_PACKAGE` should
-    point to the package (or single file) to build. For example,
+  - Edit `build.sh` and change `TARGET_FILE` to point to the go file with the placeholders.
+    For example,
   
   ```bash
 TARGET_FILE="mybar.go"
-TARGET_PACKAGE="mybar.go"
 ```
 
   - Set up the necessary OAuth and API keys in `~/.config/barista/keys`, following the format:
@@ -40,10 +38,10 @@ GITHUB_CLIENT_ID="..."
 GITHUB_CLIENT_SECRET="..."
 ```
 
-  - Run `./build.sh`, optionally with any arguments that you would pass to `go build`, e.g.
+  - Run `./build.sh`, with any arguments that you would pass to `go build`, e.g.
   
   ```shell
-./build.sh -o ~/bin/mybar
+./build.sh -o ~/bin/mybar -i mybar.go
 ```
 
   - Restart i3 to see the changes
