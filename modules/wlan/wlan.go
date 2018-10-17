@@ -28,6 +28,7 @@ import (
 	"barista.run/base/watchers/netlink"
 	l "barista.run/logging"
 	"barista.run/outputs"
+	"github.com/martinlindhe/unit"
 )
 
 // Info represents the wireless card status.
@@ -38,7 +39,7 @@ type Info struct {
 	SSID           string
 	AccessPointMAC string
 	Channel        int
-	Frequency      float64
+	Frequency      unit.Frequency
 }
 
 // Connecting returns true if a connection is in progress.
@@ -128,7 +129,8 @@ func fillWifiInfo(info *Info) {
 	ch, _ := iwgetid(info.Name, "-c")
 	info.Channel, _ = strconv.Atoi(ch)
 	freq, _ := iwgetid(info.Name, "-f")
-	info.Frequency, _ = strconv.ParseFloat(freq, 64)
+	freqFloat, _ := strconv.ParseFloat(freq, 64)
+	info.Frequency = unit.Frequency(freqFloat) * unit.Hertz
 }
 
 var iwgetid = func(intf, flag string) (string, error) {
