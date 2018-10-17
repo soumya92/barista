@@ -45,7 +45,7 @@ wlan.Any().Output(func (i wlan.Info) bar.Output {
 * `SSID string`: The human-readable name of the wireless network currently associated with.
 * `AccessPointMAC string`: The hardware address of the access point.
 * `Channel int`: Channel used by the access point. Ranges vary by frequency.
-* `Frequency float64`: Frequency of the wireless signals (2.4GHz or 5GHz).
+* `Frequency unit.Frequency`: Frequency of the wireless signals (2.4GHz or 5GHz).
 
 ### Methods
 
