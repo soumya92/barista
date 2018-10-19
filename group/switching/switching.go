@@ -18,7 +18,6 @@ package switching // import "barista.run/group/switching"
 
 import (
 	"sync"
-	"sync/atomic"
 
 	"barista.run/bar"
 	"barista.run/base/click"
@@ -49,11 +48,11 @@ type Controller interface {
 
 // grouper implements a switching grouper.
 type grouper struct {
-	current    atomic.Value // of int
+	current    int
 	count      int
 	buttonFunc ButtonFunc
 
-	sync.Mutex
+	mu       sync.RWMutex
 	notifyCh <-chan struct{}
 	notifyFn func()
 }
@@ -61,7 +60,6 @@ type grouper struct {
 // Group returns a new switching group, and a linked controller.
 func Group(m ...bar.Module) (bar.Module, Controller) {
 	g := &grouper{count: len(m), buttonFunc: DefaultButtons}
-	g.current.Store(0)
 	g.notifyFn, g.notifyCh = notifier.New()
 	return group.New(g, m...), g
 }
@@ -91,8 +89,18 @@ func (g *grouper) Signal() <-chan struct{} {
 	return g.notifyCh
 }
 
+func (g *grouper) Lock() {
+	g.mu.RLock()
+}
+
+func (g *grouper) Unlock() {
+	g.mu.RUnlock()
+}
+
 func (g *grouper) Current() int {
-	return g.current.Load().(int)
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.current
 }
 
 func (g *grouper) Previous() {
@@ -115,18 +123,17 @@ func (g *grouper) setIndex(index int) {
 	// Group calls Visible once for each module. To ensure a consistent value
 	// across the entire set, we prevent changes to current while the lock is
 	// held. Group only releases the lock once it's done with the grouper.
-	g.Lock()
-	defer g.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	// Handle wrap around on either side.
-	current := (index + g.count) % g.count
-	l.Fine("%s switched to #%d", l.ID(g), current)
-	g.current.Store(current)
+	g.current = (index + g.count) % g.count
+	l.Fine("%s switched to #%d", l.ID(g), g.current)
 	g.notifyFn()
 }
 
 func (g *grouper) ButtonFunc(f ButtonFunc) {
-	g.Lock()
-	defer g.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.buttonFunc = f
 	g.notifyFn()
 }
