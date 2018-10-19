@@ -2,7 +2,7 @@
 title: group/Following
 ---
 
-Create a group that shows the most recently updated module: `grp := group.Following(...)`.
+Create a group that shows the most recently updated module: `grp := following.Group(...)`.
 
 Avoid using modules that refresn at a fixed interval, they may refresh at the same time. Instead,
 this is most useful for async modules, e.g. media player or window title.
@@ -16,6 +16,6 @@ this is most useful for async modules, e.g. media player or window title.
 A simple example of a following group that shows the most recently updated module.
 
 ```go
-grp := group.Collapsing(a, b, c)
+grp := following.Group(a, b, c)
 barista.Run(grp)
 ```

@@ -2,11 +2,11 @@
 title: group/Collapsing
 ---
 
-Create a group that can be expanded/collapsed with a button: `grp, ctrl := group.Collapsing(...)`.
+Create a group that can be expanded/collapsed with a button: `grp, ctrl := collapsing.Group(...)`.
 
 The returned group is a `bar.Module` and can be added to the bar directly. The second return value
 is a `Controller` that provides methods to control the group programatically. If you only use the
-built-in buttons to control the group, it can be safely ignored: `grp, _ := group.Collapsing(...)`.
+built-in buttons to control the group, it can be safely ignored: `grp, _ := collapsing.Group(...)`.
 
 ## Example
 
@@ -17,7 +17,7 @@ A simple example of a collapsing group, with custom buttons.
 
 ```go
 // For simplicity, assuming a, b, c are simple text modules that show 'a', 'b', and 'c'.
-grp, ctrl := group.Collapsing(a, b, c)
+grp, ctrl := collapsing.Group(a, b, c)
 // By default the group starts collapsed, but we can use the controller to expand it.
 ctrl.Expand()
 // We can also change the default buttons
