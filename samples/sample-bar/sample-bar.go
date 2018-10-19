@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"barista.run"
@@ -31,20 +33,25 @@ import (
 	"barista.run/base/click"
 	"barista.run/base/watchers/netlink"
 	"barista.run/colors"
-	"barista.run/group/collapsing"
+	"barista.run/group/modal"
 	"barista.run/modules/battery"
 	"barista.run/modules/clock"
 	"barista.run/modules/cputemp"
+	"barista.run/modules/diskio"
+	"barista.run/modules/diskspace"
 	"barista.run/modules/github"
 	"barista.run/modules/gsuite/calendar"
 	"barista.run/modules/gsuite/gmail"
 	"barista.run/modules/media"
 	"barista.run/modules/meminfo"
+	"barista.run/modules/meta/split"
+	"barista.run/modules/netinfo"
 	"barista.run/modules/netspeed"
 	"barista.run/modules/sysinfo"
 	"barista.run/modules/volume"
 	"barista.run/modules/weather"
 	"barista.run/modules/weather/openweathermap"
+	"barista.run/modules/wlan"
 	"barista.run/oauth"
 	"barista.run/outputs"
 	"barista.run/pango"
@@ -60,10 +67,20 @@ import (
 )
 
 var spacer = pango.Text(" ").XXSmall()
+var mainModalController modal.Controller
 
 func truncate(in string, l int) string {
-	if len([]rune(in)) <= l {
+	fromStart := false
+	if l < 0 {
+		fromStart = true
+		l = -l
+	}
+	inLen := len([]rune(in))
+	if inLen <= l {
 		return in
+	}
+	if fromStart {
+		return "⋯" + string([]rune(in)[inLen-l+1:])
 	}
 	return string([]rune(in)[:l-1]) + "⋯"
 }
@@ -103,14 +120,28 @@ func mediaFormatFunc(m media.Info) bar.Output {
 	return outputs.Pango(iconAndPosition, spacer, title, " - ", artist)
 }
 
-var startTaskManager = click.RunLeft("xfce4-taskmanager")
-
-func home(path string) string {
+func home(path ...string) string {
 	usr, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
-	return filepath.Join(usr.HomeDir, path)
+	args := append([]string{usr.HomeDir}, path...)
+	return filepath.Join(args...)
+}
+
+func deviceForMountPath(path string) string {
+	mnt, _ := exec.Command("df", "-P", path).Output()
+	lines := strings.Split(string(mnt), "\n")
+	if len(lines) > 1 {
+		devAlias := strings.Split(lines[1], " ")[0]
+		dev, _ := exec.Command("realpath", devAlias).Output()
+		devStr := strings.TrimSpace(string(dev))
+		if devStr != "" {
+			return devStr
+		}
+		return devAlias
+	}
+	return ""
 }
 
 type freegeoipResponse struct {
@@ -187,6 +218,10 @@ func setupOauthEncryption() error {
 	return nil
 }
 
+func makeIconOutput(key string) *bar.Segment {
+	return outputs.Pango(spacer, pango.Icon(key), spacer)
+}
+
 var gsuiteOauthConfig = []byte(`{"installed": {
 	"client_id":"%%GOOGLE_CLIENT_ID%%",
 	"project_id":"i3-barista",
@@ -196,6 +231,19 @@ var gsuiteOauthConfig = []byte(`{"installed": {
 	"client_secret":"%%GOOGLE_CLIENT_SECRET%%",
 	"redirect_uris":["urn:ietf:wg:oauth:2.0:oob","http://localhost"]
 }}`)
+
+func threshold(out *bar.Segment, urgent bool, color ...bool) *bar.Segment {
+	if urgent {
+		return out.Urgent(true)
+	}
+	colorKeys := []string{"bad", "degraded", "good"}
+	for i, c := range colorKeys {
+		if len(color) > i && color[i] {
+			return out.Color(colors.Scheme(c))
+		}
+	}
+	return out
+}
 
 func main() {
 	material.Load(home("Github/material-design-icons"))
@@ -208,8 +256,6 @@ func main() {
 	bg := colors.Scheme("background")
 	fg := colors.Scheme("statusline")
 	if fg != nil && bg != nil {
-		iconColor := fg.Colorful().BlendHcl(bg.Colorful(), 0.5).Clamped()
-		colors.Set("dim-icon", iconColor)
 		_, _, v := fg.Colorful().Hsv()
 		if v < 0.3 {
 			v = 0.3
@@ -223,15 +269,31 @@ func main() {
 		panic(fmt.Sprintf("Could not setup oauth token encryption: %v", err))
 	}
 
-	localtime := clock.Local().
+	localdate := clock.Local().
 		Output(time.Second, func(now time.Time) bar.Output {
 			return outputs.Pango(
-				pango.Icon("material-today").Color(colors.Scheme("dim-icon")),
-				now.Format("Mon Jan 2 "),
-				pango.Icon("material-access-time").Color(colors.Scheme("dim-icon")),
-				now.Format("15:04:05"),
+				pango.Icon("material-today").Alpha(0.6),
+				now.Format("Mon Jan 2"),
 			).OnClick(click.RunLeft("gsimplecal"))
 		})
+
+	localtime := clock.Local().
+		Output(time.Second, func(now time.Time) bar.Output {
+			return outputs.Text(now.Format("15:04:05")).
+				OnClick(click.Left(func() {
+					mainModalController.Toggle("timezones")
+				}))
+		})
+
+	makeTzClock := func(lbl, tzName string) bar.Module {
+		c, err := clock.ZoneByName(tzName)
+		if err != nil {
+			panic(err)
+		}
+		return c.Output(time.Minute, func(now time.Time) bar.Output {
+			return outputs.Pango(pango.Text(lbl).Smaller(), spacer, now.Format("15:04"))
+		})
+	}
 
 	// Weather information comes from OpenWeatherMap.
 	// https://openweathermap.org/api.
@@ -275,14 +337,32 @@ func main() {
 		} else {
 			iconName = "weather-" + iconName
 		}
-		return outputs.Pango(
+		mainModalController.SetOutput("weather", makeIconOutput("typecn-"+iconName))
+		out := outputs.Group()
+		out.Append(outputs.Pango(
 			pango.Icon("typecn-"+iconName), spacer,
 			pango.Textf("%.1f℃", w.Temperature.Celsius()),
-			pango.Textf(" (provided by %s)", w.Attribution).XSmall(),
-		)
+		))
+		out.Append(outputs.Text(w.Description))
+		out.Append(outputs.Pango(
+			pango.Icon("mdi-flag-variant-outline").Alpha(0.8), spacer,
+			pango.Textf("%0.fmph %s", w.Wind.Speed.MilesPerHour(), w.Wind.Direction.Cardinal()),
+		))
+		out.Append(outputs.Pango(
+			pango.Icon("fa-tint").Alpha(0.6).Small(), spacer,
+			pango.Textf("%0.f%%", w.Humidity*100),
+		))
+		out.Append(outputs.Pango(
+			pango.Icon("mdi-weather-sunset-up").Alpha(0.8), spacer,
+			w.Sunrise.Format("15:04"), spacer,
+			pango.Icon("mdi-weather-sunset-down").Alpha(0.8), spacer,
+			w.Sunset.Format("15:04"),
+		))
+		out.Append(pango.Textf("provided by %s", w.Attribution).XSmall())
+		return out
 	})
 
-	buildBattOutput := func(i battery.Info, disp *pango.Node) *bar.Segment {
+	battSummary, battDetail := split.New(battery.All().Output(func(i battery.Info) bar.Output {
 		if i.Status == battery.Disconnected || i.Status == battery.Unknown {
 			return nil
 		}
@@ -297,7 +377,33 @@ func main() {
 		case tenth < 10:
 			iconName += fmt.Sprintf("-%d0", tenth)
 		}
-		out := outputs.Pango(pango.Icon("mdi-"+iconName), disp)
+		mainModalController.SetOutput("battery", makeIconOutput("mdi-"+iconName))
+		rem := i.RemainingTime()
+		out := outputs.Group()
+		// First segment will be used in summary mode.
+		out.Append(outputs.Pango(
+			pango.Icon("mdi-"+iconName).Alpha(0.6),
+			pango.Textf("%d:%02d", int(rem.Hours()), int(rem.Minutes())%60),
+		).OnClick(click.Left(func() {
+			mainModalController.Toggle("battery")
+		})))
+		// Others in detail mode.
+		out.Append(outputs.Pango(
+			pango.Icon("mdi-"+iconName).Alpha(0.6),
+			pango.Textf("%d%%", i.RemainingPct()),
+			spacer,
+			pango.Textf("(%d:%02d)", int(rem.Hours()), int(rem.Minutes())%60),
+		).OnClick(click.Left(func() {
+			mainModalController.Toggle("battery")
+		})))
+		out.Append(outputs.Pango(
+			pango.Textf("%4.1f/%4.1f", i.EnergyNow, i.EnergyFull),
+			pango.Text("Wh").Smaller(),
+		))
+		out.Append(outputs.Pango(
+			pango.Textf("% +6.2f", i.SignedPower()),
+			pango.Text("W").Smaller(),
+		))
 		switch {
 		case i.RemainingPct() <= 5:
 			out.Urgent(true)
@@ -307,36 +413,43 @@ func main() {
 			out.Color(colors.Scheme("degraded"))
 		}
 		return out
-	}
-	var showBattPct, showBattTime func(battery.Info) bar.Output
+	}), 1)
 
-	batt := battery.All()
-	showBattPct = func(i battery.Info) bar.Output {
-		out := buildBattOutput(i, pango.Textf("%d%%", i.RemainingPct()))
-		if out == nil {
+	wifiName, wifiDetails := split.New(wlan.Any().Output(func(i wlan.Info) bar.Output {
+		if !i.Enabled() {
+			mainModalController.SetOutput("network", makeIconOutput("mdi-ethernet"))
 			return nil
 		}
-		return out.OnClick(click.Left(func() {
-			batt.Output(showBattTime)
-		}))
-	}
-	showBattTime = func(i battery.Info) bar.Output {
-		rem := i.RemainingTime()
-		out := buildBattOutput(i, pango.Textf(
-			"%d:%02d", int(rem.Hours()), int(rem.Minutes())%60))
-		if out == nil {
-			return nil
+		mainModalController.SetOutput("network", makeIconOutput("mdi-wifi"))
+		if i.Connecting() {
+			return outputs.Pango(pango.Icon("mdi-wifi").Alpha(0.6), "...").
+				Color(colors.Scheme("degraded"))
 		}
-		return out.OnClick(click.Left(func() {
-			batt.Output(showBattPct)
-		}))
-	}
-	batt.Output(showBattPct)
+		out := outputs.Group()
+		// First segment shown in summary mode only.
+		out.Append(outputs.Pango(
+			pango.Icon("mdi-wifi").Alpha(0.6),
+			pango.Text(truncate(i.SSID, -9)),
+		).OnClick(click.Left(func() {
+			mainModalController.Toggle("network")
+		})))
+		// Full name, frequency, bssid in detail mode
+		out.Append(outputs.Pango(
+			pango.Icon("mdi-wifi").Alpha(0.6),
+			pango.Text(i.SSID),
+		))
+		out.Append(outputs.Textf("%2.1fG", i.Frequency.Gigahertz()))
+		out.Append(outputs.Pango(
+			pango.Icon("mdi-access-point").Alpha(0.8),
+			pango.Text(i.AccessPointMAC).Small(),
+		))
+		return out
+	}), 1)
 
 	vol := volume.DefaultMixer().Output(func(v volume.Volume) bar.Output {
 		if v.Mute {
 			return outputs.
-				Pango(pango.Icon("ion-volume-off"), "MUT").
+				Pango(pango.Icon("ion-volume-off").Alpha(0.8), spacer, "MUT").
 				Color(colors.Scheme("degraded"))
 		}
 		iconName := "mute"
@@ -347,82 +460,142 @@ func main() {
 			iconName = "low"
 		}
 		return outputs.Pango(
-			pango.Icon("ion-volume-"+iconName),
+			pango.Icon("ion-volume-"+iconName).Alpha(0.6),
 			spacer,
 			pango.Textf("%2d%%", pct),
 		)
 	})
 
 	loadAvg := sysinfo.New().Output(func(s sysinfo.Info) bar.Output {
-		out := outputs.Textf("%0.2f %0.2f", s.Loads[0], s.Loads[2])
+		out := outputs.Pango(
+			pango.Icon("mdi-desktop-tower").Alpha(0.6),
+			pango.Textf("%0.2f", s.Loads[0]),
+		)
 		// Load averages are unusually high for a few minutes after boot.
 		if s.Uptime < 10*time.Minute {
 			// so don't add colours until 10 minutes after system start.
 			return out
 		}
-		switch {
-		case s.Loads[0] > 128, s.Loads[2] > 64:
-			out.Urgent(true)
-		case s.Loads[0] > 64, s.Loads[2] > 32:
-			out.Color(colors.Scheme("bad"))
-		case s.Loads[0] > 32, s.Loads[2] > 16:
-			out.Color(colors.Scheme("degraded"))
-		}
-		out.OnClick(startTaskManager)
+		threshold(out,
+			s.Loads[0] > 128 || s.Loads[2] > 64,
+			s.Loads[0] > 64 || s.Loads[2] > 32,
+			s.Loads[0] > 32 || s.Loads[2] > 16,
+		)
+		out.OnClick(click.Left(func() {
+			mainModalController.Toggle("sysinfo")
+		}))
 		return out
 	})
 
-	freeMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
-		out := outputs.Pango(pango.Icon("material-memory"), outputs.IBytesize(m.Available()))
-		freeGigs := m.Available().Gigabytes()
-		switch {
-		case freeGigs < 0.5:
-			out.Urgent(true)
-		case freeGigs < 1:
-			out.Color(colors.Scheme("bad"))
-		case freeGigs < 2:
-			out.Color(colors.Scheme("degraded"))
-		case freeGigs > 12:
-			out.Color(colors.Scheme("good"))
+	loadAvgDetail := sysinfo.New().Output(func(s sysinfo.Info) bar.Output {
+		return pango.Textf("%0.2f %0.2f", s.Loads[1], s.Loads[2]).Smaller()
+	})
+
+	uptime := sysinfo.New().Output(func(s sysinfo.Info) bar.Output {
+		u := s.Uptime
+		var uptimeOut *pango.Node
+		if u.Hours() < 24 {
+			uptimeOut = pango.Textf("%d:%02d",
+				int(u.Hours()), int(u.Minutes())%60)
+		} else {
+			uptimeOut = pango.Textf("%dd%02dh",
+				int(u.Hours()/24), int(u.Hours())%24)
 		}
-		out.OnClick(startTaskManager)
+		return pango.Icon("mdi-trending-up").Alpha(0.6).Concat(uptimeOut)
+	})
+
+	freeMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
+		out := outputs.Pango(
+			pango.Icon("material-memory").Alpha(0.8),
+			outputs.IBytesize(m.Available()),
+		)
+		freeGigs := m.Available().Gigabytes()
+		threshold(out,
+			freeGigs < 0.5,
+			freeGigs < 1,
+			freeGigs < 2,
+			freeGigs > 12)
+		out.OnClick(click.Left(func() {
+			mainModalController.Toggle("sysinfo")
+		}))
 		return out
+	})
+
+	swapMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
+		return outputs.Pango(
+			pango.Icon("mdi-swap-horizontal").Alpha(0.8),
+			outputs.IBytesize(m["SwapTotal"]-m["SwapFree"]), spacer,
+			pango.Textf("(% 2.0f%%)", (1-m.FreeFrac("Swap"))*100.0).Small(),
+		)
 	})
 
 	temp := cputemp.New().
 		RefreshInterval(2 * time.Second).
 		Output(func(temp unit.Temperature) bar.Output {
 			out := outputs.Pango(
-				pango.Icon("mdi-fan"), spacer,
+				pango.Icon("mdi-fan").Alpha(0.6), spacer,
 				pango.Textf("%2d℃", int(temp.Celsius())),
 			)
-			switch {
-			case temp.Celsius() > 90:
-				out.Urgent(true)
-			case temp.Celsius() > 70:
-				out.Color(colors.Scheme("bad"))
-			case temp.Celsius() > 60:
-				out.Color(colors.Scheme("degraded"))
-			}
+			threshold(out,
+				temp.Celsius() > 90,
+				temp.Celsius() > 70,
+				temp.Celsius() > 60,
+			)
 			return out
 		})
 
 	sub := netlink.Any()
 	iface := (<-sub).Name
 	sub.Unsubscribe()
-	net := netspeed.New(iface).
+	netsp := netspeed.New(iface).
 		RefreshInterval(2 * time.Second).
 		Output(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
-				pango.Icon("fa-upload"), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
+				pango.Icon("fa-upload").Alpha(0.5), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
 				pango.Text(" ").Small(),
-				pango.Icon("fa-download"), spacer, pango.Textf("%7s", outputs.Byterate(s.Rx)),
+				pango.Icon("fa-download").Alpha(0.5), spacer, pango.Textf("%7s", outputs.Byterate(s.Rx)),
 			)
 		})
 
-	rhythmbox := media.New("rhythmbox").Output(mediaFormatFunc)
+	net := netinfo.New().Output(func(i netinfo.State) bar.Output {
+		if !i.Enabled() {
+			return nil
+		}
+		if i.Connecting() || len(i.IPs) < 1 {
+			return outputs.Text(i.Name).Color(colors.Scheme("degraded"))
+		}
+		return outputs.Group(outputs.Text(i.Name), outputs.Textf("%s", i.IPs[0]))
+	})
 
-	grp, _ := collapsing.Group(net, temp, freeMem, loadAvg)
+	formatDiskSpace := func(i diskspace.Info, icon string) bar.Output {
+		out := outputs.Pango(
+			pango.Icon(icon).Alpha(0.7), spacer, outputs.IBytesize(i.Available))
+		return threshold(out,
+			i.Available.Gigabytes() < 1,
+			i.AvailFrac() < 0.05,
+			i.AvailFrac() < 0.1,
+		)
+	}
+
+	rootDev := deviceForMountPath("/")
+	var homeDiskspace bar.Module
+	if deviceForMountPath(home()) != rootDev {
+		homeDiskspace = diskspace.New(home()).Output(func(i diskspace.Info) bar.Output {
+			return formatDiskSpace(i, "typecn-home-outline")
+		})
+	}
+	rootDiskspace := diskspace.New("/").Output(func(i diskspace.Info) bar.Output {
+		return formatDiskSpace(i, "fa-hdd")
+	})
+
+	mainDiskio := diskio.New(strings.TrimPrefix(rootDev, "/dev/")).
+		Output(func(r diskio.IO) bar.Output {
+			return pango.Icon("mdi-swap-vertical").
+				Concat(spacer).
+				ConcatText(outputs.IByterate(r.Total()))
+		})
+
+	rhythmbox := media.New("rhythmbox").Output(mediaFormatFunc)
 
 	ghNotify := github.New("%%GITHUB_CLIENT_ID%%", "%%GITHUB_CLIENT_SECRET%%").
 		Output(func(n github.Notifications) bar.Output {
@@ -485,15 +658,47 @@ func main() {
 			return out, refreshTime
 		})
 
-	panic(barista.Run(
-		rhythmbox,
-		grp,
-		gm,
-		cal,
-		ghNotify,
-		vol,
-		batt,
-		wthr,
-		localtime,
-	))
+	mainModal := modal.New()
+	sysMode := mainModal.Mode("sysinfo").
+		SetOutput(makeIconOutput("ion-analytics")).
+		Add(loadAvg).
+		Detail(loadAvgDetail, uptime).
+		Add(freeMem).
+		Detail(swapMem, temp)
+	if homeDiskspace != nil {
+		sysMode.Detail(homeDiskspace)
+	}
+	sysMode.Detail(rootDiskspace, mainDiskio)
+	mainModal.Mode("network").
+		SetOutput(makeIconOutput("mdi-ethernet")).
+		Summary(wifiName).
+		Detail(wifiDetails, net, netsp)
+	mainModal.Mode("media").
+		SetOutput(makeIconOutput("mdi-music-box")).
+		Add(vol).
+		Detail(rhythmbox)
+	mainModal.Mode("notifications").
+		SetOutput(nil).
+		Add(gm, cal, ghNotify)
+	mainModal.Mode("battery").
+		// Filled in by the battery module if one is available.
+		SetOutput(nil).
+		Summary(battSummary).
+		Detail(battDetail)
+	mainModal.Mode("weather").
+		// Set to current conditions by the weather module.
+		SetOutput(makeIconOutput("typecn-warning-outline")).
+		Detail(wthr)
+	mainModal.Mode("timezones").
+		SetOutput(makeIconOutput("material-access-time")).
+		Detail(makeTzClock("Seattle", "America/Los_Angeles")).
+		Detail(makeTzClock("New York", "America/New_York")).
+		Detail(makeTzClock("UTC", "Etc/UTC")).
+		Detail(makeTzClock("Berlin", "Europe/Berlin")).
+		Detail(makeTzClock("Tokyo", "Asia/Tokyo")).
+		Add(localdate)
+
+	var mm bar.Module
+	mm, mainModalController = mainModal.Build()
+	panic(barista.Run(mm, localtime))
 }
