@@ -35,18 +35,25 @@ a:hover {
 }
 
 .module-example-out {
-	float: right;
-	font: monospace;
 	background: rgba(0,0,0,0.7);
 	border: 1px solid rgba(255,255,255,0.4);
 	color: #b5e853;
-	padding: 0.1em 0.4em;
+	float: right;
+	font-family: monospace;
 	margin-left: 0.5em;
+	padding: 0.1em 0.4em;
 
 	& span:not(:first-child) {
 		border-left: 1px solid rgba(255,255,255,0.4);
-		padding-left: 0.25em;
 		margin-left: 0.25em;
+		padding-left: 0.25em;
+	}
+
+	& span.invert {
+		background: #b5e853;
+		color: #000000;
+		margin: 0 -.25em;
+		padding: .25em;
 	}
 }
 

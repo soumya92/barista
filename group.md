@@ -9,6 +9,7 @@ There are several default groups:
 * [Switching](/group/switching): Switch between modules using the buttons on the end.
 * [Cycling](/group/cycling): Cycle through the modules one at a time at a fixed time interval.
 * [Following](/group/following): Show the most recently updated module.
+* [Modal](/group/modal): Switch between multiple "modes" of the bar.
 
 ## group.Simple
 
