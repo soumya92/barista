@@ -72,6 +72,7 @@ Barista provides several modules out of the box:
 - [netspeed](/modules/netspeed): Shows data transfer rates for a network interface.
 - [shell](/modules/shell): Provides a module to show the output of a shell command (periodically or on-demand),
 	and another one to show the last line of output from a long-running shell command.
+- [static](/modules/static): Shows static output on the module, which can be programatically changed.
 - [sysinfo](/modules/sysinfo): Shows system information.
 - [volume](/modules/volume): Shows the current alsa or pulseaudio volume,
 	and allows controlling it using mouse events.

@@ -10,3 +10,6 @@ pkg: 'noimport'
 
 * [split](/modules/meta/split): Splits the output from an existing module and returns two
   separate modules.
+
+* [multicast](/modules/meta/multicast): Allows a module to be added to the bar multiple times.
+  Especially useful when using groups.
