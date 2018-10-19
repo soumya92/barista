@@ -14,7 +14,7 @@ fi
 
 # For local runs, use golint from PATH,
 GOLINT="$(which golint)"
-# but fallback to the Travis CI path otherwise.
+# but fallback to the CI path otherwise.
 [ -n "$GOLINT" ] || GOLINT="$HOME/gopath/bin/golint"
 
 $GOLINT ./...
