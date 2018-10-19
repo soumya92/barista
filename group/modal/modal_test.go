@@ -72,6 +72,10 @@ func TestModal(t *testing.T) {
 	mod, ctrl := modal.Build()
 	testBar.Run(mod)
 
+	for _, mod := range m {
+		mod.AssertStarted("on group start")
+	}
+
 	require.Equal(t, []string{"a", "b", "c", "d", "e", "f"}, ctrl.Modes())
 	require.Empty(t, ctrl.Current())
 
