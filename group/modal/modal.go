@@ -185,6 +185,12 @@ func (g *grouper) Visible(idx int) bool {
 	}
 }
 
+func init() {
+	// Modal depends on the workspace colours for the mode switcher.
+	// Load colours in init to allow overriding during setup.
+	colors.LoadBarConfig()
+}
+
 func (g *grouper) Buttons() (start, end bar.Output) {
 	out := outputs.Group().Glue()
 	for _, mode := range g.modeNames {
