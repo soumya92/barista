@@ -7,13 +7,19 @@ Building your own bar requires a few additional steps, because we cannot distrib
 client secrets in an open source project.
 
 The simplest way to build a custom bar is to start with
-[`sample-bar.go`](https://github.com/soumya92/barista/blob/master/samples/sample-bar/sample-bar.go)
+[`simple.go`](https://github.com/soumya92/barista/blob/master/samples/simple/simple.go)
 as a template, and experiment with changes to the file.
+
+<div style="text-align: center">
+  <img src="/assets/images/simple-light-screenshot.png" alt="Screenshot of simple bar" height="22" />
+  <br />
+  <img src="/assets/images/simple-screenshot.png" alt="Another screenshot of simple bar" height="22" />
+</div>
 
   - Download the sources:
 
   ```shell
-curl -L https://git.io/fA4qJ -o mybar.go
+curl -L https://git.io/fxw62 -o mybar.go
 ```
 
   - To make it easier to work with the placeholders in this file, download the build script:

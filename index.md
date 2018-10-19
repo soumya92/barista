@@ -34,9 +34,11 @@ bar {
 - Restart i3
 
 <div style="text-align: center">
-	<img src="/assets/images/sample-bar-light-screenshot.png" alt="Another screenshot" height="22" />
-	<br />
-	<img src="/assets/images/sample-bar-screenshot.png" alt="Screenshot" height="22" />
+	<img src="/assets/images/modal-summary-screenshot.png" alt="Screenshot of sample bar in summary mode" height="23" /><br />
+	<img src="/assets/images/modal-sysinfo-screenshot.png" alt="Screenshot of sample bar in sysinfo mode" height="23" /><br />
+	<img src="/assets/images/modal-battery-screenshot.png" alt="Screenshot of sample bar in battery mode" height="23" /><br />
+	<img src="/assets/images/modal-weather-screenshot.png" alt="Screenshot of sample bar in weather mode" height="23" /><br />
+	<img src="/assets/images/modal-timezones-screenshot.png" alt="Screenshot of sample bar in timezones mode" height="23" />
 </div>
 
 If the icons are missing from the bar, you may need to [install the icon fonts](/pango/icons#default-installation)
