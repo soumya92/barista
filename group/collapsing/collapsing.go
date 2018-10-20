@@ -23,6 +23,7 @@ package collapsing // import "barista.run/group/collapsing"
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"barista.run/bar"
 	"barista.run/base/click"
@@ -51,10 +52,10 @@ type Controller interface {
 
 // grouper implements a collapsing grouper.
 type grouper struct {
-	expanded   bool
+	expanded   atomic.Value // of bool
 	buttonFunc ButtonFunc
 
-	mu       sync.RWMutex
+	sync.Mutex
 	notifyCh <-chan struct{}
 	notifyFn func()
 }
@@ -62,6 +63,7 @@ type grouper struct {
 // Group returns a new collapsing group, and a linked controller.
 func Group(m ...bar.Module) (bar.Module, Controller) {
 	g := &grouper{buttonFunc: DefaultButtons}
+	g.expanded.Store(false)
 	g.notifyFn, g.notifyCh = notifier.New()
 	return group.New(g, m...), g
 }
@@ -89,18 +91,8 @@ func (g *grouper) Signal() <-chan struct{} {
 	return g.notifyCh
 }
 
-func (g *grouper) Lock() {
-	g.mu.RLock()
-}
-
-func (g *grouper) Unlock() {
-	g.mu.RUnlock()
-}
-
 func (g *grouper) Expanded() bool {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.expanded
+	return g.expanded.Load().(bool)
 }
 
 func (g *grouper) Collapse() {
@@ -119,19 +111,19 @@ func (g *grouper) setExpanded(expanded bool) {
 	// Group calls Visible once for each module. To ensure a consistent value
 	// across the entire set, we prevent changes to expanded while the lock is
 	// held. Group only releases the lock once it's done with the grouper.
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.expanded == expanded {
+	g.Lock()
+	defer g.Unlock()
+	if g.Expanded() == expanded {
 		return
 	}
-	g.expanded = expanded
-	l.Fine("%s.expanded = %v", l.ID(g), g.expanded)
+	l.Fine("%s.expanded = %v", l.ID(g), expanded)
+	g.expanded.Store(expanded)
 	g.notifyFn()
 }
 
 func (g *grouper) ButtonFunc(f ButtonFunc) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.Lock()
+	defer g.Unlock()
 	g.buttonFunc = f
 	g.notifyFn()
 }

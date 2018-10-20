@@ -34,6 +34,7 @@ package modal // import "barista.run/group/modal"
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"barista.run/bar"
 	"barista.run/base/click"
@@ -69,13 +70,13 @@ type Controller interface {
 
 // grouper implements a modal grouper.
 type grouper struct {
-	current   string
+	current   atomic.Value // of string
 	showWhen  map[int]int
 	mode      map[int]string
 	modeNames []string
 	output    map[string]*bar.Segment
 
-	mu       sync.RWMutex
+	sync.Mutex
 	notifyCh <-chan struct{}
 	notifyFn func()
 }
@@ -168,6 +169,7 @@ func (m *Modal) Build() (bar.Module, Controller) {
 			g.mode[i] = modeName
 		}
 	}
+	g.current.Store("")
 	g.notifyFn, g.notifyCh = notifier.New()
 	return group.New(g, modules...), g
 }
@@ -213,22 +215,12 @@ func (g *grouper) Signal() <-chan struct{} {
 	return g.notifyCh
 }
 
-func (g *grouper) Lock() {
-	g.mu.RLock()
-}
-
-func (g *grouper) Unlock() {
-	g.mu.RUnlock()
-}
-
 func (g *grouper) Modes() []string {
 	return g.modeNames
 }
 
 func (g *grouper) Current() string {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.current
+	return g.current.Load().(string)
 }
 
 func (g *grouper) Activate(mode string) {
@@ -248,19 +240,19 @@ func (g *grouper) Reset() {
 }
 
 func (g *grouper) set(mode string) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.current == mode {
+	g.Lock()
+	defer g.Unlock()
+	if g.Current() == mode {
 		return
 	}
-	g.current = mode
-	l.Fine("%s switched to '%s'", l.ID(g), g.current)
+	g.current.Store(mode)
+	l.Fine("%s switched to '%s'", l.ID(g), mode)
 	g.notifyFn()
 }
 
 func (g *grouper) SetOutput(mode string, segment *bar.Segment) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.Lock()
+	defer g.Unlock()
 	if segment != nil {
 		segment = segment.Clone()
 	}
