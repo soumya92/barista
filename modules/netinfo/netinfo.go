@@ -45,13 +45,13 @@ func (s State) Enabled() bool {
 
 // Module represents a netinfo bar module.
 type Module struct {
-	subscriber func() netlink.Subscription
+	subscriber func() *netlink.Subscription
 	outputFunc value.Value // of func(State) bar.Output
 }
 
 // netWithSubscriber constructs a netinfo module using the given
 // subscriber function.
-func newWithSubscriber(subscriber func() netlink.Subscription) *Module {
+func newWithSubscriber(subscriber func() *netlink.Subscription) *Module {
 	m := &Module{subscriber: subscriber}
 	l.Register(m, "outputFunc")
 	// Default output is the name of the connected interface.
@@ -74,7 +74,7 @@ func New() *Module {
 // Interface constructs an instance of the netinfo module
 // restricted to the specified interface.
 func Interface(iface string) *Module {
-	m := newWithSubscriber(func() netlink.Subscription {
+	m := newWithSubscriber(func() *netlink.Subscription {
 		return netlink.ByName(iface)
 	})
 	l.Label(m, iface)
@@ -84,7 +84,7 @@ func Interface(iface string) *Module {
 // Prefix constructs an instance of the netinfo module restricted
 // to interfaces with the given prefix.
 func Prefix(prefix string) *Module {
-	m := newWithSubscriber(func() netlink.Subscription {
+	m := newWithSubscriber(func() *netlink.Subscription {
 		return netlink.WithPrefix(prefix)
 	})
 	l.Labelf(m, "%s*", prefix)
@@ -99,20 +99,23 @@ func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	var state State
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
 	nextOutputFunc := m.outputFunc.Next()
-	linkCh := m.subscriber()
-	defer linkCh.Unsubscribe()
 
+	linkSub := m.subscriber()
+	defer linkSub.Unsubscribe()
+	nextLink := linkSub.Next()
+
+	state := State{linkSub.Get()}
 	for {
+		s.Output(outputFunc(state))
 		select {
-		case update := <-linkCh:
-			state = State{update}
+		case <-nextLink:
+			nextLink = linkSub.Next()
+			state = State{linkSub.Get()}
 		case <-nextOutputFunc:
 			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 		}
-		s.Output(outputFunc(state))
 	}
 }

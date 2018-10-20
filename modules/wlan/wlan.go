@@ -92,31 +92,40 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	info := Info{}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
 	nextOutputFunc := m.outputFunc.Next()
-	var updateChan netlink.Subscription
+
+	var linkSub *netlink.Subscription
 	if m.intf == "" {
-		updateChan = netlink.WithPrefix("wl")
+		linkSub = netlink.WithPrefix("wl")
 	} else {
-		updateChan = netlink.ByName(m.intf)
+		linkSub = netlink.ByName(m.intf)
 	}
-	defer updateChan.Unsubscribe()
+	defer linkSub.Unsubscribe()
+	nextUpdate := linkSub.Next()
+
+	info := handleUpdate(linkSub.Get())
 	for {
+		s.Output(outputFunc(info))
 		select {
-		case update := <-updateChan:
-			info = Info{
-				Name:  update.Name,
-				State: update.State,
-				IPs:   update.IPs,
-			}
-			fillWifiInfo(&info)
+		case <-nextUpdate:
+			nextUpdate = linkSub.Next()
+			info = handleUpdate(linkSub.Get())
 		case <-nextOutputFunc:
 			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		}
-		s.Output(outputFunc(info))
 	}
+}
+
+func handleUpdate(link netlink.Link) Info {
+	info := Info{
+		Name:  link.Name,
+		State: link.State,
+		IPs:   link.IPs,
+	}
+	fillWifiInfo(&info)
+	return info
 }
 
 func fillWifiInfo(info *Info) {

@@ -409,7 +409,7 @@ func main() {
 		})
 
 	sub := netlink.Any()
-	iface := (<-sub).Name
+	iface := sub.Get().Name
 	sub.Unsubscribe()
 	net := netspeed.New(iface).
 		RefreshInterval(2 * time.Second).

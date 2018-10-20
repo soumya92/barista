@@ -416,7 +416,7 @@ func main() {
 	}), 1)
 
 	wifiName, wifiDetails := split.New(wlan.Any().Output(func(i wlan.Info) bar.Output {
-		if !i.Enabled() {
+		if !i.Connecting() && !i.Connected() {
 			mainModalController.SetOutput("network", makeIconOutput("mdi-ethernet"))
 			return nil
 		}
@@ -545,7 +545,7 @@ func main() {
 		})
 
 	sub := netlink.Any()
-	iface := (<-sub).Name
+	iface := sub.Get().Name
 	sub.Unsubscribe()
 	netsp := netspeed.New(iface).
 		RefreshInterval(2 * time.Second).

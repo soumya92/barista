@@ -17,7 +17,6 @@ package netlink
 import (
 	"errors"
 	"net"
-	"reflect"
 	"sync"
 	"syscall"
 	"testing"
@@ -45,34 +44,24 @@ func reset() {
 	once = sync.Once{}
 }
 
-func assertUpdated(t *testing.T, s Subscription, msgAndArgs ...interface{}) Link {
-	select {
-	case l := <-s:
-		return l
-	case <-time.After(time.Second):
-		require.Fail(t, "Did not receive an update", msgAndArgs...)
-		return Link{}
-	}
+type nexter interface {
+	Next() <-chan struct{}
 }
 
-func assertMultiUpdated(t *testing.T, m MultiSubscription, msgAndArgs ...interface{}) []Link {
+func assertUpdated(t *testing.T, next <-chan struct{}, sub nexter, msgAndArgs ...interface{}) <-chan struct{} {
 	select {
-	case l := <-m:
-		return l
+	case <-next:
 	case <-time.After(time.Second):
 		require.Fail(t, "Did not receive an update", msgAndArgs...)
-		return nil
 	}
+	return sub.Next()
 }
 
-func assertNoUpdate(t *testing.T, sub interface{}, msgAndArgs ...interface{}) {
-	cases := []reflect.SelectCase{
-		{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(sub)},
-		{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(time.After(time.Millisecond))},
-	}
-	chosen, _, ok := reflect.Select(cases)
-	if chosen == 0 && ok {
+func assertNoUpdate(t *testing.T, next <-chan struct{}, msgAndArgs ...interface{}) {
+	select {
+	case <-next:
 		require.Fail(t, "Unexpected update", msgAndArgs...)
+	case <-time.After(10 * time.Millisecond):
 	}
 }
 
@@ -83,9 +72,7 @@ func TestErrors(t *testing.T) {
 		require.Fail(t, "Should not call subscribe")
 		return nil, nil
 	})
-	sub := All()
-	links := assertMultiUpdated(t, sub, "on error during initial data")
-	require.Empty(t, links, "no links on error")
+	require.Empty(t, All().Get(), "no links on error")
 
 	reset()
 	setInitialData(testNlRequest{}, testNlRequest{err: errFoo})
@@ -93,18 +80,14 @@ func TestErrors(t *testing.T) {
 		require.Fail(t, "Should not call subscribe")
 		return nil, nil
 	})
-	sub = All()
-	links = assertMultiUpdated(t, sub, "on error during initial data")
-	require.Empty(t, links, "no links on error")
+	require.Empty(t, All().Get(), "no links on error")
 
 	reset()
 	setInitialData(testNlRequest{}, testNlRequest{})
 	returnCustomSubscriber(func(int, ...uint) (nlReceiver, error) {
 		return nil, errFoo
 	})
-	sub = All()
-	links = assertMultiUpdated(t, sub, "on error during subscribe")
-	require.Empty(t, links, "no links on error")
+	require.Empty(t, All().Get(), "no links on error")
 }
 
 func TestInitialData(t *testing.T) {
@@ -125,8 +108,8 @@ func TestInitialData(t *testing.T) {
 	})
 
 	sub := All()
-	initialUpdate := assertMultiUpdated(t, sub, "intial data")
-	assertNoUpdate(t, sub, "Only one initial update")
+	next := sub.Next()
+	assertNoUpdate(t, next, "initial data populated on call to All()")
 
 	require.Equal(t, []Link{
 		{
@@ -146,7 +129,7 @@ func TestInitialData(t *testing.T) {
 			HardwareAddr: hwA[1],
 			IPs:          []net.IP{net.IPv4(127, 0, 0, 1)},
 		},
-	}, initialUpdate)
+	}, sub.Get())
 }
 
 func TestUpdates(t *testing.T) {
@@ -156,84 +139,78 @@ func TestUpdates(t *testing.T) {
 	eno1 := Link{Name: "eno1", State: Unknown, HardwareAddr: hwA[4]}
 
 	sub := All()
-	assertMultiUpdated(t, sub, "on start")
+	next := sub.Next()
+	assertNoUpdate(t, next, "on start")
 	msgCh <- msgNewLink(1, Link{Name: "eno1", State: Unknown, HardwareAddr: hwA[4]})
 
-	links := assertMultiUpdated(t, sub, "Receives update of new link")
-	require.Equal(t, []Link{eno1}, links)
+	next = assertUpdated(t, next, sub, "Receives update of new link")
+	require.Equal(t, []Link{eno1}, sub.Get())
 
 	errCh <- errFoo
-	assertNoUpdate(t, sub, "on error in Receive")
+	assertNoUpdate(t, next, "on error in Receive")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(192, 168, 0, 1), nil)
-	links = assertMultiUpdated(t, sub, "receives update after error")
+	next = assertUpdated(t, next, sub, "receives update after error")
 	eno1.IPs = []net.IP{net.IPv4(192, 168, 0, 1)}
-	require.Equal(t, []Link{eno1}, links, "IP is added and entire link is sent")
+	require.Equal(t, []Link{eno1}, sub.Get(), "IP is added and entire link is sent")
 
 	msgCh <- msgNewLink(1, Link{Name: "eno1", State: Dormant, HardwareAddr: hwA[4]})
-	links = assertMultiUpdated(t, sub)
+	next = assertUpdated(t, next, sub)
 	eno1.State = Dormant
-	require.Equal(t, []Link{eno1}, links, "IP is not lost on link update")
+	require.Equal(t, []Link{eno1}, sub.Get(), "IP is not lost on link update")
 
 	msgCh <- msgNewLink(1, Link{Name: "eno1", State: Dormant, HardwareAddr: hwA[4]})
-	assertNoUpdate(t, sub, "when nothing of interest changes")
+	assertNoUpdate(t, next, "when nothing of interest changes")
 
 	msgCh <- msgNewLink(1, Link{Name: "eno1", State: Dormant, HardwareAddr: hwA[0]})
-	links = assertMultiUpdated(t, sub, "on gaining a hardware address")
+	next = assertUpdated(t, next, sub, "on gaining a hardware address")
 	eno1.HardwareAddr = hwA[0]
-	require.Equal(t, []Link{eno1}, links, "hardware address")
+	require.Equal(t, []Link{eno1}, sub.Get(), "hardware address")
 
 	msgCh <- msgNewLink(1, Link{Name: "eth0", State: Dormant, HardwareAddr: hwA[0]})
 	eno1.Name = "eth0"
-	links = assertMultiUpdated(t, sub, "on rename")
-	require.Equal(t, []Link{eno1}, links, "link is renamed")
+	next = assertUpdated(t, next, sub, "on rename")
+	require.Equal(t, []Link{eno1}, sub.Get(), "link is renamed")
 
 	sub2 := All()
-	links = assertMultiUpdated(t, sub2, "New subscriber updates on start")
-	require.Equal(t, []Link{eno1}, links, "update has current information")
-
-	sub2.Unsubscribe()
+	require.Equal(t, []Link{eno1}, sub2.Get(), "update has current information")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(192, 168, 0, 1), nil)
-	assertNoUpdate(t, sub, "on adding same IP")
-	assertNoUpdate(t, sub2, "after unsubscribe")
+	assertNoUpdate(t, next, "on adding same IP")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(10, 0, 0, 1), nil)
-	links = assertMultiUpdated(t, sub, "on adding different IP")
+	next = assertUpdated(t, next, sub, "on adding different IP")
 	eno1.IPs = []net.IP{net.IPv4(10, 0, 0, 1), net.IPv4(192, 168, 0, 1)}
-	require.Equal(t, []Link{eno1}, links, "IP is added and entire link is sent")
+	require.Equal(t, []Link{eno1}, sub.Get(), "IP is added and entire link is sent")
 
 	msgCh <- msgDelAddrs(1, net.IPv4(192, 168, 10, 1), nil)
-	assertNoUpdate(t, sub, "on removing a non-existent IP")
+	assertNoUpdate(t, next, "on removing a non-existent IP")
 
 	msgCh <- msgNewAddrs(3, net.IPv4(192, 168, 1, 1), nil)
-	assertNoUpdate(t, sub, "on adding IP to non-existent link")
+	assertNoUpdate(t, next, "on adding IP to non-existent link")
 
 	msgCh <- msgDelAddrs(3, net.IPv4(192, 168, 1, 1), nil)
-	assertNoUpdate(t, sub, "on removing IP from non-existent link")
+	assertNoUpdate(t, next, "on removing IP from non-existent link")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(0, 0, 0, 0), nil)
-	assertMultiUpdated(t, sub)
-	assertNoUpdate(t, sub2, "after unsubscribe")
+	next = assertUpdated(t, next, sub)
 
 	msgCh <- msgNewAddrs(1, net.IPv6loopback, nil)
-	assertMultiUpdated(t, sub)
+	next = assertUpdated(t, next, sub)
 
 	msgCh <- msgDelAddrs(1, net.IPv4(192, 168, 1, 1), net.IPv4(192, 168, 0, 1))
-	links = assertMultiUpdated(t, sub, "on removing an IP")
+	next = assertUpdated(t, next, sub, "on removing an IP")
 	eno1.IPs = []net.IP{net.IPv4(10, 0, 0, 1), net.IPv6loopback, net.IPv4(0, 0, 0, 0)}
-	require.Equal(t, []Link{eno1}, links, "All other link information is preserved")
+	require.Equal(t, []Link{eno1}, sub.Get(), "All other link information is preserved")
 
 	msgCh <- msgDelLink(3, Link{Name: "wlan0"})
-	assertNoUpdate(t, sub, "on removing non-existent link")
+	assertNoUpdate(t, next, "on removing non-existent link")
 
 	msgCh <- msgDelLink(1, Link{})
-	links = assertMultiUpdated(t, sub, "on deleting link")
-	require.Empty(t, links, "all links are gone")
+	assertUpdated(t, next, sub, "on deleting link")
+	require.Empty(t, sub.Get(), "all links are gone")
 
-	sub3 := All()
-	links = assertMultiUpdated(t, sub3, "on first subscribe")
-	require.Empty(t, links, "when no links are present")
+	require.Empty(t, All().Get(), "when no links are present")
 }
 
 func TestFiltering(t *testing.T) {
@@ -268,96 +245,98 @@ func TestFiltering(t *testing.T) {
 	wwan0 := Link{Name: "wwan0", State: Down, HardwareAddr: hwA[7]}
 
 	subW := WithPrefix("w")
+	nextW := subW.Next()
+
 	subLocal := ByName("lo1")
+	nextLocal := subLocal.Next()
+
 	subEth := ByName("eth0")
+	nextEth := subEth.Next()
+
 	subAll := All()
+	nextAll := subAll.Next()
+
 	subAny := Any()
+	nextAny := subAny.Next()
 
-	link := assertUpdated(t, subW, "Prefix('w')")
-	require.Equal(t, wlan0, link)
-	assertNoUpdate(t, subW, "Only one update for prefixed link")
+	assertNoUpdate(t, nextW, "on start")
+	assertNoUpdate(t, nextLocal, "on start")
+	assertNoUpdate(t, nextEth, "on start")
+	assertNoUpdate(t, nextAll, "on start")
+	assertNoUpdate(t, nextAny, "on start")
 
-	link = assertUpdated(t, subLocal, "Name('lo1')")
-	require.Equal(t, lo1, link)
-	assertNoUpdate(t, subLocal, "Only one update for named link")
-
-	link = assertUpdated(t, subEth, "No update for named link not found")
-	require.Equal(t, Link{State: Gone}, link)
-	assertNoUpdate(t, subEth, "Only one update on start")
-
-	links := assertMultiUpdated(t, subAll, "All()")
-	require.Equal(t, 4, len(links), "All four links in update to All()")
-	assertNoUpdate(t, subAll, "Only one update for All()")
-
-	link = assertUpdated(t, subAny, "On start")
-	require.Equal(t, wlan0, link, "Best link is sent to Any()")
-	assertNoUpdate(t, subAny, "Only one update for Any()")
+	require.Equal(t, wlan0, subW.Get())
+	require.Equal(t, lo1, subLocal.Get())
+	require.Equal(t, Link{State: Gone}, subEth.Get())
+	require.Equal(t, 4, len(subAll.Get()), "All four links in update to All()")
+	require.Equal(t, wlan0, subAny.Get(), "Best link is sent to Any()")
 
 	msgCh <- msgNewLink(1, Link{Name: "lo1", State: Up, HardwareAddr: hwA[4]})
-	assertUpdated(t, subLocal, "Named link changed")
-	assertNoUpdate(t, subEth, "Named link still not present")
-	assertMultiUpdated(t, subAll, "A link changed")
-	assertUpdated(t, subAny, "A link changed")
-	assertNoUpdate(t, subW, "No relevant link changed")
+	nextLocal = assertUpdated(t, nextLocal, subLocal, "Named link changed")
+	assertNoUpdate(t, nextEth, "Named link still not present")
+	nextAll = assertUpdated(t, nextAll, subAll, "A link changed")
+	nextAny = assertUpdated(t, nextAny, subAny, "A link changed")
+	assertNoUpdate(t, nextW, "No relevant link changed")
 
 	msgCh <- msgNewLink(1, Link{Name: "lo1", State: Down, HardwareAddr: hwA[4]})
-	assertUpdated(t, subLocal, "Named link changed")
-	assertNoUpdate(t, subEth, "Named link still not present")
-	assertMultiUpdated(t, subAll, "A link changed")
-	assertUpdated(t, subAny, "A link changed")
-	assertNoUpdate(t, subW, "No relevant link changed")
+	nextLocal = assertUpdated(t, nextLocal, subLocal, "Named link changed")
+	assertNoUpdate(t, nextEth, "Named link still not present")
+	nextAll = assertUpdated(t, nextAll, subAll, "A link changed")
+	nextAny = assertUpdated(t, nextAny, subAny, "A link changed")
+	assertNoUpdate(t, nextW, "No relevant link changed")
 
 	msgCh <- msgNewLink(4, Link{Name: "wwan0", State: Up, HardwareAddr: hwA[7]})
-	assertNoUpdate(t, subLocal, "Named link unchanged")
-	assertNoUpdate(t, subEth, "Named link still not present")
-	assertMultiUpdated(t, subAll, "A link changed")
-	assertUpdated(t, subAny, "A link changed")
-	link = assertUpdated(t, subW, "Relevant link changed")
-	require.Equal(t, wlan0, link, "'best' link is still the same")
+	nextW = assertUpdated(t, nextW, subW)
+	assertNoUpdate(t, nextLocal, "Named link unchanged")
+	assertNoUpdate(t, nextEth, "Named link still not present")
+	nextAll = assertUpdated(t, nextAll, subAll, "A link changed")
+	nextAny = assertUpdated(t, nextAny, subAny, "A link changed")
+	require.Equal(t, wlan0, subAny.Get(), "'best' link is still the same")
 
 	msgCh <- msgNewLink(2, Link{Name: "wlan0", State: Dormant, HardwareAddr: hwA[5]})
-	link = assertUpdated(t, subW, "Relevant link changed")
+	assertUpdated(t, nextW, subW, "Relevant link changed")
 	wwan0.State = Up
-	require.Equal(t, wwan0, link, "Re-order on state change")
-	link = assertUpdated(t, subAny, "A link changed")
-	require.Equal(t, wwan0, link, "Re-order on state change")
+	require.Equal(t, wwan0, subW.Get(), "Re-order on state change")
+	assertUpdated(t, nextAny, subAny, "A link changed")
+	require.Equal(t, wwan0, subAny.Get(), "Re-order on state change")
 }
 
 func TestTestMode(t *testing.T) {
 	nlt := TestMode()
 
 	subEth := ByName("eth0")
-	assertUpdated(t, subEth)
+	nextEth := subEth.Next()
+	assertNoUpdate(t, nextEth)
 	subAll := All()
-	assertMultiUpdated(t, subAll)
+	nextAll := subAll.Next()
+	assertNoUpdate(t, nextAll)
 
 	id := nlt.AddLink(Link{Name: "eno1"})
-	assertMultiUpdated(t, subAll)
-	assertNoUpdate(t, subEth)
+	nextAll = assertUpdated(t, nextAll, subAll)
+	assertNoUpdate(t, nextEth)
 
 	nlt.AddIP(id, net.IPv4(10, 0, 0, 1))
-	assertMultiUpdated(t, subAll)
-	assertNoUpdate(t, subEth)
+	nextAll = assertUpdated(t, nextAll, subAll)
+	assertNoUpdate(t, nextEth)
 
 	nlt.RemoveIP(id, net.IPv4(10, 0, 0, 1))
-	assertMultiUpdated(t, subAll)
-	assertNoUpdate(t, subEth)
+	nextAll = assertUpdated(t, nextAll, subAll)
+	assertNoUpdate(t, nextEth)
 
 	nlt.RemoveLink(id)
-	assertMultiUpdated(t, subAll)
-	assertNoUpdate(t, subEth)
+	nextAll = assertUpdated(t, nextAll, subAll)
+	assertNoUpdate(t, nextEth)
 
 	id = nlt.AddLink(Link{Name: "eth0", HardwareAddr: hwA[8]})
-	assertMultiUpdated(t, subAll)
-	assertUpdated(t, subEth)
+	nextAll = assertUpdated(t, nextAll, subAll)
+	nextEth = assertUpdated(t, nextEth, subEth)
 
 	nlt.AddIP(id, net.IPv4(10, 0, 0, 1))
 	nlt.AddIP(id, net.IPv4(10, 0, 2, 1))
 	nlt.AddIP(id, net.IPv6loopback)
-	for i := 0; i < 3; i++ {
-		assertMultiUpdated(t, subAll)
-		assertUpdated(t, subEth)
-	}
+
+	nextAll = assertUpdated(t, nextAll, subAll)
+	nextEth = assertUpdated(t, nextEth, subEth)
 
 	nlt.RemoveIP(id, net.IPv4(10, 0, 2, 1))
 	expected := Link{
@@ -365,24 +344,23 @@ func TestTestMode(t *testing.T) {
 		IPs:          []net.IP{net.IPv4(10, 0, 0, 1), net.IPv6loopback},
 		HardwareAddr: hwA[8],
 	}
-	link := assertUpdated(t, subEth)
-	require.Equal(t, expected, link)
-	links := assertMultiUpdated(t, subAll)
-	require.Equal(t, []Link{expected}, links)
+	nextEth = assertUpdated(t, nextEth, subEth)
+	require.Equal(t, expected, subEth.Get())
+	nextAll = assertUpdated(t, nextAll, subAll)
+	require.Equal(t, []Link{expected}, subAll.Get())
 
 	nlt.UpdateLink(id, Link{State: Up})
 	expected.State = Up
-	link = assertUpdated(t, subEth)
-	require.Equal(t, expected, link)
-	assertMultiUpdated(t, subAll)
+	nextEth = assertUpdated(t, nextEth, subEth)
+	require.Equal(t, expected, subEth.Get())
+	nextAll = assertUpdated(t, nextAll, subAll)
 
 	subEth.Unsubscribe()
 	nlt.UpdateLink(id, Link{State: Dormant})
-	assertNoUpdate(t, subEth, "after unsubscribe")
+	assertNoUpdate(t, nextEth, "after unsubscribe")
 
 	nlt.UpdateLink(id, Link{HardwareAddr: hwA[9]})
-	link = assertUpdated(t, Any())
 	expected.State = Dormant
 	expected.HardwareAddr = hwA[9]
-	require.Equal(t, expected, link, "unset properties are retained")
+	require.Equal(t, expected, Any().Get(), "unset properties are retained")
 }

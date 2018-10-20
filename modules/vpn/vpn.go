@@ -78,27 +78,34 @@ func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	state := Disconnected
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
 	nextOutputFunc := m.outputFunc.Next()
-	linkCh := netlink.ByName(m.intf)
-	defer linkCh.Unsubscribe()
 
+	linkSub := netlink.ByName(m.intf)
+	defer linkSub.Unsubscribe()
+	nextLinkState := linkSub.Next()
+
+	state := getState(linkSub.Get().State)
 	for {
+		s.Output(outputFunc(state))
 		select {
-		case update := <-linkCh:
-			switch update.State {
-			case netlink.Up:
-				state = Connected
-			case netlink.Dormant:
-				state = Waiting
-			default:
-				state = Disconnected
-			}
+		case <-nextLinkState:
+			nextLinkState = linkSub.Next()
+			state = getState(linkSub.Get().State)
 		case <-nextOutputFunc:
 			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 		}
-		s.Output(outputFunc(state))
+	}
+}
+
+func getState(state netlink.OperState) State {
+	switch state {
+	case netlink.Up:
+		return Connected
+	case netlink.Dormant:
+		return Waiting
+	default:
+		return Disconnected
 	}
 }

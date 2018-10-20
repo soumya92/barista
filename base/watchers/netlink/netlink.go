@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 
+	"barista.run/base/value"
 	l "barista.run/logging"
 )
 
@@ -197,23 +198,27 @@ func nlInit() {
 	}
 	linksMu.Lock()
 	links = initialData
+	sorted := sortedLinks()
 	linksMu.Unlock()
+	msub.Set(sorted)
 	go nlListen()
 }
 
 var (
-	subs   []subscription
-	msubs  []chan []Link
+	subs   []*Subscription
+	msub   value.Value // of []Link
 	subsMu sync.RWMutex
 )
 
-type subscription struct {
-	name       string
-	prefix     string
-	notifyChan chan Link
+// Subscription represents a potentially filtered subscription to netlink, which
+// returns the best link that matches the filter conditions specified.
+type Subscription struct {
+	name   string
+	prefix string
+	value  value.Value // of Link
 }
 
-func (s subscription) matches(name string) bool {
+func (s *Subscription) matches(name string) bool {
 	switch {
 	case s.name != "":
 		return s.name == name
@@ -224,14 +229,14 @@ func (s subscription) matches(name string) bool {
 	}
 }
 
-func (s subscription) notify(links []Link) {
+func (s *Subscription) notify(links []Link) {
 	for _, link := range links {
 		if s.matches(link.Name) {
-			s.notifyChan <- link
+			s.value.Set(link)
 			return
 		}
 	}
-	s.notifyChan <- Link{State: Gone}
+	s.value.Set(Link{State: Gone})
 }
 
 func sortedLinks() []Link {
@@ -265,36 +270,28 @@ func notifyChanged(names ...string) {
 			}
 		}
 	}
-	for _, m := range msubs {
-		m <- allLinks
-	}
+	msub.Set(allLinks)
 }
 
-func subscribe(s subscription) Subscription {
+func subscribe(s *Subscription) *Subscription {
 	once.Do(nlInit)
 	linksMu.RLock()
 	sorted := sortedLinks()
 	linksMu.RUnlock()
-	s.notifyChan = make(chan Link, 10)
 	subsMu.Lock()
 	subs = append(subs, s)
 	subsMu.Unlock()
 	s.notify(sorted)
-	return s.notifyChan
+	return s
 }
 
-// Subscription represents a single link subscription where
-// the most relevant link is sent on any updates.
-type Subscription <-chan Link
-
 // Unsubscribe stops further notifications and closes the channel.
-func (s Subscription) Unsubscribe() {
+func (s *Subscription) Unsubscribe() {
 	subsMu.Lock()
 	defer subsMu.Unlock()
 	for i, sub := range subs {
-		if s == sub.notifyChan {
+		if s == sub {
 			subs = append(subs[:i], subs[i+1:]...)
-			close(sub.notifyChan)
 			return
 		}
 	}
@@ -303,15 +300,15 @@ func (s Subscription) Unsubscribe() {
 // ByName creates a netlink watcher for the named interface.
 // Any updates to the named interface will cause the current
 // information about that link to be sent on the returned channel.
-func ByName(name string) Subscription {
-	return subscribe(subscription{name: name})
+func ByName(name string) *Subscription {
+	return subscribe(&Subscription{name: name})
 }
 
 // WithPrefix creates a netlink watcher that returns the 'best'
 // link beginning with the given prefix (e.g. 'wl' for wireless,
 // or 'e' for ethernet). See #Any() for details on link priority.
-func WithPrefix(prefix string) Subscription {
-	return subscribe(subscription{prefix: prefix})
+func WithPrefix(prefix string) *Subscription {
+	return subscribe(&Subscription{prefix: prefix})
 }
 
 // Any creates a netlink watcher that returns the 'best' link.
@@ -321,38 +318,40 @@ func WithPrefix(prefix string) Subscription {
 // Gone may be returned if no links are available).
 // If multiple links have the same status, they are ordered
 // alphabetically by their name.
-func Any() Subscription {
-	return subscribe(subscription{})
+func Any() *Subscription {
+	return subscribe(new(Subscription))
 }
 
-// MultiSubscription represents a subscription where all links
-// are sent on any update.
-type MultiSubscription <-chan []Link
+// Get returns the most recent Link that matches the subscription conditions.
+func (s *Subscription) Get() Link {
+	return s.value.Get().(Link)
+}
+
+// Next returns a channel that will be closed on the next update.
+func (s *Subscription) Next() <-chan struct{} {
+	return s.value.Next()
+}
+
+// MultiSubscription represents a subscription over all links.
+type MultiSubscription struct{}
 
 // All creates a netlink watcher for all links.
 func All() MultiSubscription {
 	once.Do(nlInit)
-	linksMu.RLock()
-	sorted := sortedLinks()
-	linksMu.RUnlock()
-	m := make(chan []Link, 10)
-	subsMu.Lock()
-	msubs = append(msubs, m)
-	subsMu.Unlock()
-	m <- sorted
-	return m
+	return MultiSubscription{}
 }
 
-// Unsubscribe removes the given listener and closes the channel
-func (m MultiSubscription) Unsubscribe() {
-	subsMu.Lock()
-	defer subsMu.Unlock()
-	for i, sub := range msubs {
-		if m == sub {
-			msubs = append(msubs[:i], msubs[i+1:]...)
-			return
-		}
+// Get returns the most recent Link that matches the subscription conditions.
+func (s MultiSubscription) Get() []Link {
+	if links, ok := msub.Get().([]Link); ok {
+		return links
 	}
+	return nil
+}
+
+// Next returns a channel that will be closed on the next update.
+func (s MultiSubscription) Next() <-chan struct{} {
+	return msub.Next()
 }
 
 // Tester provides methods to simulate netlink messages
@@ -408,7 +407,7 @@ func TestMode() Tester {
 	linksMu.Unlock()
 	subsMu.Lock()
 	subs = nil
-	msubs = nil
+	msub = value.Value{}
 	subsMu.Unlock()
 	return &tester{}
 }
