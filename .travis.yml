@@ -10,6 +10,8 @@ addons:
 
 install:
   - go get golang.org/x/lint/golint
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
   - go get -t ./...
 
 script:
@@ -17,6 +19,7 @@ script:
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
+  - $HOME/gopath/bin/goveralls -coverprofile=coverage.txt -service=travis-ci -repotoken $COVERALLS_TOKEN
 
 before_deploy:
   - ./build.sh -tags prod -o sample-bar ./samples/sample-bar
