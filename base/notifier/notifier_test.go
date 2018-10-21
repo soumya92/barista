@@ -102,3 +102,29 @@ func TestWait(t *testing.T) {
 		require.Fail(t, "wait did not complete")
 	}
 }
+
+func TestSignal(t *testing.T) {
+	s := new(Signal)
+	beforeSignal0 := s.Next()
+	beforeSignal1 := s.Next()
+	s.Signal()
+	afterSignal := s.Next()
+
+	select {
+	case <-beforeSignal0: // Test passed.
+	case <-time.After(time.Second):
+		require.Fail(t, "Next() not notifed")
+	}
+
+	select {
+	case <-beforeSignal1: // Test passed.
+	case <-time.After(time.Second):
+		require.Fail(t, "Next() not notifed")
+	}
+
+	select {
+	case <-afterSignal:
+		require.Fail(t, "Next() triggered without Signal()")
+	case <-time.After(10 * time.Millisecond): // Test passed.
+	}
+}

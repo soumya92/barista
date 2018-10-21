@@ -23,6 +23,8 @@ is preferable to apply just the final format, ignoring the intermediate ones.
 package notifier // import "barista.run/base/notifier"
 
 import (
+	"sync"
+
 	l "barista.run/logging"
 )
 
@@ -39,4 +41,30 @@ func notify(ch chan<- struct{}) {
 	case ch <- struct{}{}:
 	default:
 	}
+}
+
+// Signal can be used to notify multiple listeners of a signal. Any listeners
+// added before the signal is triggered will have their channels closed.
+type Signal struct {
+	obs []chan struct{}
+	mu  sync.Mutex
+}
+
+// Next returns a channel that will be closed on the next signal.
+func (s *Signal) Next() <-chan struct{} {
+	ch := make(chan struct{})
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.obs = append(s.obs, ch)
+	return ch
+}
+
+// Signal triggers the signal.
+func (s *Signal) Signal() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, o := range s.obs {
+		close(o)
+	}
+	s.obs = nil
 }
