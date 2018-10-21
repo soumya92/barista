@@ -104,7 +104,7 @@ func TestWait(t *testing.T) {
 }
 
 func TestSignal(t *testing.T) {
-	s := new(Signal)
+	s := new(Signaller)
 	beforeSignal0 := s.Next()
 	beforeSignal1 := s.Next()
 	s.Signal()

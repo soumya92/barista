@@ -43,15 +43,15 @@ func notify(ch chan<- struct{}) {
 	}
 }
 
-// Signal can be used to notify multiple listeners of a signal. Any listeners
+// Signaller can be used to notify multiple listeners of a signal. Any listeners
 // added before the signal is triggered will have their channels closed.
-type Signal struct {
+type Signaller struct {
 	obs []chan struct{}
 	mu  sync.Mutex
 }
 
 // Next returns a channel that will be closed on the next signal.
-func (s *Signal) Next() <-chan struct{} {
+func (s *Signaller) Next() <-chan struct{} {
 	ch := make(chan struct{})
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -60,7 +60,7 @@ func (s *Signal) Next() <-chan struct{} {
 }
 
 // Signal triggers the signal.
-func (s *Signal) Signal() {
+func (s *Signaller) Signal() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, o := range s.obs {
