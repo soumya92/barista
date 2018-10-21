@@ -20,8 +20,8 @@ import (
 	"sync"
 	"syscall"
 	"testing"
-	"time"
 
+	"barista.run/testing/notifier"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,20 +49,8 @@ type nexter interface {
 }
 
 func assertUpdated(t *testing.T, next <-chan struct{}, sub nexter, msgAndArgs ...interface{}) <-chan struct{} {
-	select {
-	case <-next:
-	case <-time.After(time.Second):
-		require.Fail(t, "Did not receive an update", msgAndArgs...)
-	}
+	notifier.AssertClosed(t, next, msgAndArgs...)
 	return sub.Next()
-}
-
-func assertNoUpdate(t *testing.T, next <-chan struct{}, msgAndArgs ...interface{}) {
-	select {
-	case <-next:
-		require.Fail(t, "Unexpected update", msgAndArgs...)
-	case <-time.After(10 * time.Millisecond):
-	}
 }
 
 func TestErrors(t *testing.T) {
@@ -109,7 +97,7 @@ func TestInitialData(t *testing.T) {
 
 	sub := All()
 	next := sub.Next()
-	assertNoUpdate(t, next, "initial data populated on call to All()")
+	notifier.AssertNoUpdate(t, next, "initial data populated on call to All()")
 
 	require.Equal(t, []Link{
 		{
@@ -140,14 +128,14 @@ func TestUpdates(t *testing.T) {
 
 	sub := All()
 	next := sub.Next()
-	assertNoUpdate(t, next, "on start")
+	notifier.AssertNoUpdate(t, next, "on start")
 	msgCh <- msgNewLink(1, Link{Name: "eno1", State: Unknown, HardwareAddr: hwA[4]})
 
 	next = assertUpdated(t, next, sub, "Receives update of new link")
 	require.Equal(t, []Link{eno1}, sub.Get())
 
 	errCh <- errFoo
-	assertNoUpdate(t, next, "on error in Receive")
+	notifier.AssertNoUpdate(t, next, "on error in Receive")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(192, 168, 0, 1), nil)
 	next = assertUpdated(t, next, sub, "receives update after error")
@@ -160,7 +148,7 @@ func TestUpdates(t *testing.T) {
 	require.Equal(t, []Link{eno1}, sub.Get(), "IP is not lost on link update")
 
 	msgCh <- msgNewLink(1, Link{Name: "eno1", State: Dormant, HardwareAddr: hwA[4]})
-	assertNoUpdate(t, next, "when nothing of interest changes")
+	notifier.AssertNoUpdate(t, next, "when nothing of interest changes")
 
 	msgCh <- msgNewLink(1, Link{Name: "eno1", State: Dormant, HardwareAddr: hwA[0]})
 	next = assertUpdated(t, next, sub, "on gaining a hardware address")
@@ -176,7 +164,7 @@ func TestUpdates(t *testing.T) {
 	require.Equal(t, []Link{eno1}, sub2.Get(), "update has current information")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(192, 168, 0, 1), nil)
-	assertNoUpdate(t, next, "on adding same IP")
+	notifier.AssertNoUpdate(t, next, "on adding same IP")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(10, 0, 0, 1), nil)
 	next = assertUpdated(t, next, sub, "on adding different IP")
@@ -184,13 +172,13 @@ func TestUpdates(t *testing.T) {
 	require.Equal(t, []Link{eno1}, sub.Get(), "IP is added and entire link is sent")
 
 	msgCh <- msgDelAddrs(1, net.IPv4(192, 168, 10, 1), nil)
-	assertNoUpdate(t, next, "on removing a non-existent IP")
+	notifier.AssertNoUpdate(t, next, "on removing a non-existent IP")
 
 	msgCh <- msgNewAddrs(3, net.IPv4(192, 168, 1, 1), nil)
-	assertNoUpdate(t, next, "on adding IP to non-existent link")
+	notifier.AssertNoUpdate(t, next, "on adding IP to non-existent link")
 
 	msgCh <- msgDelAddrs(3, net.IPv4(192, 168, 1, 1), nil)
-	assertNoUpdate(t, next, "on removing IP from non-existent link")
+	notifier.AssertNoUpdate(t, next, "on removing IP from non-existent link")
 
 	msgCh <- msgNewAddrs(1, net.IPv4(0, 0, 0, 0), nil)
 	next = assertUpdated(t, next, sub)
@@ -204,7 +192,7 @@ func TestUpdates(t *testing.T) {
 	require.Equal(t, []Link{eno1}, sub.Get(), "All other link information is preserved")
 
 	msgCh <- msgDelLink(3, Link{Name: "wlan0"})
-	assertNoUpdate(t, next, "on removing non-existent link")
+	notifier.AssertNoUpdate(t, next, "on removing non-existent link")
 
 	msgCh <- msgDelLink(1, Link{})
 	assertUpdated(t, next, sub, "on deleting link")
@@ -259,11 +247,11 @@ func TestFiltering(t *testing.T) {
 	subAny := Any()
 	nextAny := subAny.Next()
 
-	assertNoUpdate(t, nextW, "on start")
-	assertNoUpdate(t, nextLocal, "on start")
-	assertNoUpdate(t, nextEth, "on start")
-	assertNoUpdate(t, nextAll, "on start")
-	assertNoUpdate(t, nextAny, "on start")
+	notifier.AssertNoUpdate(t, nextW, "on start")
+	notifier.AssertNoUpdate(t, nextLocal, "on start")
+	notifier.AssertNoUpdate(t, nextEth, "on start")
+	notifier.AssertNoUpdate(t, nextAll, "on start")
+	notifier.AssertNoUpdate(t, nextAny, "on start")
 
 	require.Equal(t, wlan0, subW.Get())
 	require.Equal(t, lo1, subLocal.Get())
@@ -273,22 +261,22 @@ func TestFiltering(t *testing.T) {
 
 	msgCh <- msgNewLink(1, Link{Name: "lo1", State: Up, HardwareAddr: hwA[4]})
 	nextLocal = assertUpdated(t, nextLocal, subLocal, "Named link changed")
-	assertNoUpdate(t, nextEth, "Named link still not present")
+	notifier.AssertNoUpdate(t, nextEth, "Named link still not present")
 	nextAll = assertUpdated(t, nextAll, subAll, "A link changed")
 	nextAny = assertUpdated(t, nextAny, subAny, "A link changed")
-	assertNoUpdate(t, nextW, "No relevant link changed")
+	notifier.AssertNoUpdate(t, nextW, "No relevant link changed")
 
 	msgCh <- msgNewLink(1, Link{Name: "lo1", State: Down, HardwareAddr: hwA[4]})
 	nextLocal = assertUpdated(t, nextLocal, subLocal, "Named link changed")
-	assertNoUpdate(t, nextEth, "Named link still not present")
+	notifier.AssertNoUpdate(t, nextEth, "Named link still not present")
 	nextAll = assertUpdated(t, nextAll, subAll, "A link changed")
 	nextAny = assertUpdated(t, nextAny, subAny, "A link changed")
-	assertNoUpdate(t, nextW, "No relevant link changed")
+	notifier.AssertNoUpdate(t, nextW, "No relevant link changed")
 
 	msgCh <- msgNewLink(4, Link{Name: "wwan0", State: Up, HardwareAddr: hwA[7]})
 	nextW = assertUpdated(t, nextW, subW)
-	assertNoUpdate(t, nextLocal, "Named link unchanged")
-	assertNoUpdate(t, nextEth, "Named link still not present")
+	notifier.AssertNoUpdate(t, nextLocal, "Named link unchanged")
+	notifier.AssertNoUpdate(t, nextEth, "Named link still not present")
 	nextAll = assertUpdated(t, nextAll, subAll, "A link changed")
 	nextAny = assertUpdated(t, nextAny, subAny, "A link changed")
 	require.Equal(t, wlan0, subAny.Get(), "'best' link is still the same")
@@ -306,26 +294,26 @@ func TestTestMode(t *testing.T) {
 
 	subEth := ByName("eth0")
 	nextEth := subEth.Next()
-	assertNoUpdate(t, nextEth)
+	notifier.AssertNoUpdate(t, nextEth)
 	subAll := All()
 	nextAll := subAll.Next()
-	assertNoUpdate(t, nextAll)
+	notifier.AssertNoUpdate(t, nextAll)
 
 	id := nlt.AddLink(Link{Name: "eno1"})
 	nextAll = assertUpdated(t, nextAll, subAll)
-	assertNoUpdate(t, nextEth)
+	notifier.AssertNoUpdate(t, nextEth)
 
 	nlt.AddIP(id, net.IPv4(10, 0, 0, 1))
 	nextAll = assertUpdated(t, nextAll, subAll)
-	assertNoUpdate(t, nextEth)
+	notifier.AssertNoUpdate(t, nextEth)
 
 	nlt.RemoveIP(id, net.IPv4(10, 0, 0, 1))
 	nextAll = assertUpdated(t, nextAll, subAll)
-	assertNoUpdate(t, nextEth)
+	notifier.AssertNoUpdate(t, nextEth)
 
 	nlt.RemoveLink(id)
 	nextAll = assertUpdated(t, nextAll, subAll)
-	assertNoUpdate(t, nextEth)
+	notifier.AssertNoUpdate(t, nextEth)
 
 	id = nlt.AddLink(Link{Name: "eth0", HardwareAddr: hwA[8]})
 	nextAll = assertUpdated(t, nextAll, subAll)
@@ -357,7 +345,7 @@ func TestTestMode(t *testing.T) {
 
 	subEth.Unsubscribe()
 	nlt.UpdateLink(id, Link{State: Dormant})
-	assertNoUpdate(t, nextEth, "after unsubscribe")
+	notifier.AssertNoUpdate(t, nextEth, "after unsubscribe")
 
 	nlt.UpdateLink(id, Link{HardwareAddr: hwA[9]})
 	expected.State = Dormant

@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"barista.run/testing/notifier"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,12 +35,7 @@ func testDir(t *testing.T) string {
 }
 
 func assertNotified(t *testing.T, ch <-chan struct{}, formatAndArgs ...interface{}) {
-	select {
-	case <-ch:
-		// test passed.
-	case <-time.After(time.Second):
-		require.Fail(t, "Was not notified", formatAndArgs...)
-	}
+	notifier.AssertNotified(t, ch, formatAndArgs...)
 	deadline := time.After(5 * time.Millisecond)
 	for {
 		select {
@@ -47,15 +43,6 @@ func assertNotified(t *testing.T, ch <-chan struct{}, formatAndArgs ...interface
 		case <-deadline:
 			return
 		}
-	}
-}
-
-func assertNotNotified(t *testing.T, ch <-chan struct{}, formatAndArgs ...interface{}) {
-	select {
-	case <-time.After(10 * time.Millisecond):
-		// test passed.
-	case <-ch:
-		require.Fail(t, "Unexpectedly notified", formatAndArgs...)
 	}
 }
 
@@ -74,13 +61,13 @@ func TestWatchOnExistingFile(t *testing.T) {
 	w := Watch(tmpFile)
 	defer w.Unsubscribe()
 	waitForStart(w)
-	assertNotNotified(t, w.Updates, "On start")
+	notifier.AssertNoUpdate(t, w.Updates, "On start")
 
 	ioutil.WriteFile(tmpFile, []byte(`bar`), 0644)
 	assertNotified(t, w.Updates, "On write")
 
 	ioutil.ReadFile(tmpFile)
-	assertNotNotified(t, w.Updates, "On read")
+	notifier.AssertNoUpdate(t, w.Updates, "On read")
 }
 
 func TestDeleteAndRecreate(t *testing.T) {
@@ -110,7 +97,7 @@ func TestSubdirectories(t *testing.T) {
 	w := Watch(target)
 	defer w.Unsubscribe()
 	waitForStart(w)
-	assertNotNotified(t, w.Updates, "on start with non-existent file")
+	notifier.AssertNoUpdate(t, w.Updates, "on start with non-existent file")
 
 	ioutil.WriteFile(target, []byte(`foo`), 0644)
 	assertNotified(t, w.Updates, "on file modification")
@@ -120,10 +107,10 @@ func TestSubdirectories(t *testing.T) {
 
 	ioutil.WriteFile(path.Join(tempDir, "notfoo"), []byte(`bar`), 0644)
 	os.MkdirAll(path.Join(tempDir, "baz", "etc"), 0755)
-	assertNotNotified(t, w.Updates, "ignores creations in currently watched dir")
+	notifier.AssertNoUpdate(t, w.Updates, "ignores creations in currently watched dir")
 
 	os.MkdirAll(subdir, 0755)
-	assertNotNotified(t, w.Updates, "on creation of parent dir")
+	notifier.AssertNoUpdate(t, w.Updates, "on creation of parent dir")
 
 	ioutil.WriteFile(target, []byte(`foo`), 0644)
 	assertNotified(t, w.Updates, "on file modification")
@@ -132,7 +119,7 @@ func TestSubdirectories(t *testing.T) {
 	assertNotified(t, w.Updates, "on file deletion")
 
 	os.Remove(subdir)
-	assertNotNotified(t, w.Updates, "on parent deletion after file is gone")
+	notifier.AssertNoUpdate(t, w.Updates, "on parent deletion after file is gone")
 
 	os.MkdirAll(target, 0755)
 	assertNotified(t, w.Updates, "on full path creation")
@@ -182,7 +169,7 @@ func TestErrors(t *testing.T) {
 
 	w := Watch(path.Join(tmpFile, "/dir/under/file"))
 	defer w.Unsubscribe()
-	assertNotNotified(t, w.Updates, "On start with error")
+	notifier.AssertNoUpdate(t, w.Updates, "On start with error")
 	select {
 	case <-w.Errors:
 		// test passed.
@@ -194,13 +181,13 @@ func TestErrors(t *testing.T) {
 	os.MkdirAll(subdir, 0755)
 	w = Watch(subdir)
 	defer w.Unsubscribe()
-	assertNotNotified(t, w.Updates, "On start")
+	notifier.AssertNoUpdate(t, w.Updates, "On start")
 	waitForStart(w)
 
 	os.RemoveAll(path.Join(tempDir, "foo"))
 	assertNotified(t, w.Updates, "On parent deletion")
 	os.Create(path.Join(tempDir, "foo"))
-	assertNotNotified(t, w.Updates, "On error")
+	notifier.AssertNoUpdate(t, w.Updates, "On error")
 	select {
 	case <-w.Errors:
 	// test passed.

@@ -19,30 +19,15 @@ import (
 	"testing"
 	"time"
 
+	"barista.run/testing/notifier"
 	"github.com/stretchr/testify/require"
 )
-
-func assertTick(t *testing.T, n <-chan struct{}, message string) {
-	select {
-	case <-n:
-	case <-time.After(time.Second):
-		require.Fail(t, "notifier did not update", message)
-	}
-}
-
-func assertNoTick(t *testing.T, n <-chan struct{}, message string) {
-	select {
-	case <-n:
-		require.Fail(t, "notifier updated", message)
-	case <-time.After(10 * time.Millisecond):
-	}
-}
 
 func TestSimpleNotify(t *testing.T) {
 	fn, n := New()
 	fn()
-	assertTick(t, n, "when notified")
-	assertNoTick(t, n, "when not notified")
+	notifier.AssertNotified(t, n, "when notified")
+	notifier.AssertNoUpdate(t, n, "when not notified")
 }
 
 func TestMultipleNotify(t *testing.T) {
@@ -50,8 +35,8 @@ func TestMultipleNotify(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		fn()
 	}
-	assertTick(t, n, "when notified")
-	assertNoTick(t, n, "multiple notifications are merged")
+	notifier.AssertNotified(t, n, "when notified")
+	notifier.AssertNoUpdate(t, n, "multiple notifications are merged")
 }
 
 func TestNotifyWithWaiting(t *testing.T) {
@@ -110,21 +95,7 @@ func TestSignal(t *testing.T) {
 	s.Signal()
 	afterSignal := s.Next()
 
-	select {
-	case <-beforeSignal0: // Test passed.
-	case <-time.After(time.Second):
-		require.Fail(t, "Next() not notifed")
-	}
-
-	select {
-	case <-beforeSignal1: // Test passed.
-	case <-time.After(time.Second):
-		require.Fail(t, "Next() not notifed")
-	}
-
-	select {
-	case <-afterSignal:
-		require.Fail(t, "Next() triggered without Signal()")
-	case <-time.After(10 * time.Millisecond): // Test passed.
-	}
+	notifier.AssertClosed(t, beforeSignal0, "Next() before Signal()")
+	notifier.AssertClosed(t, beforeSignal1, "Next() before Signal()")
+	notifier.AssertNoUpdate(t, afterSignal, "Next() after Signal()")
 }

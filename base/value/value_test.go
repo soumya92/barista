@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"barista.run/testing/notifier"
 	"github.com/stretchr/testify/require"
 )
 
@@ -110,22 +111,10 @@ func TestValueUpdate(t *testing.T) {
 		require.Fail("<-Next()s not notified within 1s")
 	}
 
-	select {
-	case <-v.Next():
-		require.Fail("<-Next() triggered without a Set(...)")
-	case <-time.After(10 * time.Millisecond):
-		// Test passed, Next() only notify of values
-		// set after the call to Next.
-	}
+	notifier.AssertNoUpdate(t, v.Next(), "Next() without a Set(...)")
 
 	v.Set("...")
-	select {
-	case <-v.Next():
-		require.Fail("<-Next() triggered for previous Set(...)")
-	case <-time.After(10 * time.Millisecond):
-		// Test passed, Next() only notify of values
-		// set after the call to Next.
-	}
+	notifier.AssertNoUpdate(t, v.Next(), "Next() after previous Set(...)")
 }
 
 func TestErrorValue(t *testing.T) {
