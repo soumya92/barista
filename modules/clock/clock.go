@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -124,7 +125,8 @@ func (m *Module) Stream(s bar.Sink) {
 	sch := timing.NewScheduler()
 	l.Attach(m, sch, ".scheduler")
 	cfg := m.getConfig()
-	nextCfg := m.config.Next()
+	nextCfg, done := notifier.SubscribeTo(m.config.Next)
+	defer done()
 	for {
 		now := timing.Now()
 		next := now.Add(cfg.granularity).Truncate(cfg.granularity)
@@ -134,7 +136,6 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-sch.Tick():
 		case <-nextCfg:
-			nextCfg = m.config.Next()
 			cfg = m.getConfig()
 		}
 	}

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -93,7 +94,8 @@ func (m *Module) Stream(s bar.Sink) {
 
 	var speeds Speeds
 	outputFunc := m.outputFunc.Get().(func(Speeds) bar.Output)
-	nextOutputFunc := m.outputFunc.Next()
+	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	defer done()
 
 	for {
 		if speeds.available {
@@ -101,7 +103,6 @@ func (m *Module) Stream(s bar.Sink) {
 		}
 		select {
 		case <-nextOutputFunc:
-			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Speeds) bar.Output)
 		case <-m.scheduler.Tick():
 			rx, tx, err := linkRxTx(m.iface)

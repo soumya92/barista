@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	"barista.run/oauth"
 	"barista.run/outputs"
@@ -152,9 +153,11 @@ func (m *Module) Stream(sink bar.Sink) {
 	}
 	srv, _ := calendar.New(client)
 	outf := m.outputFunc.Get().(func(EventList) (bar.Output, time.Time))
-	nextOutputFunc := m.outputFunc.Next()
+	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	defer done()
 	conf := m.getConfig()
-	nextConfig := m.config.Next()
+	nextConfig, done := notifier.SubscribeTo(m.config.Next)
+	defer done()
 	renderer := timing.NewScheduler()
 	evts, err := fetch(srv, conf)
 	for {
@@ -168,10 +171,8 @@ func (m *Module) Stream(sink bar.Sink) {
 		sink.Output(out)
 		select {
 		case <-nextOutputFunc:
-			nextOutputFunc = m.outputFunc.Next()
 			outf = m.outputFunc.Get().(func(EventList) (bar.Output, time.Time))
 		case <-nextConfig:
-			nextConfig = m.config.Next()
 			conf = m.getConfig()
 			evts, err = fetch(srv, conf)
 		case <-m.scheduler.Tick():

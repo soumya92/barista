@@ -22,11 +22,12 @@ import (
 	"strings"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	"barista.run/outputs"
 
 	"github.com/maximbaz/yubikey-touch-detector/detector"
-	"github.com/maximbaz/yubikey-touch-detector/notifier"
+	ykNotifier "github.com/maximbaz/yubikey-touch-detector/notifier"
 )
 
 // Module represents a yubikey barista module that shows an indicator whenever
@@ -82,8 +83,8 @@ func (m *Module) Output(outputFunc func(bool, bool) bar.Output) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(sink bar.Sink) {
-	ykChan := make(chan notifier.Message, 10)
-	notifiers := map[string]chan notifier.Message{"barista": ykChan}
+	ykChan := make(chan ykNotifier.Message, 10)
+	notifiers := map[string]chan ykNotifier.Message{"barista": ykChan}
 
 	requestGPGCheck := make(chan bool)
 	go detector.CheckGPGOnRequest(requestGPGCheck, notifiers)
@@ -101,23 +102,23 @@ func (m *Module) Stream(sink bar.Sink) {
 	gpg := false
 	u2f := false
 	outf := m.outputFunc.Get().(func(bool, bool) bar.Output)
-	nextOutputFunc := m.outputFunc.Next()
+	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	defer done()
 	for {
 		sink.Output(outf(gpg, u2f))
 		select {
 		case msg := <-ykChan:
 			switch msg {
-			case notifier.GPG_ON:
+			case ykNotifier.GPG_ON:
 				gpg = true
-			case notifier.GPG_OFF:
+			case ykNotifier.GPG_OFF:
 				gpg = false
-			case notifier.U2F_ON:
+			case ykNotifier.U2F_ON:
 				u2f = true
-			case notifier.U2F_OFF:
+			case ykNotifier.U2F_OFF:
 				u2f = false
 			}
 		case <-nextOutputFunc:
-			nextOutputFunc = m.outputFunc.Next()
 			outf = m.outputFunc.Get().(func(bool, bool) bar.Output)
 		}
 	}

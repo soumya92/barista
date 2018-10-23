@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	"barista.run/oauth"
 	"barista.run/outputs"
@@ -95,7 +96,8 @@ func (m *Module) Stream(sink bar.Sink) {
 		wrapForTest(client)
 	}
 	outf := m.outputFunc.Get().(func(Notifications) bar.Output)
-	nextOutputFunc := m.outputFunc.Next()
+	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	defer done()
 	info, err := m.getNotifications(client)
 	for {
 		if err != errCached {
@@ -107,7 +109,6 @@ func (m *Module) Stream(sink bar.Sink) {
 		err = nil
 		select {
 		case <-nextOutputFunc:
-			nextOutputFunc = m.outputFunc.Next()
 			outf = m.outputFunc.Get().(func(Notifications) bar.Output)
 		case <-m.scheduler.Tick():
 			i, e := m.getNotifications(client)

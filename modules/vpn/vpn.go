@@ -17,6 +17,7 @@ package vpn // import "barista.run/modules/vpn"
 
 import (
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	"barista.run/base/watchers/netlink"
 	l "barista.run/logging"
@@ -79,21 +80,19 @@ func (m *Module) Output(outputFunc func(State) bar.Output) *Module {
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	outputFunc := m.outputFunc.Get().(func(State) bar.Output)
-	nextOutputFunc := m.outputFunc.Next()
+	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	defer done()
 
 	linkSub := netlink.ByName(m.intf)
 	defer linkSub.Unsubscribe()
-	nextLinkState := linkSub.Next()
 
 	state := getState(linkSub.Get().State)
 	for {
 		s.Output(outputFunc(state))
 		select {
-		case <-nextLinkState:
-			nextLinkState = linkSub.Next()
+		case <-linkSub.C:
 			state = getState(linkSub.Get().State)
 		case <-nextOutputFunc:
-			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(State) bar.Output)
 		}
 	}

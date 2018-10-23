@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 )
@@ -213,9 +214,11 @@ var (
 // Subscription represents a potentially filtered subscription to netlink, which
 // returns the best link that matches the filter conditions specified.
 type Subscription struct {
-	name   string
-	prefix string
-	value  value.Value // of Link
+	C       <-chan struct{}
+	name    string
+	prefix  string
+	value   value.Value // of Link
+	doneSub func()
 }
 
 func (s *Subscription) matches(name string) bool {
@@ -282,11 +285,13 @@ func subscribe(s *Subscription) *Subscription {
 	subs = append(subs, s)
 	subsMu.Unlock()
 	s.notify(sorted)
+	s.C, s.doneSub = notifier.SubscribeTo(s.value.Next)
 	return s
 }
 
 // Unsubscribe stops further notifications and closes the channel.
 func (s *Subscription) Unsubscribe() {
+	s.doneSub()
 	subsMu.Lock()
 	defer subsMu.Unlock()
 	for i, sub := range subs {

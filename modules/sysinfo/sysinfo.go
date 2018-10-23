@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -100,10 +101,12 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 // Stream subscribes to sysinfo and updates the module's output.
 func (m *Module) Stream(s bar.Sink) {
 	i, err := currentInfo.Get()
+	nextInfo, done := notifier.SubscribeTo(currentInfo.Next)
+	defer done()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	nextOutputFunc := m.outputFunc.Next()
+	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	defer done()
 	for {
-		nextInfo := currentInfo.Next()
 		if err != nil {
 			s.Error(err)
 		} else if info, ok := i.(Info); ok {
@@ -111,7 +114,6 @@ func (m *Module) Stream(s bar.Sink) {
 		}
 		select {
 		case <-nextOutputFunc:
-			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		case <-nextInfo:
 			i, err = currentInfo.Get()

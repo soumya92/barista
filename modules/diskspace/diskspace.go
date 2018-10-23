@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -101,7 +102,8 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	info, err := getStatFsInfo(m.path)
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	nextOutputFunc := m.outputFunc.Next()
+	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	defer done()
 	for {
 		if os.IsNotExist(err) {
 			// Disk is not mounted, hide the module.
@@ -118,7 +120,6 @@ func (m *Module) Stream(s bar.Sink) {
 		case <-m.scheduler.Tick():
 			info, err = getStatFsInfo(m.path)
 		case <-nextOutputFunc:
-			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		}
 	}

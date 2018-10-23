@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -127,7 +128,8 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	weather, err := m.provider.GetWeather()
 	outputFunc := m.outputFunc.Get().(func(Weather) bar.Output)
-	nextOutputFunc := m.outputFunc.Next()
+	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	defer done()
 	for {
 		if s.Error(err) {
 			return
@@ -136,7 +138,6 @@ func (m *Module) Stream(s bar.Sink) {
 		s.Output(outputFunc(weather))
 		select {
 		case <-nextOutputFunc:
-			nextOutputFunc = m.outputFunc.Next()
 			outputFunc = m.outputFunc.Get().(func(Weather) bar.Output)
 		case <-m.scheduler.Tick():
 			weather, err = m.provider.GetWeather()
