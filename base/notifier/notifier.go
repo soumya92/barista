@@ -68,3 +68,34 @@ func (s *Signaller) Signal() {
 	}
 	s.obs = nil
 }
+
+// SubscribeTo creates a new subscription to a Next() style update source. This
+// subscription must be cleaned up calling the return done func. It notifies on
+// any signal to the channel returned by Next(), and automatically re-registers
+// for further notifications if the channel is closed.
+func SubscribeTo(next func() <-chan struct{}) (subscription <-chan struct{}, done func()) {
+	fn, ch := New()
+	doneCh := make(chan struct{})
+	waitCh := make(chan struct{})
+	go func() {
+		n := next()
+		waitCh <- struct{}{}
+		for {
+			select {
+			case _, open := <-n:
+				if !open {
+					n = next()
+				}
+				fn()
+			case <-doneCh:
+				close(waitCh)
+				return
+			}
+		}
+	}()
+	<-waitCh
+	return ch, func() {
+		close(doneCh)
+		<-waitCh
+	}
+}

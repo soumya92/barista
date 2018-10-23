@@ -16,6 +16,7 @@ package notifier
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -98,4 +99,69 @@ func TestSignal(t *testing.T) {
 	notifier.AssertClosed(t, beforeSignal0, "Next() before Signal()")
 	notifier.AssertClosed(t, beforeSignal1, "Next() before Signal()")
 	notifier.AssertNoUpdate(t, afterSignal, "Next() after Signal()")
+}
+
+type Ticker struct {
+	ticked int64
+	ch     <-chan struct{}
+	fn     func()
+}
+
+func newTicker() *Ticker {
+	fn, ch := New()
+	return &Ticker{ch: ch, fn: fn}
+}
+
+func (t *Ticker) Notify() {
+	t.fn()
+}
+
+func (t *Ticker) Tick() <-chan struct{} {
+	atomic.AddInt64(&t.ticked, 1)
+	return t.ch
+}
+
+func TestSubscribe(t *testing.T) {
+	s := new(Signaller)
+	tr := newTicker()
+
+	before, beforeDone := SubscribeTo(s.Next)
+	s.Signal()
+	after, afterDone := SubscribeTo(s.Next)
+	chSub, chDone := SubscribeTo(tr.Tick)
+
+	notifier.AssertNotified(t, before, "Subscribe() before notification")
+	notifier.AssertNoUpdate(t, after, "Subscribe() after notification")
+	notifier.AssertNoUpdate(t, chSub, "Subscribe() before notification")
+
+	tr.Notify()
+	s.Signal()
+
+	notifier.AssertNotified(t, before,
+		"Previously notified subscription after another notification")
+	notifier.AssertNotified(t, after, "Subscription after notification")
+	notifier.AssertNotified(t, chSub, "Subscription after notification")
+
+	tr.Notify()
+	notifier.AssertNotified(t, chSub, "Subscription after another notification")
+
+	beforeDone()
+	s.Signal()
+
+	notifier.AssertNoUpdate(t, before, "Subscription after done()")
+	notifier.AssertNotified(t, after, "Different subscription still notified")
+
+	require.Panics(t, func() { beforeDone() }, "Duplicate cleanup")
+
+	tr.Notify()
+	notifier.AssertNotified(t, chSub, "Subscription after another notification")
+
+	afterDone()
+	notifier.AssertNoUpdate(t, after, "On calling done()")
+
+	chDone()
+	notifier.AssertNoUpdate(t, chSub, "On calling done()")
+
+	require.Equal(t, int64(1), atomic.LoadInt64(&tr.ticked),
+		"Only one call to channel get function when channel is not closed")
 }
