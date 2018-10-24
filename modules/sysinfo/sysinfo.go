@@ -49,7 +49,7 @@ type Info struct {
 var currentInfo = new(value.ErrorValue) // of Info
 
 var once sync.Once
-var updater timing.Scheduler
+var updater *timing.Scheduler
 
 // construct initialises sysinfo's global updating.
 func construct() {
@@ -60,7 +60,7 @@ func construct() {
 		updater.Every(3 * time.Second)
 		update()
 		go func() {
-			for range updater.Tick() {
+			for range updater.C {
 				update()
 			}
 		}()

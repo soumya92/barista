@@ -126,7 +126,7 @@ func (i Info) SignedPower() float64 {
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
 	updateFunc func() Info
-	scheduler  timing.Scheduler
+	scheduler  *timing.Scheduler
 	outputFunc value.Value // of func(Info) bar.Output
 }
 
@@ -177,7 +177,7 @@ func (m *Module) Stream(s bar.Sink) {
 	for {
 		s.Output(outputFunc(info))
 		select {
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			info = m.updateFunc()
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)

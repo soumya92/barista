@@ -280,7 +280,7 @@ func (m *Module) Stream(s bar.Sink) {
 				s.Output(outputs.Group(outputFunc(info)).
 					OnClick(defaultClickHandler(info)))
 			}
-		case <-positionUpdater.Tick():
+		case <-positionUpdater.C:
 			info.Controller = m.player
 			s.Output(outputs.Group(outputFunc(info)).
 				OnClick(defaultClickHandler(info)))

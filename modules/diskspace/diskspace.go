@@ -65,7 +65,7 @@ func (i Info) AvailPct() int {
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
 	path       string
-	scheduler  timing.Scheduler
+	scheduler  *timing.Scheduler
 	outputFunc value.Value // of func(Info) bar.Output
 }
 
@@ -116,7 +116,7 @@ func (m *Module) Stream(s bar.Sink) {
 			s.Output(outputFunc(info))
 		}
 		select {
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			info, err = getStatFsInfo(m.path)
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)

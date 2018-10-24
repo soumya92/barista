@@ -35,7 +35,7 @@ import (
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
 	thermalFile string
-	scheduler   timing.Scheduler
+	scheduler   *timing.Scheduler
 	outputFunc  value.Value // of func(unit.Temperature) bar.Output
 }
 
@@ -106,7 +106,7 @@ func (m *Module) Stream(s bar.Sink) {
 		}
 		s.Output(outputFunc(temp))
 		select {
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			temp, err = getTemperature(m.thermalFile)
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(unit.Temperature) bar.Output)

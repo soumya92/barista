@@ -83,6 +83,6 @@ func (r *RepeatingModule) Stream(s bar.Sink) {
 	sch := timing.NewScheduler().Every(r.duration)
 	for {
 		r.fn(s)
-		<-sch.Tick()
+		sch.Tick()
 	}
 }

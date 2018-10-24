@@ -37,7 +37,7 @@ func (s simpleClockModule) Stream(sink bar.Sink) {
 		now := timing.Now()
 		sink.Output(bar.TextSegment(now.Format(s.format)))
 		next := now.Add(s.interval).Truncate(s.interval)
-		<-sch.At(next).Tick()
+		sch.At(next).Tick()
 	}
 }
 
@@ -54,7 +54,7 @@ func (d diskSpaceModule) Stream(sink bar.Sink) {
 		sink.Output(bar.TextSegment(
 			humanize.IBytes(stat.Bavail * uint64(stat.Bsize)),
 		))
-		<-sch.Tick()
+		sch.Tick()
 	}
 }
 

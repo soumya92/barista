@@ -55,7 +55,7 @@ type Module struct {
 
 	// Use the poll interval and last modified from the previous response to
 	// control when we next check for notifications.
-	scheduler    timing.Scheduler
+	scheduler    *timing.Scheduler
 	lastModified string
 }
 
@@ -109,7 +109,7 @@ func (m *Module) Stream(sink bar.Sink) {
 		select {
 		case <-nextOutputFunc:
 			outf = m.outputFunc.Get().(func(Notifications) bar.Output)
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			i, e := m.getNotifications(client)
 			err = e
 			if e != errCached {

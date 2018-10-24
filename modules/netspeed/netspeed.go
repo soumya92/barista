@@ -45,7 +45,7 @@ func (s Speeds) Total() unit.Datarate {
 // format, click handler, and update frequency.
 type Module struct {
 	iface      string
-	scheduler  timing.Scheduler
+	scheduler  *timing.Scheduler
 	outputFunc value.Value // of func(Speeds) bar.Output
 }
 
@@ -103,7 +103,7 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Speeds) bar.Output)
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			rx, tx, err := linkRxTx(m.iface)
 			if s.Error(err) {
 				return

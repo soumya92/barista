@@ -24,18 +24,27 @@ import (
 	l "barista.run/logging"
 )
 
-// scheduler implements a Scheduler tied to actual time.
-type scheduler struct {
-	sync.Mutex
+// Scheduler represents a trigger that can be repeating or one-off, and
+// is intrinsically tied to the running bar. This means that if the trigger
+// condition occurs while the bar is paused, it will not fire until the bar
+// is next resumed, making it ideal for scheduling work that should only be
+// performed while the bar is active.
+type Scheduler struct {
+	// A channel that receives an empty struct for each tick of the scheduler.
+	C <-chan struct{}
 
+	mu      sync.Mutex
 	timer   *time.Timer
 	ticker  *time.Ticker
 	quitter chan struct{}
 
 	notifyFn func()
-	notifyCh <-chan struct{}
+	waiting  int32 // basically bool, but we need atomics.
 
-	waiting int32 // basically bool, but we need atomics.
+	// For test mode
+	testMode  bool
+	startTime time.Time
+	interval  time.Duration
 }
 
 var (
@@ -50,15 +59,12 @@ var (
 )
 
 // NewScheduler creates a new scheduler.
-func NewScheduler() Scheduler {
-	fn, ch := notifier.New()
-	s := &scheduler{notifyFn: fn, notifyCh: ch}
-	l.Attach(s, ch, "")
-	if testMode {
-		t := &testScheduler{scheduler: s}
-		l.Attach(t, s, "")
-		return t
-	}
+func NewScheduler() *Scheduler {
+	mu.Lock()
+	s := &Scheduler{testMode: testMode}
+	mu.Unlock()
+	s.notifyFn, s.C = notifier.New()
+	l.Register(s, "C")
 	return s
 }
 
@@ -98,45 +104,61 @@ func Resume() {
 	waiters = nil
 }
 
-// Tick returns a channel that receives an empty value
-// when the scheduler is triggered.
-func (s *scheduler) Tick() <-chan struct{} {
-	return s.notifyCh
+// Tick waits until the next tick of the scheduler.
+// Equivalent to <-scheduler.C, but returns true to allow for sch.Tick() { ... }
+func (s *Scheduler) Tick() bool {
+	<-s.C
+	return true
 }
 
-func (s *scheduler) At(when time.Time) Scheduler {
+// At sets the scheduler to trigger a specific time.
+// This will replace any pending triggers.
+func (s *Scheduler) At(when time.Time) *Scheduler {
+	if s.testMode {
+		return s.testModeAt(when)
+	}
 	l.Fine("%s At(%v)", l.ID(s), when)
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.stop()
 	s.timer = time.AfterFunc(when.Sub(Now()), s.maybeTrigger)
 	return s
 }
 
-func (s *scheduler) After(delay time.Duration) Scheduler {
+// After sets the scheduler to trigger after a delay.
+// This will replace any pending triggers.
+func (s *Scheduler) After(delay time.Duration) *Scheduler {
+	if s.testMode {
+		return s.testModeAfter(delay)
+	}
 	l.Fine("%s After(%v)", l.ID(s), delay)
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.stop()
 	s.timer = time.AfterFunc(delay, s.maybeTrigger)
 	return s
 }
 
-func (s *scheduler) Every(interval time.Duration) Scheduler {
-	l.Fine("%s Every(%v)", l.ID(s), interval)
+// Every sets the scheduler to trigger at an interval.
+// This will replace any pending triggers.
+func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 	if interval <= 0 {
 		panic(errors.New("non-positive interval for Scheduler#Every"))
 	}
-	s.Lock()
-	defer s.Unlock()
+	if s.testMode {
+		return s.testModeEvery(interval)
+	}
+	l.Fine("%s Every(%v)", l.ID(s), interval)
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.stop()
 	s.quitter = make(chan struct{})
 	s.ticker = time.NewTicker(interval)
 	go func() {
-		s.Lock()
+		s.mu.Lock()
 		ticker := s.ticker
 		quitter := s.quitter
-		s.Unlock()
+		s.mu.Unlock()
 		if ticker == nil || quitter == nil {
 			// Scheduler stopped before goroutine was started.
 			return
@@ -153,14 +175,19 @@ func (s *scheduler) Every(interval time.Duration) Scheduler {
 	return s
 }
 
-func (s *scheduler) Stop() {
+// Stop cancels all further triggers for the scheduler.
+func (s *Scheduler) Stop() {
+	if s.testMode {
+		s.testModeStop()
+		return
+	}
 	l.Fine("%s Stop", l.ID(s))
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.stop()
 }
 
-func (s *scheduler) maybeTrigger() {
+func (s *Scheduler) maybeTrigger() {
 	if !atomic.CompareAndSwapInt32(&s.waiting, 0, 1) {
 		return
 	}
@@ -171,7 +198,7 @@ func (s *scheduler) maybeTrigger() {
 	})
 }
 
-func (s *scheduler) stop() {
+func (s *Scheduler) stop() {
 	if s.timer != nil {
 		s.timer.Stop()
 		s.timer = nil

@@ -39,7 +39,7 @@ type Module struct {
 	outf      value.Value // of func(string) bar.Output
 	notifyCh  <-chan struct{}
 	notifyFn  func()
-	scheduler timing.Scheduler
+	scheduler *timing.Scheduler
 }
 
 // New constructs a new shell module.
@@ -67,7 +67,7 @@ func (m *Module) Stream(s bar.Sink) {
 			outf = m.outf.Get().(func(string) bar.Output)
 		case <-m.notifyCh:
 			out, err = exec.Command(m.cmd, m.args...).Output()
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			out, err = exec.Command(m.cmd, m.args...).Output()
 		}
 	}

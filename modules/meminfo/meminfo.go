@@ -64,7 +64,7 @@ func (i Info) AvailFrac() float64 {
 var currentInfo = new(value.ErrorValue) // of Info
 
 var once sync.Once
-var updater timing.Scheduler
+var updater *timing.Scheduler
 
 // construct initialises meminfo's global updating. All meminfo
 // modules are updated with just one read of /proc/meminfo.
@@ -75,8 +75,8 @@ func construct() {
 		l.Attach(nil, updater, "meminfo.updater")
 		updater.Every(3 * time.Second)
 		update()
-		go func(updater timing.Scheduler) {
-			for range updater.Tick() {
+		go func(updater *timing.Scheduler) {
+			for range updater.C {
 				update()
 			}
 		}(updater)

@@ -36,7 +36,7 @@ type Controller interface {
 type grouper struct {
 	current   int
 	count     int
-	scheduler timing.Scheduler
+	scheduler *timing.Scheduler
 
 	sync.Mutex
 	notifyCh <-chan struct{}
@@ -60,7 +60,7 @@ func (g *grouper) Buttons() (start, end bar.Output) { return nil, nil }
 func (g *grouper) Signal() <-chan struct{} { return g.notifyCh }
 
 func (g *grouper) cycle() {
-	for range g.scheduler.Tick() {
+	for range g.scheduler.C {
 		g.Lock()
 		l.Fine("%s %d++", l.ID(g), g.current)
 		g.current = (g.current + 1) % g.count

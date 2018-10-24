@@ -26,25 +26,25 @@ func TestStop(t *testing.T) {
 	ExitTestMode()
 
 	sch := NewScheduler()
-	notifier.AssertNoUpdate(t, sch.Tick(), "when not scheduled")
+	notifier.AssertNoUpdate(t, sch.C, "when not scheduled")
 
 	sch.After(50 * time.Millisecond).Stop()
-	notifier.AssertNoUpdate(t, sch.Tick(), "when stopped")
+	notifier.AssertNoUpdate(t, sch.C, "when stopped")
 
 	sch.Every(50 * time.Millisecond).Stop()
-	notifier.AssertNoUpdate(t, sch.Tick(), "when stopped")
+	notifier.AssertNoUpdate(t, sch.C, "when stopped")
 
 	sch.At(Now().Add(50 * time.Millisecond)).Stop()
-	notifier.AssertNoUpdate(t, sch.Tick(), "when stopped")
+	notifier.AssertNoUpdate(t, sch.C, "when stopped")
 
 	sch.After(10 * time.Millisecond)
-	notifier.AssertNotified(t, sch.Tick(), "after interval elapses")
+	notifier.AssertNotified(t, sch.C, "after interval elapses")
 
 	sch.Stop()
-	notifier.AssertNoUpdate(t, sch.Tick(), "when elapsed scheduler is stopped")
+	notifier.AssertNoUpdate(t, sch.C, "when elapsed scheduler is stopped")
 
 	sch.Stop()
-	notifier.AssertNoUpdate(t, sch.Tick(), "when elapsed scheduler is stopped again")
+	notifier.AssertNoUpdate(t, sch.C, "when elapsed scheduler is stopped again")
 }
 
 func TestPauseResume(t *testing.T) {
@@ -55,15 +55,15 @@ func TestPauseResume(t *testing.T) {
 	Pause()
 	schWhilePaused := NewScheduler().After(2 * time.Millisecond)
 
-	notifier.AssertNoUpdate(t, sch.Tick(), "when paused")
-	notifier.AssertNoUpdate(t, schWhilePaused.Tick(), "scheduler created while paused")
+	notifier.AssertNoUpdate(t, sch.C, "when paused")
+	notifier.AssertNoUpdate(t, schWhilePaused.C, "scheduler created while paused")
 
 	Resume()
-	notifier.AssertNotified(t, sch.Tick(), "when resumed")
-	notifier.AssertNotified(t, schWhilePaused.Tick(), "when resumed")
+	notifier.AssertNotified(t, sch.C, "when resumed")
+	notifier.AssertNotified(t, schWhilePaused.C, "when resumed")
 
 	Resume()
-	notifier.AssertNoUpdate(t, sch.Tick(), "repeated resume is nop")
+	notifier.AssertNoUpdate(t, sch.C, "repeated resume is nop")
 }
 
 func TestRepeating(t *testing.T) {
@@ -75,25 +75,25 @@ func TestRepeating(t *testing.T) {
 
 	sch.Every(100 * time.Millisecond)
 	time.Sleep(100 * time.Millisecond)
-	notifier.AssertNotified(t, sch.Tick(), "after interval elapses")
+	notifier.AssertNotified(t, sch.C, "after interval elapses")
 	time.Sleep(100 * time.Millisecond)
-	notifier.AssertNotified(t, sch.Tick(), "after interval elapses")
+	notifier.AssertNotified(t, sch.C, "after interval elapses")
 	time.Sleep(100 * time.Millisecond)
-	notifier.AssertNotified(t, sch.Tick(), "after interval elapses")
+	notifier.AssertNotified(t, sch.C, "after interval elapses")
 
 	Pause()
 	time.Sleep(100 * time.Millisecond)
-	notifier.AssertNoUpdate(t, sch.Tick(), "when paused")
+	notifier.AssertNoUpdate(t, sch.C, "when paused")
 	time.Sleep(1 * time.Second) // > 2 intervals.
 	Resume()
 
-	notifier.AssertNotified(t, sch.Tick(), "when resumed")
-	notifier.AssertNoUpdate(t, sch.Tick(), "only once on resume")
+	notifier.AssertNotified(t, sch.C, "when resumed")
+	notifier.AssertNoUpdate(t, sch.C, "only once on resume")
 
 	sch.After(20 * time.Millisecond)
 	time.Sleep(20 * time.Millisecond)
-	notifier.AssertNotified(t, sch.Tick(), "after delay elapses")
-	notifier.AssertNoUpdate(t, sch.Tick(), "after first trigger")
+	notifier.AssertNotified(t, sch.C, "after delay elapses")
+	notifier.AssertNoUpdate(t, sch.C, "after first trigger")
 }
 
 func TestCoalescedUpdates(t *testing.T) {
@@ -104,31 +104,44 @@ func TestCoalescedUpdates(t *testing.T) {
 	sch := NewScheduler()
 	sch.Every(300 * time.Millisecond)
 	time.Sleep(3100 * time.Millisecond)
-	notifier.AssertNotified(t, sch.Tick(), "after multiple intervals")
-	notifier.AssertNoUpdate(t, sch.Tick(), "multiple updates coalesced")
+	notifier.AssertNotified(t, sch.C, "after multiple intervals")
+	notifier.AssertNoUpdate(t, sch.C, "multiple updates coalesced")
 }
 
 func TestPastTriggers(t *testing.T) {
 	ExitTestMode()
 	sch := NewScheduler()
 	sch.After(-1 * time.Minute)
-	notifier.AssertNotified(t, sch.Tick(), "negative delay notifies immediately")
+	notifier.AssertNotified(t, sch.C, "negative delay notifies immediately")
 	sch.At(Now().Add(-1 * time.Minute))
-	notifier.AssertNotified(t, sch.Tick(), "past trigger notifies immediately")
+	notifier.AssertNotified(t, sch.C, "past trigger notifies immediately")
 
 	Pause()
 	sch.After(-1 * time.Minute)
-	notifier.AssertNoUpdate(t, sch.Tick(), "when paused")
+	notifier.AssertNoUpdate(t, sch.C, "when paused")
 	Resume()
-	notifier.AssertNotified(t, sch.Tick(), "on resume")
+	notifier.AssertNotified(t, sch.C, "on resume")
 
 	Pause()
 	sch.At(Now().Add(-1 * time.Minute))
-	notifier.AssertNoUpdate(t, sch.Tick(), "when paused")
+	notifier.AssertNoUpdate(t, sch.C, "when paused")
 	Resume()
-	notifier.AssertNotified(t, sch.Tick(), "on resume")
+	notifier.AssertNotified(t, sch.C, "on resume")
 
 	require.Panics(t, func() {
 		sch.Every(-1 * time.Second)
 	}, "negative repeating interval")
+}
+
+func TestTick(t *testing.T) {
+	ExitTestMode()
+	now := Now()
+	timeChan := make(chan time.Time, 1)
+	go func() {
+		NewScheduler().After(3 * time.Second).Tick()
+		timeChan <- Now()
+	}()
+	require.WithinDuration(t,
+		now.Add(3*time.Second), <-timeChan,
+		50*time.Millisecond, "Tick waits for expected duration")
 }

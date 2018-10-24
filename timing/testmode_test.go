@@ -35,9 +35,9 @@ func TestTiming_TestMode(t *testing.T) {
 	startTime := Now()
 	require.Equal(t, startTime, NextTick(),
 		"next tick doesn't change time when nothing is scheduled")
-	notifier.AssertNoUpdate(t, sch1.Tick(), "when not scheduled")
-	notifier.AssertNoUpdate(t, sch2.Tick(), "when not scheduled")
-	notifier.AssertNoUpdate(t, sch3.Tick(), "when not scheduled")
+	notifier.AssertNoUpdate(t, sch1.C, "when not scheduled")
+	notifier.AssertNoUpdate(t, sch2.C, "when not scheduled")
+	notifier.AssertNoUpdate(t, sch3.C, "when not scheduled")
 
 	sch1.After(time.Hour)
 	sch2.After(time.Second)
@@ -45,32 +45,32 @@ func TestTiming_TestMode(t *testing.T) {
 
 	require.Equal(t, startTime.Add(time.Second), NextTick(),
 		"triggers earliest scheduler")
-	notifier.AssertNotified(t, sch2.Tick(), "triggers earliest scheduler")
-	notifier.AssertNoUpdate(t, sch1.Tick(), "only earliest scheduler triggers")
-	notifier.AssertNoUpdate(t, sch3.Tick(), "only earliest scheduler triggers")
+	notifier.AssertNotified(t, sch2.C, "triggers earliest scheduler")
+	notifier.AssertNoUpdate(t, sch1.C, "only earliest scheduler triggers")
+	notifier.AssertNoUpdate(t, sch3.C, "only earliest scheduler triggers")
 
 	require.Equal(t, startTime.Add(time.Minute), NextTick(),
 		"triggers next scheduler")
-	notifier.AssertNoUpdate(t, sch2.Tick(), "already elapsed")
-	notifier.AssertNotified(t, sch3.Tick(), "earliest scheduler triggers")
-	notifier.AssertNoUpdate(t, sch1.Tick(), "not yet elapsed")
+	notifier.AssertNoUpdate(t, sch2.C, "already elapsed")
+	notifier.AssertNotified(t, sch3.C, "earliest scheduler triggers")
+	notifier.AssertNoUpdate(t, sch1.C, "not yet elapsed")
 
 	AdvanceBy(20 * time.Minute)
-	notifier.AssertNoUpdate(t, sch2.Tick(), "already elapsed")
-	notifier.AssertNoUpdate(t, sch3.Tick(), "already elapsed")
-	notifier.AssertNoUpdate(t, sch1.Tick(), "did not advance far enough")
+	notifier.AssertNoUpdate(t, sch2.C, "already elapsed")
+	notifier.AssertNoUpdate(t, sch3.C, "already elapsed")
+	notifier.AssertNoUpdate(t, sch1.C, "did not advance far enough")
 
 	AdvanceBy(2 * time.Hour)
-	notifier.AssertNoUpdate(t, sch2.Tick(), "already elapsed")
-	notifier.AssertNoUpdate(t, sch3.Tick(), "already elapsed")
-	notifier.AssertNotified(t, sch1.Tick(), "when advancing beyond trigger duration")
+	notifier.AssertNoUpdate(t, sch2.C, "already elapsed")
+	notifier.AssertNoUpdate(t, sch3.C, "already elapsed")
+	notifier.AssertNotified(t, sch1.C, "when advancing beyond trigger duration")
 
 	now := Now()
 	sch1.At(now.Add(time.Minute))
 	sch1.At(now.Add(time.Hour))
 	sch1.At(now.Add(time.Second))
 	require.Equal(t, now.Add(time.Second), NextTick())
-	notifier.AssertNotified(t, sch1.Tick())
+	notifier.AssertNotified(t, sch1.C)
 }
 
 func TestRepeating_TestMode(t *testing.T) {
@@ -86,13 +86,13 @@ func TestRepeating_TestMode(t *testing.T) {
 			now.Add(time.Duration(i)*time.Minute),
 			NextTick(),
 			"repeated scheduler")
-		notifier.AssertNotified(t, sch1.Tick(), "repeated scheduler")
+		notifier.AssertNotified(t, sch1.C, "repeated scheduler")
 	}
 	require.Equal(t,
 		now.Add(time.Duration(10)*time.Minute),
 		NextTick(), "at overlap")
-	notifier.AssertNotified(t, sch1.Tick(), "at overlap")
-	notifier.AssertNotified(t, sch2.Tick(), "at overlap")
+	notifier.AssertNotified(t, sch1.C, "at overlap")
+	notifier.AssertNotified(t, sch2.C, "at overlap")
 
 	now = Now()
 	sch1.Stop()
@@ -128,15 +128,15 @@ func TestMultipleTriggers_TestMode(t *testing.T) {
 	sch2.After(time.Minute)
 	sch3.At(Now().Add(time.Minute))
 	require.Equal(t, now.Add(time.Minute), NextTick(), "multiple triggers")
-	notifier.AssertNotified(t, sch1.Tick(), "multiple triggers")
-	notifier.AssertNotified(t, sch2.Tick(), "multiple triggers")
-	notifier.AssertNotified(t, sch3.Tick(), "multiple triggers")
+	notifier.AssertNotified(t, sch1.C, "multiple triggers")
+	notifier.AssertNotified(t, sch2.C, "multiple triggers")
+	notifier.AssertNotified(t, sch3.C, "multiple triggers")
 
 	AdvanceBy(59*time.Second + 999*time.Millisecond)
-	notifier.AssertNoUpdate(t, sch1.Tick(), "before interval elapses")
+	notifier.AssertNoUpdate(t, sch1.C, "before interval elapses")
 
 	AdvanceBy(10 * time.Millisecond)
-	notifier.AssertNotified(t, sch1.Tick(), "after interval elapses")
+	notifier.AssertNotified(t, sch1.C, "after interval elapses")
 }
 
 func TestAdvanceWithRepeated_TestMode(t *testing.T) {
@@ -153,7 +153,7 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 		// by adding listeners to the channel in advance.
 		go func() {
 			launched.Done()
-			<-sch.Tick()
+			<-sch.C
 			atomic.AddInt32(&tickCount, 1)
 		}()
 	}
@@ -178,8 +178,8 @@ func TestCoalescedUpdates_TestMode(t *testing.T) {
 	sch.Every(15 * time.Millisecond)
 	AdvanceBy(45 * time.Second)
 	runtime.Gosched()
-	notifier.AssertNotified(t, sch.Tick(), "after multiple intervals")
-	notifier.AssertNoUpdate(t, sch.Tick(), "multiple updates coalesced")
+	notifier.AssertNotified(t, sch.C, "after multiple intervals")
+	notifier.AssertNoUpdate(t, sch.C, "multiple updates coalesced")
 }
 
 func TestPauseResume_TestMode(t *testing.T) {
@@ -195,31 +195,31 @@ func TestPauseResume_TestMode(t *testing.T) {
 
 	expected = expected.Add(time.Minute)
 	require.Equal(t, expected, NextTick(), "with paused scheduler")
-	notifier.AssertNoUpdate(t, sch.Tick(), "while paused")
-	notifier.AssertNoUpdate(t, sch2.Tick(), "created while paused")
+	notifier.AssertNoUpdate(t, sch.C, "while paused")
+	notifier.AssertNoUpdate(t, sch2.C, "created while paused")
 
 	expected = expected.Add(time.Minute)
 	require.Equal(t, expected, NextTick(), "with paused scheduler")
-	notifier.AssertNoUpdate(t, sch.Tick(), "while paused")
-	notifier.AssertNoUpdate(t, sch2.Tick(), "while paused")
+	notifier.AssertNoUpdate(t, sch.C, "while paused")
+	notifier.AssertNoUpdate(t, sch2.C, "while paused")
 
 	expected = expected.Add(time.Minute)
 	require.Equal(t, expected, NextTick(), "with paused scheduler")
-	notifier.AssertNoUpdate(t, sch.Tick(), "while paused")
+	notifier.AssertNoUpdate(t, sch.C, "while paused")
 
 	AdvanceBy(30 * time.Second)
-	notifier.AssertNoUpdate(t, sch.Tick(), "while paused")
+	notifier.AssertNoUpdate(t, sch.C, "while paused")
 
 	Resume()
-	notifier.AssertNotified(t, sch.Tick(), "when resumed")
-	notifier.AssertNotified(t, sch2.Tick(), "when resumed")
-	notifier.AssertNoUpdate(t, sch.Tick(), "only once when resumed")
-	notifier.AssertNoUpdate(t, sch2.Tick(), "only once when resumed")
+	notifier.AssertNotified(t, sch.C, "when resumed")
+	notifier.AssertNotified(t, sch2.C, "when resumed")
+	notifier.AssertNoUpdate(t, sch.C, "only once when resumed")
+	notifier.AssertNoUpdate(t, sch2.C, "only once when resumed")
 
 	expected = expected.Add(time.Minute)
 	require.Equal(t, expected, NextTick(), "with resumed scheduler")
-	notifier.AssertNotified(t, sch.Tick(), "tick after resuming")
-	notifier.AssertNotified(t, sch2.Tick(), "tick after resuming")
+	notifier.AssertNotified(t, sch.C, "tick after resuming")
+	notifier.AssertNotified(t, sch2.C, "tick after resuming")
 }
 
 func TestPastTriggers_TestMode(t *testing.T) {
@@ -228,26 +228,26 @@ func TestPastTriggers_TestMode(t *testing.T) {
 	now := Now()
 	sch.After(-1 * time.Minute)
 	require.Equal(t, now, NextTick())
-	notifier.AssertNotified(t, sch.Tick(), "negative delay notifies immediately")
+	notifier.AssertNotified(t, sch.C, "negative delay notifies immediately")
 	sch.At(Now().Add(-1 * time.Minute))
 	require.Equal(t, now, NextTick())
-	notifier.AssertNotified(t, sch.Tick(), "past trigger notifies immediately")
+	notifier.AssertNotified(t, sch.C, "past trigger notifies immediately")
 
 	Pause()
 	sch.After(-1 * time.Minute)
 	NextTick()
-	notifier.AssertNoUpdate(t, sch.Tick(), "when paused")
+	notifier.AssertNoUpdate(t, sch.C, "when paused")
 	Resume()
 	NextTick()
-	notifier.AssertNotified(t, sch.Tick(), "on resume")
+	notifier.AssertNotified(t, sch.C, "on resume")
 
 	Pause()
 	sch.At(Now().Add(-1 * time.Minute))
 	NextTick()
-	notifier.AssertNoUpdate(t, sch.Tick(), "when paused")
+	notifier.AssertNoUpdate(t, sch.C, "when paused")
 	Resume()
 	NextTick()
-	notifier.AssertNotified(t, sch.Tick(), "on resume")
+	notifier.AssertNotified(t, sch.C, "on resume")
 
 	require.Panics(t, func() {
 		sch.Every(-1 * time.Second)
@@ -260,24 +260,24 @@ func TestTestModeReset(t *testing.T) {
 
 	startTime := Now()
 	require.Equal(t, startTime.Add(time.Second), NextTick())
-	notifier.AssertNotified(t, sch1.Tick(), "triggers every second")
+	notifier.AssertNotified(t, sch1.C, "triggers every second")
 
 	require.Equal(t, startTime.Add(2*time.Second), NextTick())
-	notifier.AssertNotified(t, sch1.Tick(), "triggers every second")
+	notifier.AssertNotified(t, sch1.C, "triggers every second")
 
 	Pause()
 	require.Equal(t, startTime.Add(3*time.Second), NextTick())
-	notifier.AssertNoUpdate(t, sch1.Tick(), "when paused")
+	notifier.AssertNoUpdate(t, sch1.C, "when paused")
 
 	TestMode()
 	sch2 := NewScheduler().Every(time.Minute)
 
 	startTime = Now()
 	require.Equal(t, startTime.Add(time.Minute), NextTick())
-	notifier.AssertNoUpdate(t, sch1.Tick(), "previous scheduler is not triggered")
-	notifier.AssertNotified(t, sch2.Tick(), "new scheduler is triggered")
+	notifier.AssertNoUpdate(t, sch1.C, "previous scheduler is not triggered")
+	notifier.AssertNotified(t, sch2.C, "new scheduler is triggered")
 
 	require.Equal(t, startTime.Add(2*time.Minute), NextTick())
-	notifier.AssertNoUpdate(t, sch1.Tick(), "previous scheduler is not triggered")
-	notifier.AssertNotified(t, sch2.Tick(), "new scheduler is repeatedly triggered")
+	notifier.AssertNoUpdate(t, sch1.C, "previous scheduler is not triggered")
+	notifier.AssertNotified(t, sch2.C, "new scheduler is repeatedly triggered")
 }

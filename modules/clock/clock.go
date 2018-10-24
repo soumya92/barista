@@ -133,7 +133,7 @@ func (m *Module) Stream(s bar.Sink) {
 		s.Output(cfg.outputFunc(now.In(cfg.timezone)))
 
 		select {
-		case <-sch.Tick():
+		case <-sch.C:
 		case <-nextCfg:
 			cfg = m.getConfig()
 		}

@@ -92,7 +92,7 @@ type config struct {
 type Module struct {
 	oauthConfig *oauth.Config
 	config      value.Value // of config
-	scheduler   timing.Scheduler
+	scheduler   *timing.Scheduler
 	outputFunc  value.Value // of func(EventList) (bar.Output, time.Time)
 }
 
@@ -174,9 +174,9 @@ func (m *Module) Stream(sink bar.Sink) {
 		case <-nextConfig:
 			conf = m.getConfig()
 			evts, err = fetch(srv, conf)
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			evts, err = fetch(srv, conf)
-		case <-renderer.Tick():
+		case <-renderer.C:
 		}
 	}
 }

@@ -60,7 +60,7 @@ func (i Info) TotalThreads() int64 {
 type Module struct {
 	config     *oauth.Config
 	labels     []string
-	scheduler  timing.Scheduler
+	scheduler  *timing.Scheduler
 	outputFunc value.Value // of func(Info) bar.Output
 }
 
@@ -119,7 +119,7 @@ func (m *Module) Stream(sink bar.Sink) {
 		select {
 		case <-nextOutputFunc:
 			outf = m.outputFunc.Get().(func(Info) bar.Output)
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			i, err = fetch(srv, m.labels, labelIDs)
 		}
 	}

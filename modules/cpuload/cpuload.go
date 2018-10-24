@@ -50,7 +50,7 @@ func (l LoadAvg) Min15() float64 {
 // Module represents a cpuload bar module. It supports setting the output
 // format, click handler, update frequency, and urgency/colour functions.
 type Module struct {
-	scheduler  timing.Scheduler
+	scheduler  *timing.Scheduler
 	outputFunc value.Value // of func(LoadAvg) bar.Output
 }
 
@@ -95,7 +95,7 @@ func (m *Module) Stream(s bar.Sink) {
 		}
 		s.Output(outputFunc(loads))
 		select {
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			count, err = getloadavg(&loads, 3)
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(LoadAvg) bar.Output)

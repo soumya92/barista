@@ -90,7 +90,7 @@ type Provider interface {
 // Module represents a bar.Module that displays weather information.
 type Module struct {
 	provider       Provider
-	scheduler      timing.Scheduler
+	scheduler      *timing.Scheduler
 	outputFunc     value.Value // of func(Weather) bar.Output
 	currentWeather value.Value // of Weather
 }
@@ -138,7 +138,7 @@ func (m *Module) Stream(s bar.Sink) {
 		select {
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Weather) bar.Output)
-		case <-m.scheduler.Tick():
+		case <-m.scheduler.C:
 			weather, err = m.provider.GetWeather()
 		}
 	}

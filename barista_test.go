@@ -264,7 +264,7 @@ func TestPauseResume(t *testing.T) {
 	require.Equal(t, []string{"1"}, out, "Outputs before pause")
 	sch1 := timing.NewScheduler().After(time.Millisecond)
 	select {
-	case <-sch1.Tick():
+	case <-sch1.C:
 	case <-time.After(time.Second):
 		require.Fail(t, "Scheduler not triggered while bar is running")
 	}
@@ -279,9 +279,9 @@ func TestPauseResume(t *testing.T) {
 	sch1.After(time.Millisecond)
 	sch2 := timing.NewScheduler().After(time.Millisecond)
 	select {
-	case <-sch1.Tick():
+	case <-sch1.C:
 		require.Fail(t, "Scheduler triggered while bar is paused")
-	case <-sch2.Tick():
+	case <-sch2.C:
 		require.Fail(t, "Scheduler triggered while bar is paused")
 	case <-time.After(10 * time.Millisecond): // test passed
 	}
@@ -299,12 +299,12 @@ func TestPauseResume(t *testing.T) {
 	require.Equal(t, []string{"a", "b"}, out,
 		"Outputs while paused printed on resume")
 	select {
-	case <-sch1.Tick():
+	case <-sch1.C:
 	case <-time.After(time.Second):
 		require.Fail(t, "Scheduler not triggered after bar is resumed")
 	}
 	select {
-	case <-sch2.Tick():
+	case <-sch2.C:
 	case <-time.After(time.Second):
 		require.Fail(t, "Scheduler not triggered after bar is resumed")
 	}
