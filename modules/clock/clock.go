@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -125,7 +124,7 @@ func (m *Module) Stream(s bar.Sink) {
 	sch := timing.NewScheduler()
 	l.Attach(m, sch, ".scheduler")
 	cfg := m.getConfig()
-	nextCfg, done := notifier.SubscribeTo(m.config.Next)
+	nextCfg, done := m.config.Subscribe()
 	defer done()
 	for {
 		now := timing.Now()

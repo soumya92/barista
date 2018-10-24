@@ -30,7 +30,6 @@ import (
 	"unsafe"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -124,7 +123,7 @@ func (m *Module) Stream(s bar.Sink) {
 	go m.impl.worker(&m.currentVolume)
 	v, err := m.currentVolume.Get()
 	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	for {
 		if s.Error(err) {

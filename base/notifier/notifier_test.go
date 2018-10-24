@@ -16,7 +16,6 @@ package notifier
 
 import (
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -89,79 +88,42 @@ func TestWait(t *testing.T) {
 	}
 }
 
-func TestSignal(t *testing.T) {
-	s := new(Signaller)
+func TestSourceNext(t *testing.T) {
+	s := new(Source)
 	beforeSignal0 := s.Next()
 	beforeSignal1 := s.Next()
-	s.Signal()
+	s.Notify()
 	afterSignal := s.Next()
 
-	notifier.AssertClosed(t, beforeSignal0, "Next() before Signal()")
-	notifier.AssertClosed(t, beforeSignal1, "Next() before Signal()")
-	notifier.AssertNoUpdate(t, afterSignal, "Next() after Signal()")
+	notifier.AssertClosed(t, beforeSignal0, "Next() before Notify()")
+	notifier.AssertClosed(t, beforeSignal1, "Next() before Notify()")
+	notifier.AssertNoUpdate(t, afterSignal, "Next() after Notify()")
 }
 
-type Ticker struct {
-	ticked int64
-	ch     <-chan struct{}
-	fn     func()
-}
+func TestSourceSubscribe(t *testing.T) {
+	s := new(Source)
 
-func newTicker() *Ticker {
-	fn, ch := New()
-	return &Ticker{ch: ch, fn: fn}
-}
-
-func (t *Ticker) Notify() {
-	t.fn()
-}
-
-func (t *Ticker) Tick() <-chan struct{} {
-	atomic.AddInt64(&t.ticked, 1)
-	return t.ch
-}
-
-func TestSubscribe(t *testing.T) {
-	s := new(Signaller)
-	tr := newTicker()
-
-	before, beforeDone := SubscribeTo(s.Next)
-	s.Signal()
-	after, afterDone := SubscribeTo(s.Next)
-	chSub, chDone := SubscribeTo(tr.Tick)
+	before, beforeDone := s.Subscribe()
+	s.Notify()
+	after, afterDone := s.Subscribe()
 
 	notifier.AssertNotified(t, before, "Subscribe() before notification")
 	notifier.AssertNoUpdate(t, after, "Subscribe() after notification")
-	notifier.AssertNoUpdate(t, chSub, "Subscribe() before notification")
 
-	tr.Notify()
-	s.Signal()
+	s.Notify()
 
 	notifier.AssertNotified(t, before,
 		"Previously notified subscription after another notification")
 	notifier.AssertNotified(t, after, "Subscription after notification")
-	notifier.AssertNotified(t, chSub, "Subscription after notification")
-
-	tr.Notify()
-	notifier.AssertNotified(t, chSub, "Subscription after another notification")
 
 	beforeDone()
-	s.Signal()
+	s.Notify()
 
 	notifier.AssertNoUpdate(t, before, "Subscription after done()")
 	notifier.AssertNotified(t, after, "Different subscription still notified")
 
-	require.Panics(t, func() { beforeDone() }, "Duplicate cleanup")
-
-	tr.Notify()
-	notifier.AssertNotified(t, chSub, "Subscription after another notification")
+	require.NotPanics(t, func() { beforeDone() }, "Duplicate cleanup")
 
 	afterDone()
 	notifier.AssertNoUpdate(t, after, "On calling done()")
-
-	chDone()
-	notifier.AssertNoUpdate(t, chSub, "On calling done()")
-
-	require.Equal(t, int64(1), atomic.LoadInt64(&tr.ticked),
-		"Only one call to channel get function when channel is not closed")
 }

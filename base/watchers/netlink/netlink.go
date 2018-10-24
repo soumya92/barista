@@ -21,7 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 )
@@ -285,7 +284,7 @@ func subscribe(s *Subscription) *Subscription {
 	subs = append(subs, s)
 	subsMu.Unlock()
 	s.notify(sorted)
-	s.C, s.doneSub = notifier.SubscribeTo(s.value.Next)
+	s.C, s.doneSub = s.value.Subscribe()
 	return s
 }
 

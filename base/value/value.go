@@ -31,14 +31,20 @@ type box struct {
 
 // Value provides atomic value storage with update notifications.
 type Value struct {
-	value     atomic.Value
-	signaller notifier.Signaller
+	value  atomic.Value
+	source notifier.Source
 }
 
 // Next returns a channel that will be closed on the next update.
 // Useful in a select, or as <-Next() to wait for value changes.
 func (v *Value) Next() <-chan struct{} {
-	return v.signaller.Next()
+	return v.source.Next()
+}
+
+// Subscribe returns a channel that will receive an empty struct{} on each value
+// change until it's cleaned up using the done func.
+func (v *Value) Subscribe() (sub <-chan struct{}, done func()) {
+	return v.source.Subscribe()
 }
 
 // Get returns the currently stored value.
@@ -53,7 +59,7 @@ func (v *Value) Get() interface{} {
 func (v *Value) Set(value interface{}) {
 	v.value.Store(box{value})
 	l.Fine("%s: Store %#v", l.ID(v), value)
-	v.signaller.Signal()
+	v.source.Notify()
 }
 
 type valueOrErr struct {
@@ -77,6 +83,13 @@ func (e *ErrorValue) initLogging() {
 func (e *ErrorValue) Next() <-chan struct{} {
 	e.initLogging()
 	return e.v.Next()
+}
+
+// Subscribe returns a channel that will receive an empty struct{} on each value
+// change (including errors), until it's cleaned up using the done func.
+func (e *ErrorValue) Subscribe() (sub <-chan struct{}, done func()) {
+	e.initLogging()
+	return e.v.Subscribe()
 }
 
 // Get returns the currently stored value or error.

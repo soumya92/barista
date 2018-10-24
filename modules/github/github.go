@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	"barista.run/oauth"
 	"barista.run/outputs"
@@ -96,7 +95,7 @@ func (m *Module) Stream(sink bar.Sink) {
 		wrapForTest(client)
 	}
 	outf := m.outputFunc.Get().(func(Notifications) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	info, err := m.getNotifications(client)
 	for {

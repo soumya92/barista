@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	"barista.run/oauth"
 	"barista.run/outputs"
@@ -110,7 +109,7 @@ func (m *Module) Stream(sink bar.Sink) {
 	}
 	i, err := fetch(srv, m.labels, labelIDs)
 	outf := m.outputFunc.Get().(func(Info) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	for {
 		if sink.Error(err) {

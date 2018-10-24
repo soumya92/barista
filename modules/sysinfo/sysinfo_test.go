@@ -58,7 +58,7 @@ var mockSysinfo = func(out *unix.Sysinfo_t) error {
 func resetForTest() {
 	shouldReturn(unix.Sysinfo_t{})
 	sysinfo = mockSysinfo
-	currentInfo = value.ErrorValue{}
+	currentInfo = &value.ErrorValue{}
 	once = sync.Once{}
 	construct()
 	// Flush upates for test.

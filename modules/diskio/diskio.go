@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -120,7 +119,7 @@ func (m *Module) Output(outputFunc func(IO) bar.Output) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	var i IO
 	outputFunc := m.outputFunc.Get().(func(IO) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	for {
 		select {

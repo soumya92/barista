@@ -42,7 +42,7 @@ func shouldReturn(info meminfo) {
 }
 
 func resetForTest() {
-	currentInfo = value.ErrorValue{}
+	currentInfo = &value.ErrorValue{}
 	once = sync.Once{}
 	construct()
 	// Flush upates for test.

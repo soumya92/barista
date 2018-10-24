@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	"barista.run/base/watchers/netlink"
 	l "barista.run/logging"
@@ -94,7 +93,7 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 
 	var linkSub *netlink.Subscription

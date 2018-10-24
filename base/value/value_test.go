@@ -15,6 +15,7 @@
 package value
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -115,6 +116,21 @@ func TestValueUpdate(t *testing.T) {
 
 	v.Set("...")
 	notifier.AssertNoUpdate(t, v.Next(), "Next() after previous Set(...)")
+
+	sub, doneSub := v.Subscribe()
+	notifier.AssertNoUpdate(t, sub, "Subscribe() after previous Set(...)")
+
+	v.Set("foo")
+	notifier.AssertNotified(t, sub, "On value change")
+
+	v.Set("baz")
+	notifier.AssertNotified(t, sub, "On another value change")
+
+	doneSub()
+	notifier.AssertNoUpdate(t, sub, "On done() func call")
+
+	v.Set("*")
+	notifier.AssertNoUpdate(t, sub, "Value change after done()")
 }
 
 func TestErrorValue(t *testing.T) {
@@ -196,4 +212,25 @@ func TestErrorValueSubscription(t *testing.T) {
 	case <-time.After(time.Second):
 		require.Fail("<-Update() not notified within 1s")
 	}
+
+	sub, doneSub := v.Subscribe()
+	notifier.AssertNoUpdate(t, sub, "Subscribe() after previous Set(...)")
+
+	v.Set("foo")
+	notifier.AssertNotified(t, sub, "On value change")
+
+	v.Set("baz")
+	notifier.AssertNotified(t, sub, "On another value change")
+
+	v.Error(errors.New("something went wrong"))
+	notifier.AssertNotified(t, sub, "On error")
+
+	doneSub()
+	notifier.AssertNoUpdate(t, sub, "On done() func call")
+
+	v.Set("*")
+	notifier.AssertNoUpdate(t, sub, "Value change after done()")
+
+	v.Error(errors.New("something else also went wrong"))
+	notifier.AssertNoUpdate(t, sub, "Error after done()")
 }

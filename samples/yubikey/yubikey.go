@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	"barista.run/outputs"
 
@@ -102,7 +101,7 @@ func (m *Module) Stream(sink bar.Sink) {
 	gpg := false
 	u2f := false
 	outf := m.outputFunc.Get().(func(bool, bool) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	for {
 		sink.Output(outf(gpg, u2f))

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -84,7 +83,7 @@ func (m *Module) Stream(s bar.Sink) {
 	var loads LoadAvg
 	count, err := getloadavg(&loads, 3)
 	outputFunc := m.outputFunc.Get().(func(LoadAvg) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	for {
 		if s.Error(err) {

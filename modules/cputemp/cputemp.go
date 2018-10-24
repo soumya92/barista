@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -99,7 +98,7 @@ var fs = afero.NewOsFs()
 func (m *Module) Stream(s bar.Sink) {
 	temp, err := getTemperature(m.thermalFile)
 	outputFunc := m.outputFunc.Get().(func(unit.Temperature) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	for {
 		if s.Error(err) {

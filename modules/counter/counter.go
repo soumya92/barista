@@ -44,13 +44,17 @@ func New(format string) *Module {
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	count := m.count.Get().(int)
+	countSub, done := m.count.Subscribe()
+	defer done()
 	format := m.format.Get().(string)
+	formatSub, done := m.format.Subscribe()
+	defer done()
 	for {
 		s.Output(outputs.Textf(format, count).OnClick(m.click))
 		select {
-		case <-m.count.Next():
+		case <-countSub:
 			count = m.count.Get().(int)
-		case <-m.format.Next():
+		case <-formatSub:
 			format = m.format.Get().(string)
 		}
 	}

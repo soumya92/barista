@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -232,7 +231,7 @@ func (m *Module) Stream(s bar.Sink) {
 
 	info := Info{}
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 
 	m.player = newMprisPlayer(sessionBus, m.playerName, &info)

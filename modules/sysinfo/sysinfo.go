@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -47,7 +46,7 @@ type Info struct {
 
 // currentInfo stores the last value read by the updater.
 // This allows newly created modules to start with data.
-var currentInfo value.ErrorValue // of Info
+var currentInfo = new(value.ErrorValue) // of Info
 
 var once sync.Once
 var updater timing.Scheduler
@@ -60,11 +59,11 @@ func construct() {
 		l.Attach(nil, &currentInfo, "sysinfo.currentInfo")
 		updater.Every(3 * time.Second)
 		update()
-		go func(updater timing.Scheduler) {
+		go func() {
 			for range updater.Tick() {
 				update()
 			}
-		}(updater)
+		}()
 	})
 }
 
@@ -101,10 +100,10 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 // Stream subscribes to sysinfo and updates the module's output.
 func (m *Module) Stream(s bar.Sink) {
 	i, err := currentInfo.Get()
-	nextInfo, done := notifier.SubscribeTo(currentInfo.Next)
+	nextInfo, done := currentInfo.Subscribe()
 	defer done()
 	outputFunc := m.outputFunc.Get().(func(Info) bar.Output)
-	nextOutputFunc, done := notifier.SubscribeTo(m.outputFunc.Next)
+	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	for {
 		if err != nil {

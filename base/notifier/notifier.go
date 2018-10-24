@@ -43,15 +43,17 @@ func notify(ch chan<- struct{}) {
 	}
 }
 
-// Signaller can be used to notify multiple listeners of a signal. Any listeners
-// added before the signal is triggered will have their channels closed.
-type Signaller struct {
-	obs []chan struct{}
-	mu  sync.Mutex
+// Source can be used to notify multiple listeners of a signal. It provides both
+// one-shot listeners that close the channel on the next signal, and continuous
+// listeners that emit a struct{} on every signal (but need to be cleaned up).
+type Source struct {
+	obs  []chan struct{}
+	subs map[<-chan struct{}]func()
+	mu   sync.Mutex
 }
 
 // Next returns a channel that will be closed on the next signal.
-func (s *Signaller) Next() <-chan struct{} {
+func (s *Source) Next() <-chan struct{} {
 	ch := make(chan struct{})
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -59,43 +61,32 @@ func (s *Signaller) Next() <-chan struct{} {
 	return ch
 }
 
-// Signal triggers the signal.
-func (s *Signaller) Signal() {
+// Subscribe returns a channel that will receive an empty struct{} on the next
+// signal, and a func to close the subscription.
+func (s *Source) Subscribe() (sub <-chan struct{}, done func()) {
+	fn, sub := New()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.subs == nil {
+		s.subs = map[<-chan struct{}]func(){}
+	}
+	s.subs[sub] = fn
+	return sub, func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		delete(s.subs, sub)
+	}
+}
+
+// Notify notifies all interested listeners.
+func (s *Source) Notify() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, o := range s.obs {
 		close(o)
 	}
 	s.obs = nil
-}
-
-// SubscribeTo creates a new subscription to a Next() style update source. This
-// subscription must be cleaned up calling the return done func. It notifies on
-// any signal to the channel returned by Next(), and automatically re-registers
-// for further notifications if the channel is closed.
-func SubscribeTo(next func() <-chan struct{}) (subscription <-chan struct{}, done func()) {
-	fn, ch := New()
-	doneCh := make(chan struct{})
-	waitCh := make(chan struct{})
-	go func() {
-		n := next()
-		waitCh <- struct{}{}
-		for {
-			select {
-			case _, open := <-n:
-				if !open {
-					n = next()
-				}
-				fn()
-			case <-doneCh:
-				close(waitCh)
-				return
-			}
-		}
-	}()
-	<-waitCh
-	return ch, func() {
-		close(doneCh)
-		<-waitCh
+	for _, f := range s.subs {
+		f()
 	}
 }
