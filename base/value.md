@@ -42,6 +42,10 @@ func (m *Module) Stream(sink bar.Sink) {
   channel that will be closed the next time the value changes, so once the channel notifies it is
   no longer useful, and `Next()` should be called again for the next change of interest.
 
+* `Subscribe() (<-chan struct{}, func())`: Subscribes to all future updates of the value, until the
+  cleanup func is called. This adds a listener to the value, so make sure to call the done func when
+  updates are no longer needed.
+
 ## ErrorValue
 
 `ErrorValue` extends Value with support for storing errors.
@@ -64,4 +68,4 @@ data := process(raw)
 ev.Set(data)
 ```
 
-* `Next() <-chan struct{}`: Same as `Value`.
+* `Next()` and `Subscribe()`: Same as `Value`.

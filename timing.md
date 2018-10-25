@@ -20,10 +20,10 @@ Create a scheduler linked to the bar using `timing.NewScheduler()`.
 - `At(time.Time)`: Tick at a specific time. If in the past, tick immediately.
 - `Every(time.Duration)`: Tick after the given duration, and repeat.
 
-`Tick() <-chan struct{}` returns a channel that will be notified for each tick of the scheduler.
-It is almost guaranteed that the bar is active when a value is received on this channel. (There's
-a small chance that the bar has paused again in the time since the signal was sent, but this is
-unlikely).
+`C` holds a `chan <-struct{}` that will be notified for each tick of the scheduler, similar to
+[`time.Ticker`](https://golang.org/pkg/time/#Ticker). It is almost guaranteed that the bar is active
+when a value is received on this channel. (There's a small chance that the bar has paused again in
+the time since the signal was sent, but this is unlikely).
 
 ## Example
 
@@ -39,7 +39,7 @@ func (m *Module) Stream(sink bar.Sink) {
 		select {
 			case <-m.settings.Next():
 				settings = m.settings.Get()
-			case <-sch.Tick():
+			case <-sch.C:
 				data = process()
 		}
 	}

@@ -17,20 +17,25 @@ There are several methods to create a subscription:
 - `Any()`: Subscribes to updates for any link. The best link after any update will be sent to the
   channel for this subscription.
 
-Because the ordering of updates is significant, **all subscription channels are unbuffered**. To
-avoid deadlocks, make sure you call `Unsubscribe` when you're no longer interested in updates.
+Call `Unsubscribe` when you're no longer interested in updates. Because the order of updates is
+significant, the netlink watcher internally applies updates as soon as they're received, and uses
+a notifier on `C` to signal changes.
+
+At any point, the `Get()` will return the most appropriate link based on the subscription criteria.
 
 ```go
 sub := netlink.Any()
 defer sub.Unsubscribe()
 
-for link := range sub {
+for range sub.C {
+	link := sub.Get()
 	// ...
 }
 ```
 
-There is also a `MultiSubscription`, which is similar to `Subscription` except it returns *all*
-links on each update. Create one using `netlink.All()`, and unsubscribe using `Unsubscribe()`.
+There is also a `MultiSubscription`, returned by `netlink.All()`, that hooks into the global netlink
+listener directly. No unsubscribe call is necessary, since all `MultiSubscription`s are a view on
+the same backing data that powers other netlink subscriptions.
 
 ## `type Link struct`
 

@@ -13,12 +13,10 @@ into a single tick whenever the consumer is ready next.
 `notifier.New()` returns a notification `func()` and a `<-chan struct{}`. Whenever the function is
 called, the struct will receive an update, unless the previous update is still pending.
 
-`notifier.Signaller` can be used to signal multiple listeners at once, by providing a
-`Next() <-chan struct{}` func that closes the returned chanel when the Signaller is `Signal`ed.
-
-`notifier.SubscribeTo` provides a continuous subscription to signaller-style events, by
-automatically re-registering for notifications when the channel is closed. However, because it is
-not a one-shot notification, it must be cleaned up using the returned done func.
+`notifier.Source` can be used to signal multiple listeners at once, by providing one-shot listeners
+using `Next() <-chan struct{}` that returns a chanel closed on the next `Notify` call, and
+`Subscribe() (<-chan struct{}, func())` that returns a channel that receives an empty value on each
+notification and an associated cleanup func.
 
 ## Examples
 
@@ -44,42 +42,44 @@ In this example, even though we sent 10 signals spaced 3 seconds apart, because 
 in the receiving goroutine, only 4 times will be printed (+0, +10, +20, +30 seconds); the remaining
 signals will be discarded instead of being queued up.
 
-### Signaller
+### Source
 ```go
-s := new(notifier.Signaller)
+s := new(notifier.Source)
 
 for i := 0; i < 10; i++ {
 	go func(i int) {
-		for range s.Next() { fmt.Println(i) }
+		for range s.Next() {
+			// This won't work, since the channel from Next() never receives a
+			// value, it's simply closed.
+			fmt.Println(i)
+		}
+	}(i)
+
+	go func(i int) {
+		n := s.Next()
+		<-n // This will wait for the next notification.
+		fmt.Println(i)
+		_, open := <-n
+		fmt.Println("channel open: %v", open) // Will print false.
 	}(i)
 }
 
-s.Signal() // Will print all 10 almost immediately.
+go func() {
+	sub, done := s.Subscribe()
+	defer done()
+	for range sub {
+		fmt.Println("notified")
+	}
+}()
+
+s.Notify() // Prints 0-9 and "notifed".
 
 // After the signal, the channels have been closed and cleaned up, so subsequent
-// calls will not trigger previous listeners.
-s.Signal() // Has no effect.
+// calls will not trigger the 'Next()' listeners. Subscriptions will continue
+// to be triggered.
+s.Notify() // Only prints "notified", since that's a continuous listener.
 ```
 
-### Subscriber
-```go
-
-// Typically in a Stream() func
-sub, done := notifier.SubscribeTo(someValue.Next)
-defer done()
-tick, done := notifier.SubscribeTo(someScheduler.Tick)
-defer done()
-
-for {
-	select {
-		case <-sub:
-			doSomethingWith(someValue.Get())
-		case <-tick:
-			doSomethingPeriodic()
-	}
-}
-```
-
-In this example, we subscribe to two different sources that follow the pattern of returning closing
-`<-chan struct{}`s for notifications, and multiplex them. This example also demonstrates the `done`
-func returned by SubscribeTo, and how it should typically be deferred for automatic cleanup.
+In this example, we subscribe to a source using both one-shot `Next()` and continuous `Subscribe()`.
+This example also demonstrates how the `done` func returned by Subscribe should typically be
+deferred for automatic cleanup of subscriptions.
