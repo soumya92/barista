@@ -104,20 +104,21 @@ func mediaFormatFunc(m media.Info) bar.Output {
 	if m.PlaybackStatus == media.Stopped || m.PlaybackStatus == media.Disconnected {
 		return nil
 	}
-	artist := truncate(m.Artist, 20)
-	title := truncate(m.Title, 40-len(artist))
-	if len(title) < 20 {
-		artist = truncate(m.Artist, 40-len(title))
+	artist := truncate(m.Artist, 35)
+	title := truncate(m.Title, 70-len(artist))
+	if len(title) < 35 {
+		artist = truncate(m.Artist, 35-len(title))
 	}
 	iconAndPosition := pango.Icon("fa-music").Color(colors.Hex("#f70"))
 	if m.PlaybackStatus == media.Playing {
-		iconAndPosition.Append(
-			spacer, pango.Textf("%s/%s",
-				formatMediaTime(m.Position()),
-				formatMediaTime(m.Length)),
-		)
+		iconAndPosition.Append(spacer,
+			pango.Textf("%s/", formatMediaTime(m.Position())))
 	}
-	return outputs.Pango(iconAndPosition, spacer, title, " - ", artist)
+	if m.PlaybackStatus == media.Paused || m.PlaybackStatus == media.Playing {
+		iconAndPosition.Append(spacer,
+			pango.Textf("%s", formatMediaTime(m.Length)))
+	}
+	return outputs.Group(iconAndPosition, outputs.Pango(title, " - ", artist))
 }
 
 func home(path ...string) string {
@@ -595,7 +596,8 @@ func main() {
 				ConcatText(outputs.IByterate(r.Total()))
 		})
 
-	rhythmbox := media.New("rhythmbox").Output(mediaFormatFunc)
+	mediaSummary, mediaDetail := split.New(
+		media.New("rhythmbox").Output(mediaFormatFunc), 1)
 
 	ghNotify := github.New("%%GITHUB_CLIENT_ID%%", "%%GITHUB_CLIENT_SECRET%%").
 		Output(func(n github.Notifications) bar.Output {
@@ -675,8 +677,8 @@ func main() {
 		Detail(wifiDetails, net, netsp)
 	mainModal.Mode("media").
 		SetOutput(makeIconOutput("mdi-music-box")).
-		Add(vol).
-		Detail(rhythmbox)
+		Add(vol, mediaSummary).
+		Detail(mediaDetail)
 	mainModal.Mode("notifications").
 		SetOutput(nil).
 		Add(gm, cal, ghNotify)
