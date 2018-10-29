@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package dbus provides watchers that notify when dbus name owners or object
-// properties change.
-package dbus // import "barista.run/base/watchers/dbus"
+package dbus
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 
 	"barista.run/base/notifier"
+
 	"github.com/godbus/dbus"
 )
 
@@ -31,8 +29,9 @@ import (
 type NameOwnerWatcher struct {
 	C <-chan struct{}
 
-	conn   *dbus.Conn
+	conn   dbusConn
 	dbusCh chan *dbus.Signal
+	match  dbus.MatchOption
 
 	notifyFn func()
 
@@ -73,7 +72,7 @@ func (n *NameOwnerWatcher) Unsubscribe() {
 	n.conn.Close()
 	n.ownersMu.RLock()
 	defer n.ownersMu.RUnlock()
-	n.owners = map[string]string{}
+	n.owners = nil
 }
 
 func (n *NameOwnerWatcher) listen() {
@@ -92,55 +91,13 @@ func (n *NameOwnerWatcher) listen() {
 	}
 }
 
-func watchNameOwner(name string, wildcard bool) (*NameOwnerWatcher, error) {
-	sessionBus, err := dbus.SessionBusPrivate()
-	if err == nil {
-		err = sessionBus.Auth(nil)
-	}
-	if err == nil {
-		err = sessionBus.Hello()
-	}
-	if err != nil {
-		return nil, err
-	}
-	bus := sessionBus.BusObject()
-	watcher := &NameOwnerWatcher{
-		conn:   sessionBus,
-		owners: map[string]string{},
-		dbusCh: make(chan *dbus.Signal, 10),
-	}
-	watcher.notifyFn, watcher.C = notifier.New()
-	var names []string
-	bus.Call("ListNames", 0).Store(&names)
-	for _, n := range names {
-		if nameMatch(n, name, wildcard) {
-			var owner string
-			if err := bus.Call("GetNameOwner", 0, n).Store(&owner); err == nil {
-				watcher.owners[n] = owner
-			}
-		}
-	}
-	matchString := "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'"
-	if wildcard {
-		matchString += fmt.Sprintf(",arg0namespace='%s'", name)
-	} else {
-		matchString += fmt.Sprintf(",arg0='%s'", name)
-	}
-	bus.Call("AddMatch", 0, matchString)
-	go watcher.listen()
-	return watcher, nil
-}
-
-func nameMatch(val, search string, wildcard bool) bool {
-	if !wildcard {
-		return val == search
-	}
-	return val == search || strings.HasPrefix(val, search+".")
-}
-
 // WatchNameOwner creates a watcher for exactly the name given.
-func WatchNameOwner(name string) (*NameOwnerWatcher, error) {
-	return watchNameOwner(name, false)
+func WatchNameOwner(busType BusType, name string) *NameOwnerWatcher {
+	return watchNameOwner(
+		busType,
+		func(search string) bool { return search == name },
+		dbus.WithMatchOption("arg0", name),
+	)
 }
 
 // WatchNameOwners creates a watcher for any names within the 'namespace' given.
@@ -148,6 +105,38 @@ func WatchNameOwner(name string) (*NameOwnerWatcher, error) {
 // 'com.example.backend1.foo', 'com.example.backend1.foo.bar', and
 // 'com.example.backend1' itself.
 // All matching names and their owners can be retrieved using GetOwners().
-func WatchNameOwners(pattern string) (*NameOwnerWatcher, error) {
-	return watchNameOwner(pattern, true)
+func WatchNameOwners(busType BusType, pattern string) *NameOwnerWatcher {
+	return watchNameOwner(
+		busType,
+		func(search string) bool {
+			return search == pattern || strings.HasPrefix(search, pattern+".")
+		},
+		dbus.WithMatchOption("arg0namespace", pattern),
+	)
+}
+
+func watchNameOwner(
+	busType BusType, matcher func(string) bool, matchOption dbus.MatchOption,
+) *NameOwnerWatcher {
+	conn := busType()
+	watcher := &NameOwnerWatcher{
+		conn:   conn,
+		owners: map[string]string{},
+		dbusCh: make(chan *dbus.Signal, 10),
+	}
+	watcher.notifyFn, watcher.C = notifier.New()
+	var names []string
+	listNames.call(conn).Store(&names)
+	for _, n := range names {
+		if !matcher(n) {
+			continue
+		}
+		var owner string
+		if err := getNameOwner.call(conn, n).Store(&owner); err == nil {
+			watcher.owners[n] = owner
+		}
+	}
+	nameOwnerChanged.addMatch(conn, matchOption)
+	go watcher.listen()
+	return watcher
 }

@@ -20,70 +20,27 @@ import (
 
 	"barista.run/testing/notifier"
 
-	"github.com/godbus/dbus"
 	"github.com/stretchr/testify/require"
 )
 
-// For testing, a service that acquires and releases names.
-type testDBusNameService struct {
-	*testing.T
-	conn  *dbus.Conn
-	names map[string]bool
-}
-
-func newTestDBusNameService(t *testing.T) *testDBusNameService {
-	sessionBus, err := dbus.SessionBusPrivate()
-	require.NoError(t, err, "dbus.SessionBusPrivate")
-	require.NoError(t, sessionBus.Auth(nil), "sessionBus.Auth(nil)")
-	require.NoError(t, sessionBus.Hello(), "sessionBus.Hello()")
-	return &testDBusNameService{t, sessionBus, map[string]bool{}}
-}
-
-func (t *testDBusNameService) acquire(name string) {
-	r, err := t.conn.RequestName(name, 0)
-	require.NoError(t, err, "t.conn.RequestName")
-	if r == dbus.RequestNameReplyPrimaryOwner {
-		t.names[name] = true
-	}
-}
-
-func (t *testDBusNameService) release(name string) {
-	r, err := t.conn.ReleaseName(name)
-	require.NoError(t, err, "t.conn.ReleaseName")
-	if r == dbus.ReleaseNameReplyReleased {
-		delete(t.names, name)
-	}
-}
-
-func (t *testDBusNameService) clear() {
-	for n := range t.names {
-		r, err := t.conn.ReleaseName(n)
-		require.NoError(t, err, "t.conn.ReleaseName")
-		require.Equal(t, dbus.ReleaseNameReplyReleased, r, "ReleaseName(%s)", n)
-	}
-	t.names = map[string]bool{}
-}
-
 func TestSingleNameOwnerWatch(t *testing.T) {
-	s := newTestDBusNameService(t)
+	s := SetupTestBus().RegisterService()
 
-	w, err := WatchNameOwner("org.i3barista.test.Service")
+	w := WatchNameOwner(Test, "org.i3barista.test.Service")
 	defer w.Unsubscribe()
-	require.NoError(t, err)
 
 	notifier.AssertNoUpdate(t, w.C, "on start")
 	require.Empty(t, w.GetOwner(), "no owner")
 
-	s.acquire("org.i3barista.test.Service2")
+	s.AddName("org.i3barista.test.Service2")
 	notifier.AssertNoUpdate(t, w.C, "different name acquired")
 	require.Empty(t, w.GetOwner(), "still no owner")
 
-	s.acquire("org.i3barista.test.Service")
+	s.AddName("org.i3barista.test.Service")
 	notifier.AssertNotified(t, w.C, "name acquired")
 	require.NotEmpty(t, w.GetOwner(), "has owner")
 
-	w2, err := WatchNameOwner("org.i3barista.test.Service")
-	require.NoError(t, err)
+	w2 := WatchNameOwner(Test, "org.i3barista.test.Service")
 
 	notifier.AssertNoUpdate(t, w2.C, "on start")
 	require.NotEmpty(t, w2.GetOwner(), "has owner on start")
@@ -91,7 +48,7 @@ func TestSingleNameOwnerWatch(t *testing.T) {
 	w2.Unsubscribe()
 	notifier.AssertNoUpdate(t, w2.C, "on unsubscribe")
 
-	s.clear()
+	s.Unregister()
 	notifier.AssertNotified(t, w.C, "name released")
 	notifier.AssertNoUpdate(t, w2.C, "after unsubscribe")
 
@@ -108,35 +65,33 @@ func keys(n *NameOwnerWatcher) []string {
 }
 
 func TestNamespacedOwnerWatch(t *testing.T) {
-	s := newTestDBusNameService(t)
+	s := SetupTestBus().RegisterService()
 
-	w, err := WatchNameOwners("org.i3barista")
+	w := WatchNameOwners(Test, "org.i3barista")
 	defer w.Unsubscribe()
-	require.NoError(t, err)
 
 	notifier.AssertNoUpdate(t, w.C, "on start")
 	require.Empty(t, keys(w), "no owner")
 
-	s.acquire("org.i3barista.test.Service")
+	s.AddName("org.i3barista.test.Service")
 	notifier.AssertNotified(t, w.C, "name acquired within namespace")
 	require.Equal(t,
 		[]string{"org.i3barista.test.Service"},
 		keys(w))
 
-	s.acquire("org.i3barista.test.Service2")
+	s.AddName("org.i3barista.test.Service2")
 	notifier.AssertNotified(t, w.C, "another name acquired")
 	require.Equal(t,
 		[]string{"org.i3barista.test.Service", "org.i3barista.test.Service2"},
 		keys(w))
 
-	s.acquire("run.barista.test.Foo")
+	s.AddName("run.barista.test.Foo")
 	notifier.AssertNoUpdate(t, w.C, "name acquired outside namespace")
 	require.Equal(t,
 		[]string{"org.i3barista.test.Service", "org.i3barista.test.Service2"},
 		keys(w))
 
-	w2, err := WatchNameOwners("org.i3barista.test")
-	require.NoError(t, err)
+	w2 := WatchNameOwners(Test, "org.i3barista.test")
 
 	notifier.AssertNoUpdate(t, w2.C, "on start")
 	require.Equal(t,
@@ -146,9 +101,11 @@ func TestNamespacedOwnerWatch(t *testing.T) {
 	w2.Unsubscribe()
 	notifier.AssertNoUpdate(t, w2.C, "on unsubscribe")
 
-	s.clear()
+	s.RemoveName("org.i3barista.test.Service")
 	notifier.AssertNotified(t, w.C, "name released")
 	notifier.AssertNoUpdate(t, w2.C, "after unsubscribe")
 
+	s.RemoveName("org.i3barista.test.Service2")
+	notifier.AssertNotified(t, w.C, "name released")
 	require.Empty(t, w.GetOwners(), "no owners")
 }
