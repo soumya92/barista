@@ -16,6 +16,7 @@ package dbus
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,9 @@ import (
 
 func TestBusTypes(t *testing.T) {
 	require.NotPanics(t, func() { Session() }, "session bus")
-	require.NotPanics(t, func() { System() }, "system bus")
+	if os.Getenv("CI") != "true" {
+		require.NotPanics(t, func() { System() }, "system bus")
+	}
 
 	require.Panics(t, func() { Test() }, "test bus before setup")
 	SetupTestBus()
