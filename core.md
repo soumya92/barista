@@ -6,13 +6,6 @@ Core provides the building blocks for barista. Extracting the core functionality
 package allows more flexible code. For examples, see the [`reformat` module](/modules/reformat)
 and the [`group` package](/group).
 
-## core.Sink
-
-Unlike `bar.Sink`, where the argument is a `bar.Output` (interface type), `core.Sink` guarantees
-a slice of `*bar.Segment`s, which can simplify code by not requiring a `nil` check. This also has
-the advantage of only holding on to segment references, allowing GC of the original output in case
-it was a costly or complex concrete type.
-
 ## core.Module
 
 `NewModule(bar.Module)` creates a `core.Module` from a `bar.Module`. A core Module decorates the
