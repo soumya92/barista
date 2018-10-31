@@ -15,6 +15,7 @@
 package dbus
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/godbus/dbus"
@@ -87,6 +88,18 @@ func (p *PropertiesWatcher) AddSignalHandler(
 	}
 	p.handlers[nm.String()] = handler
 	return p
+}
+
+// Call calls a DBus method on the object being watched and returns the result.
+// This method will deadlock if called from within a signal handler.
+func (p *PropertiesWatcher) Call(name string, args ...interface{}) ([]interface{}, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.owner == "" {
+		return nil, errors.New("Disconnected")
+	}
+	c := p.obj.Call(expand(p.iface, name), 0, args...)
+	return c.Body, c.Err
 }
 
 // Unsubscribe clears all subscriptions and internal state. The watcher cannot

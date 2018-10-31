@@ -107,8 +107,19 @@ func TestProperties(t *testing.T) {
 		"d": {5, 5},
 	}, u, "Values compared between objects")
 
+	obj.On("Method", func(args ...interface{}) ([]interface{}, error) {
+		return []interface{}{1, "2", args[0]}, nil
+	})
+
 	obj.Emit("Signal", 4)
 	assertNotUpdated(t, w, "On unhandled signal")
+
+	r, err := w.Call("Method", "foo")
+	require.NoError(t, err, "On method call")
+	require.Equal(t, []interface{}{1, "2", "foo"}, r)
+
+	_, err = w.Call("Undefined", 3, 1, 4)
+	require.Error(t, err, "On undefined method call")
 
 	obj.SetProperty("d", 7, true)
 	u = assertUpdated(t, w, "On signal after move")
@@ -151,6 +162,9 @@ func TestProperties(t *testing.T) {
 
 	obj.Emit("Signal", "c")
 	assertNotUpdated(t, w, "After service disconnect")
+
+	_, err = w.Call("Method", 3, 1, 4)
+	require.Error(t, err, "On method call while disconnected")
 
 	srv.AddName("org.i3barista.services.FooService")
 	assertUpdated(t, w, "On service connect")
