@@ -77,8 +77,8 @@ var (
 
 // dbusName represents a DBus name, specifying an interface and member pair.
 type dbusName struct {
-	Interface string
-	Member    string
+	iface  string
+	member string
 }
 
 func (d dbusName) call(c dbusConn, args ...interface{}) *dbus.Call {
@@ -86,15 +86,15 @@ func (d dbusName) call(c dbusConn, args ...interface{}) *dbus.Call {
 }
 
 func (d dbusName) addMatch(c dbusConn, args ...dbus.MatchOption) *dbus.Call {
-	return c.BusObject().AddMatchSignal(d.Interface, d.Member, args...)
+	return c.BusObject().AddMatchSignal(d.iface, d.member, args...)
 }
 
 func (d dbusName) removeMatch(c dbusConn, args ...dbus.MatchOption) *dbus.Call {
-	return c.BusObject().RemoveMatchSignal(d.Interface, d.Member, args...)
+	return c.BusObject().RemoveMatchSignal(d.iface, d.member, args...)
 }
 
 func (d dbusName) String() string {
-	return expand(d.Interface, d.Member)
+	return expand(d.iface, d.member)
 }
 
 func connect(bus *dbus.Conn, err error) dbusConn {
@@ -130,4 +130,12 @@ func expand(iface, name string) string {
 	default:
 		return name
 	}
+}
+
+func makeDbusName(str string) dbusName {
+	lastDot := strings.LastIndexByte(str, byte('.'))
+	if lastDot == -1 {
+		return dbusName{"", str}
+	}
+	return dbusName{str[:lastDot], str[lastDot+1:]}
 }

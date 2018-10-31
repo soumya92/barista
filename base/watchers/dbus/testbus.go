@@ -214,7 +214,7 @@ func (t *TestBus) RegisterService(names ...string) *TestBusService {
 	}
 	svc := &TestBusService{
 		bus: t, id: id, names: nameMap,
-		objects: map[dbus.ObjectPath]*TestBusObject{},
+		objects: map[dbus.ObjectPath]*testBusObject{},
 	}
 	for n := range nameMap {
 		oldOwner := ""

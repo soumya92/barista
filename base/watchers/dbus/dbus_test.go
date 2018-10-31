@@ -54,3 +54,25 @@ func TestExpandAndShorten(t *testing.T) {
 	require.Equal("com.example.service2.Method",
 		shorten("com.example.service", "com.example.service2.Method"))
 }
+
+func TestMakeDBusName(t *testing.T) {
+	require := require.New(t)
+
+	require.Equal(dbusName{"com.example.foo", "Service"},
+		makeDbusName("com.example.foo.Service"))
+	require.Equal(dbusName{"com.example", "foo"},
+		makeDbusName("com.example.foo"))
+	require.Equal(dbusName{"com", "example"},
+		makeDbusName("com.example"))
+	require.Equal(dbusName{"", "example"},
+		makeDbusName("example"))
+
+	for _, s := range []string{
+		"com.example.foo.Service",
+		"com.example.foo",
+		"com.example",
+	} {
+		require.Equal(s, makeDbusName(s).String(),
+			"%s -> dbus -> string != %s", s, s)
+	}
+}

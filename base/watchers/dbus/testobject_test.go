@@ -51,6 +51,11 @@ func TestObjects(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, dbus.MakeVariant("red"), val)
 
+	_, err = Test().
+		Object("org.i3barista.Misc.BarService", "/org/i3barista/Misc/Bar").
+		GetProperty("org.i3barista.Misc.BarService.nosuchproperty")
+	require.Error(t, err)
+
 	require.Panics(t, func() {
 		Test().Object("run.barista.NoSuchService", "/run/barista/Foo")
 	}, "Unknown service")

@@ -29,7 +29,7 @@ type TestBusService struct {
 	bus     *TestBus
 	id      string
 	names   map[string]bool
-	objects map[dbus.ObjectPath]*TestBusObject
+	objects map[dbus.ObjectPath]*testBusObject
 }
 
 // AddName registers the service for the given well-known name.
@@ -111,12 +111,12 @@ func (t *TestBusService) Object(path dbus.ObjectPath, dest string) *TestBusObjec
 		if dest == "" {
 			dest = t.anyName()
 		}
-		o = &TestBusObject{
+		o = &testBusObject{
 			svc: t, dest: dest, path: path,
 			props: map[string]interface{}{},
 			calls: map[string]func(...interface{}) ([]interface{}, error){},
 		}
 		t.objects[path] = o
 	}
-	return o
+	return &TestBusObject{o, nil /* conn set by caller */}
 }

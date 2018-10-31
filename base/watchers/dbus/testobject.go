@@ -25,16 +25,21 @@ import (
 	"github.com/godbus/dbus"
 )
 
-// TestBusObject represents an object on the test bus.
-type TestBusObject struct {
-	mu   sync.Mutex
-	conn *testBusConnection
+// testBusObject represents an object on the test bus.
+type testBusObject struct {
+	mu sync.Mutex
 
 	svc   *TestBusService
 	dest  string
 	path  dbus.ObjectPath
 	props map[string]interface{}
 	calls map[string]func(...interface{}) ([]interface{}, error)
+}
+
+// TestBusObject represents a connection to an object on the test bus.
+type TestBusObject struct {
+	*testBusObject
+	conn *testBusConnection
 }
 
 // Call calls a method with and waits for its reply.
@@ -138,7 +143,10 @@ func (t *TestBusObject) GetProperty(p string) (dbus.Variant, error) {
 	t.check()
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return dbus.MakeVariant(t.props[p]), nil
+	if val, ok := t.props[p]; ok {
+		return dbus.MakeVariant(val), nil
+	}
+	return dbus.Variant{}, errors.New("No such property: " + p)
 }
 
 // Destination returns the destination that calls on are sent to.
@@ -164,7 +172,8 @@ func (t *TestBusObject) SetProperty(prop string, value interface{}, signal bool)
 	if signal {
 		t.Emit(
 			propsChanged.String(),
-			dbus.MakeVariant(map[string]interface{}{prop: value}),
+			t.dest,
+			map[string]dbus.Variant{prop: dbus.MakeVariant(value)},
 		)
 	}
 }
