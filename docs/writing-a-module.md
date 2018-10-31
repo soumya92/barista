@@ -199,3 +199,5 @@ The base package provides some building blocks that can be useful when writing m
 
 - [`base/Value`](/base/value): Provides value.Value and value.ErrorValue to store configuration
   or data values and listen for changes.
+
+- [`base/watchers/`](/base/watchers): Provides watchers for file, netlink, and DBus events.
