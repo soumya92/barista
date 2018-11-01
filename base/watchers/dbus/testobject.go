@@ -164,17 +164,24 @@ func (t *TestBusObject) Path() dbus.ObjectPath {
 // SetProperty sets a property of the test object. The final signal parameter
 // controls whether a "PropertiesChanged" signal is automatically emitted.
 func (t *TestBusObject) SetProperty(prop string, value interface{}, signal bool) {
+	t.SetProperties(map[string]interface{}{prop: value}, signal)
+}
+
+// SetProperties sets multiple properties of the test object. The final signal
+// parameter controls whether a "PropertiesChanged" signal is emitted.
+func (t *TestBusObject) SetProperties(props map[string]interface{}, signal bool) {
 	t.check()
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	prop = expand(t.dest, prop)
-	t.props[prop] = value
+	for k, v := range props {
+		t.props[expand(t.dest, k)] = v
+	}
 	if signal {
-		t.Emit(
-			propsChanged.String(),
-			t.dest,
-			map[string]dbus.Variant{prop: dbus.MakeVariant(value)},
-		)
+		sig := map[string]dbus.Variant{}
+		for k, v := range props {
+			sig[expand(t.dest, k)] = dbus.MakeVariant(v)
+		}
+		t.Emit(propsChanged.String(), t.dest, sig)
 	}
 }
 
