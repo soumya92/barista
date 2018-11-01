@@ -113,7 +113,6 @@ func (p *PropertiesWatcher) Unsubscribe() {
 }
 
 func (p *PropertiesWatcher) listen() {
-	p.conn.Signal(p.dbusCh)
 	for sig := range p.dbusCh {
 		if sig.Name == nameOwnerChanged.String() {
 			p.ownerChanged(sig.Body[2].(string), true)
@@ -128,7 +127,7 @@ func (p *PropertiesWatcher) handleSignal(sig *Signal) {
 	defer p.mu.Unlock()
 	// This is fine, we should only get signals for which handlers have been
 	// added. This can only panic if the internal state is somehow inconsistent.
-	newProps := p.handlers[sig.Name](sig, p.fetcher)
+	newProps := p.handlers[sig.Name](sig, p.fetch)
 	if len(newProps) == 0 {
 		return
 	}
@@ -140,7 +139,7 @@ func (p *PropertiesWatcher) handleSignal(sig *Signal) {
 	p.onChange <- ch
 }
 
-func (p *PropertiesWatcher) fetcher(propName string) (interface{}, error) {
+func (p *PropertiesWatcher) fetch(propName string) (interface{}, error) {
 	// p.obj != nil because all signal matches are filtered by owner. If there
 	// is no owner, there will also be no matches.
 	val, err := p.obj.GetProperty(expand(p.iface, propName))
@@ -166,8 +165,8 @@ func (p *PropertiesWatcher) ownerChanged(owner string, signal bool) {
 	if p.owner != "" {
 		p.obj = p.conn.Object(p.service, p.object)
 		for propName := range p.propNames {
-			if val, err := p.obj.GetProperty(expand(p.iface, propName)); err == nil {
-				newProps[propName] = val.Value()
+			if val, err := p.fetch(propName); err == nil {
+				newProps[propName] = val
 			}
 		}
 		m := p.ownerMatchOption()
@@ -239,6 +238,7 @@ func WatchProperties(
 		w.ownerChanged(owner, false)
 	}
 	nameOwnerChanged.addMatch(conn, dbus.WithMatchOption("arg0", service))
+	w.conn.Signal(w.dbusCh)
 	go w.listen()
 	return w
 }
