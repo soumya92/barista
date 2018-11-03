@@ -34,6 +34,8 @@ type testBusObject struct {
 	path  dbus.ObjectPath
 	props map[string]interface{}
 	calls map[string]func(...interface{}) ([]interface{}, error)
+	// elseCall: fallback when calls[method] is not defined.
+	eCall func(string, ...interface{}) ([]interface{}, error)
 }
 
 // TestBusObject represents a connection to an object on the test bus.
@@ -56,7 +58,12 @@ func (t *TestBusObject) Call(method string, flags dbus.Flags, args ...interface{
 	call.Done <- call
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	h := t.calls[method]
+	h, ok := t.calls[method]
+	if !ok && t.eCall != nil {
+		h = func(args ...interface{}) ([]interface{}, error) {
+			return t.eCall(method, args...)
+		}
+	}
 	if h == nil {
 		call.Err = errors.New("No such method: " + method)
 	} else {
@@ -216,6 +223,15 @@ func (t *TestBusObject) On(method string, do func(...interface{}) ([]interface{}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.calls[expand(t.dest, method)] = do
+}
+
+// OnElse sets the function to be called for all methods that don't have a
+// separate On(method, ...) definition.
+func (t *TestBusObject) OnElse(do func(string, ...interface{}) ([]interface{}, error)) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.eCall = do
+
 }
 
 // Emit emits a signal on the test bus, dispatching it to relevant listeners.

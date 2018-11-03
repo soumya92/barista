@@ -24,6 +24,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const noFlags = 0
+
 func TestObjects(t *testing.T) {
 	b := SetupTestBus()
 
@@ -63,7 +65,7 @@ func TestObjects(t *testing.T) {
 	conn := Test()
 	connObj := conn.Object("org.i3barista.Misc.BarService", "/org/i3barista/Misc/Bar")
 
-	c := connObj.Call("Method", 0, "arg0", 1, 2.1)
+	c := connObj.Call("Method", noFlags, "arg0", 1, 2.1)
 	require.Error(t, c.Err, "method not defined")
 
 	o0.On("Method", func(args ...interface{}) ([]interface{}, error) {
@@ -74,11 +76,11 @@ func TestObjects(t *testing.T) {
 		require.Equal(t, 1, args[1])
 		return []interface{}{"0", 1, 2.0}, nil
 	})
-	c = connObj.CallWithContext(context.TODO(), "Method", 0, "arg0", 1, 2.1)
+	c = connObj.CallWithContext(context.TODO(), "Method", noFlags, "arg0", 1, 2.1)
 	require.Error(t, c.Err, "method returned error")
 
 	ch := make(chan *dbus.Call, 10)
-	connObj.GoWithContext(context.TODO(), "Method", 0, ch, "arg0", 1)
+	connObj.GoWithContext(context.TODO(), "Method", noFlags, ch, "arg0", 1)
 
 	select {
 	case <-ch:
@@ -98,6 +100,25 @@ func TestObjects(t *testing.T) {
 	require.Equal(t, "0", str)
 	require.Equal(t, 1, num)
 	require.Equal(t, 2.0, dbl)
+
+	c = connObj.Call("OtherMethod", noFlags, "arg0", 1, 2.1)
+	require.Error(t, c.Err, "method not defined")
+
+	o0.OnElse(func(method string, args ...interface{}) ([]interface{}, error) {
+		return append([]interface{}{"wildcard:" + method}, args...), nil
+	})
+
+	c = connObj.Call("OtherMethod", noFlags, "arg0", 1)
+	require.NoError(t, c.Err, "wildcard method handler")
+	require.Equal(t, []interface{}{
+		"wildcard:org.i3barista.Misc.BarService.OtherMethod", "arg0", 1,
+	}, c.Body)
+
+	c = connObj.Call("Foo", noFlags, 4)
+	require.NoError(t, c.Err, "wildcard method handler")
+	require.Equal(t, []interface{}{
+		"wildcard:org.i3barista.Misc.BarService.Foo", 4,
+	}, c.Body)
 
 	conn.Close()
 	require.Panics(t, func() { connObj.Destination() },
