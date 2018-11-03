@@ -44,7 +44,7 @@ func TestObjects(t *testing.T) {
 	require.Equal(t, "org.freedesktop.DBus.Properties", o2p.Destination(),
 		"overridden destination service name")
 
-	o0.SetProperty("color", "red", false)
+	o0.SetProperty("color", "red", SignalTypeNone)
 	val, err := Test().
 		Object("org.i3barista.Misc.BarService", "/org/i3barista/Misc/Bar").
 		GetProperty("org.i3barista.Misc.BarService.color")
@@ -61,9 +61,9 @@ func TestObjects(t *testing.T) {
 	}, "Unknown service")
 
 	conn := Test()
-	c := conn.
-		Object("org.i3barista.Misc.BarService", "/org/i3barista/Misc/Bar").
-		Call("Method", 0, "arg0", 1, 2.1)
+	connObj := conn.Object("org.i3barista.Misc.BarService", "/org/i3barista/Misc/Bar")
+
+	c := connObj.Call("Method", 0, "arg0", 1, 2.1)
 	require.Error(t, c.Err, "method not defined")
 
 	o0.On("Method", func(args ...interface{}) ([]interface{}, error) {
@@ -74,15 +74,11 @@ func TestObjects(t *testing.T) {
 		require.Equal(t, 1, args[1])
 		return []interface{}{"0", 1, 2.0}, nil
 	})
-	c = conn.
-		Object("org.i3barista.Misc.BarService", "/org/i3barista/Misc/Bar").
-		CallWithContext(context.TODO(), "Method", 0, "arg0", 1, 2.1)
+	c = connObj.CallWithContext(context.TODO(), "Method", 0, "arg0", 1, 2.1)
 	require.Error(t, c.Err, "method returned error")
 
 	ch := make(chan *dbus.Call, 10)
-	conn.
-		Object("org.i3barista.Misc.BarService", "/org/i3barista/Misc/Bar").
-		GoWithContext(context.TODO(), "Method", 0, ch, "arg0", 1)
+	connObj.GoWithContext(context.TODO(), "Method", 0, ch, "arg0", 1)
 
 	select {
 	case <-ch:
@@ -102,4 +98,10 @@ func TestObjects(t *testing.T) {
 	require.Equal(t, "0", str)
 	require.Equal(t, 1, num)
 	require.Equal(t, 2.0, dbl)
+
+	conn.Close()
+	require.Panics(t, func() { connObj.Destination() },
+		"Object usage after connection close")
+	require.NotPanics(t, func() { o0.Destination() },
+		"Object obtained from TestService, after connection closed")
 }

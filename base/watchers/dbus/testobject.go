@@ -161,27 +161,52 @@ func (t *TestBusObject) Path() dbus.ObjectPath {
 	return t.path
 }
 
-// SetProperty sets a property of the test object. The final signal parameter
-// controls whether a "PropertiesChanged" signal is automatically emitted.
-func (t *TestBusObject) SetProperty(prop string, value interface{}, signal bool) {
-	t.SetProperties(map[string]interface{}{prop: value}, signal)
+// SignalType controls the type of signal sent on properties change
+type SignalType byte
+
+const (
+	// SignalTypeNone does not emit any signal on properties change.
+	SignalTypeNone SignalType = iota
+	// SignalTypeChanged emits a PropertiesChanged signal with values for each
+	// modified property in changed_properties.
+	SignalTypeChanged
+	// SignalTypeInvalidated emits a PropertiesChanged signal with only the
+	// property names in invalidated_properties.
+	SignalTypeInvalidated
+)
+
+// SetProperty sets a property of the test object. The signal type parameter
+// controls whether a "PropertiesChanged" signal is automatically emitted, and
+// what form the emitted signal takes.
+func (t *TestBusObject) SetProperty(prop string, value interface{}, signalType SignalType) {
+	t.SetProperties(map[string]interface{}{prop: value}, signalType)
 }
 
-// SetProperties sets multiple properties of the test object. The final signal
-// parameter controls whether a "PropertiesChanged" signal is emitted.
-func (t *TestBusObject) SetProperties(props map[string]interface{}, signal bool) {
+// SetProperties sets multiple properties of the test object. The signal type
+// controls whether a "PropertiesChanged" signal is automatically emitted, and
+// what form the emitted signal takes.
+func (t *TestBusObject) SetProperties(props map[string]interface{}, signalType SignalType) {
 	t.check()
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for k, v := range props {
 		t.props[expand(t.dest, k)] = v
 	}
-	if signal {
+	switch signalType {
+	case SignalTypeNone:
+		return
+	case SignalTypeInvalidated:
+		inv := []string{}
+		for k := range props {
+			inv = append(inv, expand(t.dest, k))
+		}
+		go t.Emit(propsChanged.String(), t.dest, map[string]dbus.Variant{}, inv)
+	case SignalTypeChanged:
 		sig := map[string]dbus.Variant{}
 		for k, v := range props {
 			sig[expand(t.dest, k)] = dbus.MakeVariant(v)
 		}
-		t.Emit(propsChanged.String(), t.dest, sig)
+		go t.Emit(propsChanged.String(), t.dest, sig, []string{})
 	}
 }
 

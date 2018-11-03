@@ -191,13 +191,23 @@ func (p *PropertiesWatcher) ownerChanged(owner string, signal bool) {
 	p.props = newProps
 }
 
-func (p *PropertiesWatcher) propChangeHandler(sig *Signal, _ Fetcher) map[string]interface{} {
+func (p *PropertiesWatcher) propChangeHandler(sig *Signal, fetch Fetcher) map[string]interface{} {
 	m := sig.Body[1].(map[string]dbus.Variant)
 	r := map[string]interface{}{}
 	for k, v := range m {
 		k = shorten(p.iface, k)
 		if p.propNames[k] {
 			r[k] = v.Value()
+		}
+	}
+	invalidated, _ := sig.Body[2].([]string)
+	for _, k := range invalidated {
+		k = shorten(p.iface, k)
+		if !p.propNames[k] {
+			continue
+		}
+		if v, err := fetch(k); err == nil {
+			r[k] = v
 		}
 	}
 	return r

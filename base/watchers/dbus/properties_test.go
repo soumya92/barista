@@ -51,7 +51,7 @@ func TestProperties(t *testing.T) {
 	conn.Signal(ch)
 
 	obj := srv.Object("/org/i3barista/objects/Foo", "org.i3barista.Service")
-	obj.SetProperty("a", 1, false)
+	obj.SetProperty("a", 1, SignalTypeNone)
 	<-ch // NameOwnerChanged.
 
 	w := WatchProperties(Test,
@@ -66,15 +66,15 @@ func TestProperties(t *testing.T) {
 		"a": 1,
 	}, w.Get(), "Initial values")
 
-	obj.SetProperty("a", 2, true)
+	obj.SetProperty("a", 2, SignalTypeChanged)
 	u := assertUpdated(t, w, "On property change with signal")
 	require.Equal(t, PropertiesChange{"a": {1, 2}}, u,
 		"Old value and new value in update")
 
-	obj.SetProperty("d", "baz", false)
+	obj.SetProperty("d", "baz", SignalTypeNone)
 	assertNotUpdated(t, w, "On property change without signal")
 
-	obj.SetProperty("c", "anotherstring", true)
+	obj.SetProperty("c", "anotherstring", SignalTypeInvalidated)
 	u = assertUpdated(t, w, "On property change with signal")
 	require.Equal(t, PropertiesChange{"c": {nil, "anotherstring"}}, u,
 		"Nil old value for newly set property")
@@ -84,19 +84,19 @@ func TestProperties(t *testing.T) {
 		"c": "anotherstring",
 	}, w.Get(), "Non-signal property change ignored")
 
-	obj.SetProperty("foo", "whatever", true)
+	obj.SetProperty("foo", "whatever", SignalTypeInvalidated)
 	assertNotUpdated(t, w, "On uninteresting property change")
 
-	obj.SetProperty("d", 5, true)
+	obj.SetProperty("d", 5, SignalTypeChanged)
 	u = assertUpdated(t, w, "On property change with signal")
 	require.Equal(t, PropertiesChange{"d": {nil, 5}}, u,
 		"Nil old value for previously ignored set")
 
 	srv1 := bus.RegisterService()
 	obj = srv1.Object("/org/i3barista/objects/Foo", "org.i3barista.Service")
-	obj.SetProperty("a", 4, false)
-	obj.SetProperty("b", "banana", false)
-	obj.SetProperty("d", 5, true)
+	obj.SetProperty("a", 4, SignalTypeNone)
+	obj.SetProperty("b", "banana", SignalTypeNone)
+	obj.SetProperty("d", 5, SignalTypeNone)
 
 	srv1.AddName("org.i3barista.services.FooService") // Replace previous.
 	u = assertUpdated(t, w, "On service move")
@@ -121,7 +121,7 @@ func TestProperties(t *testing.T) {
 	_, err = w.Call("Undefined", 3, 1, 4)
 	require.Error(t, err, "On undefined method call")
 
-	obj.SetProperty("d", 7, true)
+	obj.SetProperty("d", 7, SignalTypeInvalidated)
 	u = assertUpdated(t, w, "On signal after move")
 	require.Equal(t, PropertiesChange{"d": {5, 7}}, u)
 
@@ -141,7 +141,7 @@ func TestProperties(t *testing.T) {
 		"fetched":    {nil, nil},
 	}, u)
 
-	obj.SetProperty("foo", 0, false)
+	obj.SetProperty("foo", 0, SignalTypeNone)
 	obj.Emit("Signal", 8)
 	u = assertUpdated(t, w, "On signal handler")
 	require.Equal(t, PropertiesChange{
@@ -177,7 +177,7 @@ func TestProperties(t *testing.T) {
 	w.Unsubscribe()
 	require.Empty(t, w.Get(), "After Unsubscribe")
 
-	obj.SetProperty("a", 4, true)
+	obj.SetProperty("a", 4, SignalTypeChanged)
 	assertNotUpdated(t, w, "after Unsubscribe")
 
 	obj.Emit("Signal", "foo")

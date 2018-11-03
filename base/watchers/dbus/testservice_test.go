@@ -125,7 +125,7 @@ func TestServices(t *testing.T) {
 	}, "use after unregister")
 
 	require.Panics(t, func() {
-		obj.SetProperty("foo", "baz", false)
+		obj.SetProperty("foo", "baz", SignalTypeNone)
 	}, "use object after unregister")
 
 	require.Panics(t, func() {
