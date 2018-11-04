@@ -84,7 +84,7 @@ func (p *PropertiesWatcher) AddSignalHandler(
 	}
 	p.signals = append(p.signals, nm)
 	if p.owner != "" {
-		nm.addMatch(p.conn, p.ownerMatchOption())
+		nm.addMatch(p.conn, p.matchOptions()...)
 	}
 	p.handlers[nm.String()] = handler
 	return p
@@ -146,18 +146,21 @@ func (p *PropertiesWatcher) fetch(propName string) (interface{}, error) {
 	return val.Value(), err
 }
 
-func (p *PropertiesWatcher) ownerMatchOption() dbus.MatchOption {
-	return dbus.WithMatchOption("sender", p.owner)
+func (p *PropertiesWatcher) matchOptions() []dbus.MatchOption {
+	return []dbus.MatchOption{
+		dbus.WithMatchOption("sender", p.owner),
+		dbus.WithMatchOption("path", string(p.object)),
+	}
 }
 
 func (p *PropertiesWatcher) ownerChanged(owner string, signal bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.owner != "" {
-		m := p.ownerMatchOption()
-		propsChanged.removeMatch(p.conn, m)
+		m := p.matchOptions()
+		propsChanged.removeMatch(p.conn, m...)
 		for _, s := range p.signals {
-			s.removeMatch(p.conn, m)
+			s.removeMatch(p.conn, m...)
 		}
 	}
 	p.owner = owner
@@ -169,10 +172,10 @@ func (p *PropertiesWatcher) ownerChanged(owner string, signal bool) {
 				newProps[propName] = val
 			}
 		}
-		m := p.ownerMatchOption()
-		propsChanged.addMatch(p.conn, m)
+		m := p.matchOptions()
+		propsChanged.addMatch(p.conn, m...)
 		for _, s := range p.signals {
-			s.addMatch(p.conn, m)
+			s.addMatch(p.conn, m...)
 		}
 	}
 	if signal {

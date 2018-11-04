@@ -125,6 +125,10 @@ func TestProperties(t *testing.T) {
 	u = assertUpdated(t, w, "On signal after move")
 	require.Equal(t, PropertiesChange{"d": {5, 7}}, u)
 
+	obj1 := srv1.Object("/org/i3barista/objects/NotFoo", "org.i3barista.Service")
+	obj1.SetProperty("d", 8, SignalTypeChanged)
+	assertNotUpdated(t, w, "Different object in same service updated")
+
 	w.AddSignalHandler("Signal",
 		func(s *Signal, f Fetcher) map[string]interface{} {
 			val, _ := f("foo")
