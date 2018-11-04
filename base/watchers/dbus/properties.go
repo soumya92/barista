@@ -51,10 +51,9 @@ type PropertiesWatcher struct {
 
 	mu sync.RWMutex
 
-	owner    string
-	props    map[string]interface{} // Extracted from dbus.Variant values.
-	handlers map[string]func(*Signal, Fetcher) map[string]interface{}
-	signals  []dbusName
+	owner   string
+	props   map[string]interface{} // Extracted from dbus.Variant values.
+	signals map[dbusName]func(*Signal, Fetcher) map[string]interface{}
 }
 
 // Get returns the latest snapshot of all registered properties.
@@ -82,11 +81,10 @@ func (p *PropertiesWatcher) AddSignalHandler(
 	if nm.iface == "" {
 		nm.iface = p.iface
 	}
-	p.signals = append(p.signals, nm)
 	if p.owner != "" {
 		nm.addMatch(p.conn, p.matchOptions()...)
 	}
-	p.handlers[nm.String()] = handler
+	p.signals[nm] = handler
 	return p
 }
 
@@ -127,7 +125,7 @@ func (p *PropertiesWatcher) handleSignal(sig *Signal) {
 	defer p.mu.Unlock()
 	// This is fine, we should only get signals for which handlers have been
 	// added. This can only panic if the internal state is somehow inconsistent.
-	newProps := p.handlers[sig.Name](sig, p.fetch)
+	newProps := p.signals[makeDbusName(sig.Name)](sig, p.fetch)
 	if len(newProps) == 0 {
 		return
 	}
@@ -158,8 +156,7 @@ func (p *PropertiesWatcher) ownerChanged(owner string, signal bool) {
 	defer p.mu.Unlock()
 	if p.owner != "" {
 		m := p.matchOptions()
-		propsChanged.removeMatch(p.conn, m...)
-		for _, s := range p.signals {
+		for s := range p.signals {
 			s.removeMatch(p.conn, m...)
 		}
 	}
@@ -173,8 +170,7 @@ func (p *PropertiesWatcher) ownerChanged(owner string, signal bool) {
 			}
 		}
 		m := p.matchOptions()
-		propsChanged.addMatch(p.conn, m...)
-		for _, s := range p.signals {
+		for s := range p.signals {
 			s.addMatch(p.conn, m...)
 		}
 	}
@@ -243,8 +239,8 @@ func WatchProperties(
 	for _, p := range properties {
 		w.propNames[p] = true
 	}
-	w.handlers = map[string]func(*Signal, Fetcher) map[string]interface{}{
-		propsChanged.String(): w.propChangeHandler,
+	w.signals = map[dbusName]func(*Signal, Fetcher) map[string]interface{}{
+		propsChanged: w.propChangeHandler,
 	}
 	var owner string
 	if err := getNameOwner.call(conn, service).Store(&owner); err == nil {
