@@ -39,5 +39,13 @@ Created using `WatchProperties(...)`:
 - `iface string`: A namespace under which the properties are provided. You can still use other
   properties by providing fully-qualified names, but any short names (no `.`s) will default to this
   interface.
-- `properties []string`: A list of all properties of interest. Changes to other properties will be
-  ignored.
+
+Properties can be added in different ways depending on how updates to the property are expected:
+- `Add(...string)`: Adds properties that emit PropertiesChanged. These properties are only updated
+  from signals, and cached values are returned on calls to `Get()`.
+- `FetchOnSignal(...string)`: Adds properties that change when one or more of the signalling
+  properties change. These properties are fetched from the object if they're not present in a change
+  signal, but are otherwise equivalent to signalling properties. Cached values are used, and they
+  are part of the change objects.
+- `Fetch(...string)`: Adds properties that are "computed", and changes cannot be reasonably tracked.
+  These properties are always fetched from the object when calling `Get()`.
