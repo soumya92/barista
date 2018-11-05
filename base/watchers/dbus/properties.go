@@ -95,7 +95,6 @@ func (p *PropertiesWatcher) FetchOnSignal(props ...string) *PropertiesWatcher {
 
 // Fetch specifies additional properties to fetch each time the full set of
 // properties is requested via Get().
-// These properties will never be part of an emitted PropertiesChange.
 func (p *PropertiesWatcher) Fetch(props ...string) *PropertiesWatcher {
 	return p.addProperties(updateTypeManual, props)
 }
