@@ -306,7 +306,7 @@ func (p *PropertiesWatcher) propChangeHandler(sig *Signal, fetch Fetcher) map[st
 // watcher is constructed. Watchers must be cleaned up by calling Unsubscribe.
 func WatchProperties(busType BusType, service string, object string, iface string) *PropertiesWatcher {
 	conn := busType()
-	updates := make(chan PropertiesChange)
+	updates := make(chan PropertiesChange, 10)
 	w := &PropertiesWatcher{
 		Updates:   updates,
 		onChange:  updates,
