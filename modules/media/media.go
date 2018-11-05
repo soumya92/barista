@@ -138,13 +138,12 @@ func (m *Module) Stream(s bar.Sink) {
 
 	w := dbus.WatchProperties(busType,
 		fmt.Sprintf("org.mpris.MediaPlayer2.%s", m.playerName),
-		"/org/mpris/MediaPlayer2",
-		"org.mpris.MediaPlayer2.Player",
-		[]string{"Rate", "Position", "Shuffle", "PlaybackStatus", "Metadata"})
-
-	w.AddSignalHandler("Seeked", func(s *dbus.Signal, _ dbus.Fetcher) map[string]interface{} {
-		return map[string]interface{}{"Position": s.Body[0]}
-	})
+		"/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player").
+		Add("Rate", "Shuffle", "PlaybackStatus", "Metadata").
+		FetchOnSignal("Position").
+		AddSignalHandler("Seeked", func(s *dbus.Signal, _ dbus.Fetcher) map[string]interface{} {
+			return map[string]interface{}{"Position": s.Body[0]}
+		})
 
 	info := Info{call: w.Call}
 	for k, v := range w.Get() {

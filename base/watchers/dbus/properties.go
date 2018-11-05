@@ -44,16 +44,17 @@ type PropertiesWatcher struct {
 	obj    dbus.BusObject
 	dbusCh chan *Signal
 
-	service   string
-	object    dbus.ObjectPath
-	iface     string
-	propNames map[string]bool
+	service string
+	object  dbus.ObjectPath
+	iface   string
+	props   map[string]propertyUpdateType
 
 	mu sync.RWMutex
 
 	owner   string
-	props   map[string]interface{} // Extracted from dbus.Variant values.
 	signals map[dbusName]func(*Signal, Fetcher) map[string]interface{}
+
+	lastProps map[string]interface{} // Extracted from dbus.Variant values.
 }
 
 // Get returns the latest snapshot of all registered properties.
@@ -61,10 +62,42 @@ func (p *PropertiesWatcher) Get() map[string]interface{} {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	r := map[string]interface{}{}
-	for k, v := range p.props {
+	for k, v := range p.lastProps {
 		r[k] = v
 	}
+	if p.owner == "" {
+		return r
+	}
+	for prop, u := range p.props {
+		if u&updateTypeManual == 0 {
+			continue
+		}
+		if val, err := p.fetch(prop); err == nil {
+			r[prop] = val
+		}
+	}
 	return r
+}
+
+// Add specifies properties to watch, relying on the PropertiesChanged signal
+// to update their value.
+func (p *PropertiesWatcher) Add(props ...string) *PropertiesWatcher {
+	return p.addProperties(updateTypeSignal, props)
+}
+
+// FetchOnSignal specifies additional properties to fetch when the object emits
+// PropertiesChanged. This can be useful for tracking computed properties if
+// their value only changes when other properties also change.
+// These properties will be included in emitted PropertiesChange values.
+func (p *PropertiesWatcher) FetchOnSignal(props ...string) *PropertiesWatcher {
+	return p.addProperties(updateTypeFetchOnSignal, props)
+}
+
+// Fetch specifies additional properties to fetch each time the full set of
+// properties is requested via Get().
+// These properties will never be part of an emitted PropertiesChange.
+func (p *PropertiesWatcher) Fetch(props ...string) *PropertiesWatcher {
+	return p.addProperties(updateTypeManual, props)
 }
 
 // AddSignalHandler adds a signal handler for a signal emitted by the interface
@@ -107,13 +140,49 @@ func (p *PropertiesWatcher) Unsubscribe() {
 	p.conn.Close()
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	p.props = nil
+	p.lastProps = nil
+	p.owner = ""
+}
+
+type propertyUpdateType int
+
+const (
+	// updateTypeSignal indicates that the property should be updated based on
+	// the PropertiesChanged signals sent by DBus.
+	updateTypeSignal propertyUpdateType = 1 << 0
+	// updateTypeFetch indicates that the property should be fetched on
+	// receiving PropertiesChanged signals, but the property itself may not be
+	// included in the signal body.
+	updateTypeFetch propertyUpdateType = 1 << 1
+	// updateTypeFetchOnSignal indicates that the property should be fetched on
+	// receiving PropertiesChanged signals, but any value present in the signal
+	// body should be preferred.
+	updateTypeFetchOnSignal propertyUpdateType = updateTypeSignal | updateTypeFetch
+	// updateTypeManual indicates that the property should be fetched on each
+	// call to Get(). Manually updated properties will never trigger change
+	// notifications.
+	updateTypeManual propertyUpdateType = 1 << 2
+)
+
+func (p *PropertiesWatcher) addProperties(updateType propertyUpdateType, props []string) *PropertiesWatcher {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, prop := range props {
+		p.props[prop] = p.props[prop] | updateType
+		if p.owner == "" {
+			continue
+		}
+		if val, err := p.fetch(prop); err == nil {
+			p.lastProps[prop] = val
+		}
+	}
+	return p
 }
 
 func (p *PropertiesWatcher) listen() {
 	for sig := range p.dbusCh {
 		if sig.Name == nameOwnerChanged.String() {
-			p.ownerChanged(sig.Body[2].(string), true)
+			p.ownerChanged(sig.Body[2].(string))
 		} else {
 			p.handleSignal(sig)
 		}
@@ -131,8 +200,8 @@ func (p *PropertiesWatcher) handleSignal(sig *Signal) {
 	}
 	ch := PropertiesChange{}
 	for k, v := range newProps {
-		ch[k] = [2]interface{}{p.props[k], v}
-		p.props[k] = v
+		ch[k] = [2]interface{}{p.lastProps[k], v}
+		p.lastProps[k] = v
 	}
 	p.onChange <- ch
 }
@@ -151,7 +220,7 @@ func (p *PropertiesWatcher) matchOptions() []dbus.MatchOption {
 	}
 }
 
-func (p *PropertiesWatcher) ownerChanged(owner string, signal bool) {
+func (p *PropertiesWatcher) ownerChanged(owner string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.owner != "" {
@@ -161,33 +230,39 @@ func (p *PropertiesWatcher) ownerChanged(owner string, signal bool) {
 		}
 	}
 	p.owner = owner
-	newProps := map[string]interface{}{}
-	if p.owner != "" {
-		p.obj = p.conn.Object(p.service, p.object)
-		for propName := range p.propNames {
-			if val, err := p.fetch(propName); err == nil {
-				newProps[propName] = val
-			}
-		}
-		m := p.matchOptions()
-		for s := range p.signals {
-			s.addMatch(p.conn, m...)
-		}
-	}
-	if signal {
+	if p.owner == "" {
 		ch := PropertiesChange{}
-		for k, v := range p.props {
-			ch[k] = [2]interface{}{v, newProps[k]}
+		for k, oldVal := range p.lastProps {
+			ch[k] = [2]interface{}{oldVal, nil}
+			delete(p.lastProps, k)
 		}
-		for k, v := range newProps {
-			_, ok := ch[k]
-			if !ok {
-				ch[k] = [2]interface{}{nil, v}
-			}
+		if len(ch) > 0 {
+			p.onChange <- ch
 		}
-		p.onChange <- ch
+		return
 	}
-	p.props = newProps
+	p.obj = p.conn.Object(p.service, p.object)
+	m := p.matchOptions()
+	for s := range p.signals {
+		s.addMatch(p.conn, m...)
+	}
+	if len(p.props) == 0 {
+		return
+	}
+	ch := PropertiesChange{}
+	for k := range p.props {
+		oldVal, ok := p.lastProps[k]
+		newVal, err := p.fetch(k)
+		if err == nil {
+			p.lastProps[k] = newVal
+		} else {
+			delete(p.lastProps, k)
+		}
+		if err == nil || ok {
+			ch[k] = [2]interface{}{oldVal, newVal}
+		}
+	}
+	p.onChange <- ch
 }
 
 func (p *PropertiesWatcher) propChangeHandler(sig *Signal, fetch Fetcher) map[string]interface{} {
@@ -195,14 +270,28 @@ func (p *PropertiesWatcher) propChangeHandler(sig *Signal, fetch Fetcher) map[st
 	r := map[string]interface{}{}
 	for k, v := range m {
 		k = shorten(p.iface, k)
-		if p.propNames[k] {
+		if p.props[k]&updateTypeSignal != 0 {
 			r[k] = v.Value()
 		}
 	}
 	invalidated, _ := sig.Body[2].([]string)
 	for _, k := range invalidated {
 		k = shorten(p.iface, k)
-		if !p.propNames[k] {
+		if p.props[k]&updateTypeSignal == 0 {
+			continue
+		}
+		if v, err := fetch(k); err == nil {
+			r[k] = v
+		}
+	}
+	if len(r) == 0 {
+		return r
+	}
+	for k, v := range p.props {
+		if v&updateTypeFetch == 0 {
+			continue
+		}
+		if _, ok := r[k]; ok {
 			continue
 		}
 		if v, err := fetch(k); err == nil {
@@ -216,35 +305,25 @@ func (p *PropertiesWatcher) propChangeHandler(sig *Signal, fetch Fetcher) map[st
 // interface, using a specified bus and service name. The list of properties is
 // further used to filter events, as well as to fetch initial data when the
 // watcher is constructed. Watchers must be cleaned up by calling Unsubscribe.
-func WatchProperties(
-	busType BusType,
-	service string,
-	object dbus.ObjectPath,
-	iface string,
-	properties []string,
-) *PropertiesWatcher {
+func WatchProperties(busType BusType, service string, object string, iface string) *PropertiesWatcher {
 	conn := busType()
 	updates := make(chan PropertiesChange)
 	w := &PropertiesWatcher{
-		conn:      conn,
-		props:     map[string]interface{}{},
-		dbusCh:    make(chan *Signal, 10),
-		service:   service,
-		object:    object,
-		iface:     iface,
-		propNames: map[string]bool{},
 		Updates:   updates,
 		onChange:  updates,
+		conn:      conn,
+		dbusCh:    make(chan *Signal, 10),
+		service:   service,
+		object:    dbus.ObjectPath(object),
+		iface:     iface,
+		props:     map[string]propertyUpdateType{},
+		signals:   map[dbusName]func(*Signal, Fetcher) map[string]interface{}{},
+		lastProps: map[string]interface{}{},
 	}
-	for _, p := range properties {
-		w.propNames[p] = true
-	}
-	w.signals = map[dbusName]func(*Signal, Fetcher) map[string]interface{}{
-		propsChanged: w.propChangeHandler,
-	}
+	w.signals[propsChanged] = w.propChangeHandler
 	var owner string
 	if err := getNameOwner.call(conn, service).Store(&owner); err == nil {
-		w.ownerChanged(owner, false)
+		w.ownerChanged(owner)
 	}
 	nameOwnerChanged.addMatch(conn, dbus.WithMatchOption("arg0", service))
 	w.conn.Signal(w.dbusCh)

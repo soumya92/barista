@@ -57,9 +57,9 @@ func TestProperties(t *testing.T) {
 	w := WatchProperties(Test,
 		"org.i3barista.services.FooService",
 		"/org/i3barista/objects/Foo",
-		"org.i3barista.Service",
-		[]string{"a", "b", "c", "d", "fromSignal", "fetched"},
-	)
+		"org.i3barista.Service").
+		Add("a", "b", "c", "d", "fromSignal").
+		Fetch("fetched")
 
 	assertNotUpdated(t, w, "on start")
 	require.Equal(t, map[string]interface{}{
@@ -137,6 +137,7 @@ func TestProperties(t *testing.T) {
 				"fetched":    val,
 			}
 		})
+	w.FetchOnSignal("nosignal")
 
 	obj.Emit("Signal", 5)
 	u = assertUpdated(t, w, "On signal handler")
@@ -153,19 +154,31 @@ func TestProperties(t *testing.T) {
 		"fetched":    {nil, 0},
 	}, u)
 
+	obj.SetProperty("nosignal", "changed", SignalTypeNone)
+	obj.SetProperty("a", 5, SignalTypeChanged)
+
+	u = assertUpdated(t, w, "On change")
+	require.Equal(t, PropertiesChange{
+		"a":        {4, 5},
+		"nosignal": {nil, "changed"},
+	}, u)
+
 	srv1.RemoveName("org.i3barista.services.FooService")
 	u = assertUpdated(t, w, "On service disconnect")
 	require.Equal(t, PropertiesChange{
-		"a":          {4, nil},
+		"a":          {5, nil},
 		"b":          {"banana", nil},
 		"d":          {7, nil},
 		"fromSignal": {8, nil},
 		"fetched":    {0, nil},
+		"nosignal":   {"changed", nil},
 	}, u, "All properties cleared")
 	require.Empty(t, w.Get())
 
 	obj.Emit("Signal", "c")
 	assertNotUpdated(t, w, "After service disconnect")
+
+	w.Fetch("manual")
 
 	_, err = w.Call("Method", 3, 1, 4)
 	require.Error(t, err, "On method call while disconnected")
@@ -177,6 +190,34 @@ func TestProperties(t *testing.T) {
 		"c": "anotherstring",
 		"d": 5,
 	}, w.Get())
+
+	obj = srv.Object("/org/i3barista/objects/Foo", "org.i3barista.Service")
+	obj.SetProperty("manual", []string{"foo"}, SignalTypeChanged)
+	assertNotUpdated(t, w, "non-signal property changed")
+
+	require.Equal(t, map[string]interface{}{
+		"a":      2,
+		"c":      "anotherstring",
+		"d":      5,
+		"manual": []string{"foo"},
+	}, w.Get(), "non-signal property included in fetch")
+
+	w.FetchOnSignal("signalOrFetch").Fetch("signalOrFetch")
+	obj.SetProperty("signalOrFetch", 2, SignalTypeChanged)
+	u = assertUpdated(t, w, "property changed")
+	require.Equal(t, PropertiesChange{
+		"signalOrFetch": {nil, 2},
+	}, u)
+
+	obj.SetProperty("signalOrFetch", 3, SignalTypeNone)
+	assertNotUpdated(t, w, "property changed without signal")
+
+	obj.SetProperty("a", 5, SignalTypeChanged)
+	u = assertUpdated(t, w, "property changed with signal")
+	require.Equal(t, PropertiesChange{
+		"signalOrFetch": {2, 3},
+		"a":             {2, 5},
+	}, u)
 
 	w.Unsubscribe()
 	require.Empty(t, w.Get(), "After Unsubscribe")
