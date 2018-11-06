@@ -115,6 +115,7 @@ func (t *TestBus) connect() *testBusConnection {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	conn.busObj = &TestBusObject{t.BusObject().testBusObject, conn}
 	t.connections[conn] = true
 	return conn
 }
@@ -125,6 +126,7 @@ type testBusConnection struct {
 	closed int64 // atomic bool
 
 	mu      sync.Mutex
+	busObj  *TestBusObject
 	signals map[chan<- *dbus.Signal]bool
 	matches map[string][]map[string]string
 }
@@ -147,9 +149,7 @@ func (t *testBusConnection) Close() error {
 // BusObject returns an object representing the bus itself.
 func (t *testBusConnection) BusObject() dbus.BusObject {
 	t.checkOpen()
-	o := t.bus.BusObject()
-	o.conn = t
-	return o
+	return t.busObj
 }
 
 // Object returns the object identified by the given destination name and path.
