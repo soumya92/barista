@@ -30,7 +30,6 @@ type testBusObject struct {
 	mu sync.Mutex
 
 	svc   *TestBusService
-	dest  string
 	path  dbus.ObjectPath
 	props map[string]interface{}
 	calls map[string]func(...interface{}) ([]interface{}, error)
@@ -41,6 +40,7 @@ type testBusObject struct {
 // TestBusObject represents a connection to an object on the test bus.
 type TestBusObject struct {
 	*testBusObject
+	dest string
 	conn *testBusConnection
 }
 

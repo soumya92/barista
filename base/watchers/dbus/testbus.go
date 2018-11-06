@@ -115,7 +115,7 @@ func (t *TestBus) connect() *testBusConnection {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	conn.busObj = &TestBusObject{t.BusObject().testBusObject, conn}
+	conn.busObj = &TestBusObject{t.BusObject().testBusObject, bus, conn}
 	t.connections[conn] = true
 	return conn
 }

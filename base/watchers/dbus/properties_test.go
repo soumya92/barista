@@ -42,7 +42,6 @@ func assertNotUpdated(t *testing.T, w *PropertiesWatcher, formatAndArgs ...inter
 
 func TestProperties(t *testing.T) {
 	bus := SetupTestBus()
-	srv := bus.RegisterService("org.i3barista.services.FooService")
 
 	conn := Test() // Needed to ensure all signals are drained.
 	nameOwnerChanged.addMatch(conn,
@@ -50,6 +49,7 @@ func TestProperties(t *testing.T) {
 	ch := make(chan *dbus.Signal, 10)
 	conn.Signal(ch)
 
+	srv := bus.RegisterService("org.i3barista.services.FooService")
 	obj := srv.Object("/org/i3barista/objects/Foo", "org.i3barista.Service")
 	obj.SetProperty("a", 1, SignalTypeNone)
 	<-ch // NameOwnerChanged.
@@ -163,15 +163,25 @@ func TestProperties(t *testing.T) {
 		"nosignal": {nil, "changed"},
 	}, u)
 
+	w.Add("org.i3barista.OtherService.Property")
+	assertNotUpdated(t, w, "Unset property added")
+	srv1.Object("/org/i3barista/objects/Foo", "org.i3barista.OtherService").
+		SetProperty("Property", 4, SignalTypeInvalidated)
+	u = assertUpdated(t, w, "Fully qualified property name")
+	require.Equal(t, [2]interface{}{nil, 4},
+		u["org.i3barista.OtherService.Property"],
+		"Fully qualified property in change event")
+
 	srv1.RemoveName("org.i3barista.services.FooService")
 	u = assertUpdated(t, w, "On service disconnect")
 	require.Equal(t, PropertiesChange{
-		"a":          {5, nil},
-		"b":          {"banana", nil},
-		"d":          {7, nil},
-		"fromSignal": {8, nil},
-		"fetched":    {0, nil},
-		"nosignal":   {"changed", nil},
+		"a":                                   {5, nil},
+		"b":                                   {"banana", nil},
+		"d":                                   {7, nil},
+		"fromSignal":                          {8, nil},
+		"fetched":                             {0, nil},
+		"nosignal":                            {"changed", nil},
+		"org.i3barista.OtherService.Property": {4, nil},
 	}, u, "All properties cleared")
 	require.Empty(t, w.Get())
 

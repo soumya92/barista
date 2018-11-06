@@ -108,15 +108,15 @@ func (t *TestBusService) Object(path dbus.ObjectPath, dest string) *TestBusObjec
 	defer t.mu.Unlock()
 	o, ok := t.objects[path]
 	if !ok {
-		if dest == "" {
-			dest = t.anyName()
-		}
 		o = &testBusObject{
-			svc: t, dest: dest, path: path,
+			svc: t, path: path,
 			props: map[string]interface{}{},
 			calls: map[string]func(...interface{}) ([]interface{}, error){},
 		}
 		t.objects[path] = o
 	}
-	return &TestBusObject{o, nil /* conn set by caller */}
+	if dest == "" {
+		dest = t.anyName()
+	}
+	return &TestBusObject{o, dest, nil /* conn set by caller */}
 }
