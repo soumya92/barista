@@ -123,3 +123,46 @@ func TestService(t *testing.T) {
 	out.At(0).Click(bar.Event{Button: bar.ScrollDown})
 	require.Equal(t, "org.freedesktop.systemd1.Unit.Reload", <-actionChan)
 }
+
+func TestTimer(t *testing.T) {
+	testBar.New(t)
+	bus := dbus.SetupTestBus()
+	sysd := bus.RegisterService("org.freedesktop.systemd1")
+
+	unit0 := sysd.Object("/org/freedesktop/systemd1/unit/foo_2etimer",
+		"org.freedesktop.systemd1.Unit")
+	unit0.SetProperties(map[string]interface{}{
+		"Id":                   "foo.timer",
+		"Description":          "A timer for the foo service",
+		"ActiveState":          "active",
+		"SubState":             "waiting",
+		"StateChangeTimestamp": uint64(timing.Now().Add(-720*time.Hour).UnixNano() / 1000),
+	}, dbus.SignalTypeNone)
+	tim0 := sysd.Object("/org/freedesktop/systemd1/unit/foo_2etimer",
+		"org.freedesktop.systemd1.Timer")
+	tim0.SetProperties(map[string]interface{}{
+		"Unit":                   "foo.service",
+		"NextElapseUSecRealtime": uint64(timing.Now().Add(6*time.Hour).UnixNano() / 1000),
+	}, dbus.SignalTypeNone)
+
+	m0 := Timer("foo")
+	testBar.Run(m0)
+
+	testBar.LatestOutput().AssertText([]string{
+		"foo.service@Nov 26, 02:47 (last:never)"})
+
+	timing.AdvanceBy(7 * time.Hour)
+	tim0.SetProperties(map[string]interface{}{
+		"LastTriggerUSec":        uint64(timing.Now().Add(-1*time.Hour).UnixNano() / 1000),
+		"NextElapseUSecRealtime": uint64(timing.Now().Add(23*time.Hour).UnixNano() / 1000),
+	}, dbus.SignalTypeNone)
+	unit0.SetProperty("ActiveState", "active", dbus.SignalTypeChanged)
+
+	testBar.LatestOutput().AssertText([]string{
+		"foo.service@Nov 27, 02:47 (last:Nov 26, 02:47)"})
+
+	m0.Output(func(i TimerInfo) bar.Output {
+		return outputs.Textf("%s@%s", i.Unit, i.NextTrigger.Format("15:04"))
+	})
+	testBar.LatestOutput().AssertText([]string{"foo.service@02:47"})
+}

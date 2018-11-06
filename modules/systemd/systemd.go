@@ -165,6 +165,16 @@ func (s *ServiceModule) Stream(sink bar.Sink) {
 
 const usecInSec = 1000 * 1000
 
+func timeFromUsec(usecValue interface{}) time.Time {
+	usec, _ := usecValue.(uint64)
+	if usec == 0 {
+		return time.Time{}
+	}
+	sec := int64(usec / usecInSec)
+	usecOnly := int64(usec % usecInSec)
+	return time.Unix(sec, usecOnly*1000 /* nsec */)
+}
+
 func getUnitInfo(w *dbus.PropertiesWatcher) (UnitInfo, map[string]interface{}) {
 	u := UnitInfo{call: w.Call}
 	props := w.Get()
@@ -174,11 +184,7 @@ func getUnitInfo(w *dbus.PropertiesWatcher) (UnitInfo, map[string]interface{}) {
 	u.ID, _ = props["Id"].(string)
 	u.Description, _ = props["Description"].(string)
 	u.SubState, _ = props["SubState"].(string)
-	if t, _ := props["StateChangeTimestamp"].(uint64); t > 0 {
-		sec := int64(t / usecInSec)
-		usec := int64(t % usecInSec)
-		u.Since = time.Unix(sec, usec*1000 /* nsec */)
-	}
+	u.Since = timeFromUsec(props["StateChangeTimestamp"])
 	return u, props
 }
 
@@ -194,5 +200,82 @@ func getServiceInfo(w *dbus.PropertiesWatcher) ServiceInfo {
 		i.ExecPID = ePid
 	}
 	i.Type, _ = props[serviceIface+".Type"].(string)
+	return i
+}
+
+// TimerInfo represents the state of a systemd timer.
+type TimerInfo struct {
+	UnitInfo
+	Unit        string
+	LastTrigger time.Time
+	NextTrigger time.Time
+}
+
+// TimerModule watches a systemd timer and updates on status change
+type TimerModule struct {
+	name       string
+	outputFunc value.Value
+}
+
+// Timer creates a module that watches the status of a systemd timer.
+func Timer(name string) *TimerModule {
+	t := &TimerModule{name: name}
+	t.Output(func(i TimerInfo) bar.Output {
+		last := "never"
+		if !i.LastTrigger.IsZero() {
+			last = i.LastTrigger.Format("Jan 2, 15:04")
+		}
+		next := "never"
+		if !i.NextTrigger.IsZero() {
+			next = i.NextTrigger.Format("Jan 2, 15:04")
+		}
+		return outputs.Textf("%s@%s (last:%s)", i.Unit, next, last)
+	})
+	return t
+}
+
+// Output configures a module to display the output of a user-defined function.
+func (t *TimerModule) Output(outputFunc func(TimerInfo) bar.Output) *TimerModule {
+	t.outputFunc.Set(outputFunc)
+	return t
+}
+
+const timerIface = "org.freedesktop.systemd1.Timer"
+
+// Stream starts the module.
+func (t *TimerModule) Stream(sink bar.Sink) {
+	w := watchUnit(t.name + ".timer")
+	defer w.Unsubscribe()
+
+	w.FetchOnSignal(
+		timerIface+".Unit",
+		timerIface+".LastTriggerUSec",
+		timerIface+".NextElapseUSecRealtime",
+	)
+
+	outputFunc := t.outputFunc.Get().(func(TimerInfo) bar.Output)
+	nextOutputFunc, done := t.outputFunc.Subscribe()
+	defer done()
+
+	info := getTimerInfo(w)
+	for {
+		sink.Output(outputFunc(info))
+		select {
+		case <-w.Updates:
+			info = getTimerInfo(w)
+		case <-nextOutputFunc:
+			outputFunc = t.outputFunc.Get().(func(TimerInfo) bar.Output)
+		}
+	}
+}
+
+func getTimerInfo(w *dbus.PropertiesWatcher) TimerInfo {
+	i := TimerInfo{}
+	var props map[string]interface{}
+	i.UnitInfo, props = getUnitInfo(w)
+	i.ID = strings.TrimSuffix(i.ID, ".timer")
+	i.LastTrigger = timeFromUsec(props[timerIface+".LastTriggerUSec"])
+	i.NextTrigger = timeFromUsec(props[timerIface+".NextElapseUSecRealtime"])
+	i.Unit, _ = props[timerIface+".Unit"].(string)
 	return i
 }
