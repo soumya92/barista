@@ -52,7 +52,7 @@ func TestService(t *testing.T) {
 		"Type":        "oneshot",
 		"MainPID":     uint32(941),
 		"ExecMainPID": uint32(931),
-	}, dbus.SignalTypeChanged)
+	}, dbus.SignalTypeNone)
 
 	unit1 := sysd.Object("/org/freedesktop/systemd1/unit/baz_2dsrv_2eservice",
 		"org.freedesktop.systemd1.Unit")
