@@ -33,6 +33,7 @@ import (
 	"barista.run/base/click"
 	"barista.run/base/watchers/netlink"
 	"barista.run/colors"
+	"barista.run/format"
 	"barista.run/group/modal"
 	"barista.run/modules/battery"
 	"barista.run/modules/clock"
@@ -508,7 +509,7 @@ func main() {
 	freeMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
 		out := outputs.Pango(
 			pango.Icon("material-memory").Alpha(0.8),
-			outputs.IBytesize(m.Available()),
+			format.IBytesize(m.Available()),
 		)
 		freeGigs := m.Available().Gigabytes()
 		threshold(out,
@@ -525,7 +526,7 @@ func main() {
 	swapMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
 		return outputs.Pango(
 			pango.Icon("mdi-swap-horizontal").Alpha(0.8),
-			outputs.IBytesize(m["SwapTotal"]-m["SwapFree"]), spacer,
+			format.IBytesize(m["SwapTotal"]-m["SwapFree"]), spacer,
 			pango.Textf("(% 2.0f%%)", (1-m.FreeFrac("Swap"))*100.0).Small(),
 		)
 	})
@@ -552,9 +553,9 @@ func main() {
 		RefreshInterval(2 * time.Second).
 		Output(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
-				pango.Icon("fa-upload").Alpha(0.5), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
+				pango.Icon("fa-upload").Alpha(0.5), spacer, pango.Textf("%7s", format.Byterate(s.Tx)),
 				pango.Text(" ").Small(),
-				pango.Icon("fa-download").Alpha(0.5), spacer, pango.Textf("%7s", outputs.Byterate(s.Rx)),
+				pango.Icon("fa-download").Alpha(0.5), spacer, pango.Textf("%7s", format.Byterate(s.Rx)),
 			)
 		})
 
@@ -570,7 +571,7 @@ func main() {
 
 	formatDiskSpace := func(i diskspace.Info, icon string) bar.Output {
 		out := outputs.Pango(
-			pango.Icon(icon).Alpha(0.7), spacer, outputs.IBytesize(i.Available))
+			pango.Icon(icon).Alpha(0.7), spacer, format.IBytesize(i.Available))
 		return threshold(out,
 			i.Available.Gigabytes() < 1,
 			i.AvailFrac() < 0.05,
@@ -593,7 +594,7 @@ func main() {
 		Output(func(r diskio.IO) bar.Output {
 			return pango.Icon("mdi-swap-vertical").
 				Concat(spacer).
-				ConcatText(outputs.IByterate(r.Total()))
+				ConcatText(format.IByterate(r.Total()))
 		})
 
 	mediaSummary, mediaDetail := split.New(

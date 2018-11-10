@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/format"
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
 	"barista.run/timing"
@@ -106,14 +107,14 @@ func TestNetspeed(t *testing.T) {
 	testBar.NextOutput().AssertEqual(outputs.Text("4/1"), "on tick")
 
 	n.Output(func(s Speeds) bar.Output {
-		return outputs.Text(outputs.IByterate(s.Total()))
+		return outputs.Text(format.IByterate(s.Total()))
 	})
 	testBar.NextOutput().AssertEqual(
 		outputs.Text("5.0 KiB/s"),
 		"uses previous result on output function change")
 
 	n.Output(func(s Speeds) bar.Output {
-		return outputs.Text(outputs.Byterate(s.Total()))
+		return outputs.Text(format.Byterate(s.Total()))
 	})
 	testBar.NextOutput().AssertEqual(
 		outputs.Text("5.1 kB/s"),

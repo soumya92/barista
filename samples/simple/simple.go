@@ -32,6 +32,7 @@ import (
 	"barista.run/base/click"
 	"barista.run/base/watchers/netlink"
 	"barista.run/colors"
+	"barista.run/format"
 	"barista.run/group/collapsing"
 	"barista.run/modules/battery"
 	"barista.run/modules/clock"
@@ -374,7 +375,7 @@ func main() {
 	})
 
 	freeMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
-		out := outputs.Pango(pango.Icon("material-memory"), outputs.IBytesize(m.Available()))
+		out := outputs.Pango(pango.Icon("material-memory"), format.IBytesize(m.Available()))
 		freeGigs := m.Available().Gigabytes()
 		switch {
 		case freeGigs < 0.5:
@@ -415,9 +416,9 @@ func main() {
 		RefreshInterval(2 * time.Second).
 		Output(func(s netspeed.Speeds) bar.Output {
 			return outputs.Pango(
-				pango.Icon("fa-upload"), spacer, pango.Textf("%7s", outputs.Byterate(s.Tx)),
+				pango.Icon("fa-upload"), spacer, pango.Textf("%7s", format.Byterate(s.Tx)),
 				pango.Text(" ").Small(),
-				pango.Icon("fa-download"), spacer, pango.Textf("%7s", outputs.Byterate(s.Rx)),
+				pango.Icon("fa-download"), spacer, pango.Textf("%7s", format.Byterate(s.Rx)),
 			)
 		})
 

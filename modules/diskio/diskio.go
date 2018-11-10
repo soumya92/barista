@@ -24,6 +24,7 @@ import (
 
 	"barista.run/bar"
 	"barista.run/base/value"
+	"barista.run/format"
 	l "barista.run/logging"
 	"barista.run/outputs"
 	"barista.run/timing"
@@ -103,7 +104,7 @@ func New(disk string) *Module {
 	l.Label(m, disk)
 	l.Register(m, "ioChan", "outputFunc")
 	m.Output(func(i IO) bar.Output {
-		return outputs.Textf("Disk: %s", outputs.IByterate(i.Total()))
+		return outputs.Textf("Disk: %s", format.IByterate(i.Total()))
 	})
 	return m
 }

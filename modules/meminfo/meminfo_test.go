@@ -23,6 +23,7 @@ import (
 
 	"barista.run/bar"
 	"barista.run/base/value"
+	"barista.run/format"
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
 	"barista.run/timing"
@@ -134,14 +135,14 @@ func TestErrors(t *testing.T) {
 		if !ok {
 			return outputs.Errorf("Missing MemFree")
 		}
-		return outputs.Text(outputs.IBytesize(memFree))
+		return outputs.Text(format.IBytesize(memFree))
 	})
 	total.Output(func(i Info) bar.Output {
 		memTotal, ok := i["MemTotal"]
 		if !ok {
 			return outputs.Errorf("Missing MemTotal")
 		}
-		return outputs.Text(outputs.Bytesize(memTotal))
+		return outputs.Text(format.Bytesize(memTotal))
 	})
 	testBar.LatestOutput().Expect("template")
 

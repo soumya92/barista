@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/format"
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
 
@@ -64,10 +65,10 @@ func TestDiskIo(t *testing.T) {
 	construct()
 
 	sda1 := New("sda1").Output(func(i IO) bar.Output {
-		return outputs.Textf("sda1: %s", outputs.Byterate(i.Total()))
+		return outputs.Textf("sda1: %s", format.Byterate(i.Total()))
 	})
 	sdb1 := New("sdb1").Output(func(i IO) bar.Output {
-		return outputs.Textf("sdb1: %s", outputs.IByterate(i.Total()))
+		return outputs.Textf("sdb1: %s", format.IByterate(i.Total()))
 	})
 	testBar.Run(sda1, sdb1)
 

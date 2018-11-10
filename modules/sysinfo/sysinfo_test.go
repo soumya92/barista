@@ -22,6 +22,7 @@ import (
 
 	"barista.run/bar"
 	"barista.run/base/value"
+	"barista.run/format"
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
 	"barista.run/timing"
@@ -89,7 +90,7 @@ func TestSysinfo(t *testing.T) {
 		return outputs.Textf("%d", s.Procs)
 	})
 	swap.Output(func(s Info) bar.Output {
-		return outputs.Text(outputs.IBytesize(s.TotalSwap))
+		return outputs.Text(format.IBytesize(s.TotalSwap))
 	})
 	testBar.LatestOutput().AssertText(
 		[]string{"0", "0s", "0", "0 B"}, "on template change")

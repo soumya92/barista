@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package outputs
+package format
 
 import (
 	"testing"
@@ -21,14 +21,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDataSizeFormats(t *testing.T) {
+func TestDataSize(t *testing.T) {
 	require := require.New(t)
 	require.Equal("10 KiB", IBytesize(10*unit.Kibibyte))
 	require.Equal("10 kB", Bytesize(10*unit.Kilobyte))
 	require.Equal("9.8 KiB", IBytesize(10*unit.Kilobyte))
 }
 
-func TestDataRateFormats(t *testing.T) {
+func TestDataRate(t *testing.T) {
 	require := require.New(t)
 	require.Equal("10 KiB/s", IByterate(10*unit.KibibytePerSecond))
 	require.Equal("10 kB/s", Byterate(10*1000*8*unit.BitPerSecond))

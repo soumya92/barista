@@ -22,6 +22,7 @@ import (
 	"barista.run"
 	"barista.run/bar"
 	"barista.run/colors"
+	"barista.run/format"
 	"barista.run/modules/battery"
 	"barista.run/modules/clock"
 	"barista.run/modules/diskspace"
@@ -53,7 +54,7 @@ func main() {
 	}))
 
 	barista.Add(diskspace.New("/").Output(func(i diskspace.Info) bar.Output {
-		out := outputs.Text(outputs.IBytesize(i.Available))
+		out := outputs.Text(format.IBytesize(i.Available))
 		switch {
 		case i.AvailFrac() < 0.2:
 			out.Color(colors.Scheme("bad"))
@@ -133,12 +134,12 @@ func main() {
 	barista.Add(meminfo.New().Output(func(i meminfo.Info) bar.Output {
 		if i.Available() < unit.Gigabyte {
 			return outputs.Textf(`MEMORY < %s`,
-				outputs.IBytesize(i.Available())).
+				format.IBytesize(i.Available())).
 				Color(colors.Scheme("bad"))
 		}
 		out := outputs.Textf(`%s/%s`,
-			outputs.IBytesize(i["MemTotal"]-i.Available()),
-			outputs.IBytesize(i.Available()))
+			format.IBytesize(i["MemTotal"]-i.Available()),
+			format.IBytesize(i.Available()))
 		switch {
 		case i.AvailFrac() < 0.2:
 			out.Color(colors.Scheme("bad"))

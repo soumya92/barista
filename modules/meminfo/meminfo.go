@@ -24,6 +24,7 @@ import (
 
 	"barista.run/bar"
 	"barista.run/base/value"
+	"barista.run/format"
 	l "barista.run/logging"
 	"barista.run/outputs"
 	"barista.run/timing"
@@ -95,7 +96,7 @@ type Module struct {
 }
 
 func defaultOutput(i Info) bar.Output {
-	return outputs.Textf("Mem: %s", outputs.IBytesize(i.Available()))
+	return outputs.Textf("Mem: %s", format.IBytesize(i.Available()))
 }
 
 // New creates a new meminfo module.

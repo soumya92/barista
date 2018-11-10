@@ -20,6 +20,7 @@ import (
 
 	"barista.run/bar"
 	"barista.run/base/value"
+	"barista.run/format"
 	l "barista.run/logging"
 	"barista.run/outputs"
 	"barista.run/timing"
@@ -61,7 +62,7 @@ func New(iface string) *Module {
 	// Default output is just the up and down speeds in SI.
 	m.Output(func(s Speeds) bar.Output {
 		return outputs.Textf("%s up | %s down",
-			outputs.IByterate(s.Tx), outputs.IByterate(s.Rx))
+			format.IByterate(s.Tx), format.IByterate(s.Rx))
 	})
 	return m
 }
