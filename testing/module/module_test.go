@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"barista.run/bar"
-	"barista.run/base/sink"
 	"barista.run/outputs"
+	"barista.run/sink"
 	"barista.run/testing/fail"
 
 	"github.com/stretchr/testify/require"

@@ -40,9 +40,9 @@ import (
 	"sync"
 
 	"barista.run/bar"
-	"barista.run/base/sink"
 	"barista.run/base/value"
 	"barista.run/core"
+	"barista.run/sink"
 )
 
 type module struct {
@@ -70,7 +70,7 @@ func (m *module) Stream(sink bar.Sink) {
 		} else {
 			out = s[index:]
 		}
-		sink(out)
+		sink.Output(out)
 		<-next
 	}
 }

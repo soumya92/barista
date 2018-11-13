@@ -21,9 +21,9 @@ import (
 	"sync"
 
 	"barista.run/bar"
-	"barista.run/base/sink"
 	"barista.run/base/value"
 	"barista.run/core"
+	"barista.run/sink"
 )
 
 type module struct {
@@ -37,7 +37,7 @@ func (m module) Stream(sink bar.Sink) {
 	for {
 		next := m.Next()
 		s, _ := m.Get().(bar.Segments)
-		sink(s)
+		sink.Output(s)
 		<-next
 	}
 }

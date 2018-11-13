@@ -19,6 +19,7 @@ import (
 
 	"barista.run/bar"
 	l "barista.run/logging"
+	"barista.run/sink"
 )
 
 // ModuleSet is a group of modules. It provides a channel for identifying module
@@ -54,14 +55,14 @@ func (m *ModuleSet) Stream() <-chan int {
 }
 
 func (m *ModuleSet) sinkFn(idx int) bar.Sink {
-	return func(out bar.Segments) {
+	return sink.Func(func(out bar.Segments) {
 		l.Fine("%s new output from %s",
 			l.ID(m), l.ID(m.modules[idx].original))
 		m.outputsMu.Lock()
 		m.outputs[idx] = out
 		m.outputsMu.Unlock()
 		m.updateCh <- idx
-	}
+	})
 }
 
 // Len returns the number of modules in this ModuleSet.

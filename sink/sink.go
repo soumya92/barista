@@ -12,13 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package sink provides functions to create test sinks.
-package sink // import "barista.run/base/sink"
+// Package sink provides functions to create sinks.
+package sink // import "barista.run/sink"
 
 import (
 	"barista.run/bar"
 	"barista.run/base/value"
 )
+
+// Func creates a bar.Sink that sends sends output in the form of Segments.
+func Func(s func(bar.Segments)) bar.Sink {
+	return func(o bar.Output) {
+		if o == nil {
+			s(nil)
+			return
+		}
+		s(o.Segments())
+	}
+}
 
 // New creates a new sink and returns a channel that
 // will emit any outputs sent to the sink.
@@ -29,7 +40,7 @@ func New() (<-chan bar.Segments, bar.Sink) {
 // Buffered creates a new buffered sink.
 func Buffered(bufCount int) (<-chan bar.Segments, bar.Sink) {
 	ch := make(chan bar.Segments, bufCount)
-	return ch, func(o bar.Segments) { ch <- o }
+	return ch, Func(func(o bar.Segments) { ch <- o })
 }
 
 // Null returns a sink that swallows any output sent to it.

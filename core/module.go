@@ -19,8 +19,8 @@ package core
 import (
 	"barista.run/bar"
 	"barista.run/base/notifier"
-	"barista.run/base/sink"
 	l "barista.run/logging"
+	"barista.run/sink"
 )
 
 // Module represents a bar.Module wrapped with core barista functionality.

@@ -16,11 +16,7 @@ package bar
 
 // Output updates the module's output on the bar.
 func (s Sink) Output(o Output) {
-	if o == nil {
-		s(nil)
-		return
-	}
-	s(o.Segments())
+	s(o)
 }
 
 // Error is a convenience method that returns false and does nothing
@@ -28,7 +24,7 @@ func (s Sink) Output(o Output) {
 // true when a non-nil error is given.
 func (s Sink) Error(e error) bool {
 	if e != nil {
-		s(Segments{ErrorSegment(e)})
+		s(ErrorSegment(e))
 		return true
 	}
 	return false

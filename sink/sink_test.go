@@ -25,9 +25,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSinkFromFunc(t *testing.T) {
+	var s bar.Sink
+	ch := make(chan bar.Segments, 1)
+	s = Func(func(o bar.Segments) { ch <- o })
+
+	s.Output(bar.TextSegment("foo"))
+	select {
+	case out := <-ch:
+		txt, _ := out[0].Content()
+		require.Equal(t, "foo", txt)
+	default:
+		require.Fail(t, "expected output on Output(...)")
+	}
+
+	s.Output(nil)
+	require.Nil(t, <-ch)
+
+	require.False(t, s.Error(nil), "nil error returns false")
+	select {
+	case <-ch:
+		require.Fail(t, "Should not send any output on Error(nil)")
+	default:
+		// test passed.
+	}
+
+	require.True(t, s.Error(io.EOF), "non-nil error returns true")
+	select {
+	case out := <-ch:
+		require.Error(t, out[0].GetError(),
+			"output sent on Error(...) has error segment")
+	default:
+		require.Fail(t, "Expected an error output on Error(...)")
+	}
+}
+
 func TestNewSink(t *testing.T) {
 	ch, s := New()
-	go s(bar.Segments{bar.TextSegment("foo")})
+	go s.Output(bar.TextSegment("foo"))
 
 	out := <-ch
 	txt, _ := out[0].Content()
@@ -60,11 +95,11 @@ func TestBufferedSink(t *testing.T) {
 	s.Output(outputs.Text("bar"))
 
 	out := <-ch
-	txt, _ := out.Segments()[0].Content()
+	txt, _ := out[0].Content()
 	require.Equal(t, "foo", txt)
 
 	out = <-ch
-	txt, _ = out.Segments()[0].Content()
+	txt, _ = out[0].Content()
 	require.Equal(t, "bar", txt)
 }
 
@@ -93,8 +128,8 @@ func TestValueSink(t *testing.T) {
 	s.Output(outputs.Text("foo"))
 
 	<-next
-	out := v.Get().(bar.Output)
-	txt, _ := out.Segments()[0].Content()
+	out := v.Get().(bar.Segments)
+	txt, _ := out[0].Content()
 	require.Equal(t, "foo", txt)
 
 	next = v.Next()

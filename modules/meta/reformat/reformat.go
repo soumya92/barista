@@ -33,6 +33,7 @@ import (
 	"barista.run/bar"
 	"barista.run/core"
 	l "barista.run/logging"
+	"barista.run/sink"
 )
 
 // FormatFunc takes the module's output and returns a modified version.
@@ -116,8 +117,8 @@ func (m *Module) Stream(s bar.Sink) {
 }
 
 func wrappedSink(m *Module, s bar.Sink) bar.Sink {
-	return func(o bar.Segments) {
+	return sink.Func(func(o bar.Segments) {
 		formatter := m.formatter.Load().(FormatFunc)
 		s.Output(formatter(o))
-	}
+	})
 }

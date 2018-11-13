@@ -16,6 +16,7 @@
 package bar // import "barista.run/bar"
 
 import "image/color"
+import "time"
 
 // TextAlignment defines the alignment of text within a block.
 // Using TextAlignment rather than string opens up the possibility of i18n without
@@ -83,6 +84,14 @@ const (
 // Output is an interface for displaying objects on the bar.
 type Output interface {
 	Segments() []*Segment
+}
+
+// TimedOutput extends bar.Output with a hint that indicates the next time that
+// the output segments will be different. This can be used, for example, to show
+// elapsed duration since a fixed point in time.
+type TimedOutput interface {
+	Output
+	NextRefresh() time.Time
 }
 
 // Segments implements Output for []*Segment.
@@ -154,7 +163,7 @@ type ErrorEvent struct {
 }
 
 // Sink represents a destination for module output.
-type Sink func(Segments)
+type Sink func(Output)
 
 // Module represents a single bar module. A bar is just a list of modules.
 type Module interface {
