@@ -156,7 +156,7 @@ func TestTimedOutput(t *testing.T) {
 	txt, _ = nextOutput(t, ch)[0].Content()
 	require.Equal(t, "2m0s", txt)
 
-	tm.Output(bar.TextSegment("foo"))
+	tm.Output(outputs.Group(bar.TextSegment("foo")))
 	txt, _ = nextOutput(t, ch)[0].Content()
 	require.Equal(t, "foo", txt)
 

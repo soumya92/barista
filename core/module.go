@@ -209,6 +209,8 @@ func (t *timedSink) renderLocked() {
 	if next := t.out.NextRefresh(); !next.IsZero() {
 		l.Fine("%s: timed output, next refresh %v", l.ID(t), next)
 		t.At(next)
+	} else {
+		t.Stop()
 	}
 	t.Sink.Output(t.out)
 }
