@@ -36,13 +36,3 @@ These methods only set the property for segments that haven't already specified 
 like `Background(blue)` can be overridden for an individual segment using `Background(green)`.
 
 For a complete list of methods, see the [SegmentGroup godoc](https://godoc.org/github.com/soumya92/barista/outputs#SegmentGroup).
-
-## Datasize and Datarate formatting
-
-> TODO: Move this somewhere else, outputs isn't really a good fit.
-
-- `outputs.Bytesize(unit.Datasize)` formats the given datasize using [go-humanize](https://godoc.org/github.com/dustin/go-humanize).
-- `outputs.IBytesize(unit.Datasize)` formats the datasize in IEC units.
-
-- `outputs.Byterate(unit.Datarate)` formats the given datarate by appending "/s" to the formatted bytesize.
-- `outputs.IByterate(unit.Datarate)` formats the given datarate in IEC units.
