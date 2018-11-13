@@ -17,10 +17,12 @@
 package core
 
 import (
+	"sync"
+
 	"barista.run/bar"
 	"barista.run/base/notifier"
 	l "barista.run/logging"
-	"barista.run/sink"
+	"barista.run/timing"
 )
 
 // Module represents a bar.Module wrapped with core barista functionality.
@@ -28,6 +30,7 @@ import (
 // other modules (group, reformat), and for writing tests.
 // It handles restarting the wrapped module on a left/right/middle click,
 // as well as providing an option to "replay" the last output from the module.
+// It also provides timed output functionality.
 type Module struct {
 	original  bar.Module
 	replayCh  <-chan struct{}
@@ -63,7 +66,10 @@ func (m *Module) Stream(sink bar.Sink) {
 func (m *Module) runLoop(realSink bar.Sink) {
 	started := false
 	finished := false
-	outputCh, innerSink := sink.New()
+	timedSink := newTimedSink(realSink)
+	l.Attach(m.original, timedSink, "~internal-sink")
+	outputCh := make(chan bar.Output)
+	innerSink := func(o bar.Output) { outputCh <- o }
 	doneCh := make(chan struct{})
 
 	go func(m bar.Module, innerSink bar.Sink, doneCh chan<- struct{}) {
@@ -73,25 +79,26 @@ func (m *Module) runLoop(realSink bar.Sink) {
 		doneCh <- struct{}{}
 	}(m.original, innerSink, doneCh)
 
-	var out bar.Segments
+	var out bar.Output
 	for {
 		select {
 		case out = <-outputCh:
 			started = true
-			realSink(out)
+			timedSink.Output(out)
 		case <-doneCh:
 			finished = true
+			timedSink.Stop()
 			l.Fine("%s: set restart handlers", l.ID(m))
-			realSink(addRestartHandlers(out, m.restartFn))
+			timedSink.Output(addRestartHandlers(out, m.restartFn))
 		case <-m.replayCh:
 			if started {
 				l.Fine("%s: replay last output", l.ID(m))
-				realSink(out)
+				timedSink.Output(out)
 			}
 		case <-m.restartCh:
 			if finished {
 				l.Fine("%s restarted", l.ID(m.original))
-				realSink(stripErrors(out, l.ID(m)))
+				timedSink.Output(stripErrors(out, l.ID(m)))
 				return // Stream will restart the run loop.
 			}
 		}
@@ -112,7 +119,11 @@ func isRestartableClick(e bar.Event) bool {
 }
 
 // stripErrors strips any error segments from the given list.
-func stripErrors(in bar.Segments, logCtx string) bar.Segments {
+func stripErrors(o bar.Output, logCtx string) bar.Segments {
+	var in bar.Segments
+	if o != nil {
+		in = o.Segments()
+	}
 	var out bar.Segments
 	for _, s := range in {
 		if s.GetError() == nil {
@@ -129,7 +140,11 @@ func stripErrors(in bar.Segments, logCtx string) bar.Segments {
 // addRestartHandlers replaces all click handlers with a function
 // that restarts the module. This is used on the last output of
 // the wrapped module after the original finishes.
-func addRestartHandlers(in bar.Segments, restartFn func()) bar.Segments {
+func addRestartHandlers(o bar.Output, restartFn func()) bar.Segments {
+	var in bar.Segments
+	if o != nil {
+		in = o.Segments()
+	}
 	var out bar.Segments
 	for _, s := range in {
 		out = append(out, s.Clone().OnClick(func(e bar.Event) {
@@ -139,4 +154,61 @@ func addRestartHandlers(in bar.Segments, restartFn func()) bar.Segments {
 		}))
 	}
 	return out
+}
+
+// timedSink is a wrapper around bar.Sink that supports timed output. It takes
+// a single bar.TimedOutput and unrolls it into multiple calls to the underlying
+// sink, automatically resetting future calls on new output.
+type timedSink struct {
+	bar.Sink
+	*timing.Scheduler
+
+	mu  sync.Mutex
+	out bar.TimedOutput
+}
+
+func newTimedSink(original bar.Sink) *timedSink {
+	t := &timedSink{
+		Sink:      original,
+		Scheduler: timing.NewScheduler(),
+	}
+	l.Register(t, "Sink", "Scheduler")
+	go t.runLoop()
+	return t
+}
+
+func (t *timedSink) Output(o bar.Output) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	var ok bool
+	if t.out, ok = o.(bar.TimedOutput); ok {
+		t.renderLocked()
+		return
+	}
+	l.Fine("%s: regular output", l.ID(t))
+	t.Stop()
+	t.Sink.Output(o)
+}
+
+func (t *timedSink) runLoop() {
+	for t.Tick() {
+		t.render()
+	}
+}
+
+func (t *timedSink) render() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.renderLocked()
+}
+
+func (t *timedSink) renderLocked() {
+	if t.out == nil {
+		return
+	}
+	if next := t.out.NextRefresh(); !next.IsZero() {
+		l.Fine("%s: timed output, next refresh %v", l.ID(t), next)
+		t.At(next)
+	}
+	t.Sink.Output(t.out)
 }

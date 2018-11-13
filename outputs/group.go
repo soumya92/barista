@@ -17,14 +17,18 @@ package outputs
 import (
 	"image/color"
 	"math"
+	"time"
 
 	"barista.run/bar"
+	"barista.run/timing"
 )
 
 // SegmentGroup represents a group of Segments to be
 // displayed together on the bar.
 type SegmentGroup struct {
-	segments []*bar.Segment
+	outputs      []bar.Output
+	timedOutputs []bar.TimedOutput
+	startTime    time.Time
 	// To support addition of segments after construction, store
 	// attributes on the group, and apply them in Segments().
 	attrSet        int
@@ -141,10 +145,18 @@ func (g *SegmentGroup) Glue() *SegmentGroup {
 	return g.InnerSeparators(false).InnerPadding(0)
 }
 
-// Append adds additional segments to this group.
+// Append adds an additional output to this group.
 func (g *SegmentGroup) Append(output bar.Output) *SegmentGroup {
-	if output != nil {
-		g.segments = append(g.segments, output.Segments()...)
+	if g.startTime.IsZero() {
+		g.startTime = timing.Now()
+	}
+	if output == nil {
+		return g
+	}
+	output = resetStartTime(output, g.startTime)
+	g.outputs = append(g.outputs, output)
+	if to, ok := output.(bar.TimedOutput); ok {
+		g.timedOutputs = append(g.timedOutputs, to)
 	}
 	return g
 }
@@ -159,64 +171,84 @@ func isSet(_ interface{}, isSet bool) bool {
 // all segments, even those added after attributes were set on the group
 // correctly reflect those attributes in the final output.
 func (g *SegmentGroup) Segments() []*bar.Segment {
-	segments := make([]*bar.Segment, 0)
+	var segments []*bar.Segment
+	for _, o := range g.outputs {
+		for _, s := range o.Segments() {
+			segments = append(segments, s.Clone())
+		}
+	}
 	remainingWidth := float64(g.minWidth)
 	if g.attrSet&sgaMinWidth != 0 {
-		remainingWidth -= g.existingMinWidth()
+		remainingWidth -= existingMinWidth(segments)
 	}
-	for idx, s := range g.segments {
-		c := s.Clone()
-		remainingSegments := len(g.segments) - idx
+	for idx, s := range segments {
+		remainingSegments := len(segments) - idx
 		if remainingSegments == 1 {
 			if !isSet(s.HasSeparator()) && g.attrSet&sgaOuterSeparator != 0 {
-				c.Separator(g.outerSeparator)
+				s.Separator(g.outerSeparator)
 			}
 			if !isSet(s.GetPadding()) && g.attrSet&sgaOuterPadding != 0 {
-				c.Padding(g.outerPadding)
+				s.Padding(g.outerPadding)
 			}
 		} else {
 			if !isSet(s.HasSeparator()) && g.attrSet&sgaInnerSeparators != 0 {
-				c.Separator(g.innerSeparator)
+				s.Separator(g.innerSeparator)
 			}
 			if !isSet(s.GetPadding()) && g.attrSet&sgaInnerPadding != 0 {
-				c.Padding(g.innerPadding)
+				s.Padding(g.innerPadding)
 			}
 		}
 		if !isSet(s.GetMinWidth()) && g.attrSet&sgaMinWidth != 0 {
 			myWidth := math.Floor(remainingWidth/float64(remainingSegments) + 0.5)
 			if myWidth >= 0 {
-				c.MinWidth(int(myWidth))
+				s.MinWidth(int(myWidth))
 				remainingWidth = remainingWidth - myWidth
 			}
 		}
 		if !isSet(s.GetColor()) && g.color != nil {
-			c.Color(g.color)
+			s.Color(g.color)
 		}
 		if !isSet(s.GetBackground()) && g.background != nil {
-			c.Background(g.background)
+			s.Background(g.background)
 		}
 		if !isSet(s.GetBorder()) && g.border != nil {
-			c.Border(g.border)
+			s.Border(g.border)
 		}
 		if !isSet(s.GetAlignment()) && g.align != "" {
-			c.Align(g.align)
+			s.Align(g.align)
 		}
 		if !isSet(s.IsUrgent()) && g.attrSet&sgaUrgent != 0 {
-			c.Urgent(g.urgent)
+			s.Urgent(g.urgent)
 		}
 		if !s.HasClick() && g.clickHandler != nil {
-			c.OnClick(g.clickHandler)
+			s.OnClick(g.clickHandler)
 		}
-		segments = append(segments, c)
 	}
 	return segments
+}
+
+// NextRefresh handles the case of one or more TimedOutputs being added to the
+// group. If any timed outputs exist, NextRefresh will return the earliest next
+// refresh time of any of them.
+func (g *SegmentGroup) NextRefresh() time.Time {
+	var refresh time.Time
+	for _, o := range g.timedOutputs {
+		next := o.NextRefresh()
+		if next.IsZero() {
+			continue
+		}
+		if refresh.IsZero() || next.Before(refresh) {
+			refresh = next
+		}
+	}
+	return refresh
 }
 
 // existingMinWidth sums all integral minimum widths from the segments.
 // This allows us to distribute the minWidth amongst the other segments
 // while keeping the total min width the same as what was given.
-func (g *SegmentGroup) existingMinWidth() (result float64) {
-	for _, s := range g.segments {
+func existingMinWidth(segments []*bar.Segment) (result float64) {
+	for _, s := range segments {
 		minWidth, isSet := s.GetMinWidth()
 		if !isSet {
 			continue

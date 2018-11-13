@@ -20,6 +20,7 @@ import (
 
 	"barista.run/bar"
 	"barista.run/colors"
+	"barista.run/timing"
 
 	"github.com/stretchr/testify/require"
 )
@@ -72,12 +73,12 @@ func TestSegmentGroup(t *testing.T) {
 	out.Urgent(true)
 	assertAllEqual(true,
 		func(s *bar.Segment) (interface{}, bool) { return s.IsUrgent() },
-		"sets border for all segments")
+		"sets urgent for all segments")
 
 	out.Urgent(false)
 	assertAllEqual(false,
 		func(s *bar.Segment) (interface{}, bool) { return s.IsUrgent() },
-		"sets border for all segments")
+		"sets urgent for all segments")
 
 	sumMinWidth := func() int {
 		minWidth := 0
@@ -246,6 +247,9 @@ func TestEmptyGroup(t *testing.T) {
 	empty.InnerPadding(10)
 	// Make sure nothing blows up...
 	require.NotPanics(t, func() { empty.Segments() })
+	require.NotPanics(t, func() { empty.Append(nil).Segments() })
+	require.NotPanics(t, func() { Group(nil, nil).Segments() })
+	require.NotPanics(t, func() { Group(nil).Append(nil).Segments() })
 }
 
 func TestMinWidthDistributions(t *testing.T) {
@@ -284,4 +288,88 @@ func TestMinWidthDistributions(t *testing.T) {
 	// Additional segments are added, min width should redistribute.
 	out.Append(Text("6")).Append(Text("7"))
 	require.Equal([]interface{}{100, "###.##", 50, 20, 20, 20, 20}, minWidths())
+}
+
+func TestTimedOutputGroup(t *testing.T) {
+	timing.TestMode()
+
+	printCurrentTime := func(now time.Time) bar.Output {
+		return Text(now.Format("15:04:05"))
+	}
+	start := timing.Now()
+
+	everySec := Repeat(printCurrentTime).Every(time.Second)
+	timing.AdvanceBy(30 * time.Millisecond)
+
+	everyMin := Repeat(printCurrentTime).Every(time.Minute)
+	timing.AdvanceBy(30 * time.Millisecond)
+
+	atFixedTimes := Repeat(printCurrentTime).At(
+		start.Add(3*time.Second),
+		start.Add(time.Minute),
+		start.Add(2*time.Minute+5*time.Second),
+		start.Add(time.Hour),
+	)
+
+	o := Group(everySec, everyMin).
+		Append(Text("fixed")).
+		Append(atFixedTimes)
+
+	assertCurrentTexts(t, o, []string{"20:47:00", "20:47:00", "fixed"})
+
+	assertNextTexts(t, o, []string{"20:47:01", "20:47:00", "fixed"})
+	assertNextTexts(t, o, []string{"20:47:02", "20:47:00", "fixed"})
+	// everySec is still at 02 because it's start time is +60ms, reset when it
+	// was added to the group.
+	assertNextTexts(t, o, []string{"20:47:02", "20:47:00", "fixed", "20:47:03"})
+	assertNextTexts(t, o, []string{"20:47:03", "20:47:00", "fixed", "20:47:03"})
+	assertNextTexts(t, o, []string{"20:47:04", "20:47:00", "fixed", "20:47:03"})
+
+	timing.AdvanceBy(55 * time.Second)
+	assertCurrentTexts(t, o, []string{"20:47:59", "20:47:00", "fixed", "20:47:03"})
+	assertNextTexts(t, o, []string{"20:47:59", "20:47:00", "fixed", "20:48:00"})
+	assertNextTexts(t, o, []string{"20:48:00", "20:48:00", "fixed", "20:48:00"})
+	assertNextTexts(t, o, []string{"20:48:01", "20:48:00", "fixed", "20:48:00"})
+
+	timing.AdvanceBy(57 * time.Second)
+	assertCurrentTexts(t, o, []string{"20:48:58", "20:48:00", "fixed", "20:48:00"})
+	assertNextTexts(t, o, []string{"20:48:59", "20:48:00", "fixed", "20:48:00"})
+	assertNextTexts(t, o, []string{"20:49:00", "20:49:00", "fixed", "20:48:00"})
+
+	assertNextTexts(t, o, []string{"20:49:01", "20:49:00", "fixed", "20:48:00"})
+	assertNextTexts(t, o, []string{"20:49:02", "20:49:00", "fixed", "20:48:00"})
+	assertNextTexts(t, o, []string{"20:49:03", "20:49:00", "fixed", "20:48:00"})
+	assertNextTexts(t, o, []string{"20:49:04", "20:49:00", "fixed", "20:48:00"})
+
+	assertNextTexts(t, o, []string{"20:49:04", "20:49:00", "fixed", "20:49:05"})
+	assertNextTexts(t, o, []string{"20:49:05", "20:49:00", "fixed", "20:49:05"})
+
+	timing.AdvanceBy(5 * time.Hour)
+	assertCurrentTexts(t, o, []string{"01:49:05", "01:49:00", "fixed", "21:47:00"})
+	assertNextTexts(t, o, []string{"01:49:06", "01:49:00", "fixed", "21:47:00"})
+}
+
+func TestTimedOutputGroupWithEnd(t *testing.T) {
+	timing.TestMode()
+
+	printCurrentTime := func(now time.Time) bar.Output {
+		return Text(now.Format("15:04:05"))
+	}
+	start := timing.Now()
+
+	atFixedTimes := Repeat(printCurrentTime).At(
+		start.Add(3*time.Second),
+		start.Add(time.Minute),
+		start.Add(2*time.Minute+5*time.Second),
+		start.Add(time.Hour),
+	)
+
+	o := Group(atFixedTimes, atFixedTimes)
+	assertNextTexts(t, o, []string{"20:47:03", "20:47:03"})
+	assertNextTexts(t, o, []string{"20:48:00", "20:48:00"})
+	assertNextTexts(t, o, []string{"20:49:05", "20:49:05"})
+	assertNextTexts(t, o, []string{"21:47:00", "21:47:00"})
+
+	require.Empty(t, o.NextRefresh(), "after all timed outputs are done")
+	require.Equal(t, start.Add(time.Hour), timing.Now())
 }

@@ -22,6 +22,7 @@ import (
 	"barista.run/outputs"
 	"barista.run/sink"
 	testModule "barista.run/testing/module"
+	"barista.run/timing"
 
 	"github.com/stretchr/testify/require"
 )
@@ -123,4 +124,92 @@ func TestRestart(t *testing.T) {
 	txt, _ := out[0].Content()
 	require.Equal(t, "test", txt)
 	tm.AssertStarted("on middle click")
+}
+
+func TestTimedOutput(t *testing.T) {
+	timing.TestMode()
+	tm := testModule.New(t).SkipClickHandlers()
+	m := NewModule(tm)
+	ch, sink := sink.New()
+
+	tm.AssertNotStarted("before stream")
+	go m.Stream(sink)
+	tm.AssertStarted("after stream")
+	assertNoOutput(t, ch, "on start")
+
+	start := timing.Now()
+	tm.Output(outputs.Repeat(func(now time.Time) bar.Output {
+		return outputs.Textf("%v", now.Sub(start))
+	}).Every(time.Minute))
+	txt, _ := nextOutput(t, ch)[0].Content()
+	require.Equal(t, "0s", txt)
+
+	assertNoOutput(t, ch, "until time advances")
+	timing.AdvanceBy(30 * time.Second)
+	assertNoOutput(t, ch, "until refresh time elapses")
+	timing.AdvanceBy(45 * time.Second)
+
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "1m0s", txt)
+
+	timing.NextTick()
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "2m0s", txt)
+
+	tm.Output(bar.TextSegment("foo"))
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "foo", txt)
+
+	timing.NextTick()
+	assertNoOutput(t, ch, "When no longer using timed output")
+}
+
+func TestTimedOutputRealTime(t *testing.T) {
+	timing.ExitTestMode()
+
+	tm := testModule.New(t).SkipClickHandlers()
+	m := NewModule(tm)
+	ch, sink := sink.New()
+
+	tm.AssertNotStarted("before stream")
+	go m.Stream(sink)
+	tm.AssertStarted("after stream")
+	assertNoOutput(t, ch, "on start")
+
+	start := timing.Now()
+	tm.Output(outputs.Repeat(func(now time.Time) bar.Output {
+		ms := timing.Now().Sub(start).Seconds() * 1000.0
+		return outputs.Textf("%.0f", ms/100)
+	}).Every(100 * time.Millisecond))
+
+	txt, _ := nextOutput(t, ch)[0].Content()
+	require.Equal(t, "0", txt)
+
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "1", txt)
+
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "2", txt)
+
+	tm.Output(bar.TextSegment("foo"))
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "foo", txt)
+
+	assertNoOutput(t, ch, "When no longer using timed output")
+
+	// Test rapid updates for data races.
+	tm.Output(outputs.Repeat(func(now time.Time) bar.Output {
+		return outputs.Text(now.Format("15:04:05.000000"))
+	}).Every(time.Nanosecond))
+
+	nextOutput(t, ch)
+	nextOutput(t, ch)
+	nextOutput(t, ch)
+	nextOutput(t, ch)
+
+	tm.Output(bar.TextSegment("foo"))
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "foo", txt)
+
+	assertNoOutput(t, ch, "When no longer using timed output")
 }
