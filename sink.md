@@ -1,13 +1,19 @@
 ---
-title: base/Sink
+title: Sink
 ---
 
 The `sink` package provides methods to construct different kinds of sinks, especially useful for
 testing or wrapping existing modules.
 
+- `sink.Func(func(bar.Segments))`
+
+  Returns a sink that converts outputs into `bar.Segments` before passing them along to the given
+  func. If more fine-grained control is required (such as detecting runtime extensions of
+  `bar.Output`) use a `func(bar.Output)` as a `bar.Sink` directly.
+
 - `sink.New()`
 
-  Returns a `<-chan bar.Output` and a linked `bar.Sink`. Any values sent to the returned sink will
+  Returns a `<-chan bar.Segments` and a linked `bar.Sink`. Any values sent to the returned sink will
   be sent to the channel, and the sink will block until the value has been read.
 
 - `sink.Buffered(int)`
