@@ -24,7 +24,6 @@ import (
 	"barista.run/base/watchers/dbus"
 	l "barista.run/logging"
 	"barista.run/outputs"
-	"barista.run/timing"
 
 	"golang.org/x/time/rate"
 )
@@ -84,7 +83,9 @@ func New(player string) *Module {
 	// Default output is just the currently playing track.
 	m.Output(func(i Info) bar.Output {
 		if i.Playing() {
-			return outputs.Textf("%v: %s", i.TruncatedPosition("s"), i.Title)
+			return outputs.Repeat(func(t time.Time) bar.Output {
+				return outputs.Textf("%v: %s", i.TruncatedPosition("s"), i.Title)
+			}).Every(time.Second)
 		}
 		if i.Connected() {
 			return outputs.Text(i.Title)
@@ -98,6 +99,19 @@ func New(player string) *Module {
 func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
+}
+
+// RepeatingOutput configures a module to display the output of a user-defined
+// function, automatically repeating it every second while playing.
+func (m *Module) RepeatingOutput(outputFunc func(Info) bar.Output) *Module {
+	return m.Output(func(i Info) bar.Output {
+		if i.Playing() {
+			return outputs.Repeat(func(time.Time) bar.Output {
+				return outputFunc(i)
+			}).Every(time.Second)
+		}
+		return outputFunc(i)
+	})
 }
 
 // Throttle seek calls to once every ~50ms to allow more control
@@ -150,13 +164,6 @@ func (m *Module) Stream(s bar.Sink) {
 		info.set(k, v)
 	}
 
-	positionUpdater := timing.NewScheduler()
-	l.Attach(m, positionUpdater, "positionUpdater")
-	// If currently playing, also start the position updater.
-	if info.Playing() {
-		positionUpdater.Every(time.Second)
-	}
-
 	for {
 		s.Output(outputs.Group(outputFunc(info)).
 			OnClick(defaultClickHandler(info)))
@@ -164,20 +171,9 @@ func (m *Module) Stream(s bar.Sink) {
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
 		case u := <-w.Updates:
-			wasPlaying := info.Playing()
 			for k, v := range u {
 				info.set(k, v[1])
 			}
-			if v, ok := u["PlaybackStatus"]; ok {
-				if v[1] == "Playing" {
-					if !wasPlaying {
-						positionUpdater.Every(time.Second)
-					}
-				} else {
-					positionUpdater.Stop()
-				}
-			}
-		case <-positionUpdater.C:
 		}
 	}
 }

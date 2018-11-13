@@ -101,6 +101,19 @@ func formatMediaTime(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
+func makeMediaIconAndPosition(m media.Info) *pango.Node {
+	iconAndPosition := pango.Icon("fa-music").Color(colors.Hex("#f70"))
+	if m.PlaybackStatus == media.Playing {
+		iconAndPosition.Append(spacer,
+			pango.Textf("%s/", formatMediaTime(m.Position())))
+	}
+	if m.PlaybackStatus == media.Paused || m.PlaybackStatus == media.Playing {
+		iconAndPosition.Append(spacer,
+			pango.Textf("%s", formatMediaTime(m.Length)))
+	}
+	return iconAndPosition
+}
+
 func mediaFormatFunc(m media.Info) bar.Output {
 	if m.PlaybackStatus == media.Stopped || m.PlaybackStatus == media.Disconnected {
 		return nil
@@ -110,14 +123,13 @@ func mediaFormatFunc(m media.Info) bar.Output {
 	if len(title) < 35 {
 		artist = truncate(m.Artist, 35-len(title))
 	}
-	iconAndPosition := pango.Icon("fa-music").Color(colors.Hex("#f70"))
+	var iconAndPosition bar.Output
 	if m.PlaybackStatus == media.Playing {
-		iconAndPosition.Append(spacer,
-			pango.Textf("%s/", formatMediaTime(m.Position())))
-	}
-	if m.PlaybackStatus == media.Paused || m.PlaybackStatus == media.Playing {
-		iconAndPosition.Append(spacer,
-			pango.Textf("%s", formatMediaTime(m.Length)))
+		iconAndPosition = outputs.Repeat(func(time.Time) bar.Output {
+			return makeMediaIconAndPosition(m)
+		}).Every(time.Second)
+	} else {
+		iconAndPosition = makeMediaIconAndPosition(m)
 	}
 	return outputs.Group(iconAndPosition, outputs.Pango(title, " - ", artist))
 }

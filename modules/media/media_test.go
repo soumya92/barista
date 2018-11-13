@@ -137,7 +137,7 @@ func TestMedia(t *testing.T) {
 	testBar.NextOutput("on metadata update").AssertText([]string{"0s: Title"})
 
 	var lastInfo Info
-	pl.Output(func(i Info) bar.Output {
+	pl.RepeatingOutput(func(i Info) bar.Output {
 		lastInfo = i
 		return outputs.Textf("[%s, %v] %s - %s",
 			i.PlaybackStatus, i.TruncatedPosition("k"), i.Title, i.Artist)
