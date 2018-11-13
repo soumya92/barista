@@ -18,6 +18,39 @@ The `outputs` package provides some utility methods for simpler construction of 
   - `string`: added as a `pango.Text()` node
   - everything else: added as `pango.Textf("%v", thing)`
 
+## Timed Outputs
+
+`outputs.Repeat` allows construction of repeating outputs using the `bar.TimedOutput` extension. A
+repeating output is constructed using a `func(time.Time) bar.Output`, with a set repeating strategy:
+
+- `Every(time.Duration)`: Calls the function at a fixed interval.
+
+- `AtNext(time.Duration)`: Calls the function whenever the current time is a multiple of the given
+  duration. For example, `AtNext(time.Minute)` will call the function at `14:00:00`, `14:01:00`, and
+  so on.
+
+- `DeltaFrom(time.Time)`/`FineDeltaFrom(time.Time)`: Calls the function based on the time remaining
+  until or elapsed since the given `time.Time`:
+
+  |---------------------|--------------|-----------------|
+  | Remaining / Elapsed | `DeltaFrom`  | `FineDeltaFrom` |
+  |---------------------|--------------|-----------------|
+  | < 1 minute          | Every second | Every second    |
+  | < 1 hour            | Every minute | Every second    |
+  | < 24 hours          | Every hour   | Every minute    |
+  | > 24 hours          | Every hour   | Every hour      |
+  |---------------------|--------------|-----------------|
+
+- `At(...time.Time)`: Calls the function at each of the times specified.
+
+### Implementation notes:
+
+- The function will be called with a time value that exactly matches the rule used, even if the real
+  time has skewed a bit.
+
+- The function may be called multiple times for the same `time.Time`, especially when used in a
+  group. The function must be idempotent.
+
 ## Group
 
 `Group(...bar.Output)` creates a flattened group of segments from the individual segments of each
