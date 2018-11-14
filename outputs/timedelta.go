@@ -51,7 +51,7 @@ type repeatOnDelta struct {
 }
 
 func (r *repeatOnDelta) Segments() []*bar.Segment {
-	delta, truncated, granularity := r.durations(1)
+	delta, truncated, granularity := r.durations()
 	if truncated > delta && granularity < 0 {
 		truncated += granularity
 	}
@@ -63,7 +63,7 @@ func (r *repeatOnDelta) Segments() []*bar.Segment {
 }
 
 func (r *repeatOnDelta) NextRefresh() time.Time {
-	delta, truncated, granularity := r.durations(0)
+	delta, truncated, granularity := r.durations()
 	if truncated <= delta {
 		if granularity > 0 {
 			truncated += granularity
@@ -74,7 +74,7 @@ func (r *repeatOnDelta) NextRefresh() time.Time {
 	return r.Add(truncated)
 }
 
-func (r *repeatOnDelta) durations(i int) (delta, truncated, granularity time.Duration) {
+func (r *repeatOnDelta) durations() (delta, truncated, granularity time.Duration) {
 	delta = timing.Now().Sub(r.Time)
 	if delta > 0 {
 		granularity = r.granularity(delta + 1)
@@ -82,8 +82,6 @@ func (r *repeatOnDelta) durations(i int) (delta, truncated, granularity time.Dur
 		granularity = -r.granularity(-delta - 1)
 	}
 	truncated = delta / granularity * granularity
-	if i == 0 || i == 1 {
-	}
 	return // delta, truncated, granularity
 }
 
