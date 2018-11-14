@@ -29,19 +29,24 @@ repeating output is constructed using a `func(time.Time) bar.Output`, with a set
   duration. For example, `AtNext(time.Minute)` will call the function at `14:00:00`, `14:01:00`, and
   so on.
 
-- `DeltaFrom(time.Time)`/`FineDeltaFrom(time.Time)`: Calls the function based on the time remaining
+- `At(...time.Time)`: Calls the function at each of the times specified.
+
+`outputs.AtDeltaFrom` allows construction of a `bar.TimedOutput` that counts down to, or up from,
+a reference point in time. It is constructed from a `func(time.Duration) bar.Output`, with the
+argument being positive for reference points in the past, and negative for points in the future.
+
+- `From(time.Time)`/`FromFine(time.Time)`: Calls the function based on the time remaining
   until or elapsed since the given `time.Time`:
 
-  |---------------------|--------------|-----------------|
-  | Remaining / Elapsed | `DeltaFrom`  | `FineDeltaFrom` |
-  |---------------------|--------------|-----------------|
-  | < 1 minute          | Every second | Every second    |
-  | < 1 hour            | Every minute | Every second    |
-  | < 24 hours          | Every hour   | Every minute    |
-  | > 24 hours          | Every hour   | Every hour      |
-  |---------------------|--------------|-----------------|
+  |---------------------|--------------|--------------|
+  | Remaining / Elapsed | `From`       | `FromFine`   |
+  |---------------------|--------------|--------------|
+  | < 1 minute          | Every second | Every second |
+  | < 1 hour            | Every minute | Every second |
+  | < 24 hours          | Every hour   | Every minute |
+  | > 24 hours          | Every hour   | Every hour   |
+  |---------------------|--------------|--------------|
 
-- `At(...time.Time)`: Calls the function at each of the times specified.
 
 ### Implementation notes:
 
