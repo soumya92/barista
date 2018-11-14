@@ -38,25 +38,6 @@ func (r Repeat) AtNext(interval time.Duration) bar.TimedOutput {
 	return &repeating{r, repeatAtNext{interval}}
 }
 
-// DeltaFrom repeats the output based on the delta between now and a fixed point
-// in time. The repeat rate is:
-// - delta < 1 minute: every second
-// - delta < 1 hour: every minute
-// - otherwise: every hour
-// This is useful if the output displays a single time unit (e.g. 3m, or 8h).
-func (r Repeat) DeltaFrom(time time.Time) bar.TimedOutput {
-	return &repeating{r, repeatOnDelta{time, coarseDelta}}
-}
-
-// FineDeltaFrom is DeltaFrom with more rapid updates:
-// - delta < 1 hour: every second
-// - delta < 24 hours: every minute
-// - otherwise: every hour
-// This is useful if the output displays two time units (e.g. 5h3m, or 2d7h).
-func (r Repeat) FineDeltaFrom(time time.Time) bar.TimedOutput {
-	return &repeating{r, repeatOnDelta{time, fineDelta}}
-}
-
 // At repeats the output at the specified fixed points in time.
 func (r Repeat) At(times ...time.Time) bar.TimedOutput {
 	sort.Slice(times, func(i, j int) bool {
@@ -120,65 +101,6 @@ func (r repeatAtTimes) before(now time.Time) time.Time {
 		result = t
 	}
 	return result
-}
-
-type repeatOnDelta struct {
-	time.Time
-	delta func(time.Duration) time.Duration
-}
-
-func (r repeatOnDelta) after(now time.Time) time.Time {
-	delta := r.Sub(now)
-	var granularity time.Duration
-	if delta > 0 {
-		granularity = r.delta(delta - 1)
-	} else {
-		granularity = -r.delta(-delta + 1)
-	}
-	count := delta / granularity
-	if count*granularity >= delta {
-		if granularity > 0 {
-			count--
-		} else {
-			count++
-		}
-	}
-	return r.Add(-count * granularity)
-}
-
-func (r repeatOnDelta) before(now time.Time) time.Time {
-	delta := r.Sub(now)
-	var granularity time.Duration
-	if delta > 0 {
-		granularity = r.delta(delta + 1)
-	} else {
-		granularity = -r.delta(-delta - 1)
-	}
-	count := delta / granularity
-	if count*granularity < delta && granularity > 0 {
-		count++
-	}
-	return r.Add(-count * granularity)
-}
-
-func fineDelta(in time.Duration) time.Duration {
-	if in <= time.Hour {
-		return time.Second
-	}
-	if in <= 24*time.Hour {
-		return time.Minute
-	}
-	return time.Hour
-}
-
-func coarseDelta(in time.Duration) time.Duration {
-	if in <= time.Minute {
-		return time.Second
-	}
-	if in <= time.Hour {
-		return time.Minute
-	}
-	return time.Hour
 }
 
 type repeating struct {
