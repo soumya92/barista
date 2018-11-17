@@ -18,6 +18,7 @@ package core
 
 import (
 	"sync"
+	"time"
 
 	"barista.run/bar"
 	"barista.run/base/notifier"
@@ -66,7 +67,11 @@ func (m *Module) Stream(sink bar.Sink) {
 func (m *Module) runLoop(realSink bar.Sink) {
 	started := false
 	finished := false
-	timedSink := newTimedSink(realSink)
+	var refreshFn func()
+	if r, ok := m.original.(bar.RefresherModule); ok {
+		refreshFn = r.Refresh
+	}
+	timedSink := newTimedSink(realSink, refreshFn)
 	l.Attach(m.original, timedSink, "~internal-sink")
 	outputCh := make(chan bar.Output)
 	innerSink := func(o bar.Output) { outputCh <- o }
@@ -84,21 +89,21 @@ func (m *Module) runLoop(realSink bar.Sink) {
 		select {
 		case out = <-outputCh:
 			started = true
-			timedSink.Output(out)
+			timedSink.Output(out, true)
 		case <-doneCh:
 			finished = true
 			timedSink.Stop()
 			l.Fine("%s: set restart handlers", l.ID(m))
-			timedSink.Output(addRestartHandlers(out, m.restartFn))
+			timedSink.Output(addRestartHandlers(out, m.restartFn), false)
 		case <-m.replayCh:
 			if started {
 				l.Fine("%s: replay last output", l.ID(m))
-				timedSink.Output(out)
+				timedSink.Output(out, true)
 			}
 		case <-m.restartCh:
 			if finished {
 				l.Fine("%s restarted", l.ID(m.original))
-				timedSink.Output(stripErrors(out, l.ID(m)))
+				timedSink.Output(stripErrors(out, l.ID(m)), false)
 				return // Stream will restart the run loop.
 			}
 		}
@@ -120,10 +125,7 @@ func isRestartableClick(e bar.Event) bool {
 
 // stripErrors strips any error segments from the given list.
 func stripErrors(o bar.Output, logCtx string) bar.Segments {
-	var in bar.Segments
-	if o != nil {
-		in = o.Segments()
-	}
+	in := toSegments(o)
 	var out bar.Segments
 	for _, s := range in {
 		if s.GetError() == nil {
@@ -141,10 +143,7 @@ func stripErrors(o bar.Output, logCtx string) bar.Segments {
 // that restarts the module. This is used on the last output of
 // the wrapped module after the original finishes.
 func addRestartHandlers(o bar.Output, restartFn func()) bar.Segments {
-	var in bar.Segments
-	if o != nil {
-		in = o.Segments()
-	}
+	in := toSegments(o)
 	var out bar.Segments
 	for _, s := range in {
 		out = append(out, s.Clone().OnClick(func(e bar.Event) {
@@ -156,38 +155,84 @@ func addRestartHandlers(o bar.Output, restartFn func()) bar.Segments {
 	return out
 }
 
+// addRefreshHandlers adds middle-click refresh to the output.
+func addRefreshHandlers(o bar.Output, refreshFn func()) bar.Segments {
+	in := toSegments(o)
+	if refreshFn == nil {
+		return in
+	}
+	var out bar.Segments
+	for _, s := range in {
+		handleClick := s.Click
+		hasError := s.GetError() != nil
+		out = append(out, s.Clone().OnClick(func(e bar.Event) {
+			switch {
+			case e.Button == bar.ButtonMiddle:
+				refreshFn()
+			case hasError && isRestartableClick(e):
+				refreshFn()
+			default:
+				handleClick(e)
+			}
+		}))
+	}
+	return out
+}
+
+func toSegments(o bar.Output) bar.Segments {
+	if o == nil {
+		return nil
+	}
+	return o.Segments()
+}
+
+type staticTimedOutput struct {
+	bar.Output
+}
+
+func (s staticTimedOutput) Segments() []*bar.Segment {
+	return toSegments(s.Output)
+}
+
+func (s staticTimedOutput) NextRefresh() time.Time {
+	return time.Time{}
+}
+
 // timedSink is a wrapper around bar.Sink that supports timed output. It takes
 // a single bar.TimedOutput and unrolls it into multiple calls to the underlying
 // sink, automatically resetting future calls on new output.
 type timedSink struct {
 	bar.Sink
 	*timing.Scheduler
+	refreshFn func()
 
-	mu  sync.Mutex
-	out bar.TimedOutput
+	mu          sync.Mutex
+	out         bar.TimedOutput
+	refreshable bool
 }
 
-func newTimedSink(original bar.Sink) *timedSink {
+func newTimedSink(original bar.Sink, refreshFn func()) *timedSink {
 	t := &timedSink{
 		Sink:      original,
 		Scheduler: timing.NewScheduler(),
+		refreshFn: refreshFn,
 	}
 	l.Register(t, "Sink", "Scheduler")
 	go t.runLoop()
 	return t
 }
 
-func (t *timedSink) Output(o bar.Output) {
+func (t *timedSink) Output(o bar.Output, refreshable bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.refreshable = refreshable
 	var ok bool
-	if t.out, ok = o.(bar.TimedOutput); ok {
-		t.renderLocked()
-		return
+	t.out, ok = o.(bar.TimedOutput)
+	if !ok {
+		t.out = staticTimedOutput{o}
+		l.Fine("%s: regular output", l.ID(t))
 	}
-	l.Fine("%s: regular output", l.ID(t))
-	t.Stop()
-	t.Sink.Output(o)
+	t.renderLocked()
 }
 
 func (t *timedSink) runLoop() {
@@ -206,11 +251,16 @@ func (t *timedSink) renderLocked() {
 	if t.out == nil {
 		return
 	}
+	var o bar.Output = t.out
 	if next := t.out.NextRefresh(); !next.IsZero() {
 		l.Fine("%s: timed output, next refresh %v", l.ID(t), next)
 		t.At(next)
 	} else {
 		t.Stop()
+		t.out = nil
 	}
-	t.Sink.Output(t.out)
+	if t.refreshable {
+		o = addRefreshHandlers(o, t.refreshFn)
+	}
+	t.Sink.Output(o)
 }

@@ -175,3 +175,11 @@ type Module interface {
 	// subsequent calls may receive different instances.
 	Stream(Sink)
 }
+
+// RefresherModule extends module with a Refresh() method that forces a refresh
+// of the data being displayed (e.g. a fresh HTTP request or file read).
+// core.Module will add middle-click to refresh for modules that implement it.
+type RefresherModule interface {
+	Module
+	Refresh()
+}

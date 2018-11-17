@@ -15,6 +15,7 @@
 package core
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"barista.run/outputs"
 	"barista.run/sink"
 	testModule "barista.run/testing/module"
+	"barista.run/testing/notifier"
 	"barista.run/timing"
 
 	"github.com/stretchr/testify/require"
@@ -70,8 +72,7 @@ func TestReplay(t *testing.T) {
 	m := NewModule(tm)
 	ch, sink := sink.New()
 
-	m.Replay()
-	// If this didn't panic, test passed.
+	require.NotPanics(t, func() { m.Replay() })
 
 	go m.Stream(sink)
 	tm.AssertStarted()
@@ -156,6 +157,14 @@ func TestTimedOutput(t *testing.T) {
 	txt, _ = nextOutput(t, ch)[0].Content()
 	require.Equal(t, "2m0s", txt)
 
+	m.Replay()
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "2m0s", txt)
+
+	timing.NextTick()
+	txt, _ = nextOutput(t, ch, "TimedOutput after Replay")[0].Content()
+	require.Equal(t, "3m0s", txt)
+
 	tm.Output(outputs.Group(bar.TextSegment("foo")))
 	txt, _ = nextOutput(t, ch)[0].Content()
 	require.Equal(t, "foo", txt)
@@ -212,4 +221,83 @@ func TestTimedOutputRealTime(t *testing.T) {
 	require.Equal(t, "foo", txt)
 
 	assertNoOutput(t, ch, "When no longer using timed output")
+}
+
+type refreshableModule struct {
+	*testModule.TestModule
+	refreshCh chan<- struct{}
+}
+
+func (r refreshableModule) Refresh() {
+	r.refreshCh <- struct{}{}
+}
+
+func TestRefresh(t *testing.T) {
+	timing.TestMode()
+	refreshCh := make(chan struct{}, 1)
+	tm := refreshableModule{testModule.New(t), refreshCh}
+	m := NewModule(tm)
+	ch, sink := sink.New()
+	go m.Stream(sink)
+	tm.AssertStarted()
+
+	tm.Output(outputs.Text("foo"))
+	out := nextOutput(t, ch, "on regular output")
+
+	out[0].Click(bar.Event{Button: bar.ButtonLeft})
+	notifier.AssertNoUpdate(t, refreshCh, "On left-click")
+	tm.AssertClicked("on left-click")
+
+	out[0].Click(bar.Event{Button: bar.ButtonMiddle})
+	notifier.AssertNotified(t, refreshCh, "On middle-click")
+	tm.AssertNotClicked("on middle-click")
+
+	m.Replay()
+	out = nextOutput(t, ch, "on replay")
+
+	out[0].Click(bar.Event{Button: bar.ButtonLeft})
+	notifier.AssertNoUpdate(t, refreshCh, "On left-click after replay")
+	tm.AssertClicked("on left-click")
+
+	out[0].Click(bar.Event{Button: bar.ButtonMiddle})
+	notifier.AssertNotified(t, refreshCh, "On middle-click after replay")
+	tm.AssertNotClicked("on middle-click")
+
+	tm.Output(outputs.Repeat(func(now time.Time) bar.Output {
+		return outputs.Textf(now.In(time.UTC).Format("15:04"))
+	}).Every(time.Minute))
+
+	out = nextOutput(t, ch, "on timed output")
+	txt, _ := out[0].Content()
+	require.Equal(t, "20:47", txt)
+	out[0].Click(bar.Event{Button: bar.ButtonMiddle})
+	notifier.AssertNotified(t, refreshCh, "middle-click of timed output")
+
+	timing.NextTick()
+	out = nextOutput(t, ch, "on timed output tick")
+	txt, _ = out[0].Content()
+	require.Equal(t, "20:48", txt)
+	out[0].Click(bar.Event{Button: bar.ButtonMiddle})
+	notifier.AssertNotified(t, refreshCh, "middle-click after tick")
+
+	tm.Output(bar.Segments{
+		bar.ErrorSegment(errors.New("foo")),
+		bar.TextSegment("baz"),
+	})
+
+	out = nextOutput(t, ch, "on error output")
+	out[0].Click(bar.Event{Button: bar.ButtonLeft})
+	notifier.AssertNotified(t, refreshCh, "left-click on running module error")
+	tm.AssertNotClicked("left-click on error segment")
+
+	out[1].Click(bar.Event{Button: bar.ButtonLeft})
+	notifier.AssertNoUpdate(t, refreshCh, "left-click on non-error segment")
+	tm.AssertClicked("left-click handled normally")
+
+	tm.Close()
+	out = nextOutput(t, ch, "switch handlers on finish")
+	out[1].Click(bar.Event{Button: bar.ButtonMiddle})
+	notifier.AssertNoUpdate(t, refreshCh, "middle-click after finish")
+	out[0].Click(bar.Event{Button: bar.ButtonLeft})
+	notifier.AssertNoUpdate(t, refreshCh, "left-click on finished module error")
 }
