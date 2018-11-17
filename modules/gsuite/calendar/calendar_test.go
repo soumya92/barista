@@ -178,45 +178,42 @@ func TestCalendar(t *testing.T) {
 	// Ensures that a fetch is not performed, since all events will disappear
 	// on next fetch.
 	setEvents("primary")
-	cal.Output(func(l EventList) (bar.Output, time.Time) {
-		var e *Event
+	cal.Output(func(l EventList) bar.Output {
+		formatEvt := func(e Event) bar.Output {
+			if e.UntilStart() < 0 && e.UntilEnd() > 0 {
+				return outputs.Textf("until %s: %s",
+					e.End.Format("15:04"), e.Summary)
+			}
+			if e.UntilAlert() < 0 {
+				return outputs.Textf("at %s: %s",
+					e.Start.Format("15:04"), e.Summary)
+			}
+			return nil
+		}
 		switch {
 		case len(l.InProgress) > 0:
-			e = &l.InProgress[0]
+			return formatEvt(l.InProgress[0])
 		case len(l.Alerting) > 0:
-			e = &l.Alerting[0]
+			return formatEvt(l.Alerting[0])
 		case len(l.Upcoming) > 0:
-			e = &l.Upcoming[0]
+			return formatEvt(l.Upcoming[0])
 		}
-		refresh := time.Time{}
-		if e == nil {
-			return nil, refresh
-		}
-		if e.UntilEnd() > 0 {
-			refresh = e.End
-		}
-		if e.UntilStart() > 0 {
-			refresh = e.Start
-		}
-		if e.UntilAlert() > 0 {
-			refresh = e.Alert
-		}
-		return outputs.Textf("%s: %s", e.Start.Format("15:04"), e.Summary), refresh
+		return nil
 	})
-	testBar.NextOutput().AssertText([]string{"00:45: Declined event"},
+	testBar.NextOutput().AssertText([]string{"until 01:30: Declined event"},
 		"On output format change")
 
 	newTime = timing.NextTick()
 	require.Equal(t, "01:30", newTime.Format("15:04"))
-	testBar.NextOutput().AssertText([]string{"02:00: Later event"})
+	testBar.NextOutput().AssertText([]string{})
 
 	newTime = timing.NextTick()
 	require.Equal(t, "01:52", newTime.Format("15:04"))
-	testBar.NextOutput().AssertText([]string{"02:00: Later event"})
+	testBar.NextOutput().AssertText([]string{"at 02:00: Later event"})
 
 	newTime = timing.NextTick()
 	require.Equal(t, "02:00", newTime.Format("15:04"))
-	testBar.NextOutput().AssertText([]string{"02:00: Later event"})
+	testBar.NextOutput().AssertText([]string{"until 02:15: Later event"})
 
 	newTime = timing.NextTick()
 	require.Equal(t, "02:15", newTime.Format("15:04"))

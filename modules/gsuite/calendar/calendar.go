@@ -17,7 +17,6 @@ package calendar // import "barista.run/modules/gsuite/calendar"
 
 import (
 	"net/http"
-	"sort"
 	"time"
 
 	"barista.run/bar"
@@ -93,7 +92,7 @@ type Module struct {
 	oauthConfig *oauth.Config
 	config      value.Value // of config
 	scheduler   *timing.Scheduler
-	outputFunc  value.Value // of func(EventList) (bar.Output, time.Time)
+	outputFunc  value.Value // of func(EventList) bar.Output
 }
 
 // New creates a calendar module from the given oauth config.
@@ -109,34 +108,28 @@ func New(clientConfig []byte) *Module {
 	m.config.Set(config{calendarID: "primary"})
 	m.RefreshInterval(10 * time.Minute)
 	m.TimeWindow(18 * time.Hour)
-	m.Output(func(evts EventList) (bar.Output, time.Time) {
-		refreshTimes := []time.Time{}
+	m.Output(func(evts EventList) bar.Output {
+		hasEvent := false
 		out := outputs.Group()
 		for _, e := range evts.InProgress {
 			out.Append(outputs.Textf("ends %s: %s",
 				e.End.Format("15:04"), e.Summary))
-			refreshTimes = append(refreshTimes, e.End)
+			hasEvent = true
 		}
 		for _, e := range evts.Alerting {
 			out.Append(outputs.Textf("%s: %s",
 				e.Start.Format("15:04"), e.Summary))
-			refreshTimes = append(refreshTimes, e.Start)
+			hasEvent = true
 		}
-		for _, e := range evts.Upcoming {
-			if len(refreshTimes) == 0 {
+		if !hasEvent {
+			for _, e := range evts.Upcoming {
 				// If no other events have been displayed, show next upcoming.
 				out.Append(outputs.Textf("%s: %s",
 					e.Start.Format("15:04"), e.Summary))
+				break
 			}
-			refreshTimes = append(refreshTimes, e.Alert)
 		}
-		if len(refreshTimes) == 0 {
-			return nil, time.Time{}
-		}
-		sort.Slice(refreshTimes, func(i, j int) bool {
-			return refreshTimes[i].Before(refreshTimes[j])
-		})
-		return out, refreshTimes[0]
+		return out
 	})
 	return m
 }
@@ -151,7 +144,7 @@ func (m *Module) Stream(sink bar.Sink) {
 		wrapForTest(client)
 	}
 	srv, _ := calendar.New(client)
-	outf := m.outputFunc.Get().(func(EventList) (bar.Output, time.Time))
+	outf := m.outputFunc.Get().(func(EventList) bar.Output)
 	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	conf := m.getConfig()
@@ -163,14 +156,14 @@ func (m *Module) Stream(sink bar.Sink) {
 		if sink.Error(err) {
 			return
 		}
-		out, refresh := outf(makeEventList(evts))
+		list, refresh := makeEventList(evts)
 		if !refresh.IsZero() {
 			renderer.At(refresh.Add(time.Duration(1)))
 		}
-		sink.Output(out)
+		sink.Output(outf(list))
 		select {
 		case <-nextOutputFunc:
-			outf = m.outputFunc.Get().(func(EventList) (bar.Output, time.Time))
+			outf = m.outputFunc.Get().(func(EventList) bar.Output)
 		case <-nextConfig:
 			conf = m.getConfig()
 			evts, err = fetch(srv, conf)
@@ -259,26 +252,36 @@ func getEarliestPopupReminder(rs []*calendar.EventReminder) time.Duration {
 	return duration
 }
 
-func makeEventList(events []Event) EventList {
+func makeEventList(events []Event) (EventList, time.Time) {
 	now := timing.Now()
+	var refresh time.Time
 	list := EventList{}
 	for _, e := range events {
 		switch {
 		case now.After(e.End):
 			continue
 		case now.After(e.Start) && e.End.After(now):
+			setIfEarlier(&refresh, e.End)
 			list.InProgress = append(list.InProgress, e)
 		case now.After(e.Alert) && e.Start.After(now):
+			setIfEarlier(&refresh, e.Start)
 			list.Alerting = append(list.Alerting, e)
 		default:
+			setIfEarlier(&refresh, e.Alert)
 			list.Upcoming = append(list.Upcoming, e)
 		}
 	}
-	return list
+	return list, refresh
+}
+
+func setIfEarlier(target *time.Time, source time.Time) {
+	if target.IsZero() || source.Before(*target) {
+		*target = source
+	}
 }
 
 // Output sets the output format for the module.
-func (m *Module) Output(outputFunc func(EventList) (bar.Output, time.Time)) *Module {
+func (m *Module) Output(outputFunc func(EventList) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }

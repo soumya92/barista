@@ -646,31 +646,21 @@ func main() {
 		})
 
 	cal := calendar.New(gsuiteOauthConfig).
-		Output(func(evts calendar.EventList) (bar.Output, time.Time) {
+		Output(func(evts calendar.EventList) bar.Output {
 			evtsOfInterest := append(evts.InProgress, evts.Alerting...)
 			if len(evtsOfInterest) == 0 && len(evts.Upcoming) > 0 {
 				evtsOfInterest = append(evtsOfInterest, evts.Upcoming[0])
 			}
 			if len(evtsOfInterest) == 0 {
-				return nil, time.Time{}
+				return nil
 			}
-			now := time.Now()
-			refreshTime := now.Add(24 * time.Hour)
 			out := outputs.Group().InnerSeparators(false)
 			out.Append(pango.Icon("mdi-calendar"))
 			for _, e := range evtsOfInterest {
 				out.Append(outputs.Textf("%s", e.Start.Format("15:04")).
 					OnClick(calendarNotifyHandler(e)))
-				switch {
-				case e.Start.After(now) && e.Start.Before(refreshTime):
-					refreshTime = e.Start
-				case e.Alert.After(now) && e.Alert.Before(refreshTime):
-					refreshTime = e.Alert
-				case e.End.After(now) && e.End.Before(refreshTime):
-					refreshTime = e.End
-				}
 			}
-			return out, refreshTime
+			return out
 		})
 
 	mainModal := modal.New()
