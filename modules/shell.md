@@ -41,23 +41,18 @@ Show the last line of dmesg output, with human readable time deltas:
 ```go
 var dmesgFormat = regexp.MustCompile(`^\[([0-9\.]+)\] (.*)$`)
 dmesg := shell.Tail("dmesg", "-w").Output(func(line string) bar.Output {
-	res := dmesgFormat.FindStringSubmatch(line)     // res[1] = time, res[2] = message
-	uptimeStr, _ := ioutil.ReadFile("/proc/uptime") // uptimeStr = "$uptime $cputime"
-
+	res := dmesgFormat.FindStringSubmatch(line) // res[1] = time, res[2] = message
 	timeOfMsg, _ := strconv.ParseFloat(res[1], 64)
-	timeNow, _ := strconv.ParseFloat(strings.Split(string(uptimeStr), " ")[0], 64)
-
-	delta := time.Duration(uint64(timeNow-timeOfMsg)) * time.Second
 	outLine := res[2]
 	if len(outLine) > 20 {
 		outLine = outLine[0:19] + "…"
 	}
 
-	return outputs.Textf("(%v ago) %s", delta, outLine)
+	return outputs.Repeat(func(time.Time) bar.Output {
+		uptimeStr, _ := ioutil.ReadFile("/proc/uptime") // uptimeStr = "$uptime $cputime"
+		timeNow, _ := strconv.ParseFloat(strings.Split(string(uptimeStr), " ")[0], 64)
+		delta := time.Duration(uint64(timeNow-timeOfMsg)) * time.Second
+		return outputs.Textf("(%v ago) %s", delta, outLine)
+	}).Every(time.Second)
 })
-go func() {
-	for range timing.NewScheduler().Every(time.Second).Tick() {
-		dmesg.Refresh()
-	}
-}()
 ```
