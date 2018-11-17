@@ -16,12 +16,10 @@ package shell
 
 import (
 	"testing"
-	"time"
 
 	"barista.run/bar"
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
-	"barista.run/timing"
 )
 
 func TestTail(t *testing.T) {
@@ -40,9 +38,11 @@ func TestTail(t *testing.T) {
 	})
 	testBar.NextOutput("on format func change").AssertText(
 		[]string{"++5++"}, "applies format func to last output line")
+}
 
+func TestTailExitCode(t *testing.T) {
 	testBar.New(t)
-	tail = Tail("bash", "-c", "for i in `seq 1 3`; do echo $i; sleep 0.075; done; exit 1")
+	tail := Tail("bash", "-c", "for i in `seq 1 3`; do echo $i; sleep 0.075; done; exit 1")
 	testBar.Run(tail)
 	for _, i := range []string{"1", "2", "3"} {
 		testBar.NextOutput().AssertText([]string{i}, i)
@@ -50,29 +50,12 @@ func TestTail(t *testing.T) {
 
 	testBar.NextOutput().AssertError(
 		"when command terminates with an error")
+}
 
+func TestTailInvalidCommand(t *testing.T) {
 	testBar.New(t)
-	tail = Tail("this-is-not-a-valid-command", "--but", "'have'", "-some", "args")
+	tail := Tail("this-is-not-a-valid-command", "--but", "'have'", "-some", "args")
 	testBar.Run(tail)
 	testBar.NextOutput().AssertError(
 		"when starting an invalid command")
-}
-
-func TestTailRefresh(t *testing.T) {
-	testBar.New(t)
-	tail := Tail("bash", "-c", "for i in `seq 1 5`; do echo $i; sleep 75; done").
-		Output(func(line string) bar.Output {
-			now := timing.Now()
-			return outputs.Textf("[%d:%02d] %s", now.Minute(), now.Second(), line)
-		})
-	testBar.Run(tail)
-
-	testBar.NextOutput().AssertText([]string{"[47:00] 1"})
-	testBar.AssertNoOutput("sleep is too long (75s)")
-
-	timing.AdvanceBy(15 * time.Second)
-	tail.Refresh()
-
-	testBar.NextOutput().AssertText([]string{"[47:15] 1"})
-	testBar.AssertNoOutput("sleep is still too long (75s)")
 }
