@@ -171,6 +171,34 @@ func TestTimedOutput(t *testing.T) {
 
 	timing.NextTick()
 	assertNoOutput(t, ch, "When no longer using timed output")
+
+	start = timing.Now()
+	tm.Output(outputs.Repeat(func(now time.Time) bar.Output {
+		return outputs.Textf("%v", now.Sub(start))
+	}).Every(time.Minute))
+
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "0s", txt)
+
+	timing.NextTick()
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "1m0s", txt)
+
+	tm.Close()
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "1m0s", txt)
+
+	timing.NextTick()
+	assertNoOutput(t, ch, "TimedOutput stops on close")
+
+	timing.AdvanceBy(time.Hour)
+
+	m.Replay()
+	txt, _ = nextOutput(t, ch)[0].Content()
+	require.Equal(t, "1m0s", txt)
+
+	timing.NextTick()
+	assertNoOutput(t, ch, "TimedOutput remains stopped after replay")
 }
 
 func TestTimedOutputRealTime(t *testing.T) {

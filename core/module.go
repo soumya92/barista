@@ -93,6 +93,7 @@ func (m *Module) runLoop(realSink bar.Sink) {
 		case <-doneCh:
 			finished = true
 			timedSink.Stop()
+			out = toSegments(out)
 			l.Fine("%s: set restart handlers", l.ID(m))
 			timedSink.Output(addRestartHandlers(out, m.restartFn), false)
 		case <-m.replayCh:
