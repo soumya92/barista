@@ -616,7 +616,6 @@ func TestIOErrors(t *testing.T) {
 			out.ReadUntil('[', time.Second)
 			var jsonO []map[string]interface{}
 			o, _ := out.ReadUntil(']', time.Second)
-			fmt.Printf("%v\n", o)
 			json.Unmarshal([]byte(o), &jsonO)
 			name := jsonO[0]["name"].(string)
 
