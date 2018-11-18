@@ -610,7 +610,18 @@ func TestIOErrors(t *testing.T) {
 	testIoError(t, nil,
 		func(in *mockio.Readable, out *mockio.Writable, m *testModule.TestModule) {
 			m.AssertStarted()
-			in.WriteString(`{"button":0}`)
+			m.Output(outputs.Text("clickme"))
+
+			// consume header.
+			out.ReadUntil('[', time.Second)
+			var jsonO []map[string]interface{}
+			o, _ := out.ReadUntil(']', time.Second)
+			fmt.Printf("%v\n", o)
+			json.Unmarshal([]byte(o), &jsonO)
+			name := jsonO[0]["name"].(string)
+
+			in.WriteString(`{"button":0, "name": "` + name + `"}`)
+			m.AssertClicked()
 			in.ShouldError(errors.New("something"))
 		}, "on stdin error")
 
