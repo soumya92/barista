@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/notifier"
 	"barista.run/base/value"
 	l "barista.run/logging"
 	"barista.run/outputs"
@@ -89,10 +90,11 @@ type Provider interface {
 
 // Module represents a bar.Module that displays weather information.
 type Module struct {
-	provider       Provider
-	scheduler      *timing.Scheduler
-	outputFunc     value.Value // of func(Weather) bar.Output
-	currentWeather value.Value // of Weather
+	provider   Provider
+	scheduler  *timing.Scheduler
+	refreshFn  func()
+	refreshCh  <-chan struct{}
+	outputFunc value.Value // of func(Weather) bar.Output
 }
 
 // New constructs an instance of the weather module with the provided configuration.
@@ -101,7 +103,8 @@ func New(provider Provider) *Module {
 		provider:  provider,
 		scheduler: timing.NewScheduler(),
 	}
-	l.Register(m, "outputFunc", "clickHandler", "currentWeather", "scheduler")
+	m.refreshFn, m.refreshCh = notifier.New()
+	l.Register(m, "outputFunc", "clickHandler", "scheduler")
 	// Default output is just the temperature and conditions.
 	m.Output(func(w Weather) bar.Output {
 		return outputs.Textf("%.1f℃ %s (%s)",
@@ -123,6 +126,11 @@ func (m *Module) RefreshInterval(interval time.Duration) *Module {
 	return m
 }
 
+// Refresh fetches updated weather information.
+func (m *Module) Refresh() {
+	m.refreshFn()
+}
+
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	weather, err := m.provider.GetWeather()
@@ -130,15 +138,18 @@ func (m *Module) Stream(s bar.Sink) {
 	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 	for {
-		if s.Error(err) {
-			return
+		if !s.Error(err) {
+			s.Output(outputFunc(weather))
 		}
-		m.currentWeather.Set(weather)
-		s.Output(outputFunc(weather))
 		select {
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Weather) bar.Output)
 		case <-m.scheduler.C:
+			weather, err = m.provider.GetWeather()
+		case <-m.refreshCh:
+			if err != nil {
+				s(nil)
+			}
 			weather, err = m.provider.GetWeather()
 		}
 	}

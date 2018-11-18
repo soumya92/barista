@@ -69,4 +69,15 @@ func TestWeather(t *testing.T) {
 
 	testBar.Tick()
 	testBar.NextOutput().AssertError("on tick with error")
+
+	testBar.Tick()
+	out := testBar.NextOutput("on tick with error")
+
+	p.Lock()
+	p.error = nil
+	out.At(0).LeftClick()
+	testBar.NextOutput().AssertEmpty("clears error on refresh")
+
+	p.Unlock()
+	testBar.NextOutput().AssertText([]string{"72, by FLDSMDFR"})
 }
