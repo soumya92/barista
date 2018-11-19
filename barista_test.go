@@ -401,6 +401,7 @@ func TestClickEvents(t *testing.T) {
 	module2.AssertClicked("events are received after the weird name")
 
 	module1.Close()
+	readOutput(t, mockStdout)
 
 	mockStdin.WriteString(fmt.Sprintf("{\"name\": \"%s\"},", module2Name))
 	module2.AssertClicked()
