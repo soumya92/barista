@@ -119,17 +119,13 @@ func TestRestartingModule(t *testing.T) {
 	m.Close()
 	out := NextOutput()
 
-	require.Panics(t, func() { m.OutputText("bar") },
-		"module is not streaming")
-
 	// Exited with an error, so left click will restart,
 	out.At(0).LeftClick()
 	// and clear the error'd segment.
 	NextOutput().AssertText([]string{})
 
 	m.AssertStarted()
-	require.NotPanics(t, func() { m.OutputText("baz") },
-		"module has restarted")
+	m.OutputText("baz")
 	NextOutput().AssertText([]string{"baz"})
 }
 

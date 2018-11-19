@@ -41,16 +41,12 @@ func finishedWithin(f func(), timeout time.Duration) bool {
 }
 
 func TestSimple(t *testing.T) {
-	positiveTimeout = time.Second
 	m := New(t).SkipClickHandlers()
 	m.AssertNotStarted("Initially not started")
 	initialOutput := outputs.Text("hello")
-	require.Panics(t, func() { m.Output(initialOutput) },
-		"Panics when output without stream")
 	ch, s := sink.New()
 	go m.Stream(s)
 	m.AssertStarted("Started when streaming starts")
-	require.Panics(t, func() { m.Stream(sink.Null()) }, "Panics when streamed again")
 	require.True(t,
 		finishedWithin(func() { m.Output(initialOutput) }, time.Second),
 		"Output does not block")
@@ -71,8 +67,27 @@ func TestSimple(t *testing.T) {
 		"Read from channel blocks when no output")
 }
 
+func TestErrors(t *testing.T) {
+	initialOutput := outputs.Text("hello")
+	var m *TestModule
+
+	fail.Setup(func(t *testing.T) {
+		m = New(t).SkipClickHandlers()
+		m.AssertNotStarted("Initially not started")
+	}).AssertFails(t, func(*testing.T) {
+		m.Output(initialOutput)
+	}, "output without stream")
+
+	fail.Setup(func(t *testing.T) {
+		m = New(t).SkipClickHandlers()
+		go m.Stream(sink.Null())
+		m.AssertStarted()
+	}).AssertFails(t, func(*testing.T) {
+		m.Stream(sink.Null())
+	}, "when streamed again")
+}
+
 func TestOutputBuffer(t *testing.T) {
-	positiveTimeout = time.Second
 	m := New(t).SkipClickHandlers()
 	out1 := outputs.Text("1")
 	out2 := outputs.Text("2")
@@ -92,7 +107,6 @@ func TestOutputBuffer(t *testing.T) {
 }
 
 func TestClick(t *testing.T) {
-	positiveTimeout = time.Second
 	ch, s := sink.New()
 
 	m := New(t)
@@ -118,6 +132,7 @@ func TestClick(t *testing.T) {
 	m.AssertNotClicked("no extra events")
 
 	positiveTimeout = 10 * time.Millisecond
+	defer func() { positiveTimeout = time.Second }()
 	fail.AssertFails(t, func(fakeT *testing.T) {
 		m = New(fakeT)
 		m.AssertClicked("fails when not started")
@@ -142,15 +157,29 @@ func TestClick(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	m := New(t)
+	var m *TestModule
+	fail.Setup(func(t *testing.T) {
+		m = New(t)
+		go m.Stream(sink.Null())
+		m.AssertStarted()
+	}).AssertFails(t, func(*testing.T) {
+		m.Stream(sink.Null())
+	}, "already streaming")
+
+	fail.Setup(func(t *testing.T) {
+		m = New(t)
+		go m.Stream(sink.Null())
+		m.AssertStarted()
+		m.Close()
+	}).AssertFails(t, func(*testing.T) {
+		m.OutputText("foo")
+	}, "output after close")
+
+	m = New(t)
 	go m.Stream(sink.Null())
 	m.AssertStarted()
-
-	require.Panics(t, func() { m.Stream(sink.Null()) },
-		"already streaming")
 	m.Close()
-	require.Panics(t, func() { m.OutputText("foo") },
-		"output after close")
+
 	require.NotPanics(t, func() { go m.Stream(sink.Null()) },
 		"after closing module")
 	m.AssertStarted()
@@ -159,8 +188,6 @@ func TestClose(t *testing.T) {
 }
 
 func TestStarted(t *testing.T) {
-	positiveTimeout = time.Second
-
 	m := New(t)
 	go m.Stream(sink.Null())
 	require.True(t, finishedWithin(func() { m.AssertStarted() }, time.Second),
@@ -183,6 +210,7 @@ func TestStarted(t *testing.T) {
 		"AssertStarted after streaming")
 
 	positiveTimeout = 10 * time.Millisecond
+	defer func() { positiveTimeout = time.Second }()
 	fail.AssertFails(t, func(fakeT *testing.T) {
 		m3 := New(fakeT)
 		require.False(t, fakeT.Failed())

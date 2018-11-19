@@ -16,7 +16,6 @@
 package module // import "barista.run/testing/module"
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -59,7 +58,7 @@ func (t *TestModule) Stream(sink bar.Sink) {
 	t.Lock()
 	if t.started {
 		t.Unlock()
-		panic("already streaming!")
+		t.require.Fail("already streaming!")
 	}
 	outs := make(chan bar.Output, 100)
 	t.outputs = outs
@@ -78,6 +77,9 @@ func (t *TestModule) Stream(sink bar.Sink) {
 			out = outputs.Group(out).OnClick(func(e bar.Event) {
 				t.Lock()
 				defer t.Unlock()
+				if t.events == nil {
+					t.require.Fail("not streaming!", "tried to click: %+#v", e)
+				}
 				t.events <- e
 			})
 		}
@@ -109,7 +111,7 @@ func (t *TestModule) Output(out bar.Output) {
 	t.Lock()
 	defer t.Unlock()
 	if !t.started {
-		panic(fmt.Sprintf("not streaming! (tried to output: %+#v)", out))
+		t.require.Fail("not streaming!", "tried to output: %+#v", out)
 	}
 	t.outputs <- out
 }
