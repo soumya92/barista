@@ -23,6 +23,7 @@ import (
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
 	"barista.run/timing"
+	"golang.org/x/time/rate"
 
 	"github.com/godbus/dbus"
 	"github.com/stretchr/testify/require"
@@ -38,6 +39,9 @@ type methodCall struct {
 }
 
 func TestMedia(t *testing.T) {
+	// To allow -count >1 to work.
+	seekLimiter = rate.NewLimiter(rate.Every(50*time.Millisecond), 1)
+
 	testBar.New(t)
 	bus := dbusWatcher.SetupTestBus()
 	srv := bus.RegisterService("org.mpris.MediaPlayer2.testplayer")
