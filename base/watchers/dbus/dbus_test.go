@@ -17,6 +17,7 @@ package dbus
 import (
 	"errors"
 	"os"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,6 +28,9 @@ func TestBusTypes(t *testing.T) {
 	if os.Getenv("CI") != "true" {
 		require.NotPanics(t, func() { System() }, "system bus")
 	}
+
+	// To allow -count > 1 tests.
+	testBusInstance = atomic.Value{}
 
 	require.Panics(t, func() { Test() }, "test bus before setup")
 	SetupTestBus()
