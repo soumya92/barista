@@ -205,7 +205,18 @@ func (t *testBusConnection) shouldSignal(name string, sender string, path dbus.O
 // one or more well-known names.
 func (t *TestBus) RegisterService(names ...string) *TestBusService {
 	t.mu.Lock()
-	defer t.mu.Unlock()
+	svc, ownerChanges := t.registerServiceLocked(names...)
+	busObj := t.busObj
+	t.mu.Unlock()
+	if busObj != nil {
+		for n, chg := range ownerChanges {
+			busObj.Emit(nameOwnerChanged.String(), n, chg[0], chg[1])
+		}
+	}
+	return svc
+}
+
+func (t *TestBus) registerServiceLocked(names ...string) (service *TestBusService, ownerChanges map[string][2]string) {
 	id := fmt.Sprintf(":%d", t.nextID)
 	t.nextID++
 	nameMap := map[string]bool{}
@@ -216,6 +227,7 @@ func (t *TestBus) RegisterService(names ...string) *TestBusService {
 		bus: t, id: id, names: nameMap,
 		objects: map[dbus.ObjectPath]*testBusObject{},
 	}
+	ownerChanges = map[string][2]string{}
 	for n := range nameMap {
 		oldOwner := ""
 		if prev := t.services[n]; prev != nil {
@@ -225,11 +237,9 @@ func (t *TestBus) RegisterService(names ...string) *TestBusService {
 			prev.mu.Unlock()
 		}
 		t.services[n] = svc
-		if t.busObj != nil {
-			go t.busObj.Emit(nameOwnerChanged.String(), n, oldOwner, id)
-		}
+		ownerChanges[n] = [2]string{oldOwner, id}
 	}
-	return svc
+	return svc, ownerChanges
 }
 
 func checkSignalCondition(key, value string, sender string, path dbus.ObjectPath, args []interface{}) bool {

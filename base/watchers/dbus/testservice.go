@@ -35,11 +35,20 @@ type TestBusService struct {
 // AddName registers the service for the given well-known name.
 func (t *TestBusService) AddName(name string) {
 	t.bus.mu.Lock()
-	defer t.bus.mu.Unlock()
 	t.mu.Lock()
-	defer t.mu.Unlock()
+	oldOwner, ok := t.addNameLocked(name)
+	busObj := t.bus.busObj
+	t.mu.Unlock()
+	t.bus.mu.Unlock()
+	if ok {
+		busObj.Emit(nameOwnerChanged.String(), name, oldOwner, t.id)
+	}
+}
+
+func (t *TestBusService) addNameLocked(name string) (string, bool) {
 	if t.names[name] {
-		return // otherwise deadlock trying to remove name from previous owner.
+		// Prevent deadlock trying to remove name from previous owner (self).
+		return "", false
 	}
 	oldOwner := ""
 	if prev := t.bus.services[name]; prev != nil {
@@ -50,21 +59,29 @@ func (t *TestBusService) AddName(name string) {
 	}
 	t.bus.services[name] = t
 	t.names[name] = true
-	go t.bus.busObj.Emit(nameOwnerChanged.String(), name, oldOwner, t.id)
+	return oldOwner, true
 }
 
 // RemoveName unregisters the service for the given well-known name.
 func (t *TestBusService) RemoveName(name string) {
 	t.bus.mu.Lock()
-	defer t.bus.mu.Unlock()
 	t.mu.Lock()
-	defer t.mu.Unlock()
+	ok := t.removeNameLocked(name)
+	busObj := t.bus.busObj
+	t.mu.Unlock()
+	t.bus.mu.Unlock()
+	if ok {
+		busObj.Emit(nameOwnerChanged.String(), name, t.id, "")
+	}
+}
+
+func (t *TestBusService) removeNameLocked(name string) bool {
 	if !t.names[name] {
-		return
+		return false
 	}
 	delete(t.bus.services, name)
 	delete(t.names, name)
-	go t.bus.busObj.Emit(nameOwnerChanged.String(), name, t.id, "")
+	return true
 }
 
 // Unregister unregisters the service from the bus completely. The service and
@@ -74,16 +91,26 @@ func (t *TestBusService) Unregister() {
 		panic("Unregistering already unregistered service")
 	}
 	t.bus.mu.Lock()
-	defer t.bus.mu.Unlock()
 	t.mu.Lock()
-	defer t.mu.Unlock()
+	id, names := t.unregisterLocked()
+	busObj := t.bus.busObj
+	t.mu.Unlock()
+	t.bus.mu.Unlock()
+	for _, n := range names {
+		busObj.Emit(nameOwnerChanged.String(), n, id, "")
+	}
+}
+
+func (t *TestBusService) unregisterLocked() (id string, names []string) {
 	for n := range t.names {
 		delete(t.bus.services, n)
-		go t.bus.busObj.Emit(nameOwnerChanged.String(), n, t.id, "")
+		names = append(names, n)
 	}
+	id = t.id
 	t.id = ""
 	t.names = nil
 	t.objects = nil
+	return id, names
 }
 
 // checkRegistered panics if the service has been unregistered.

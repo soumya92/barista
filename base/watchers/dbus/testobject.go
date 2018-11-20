@@ -199,22 +199,21 @@ func (t *TestBusObject) SetProperties(props map[string]interface{}, signalType S
 	for k, v := range props {
 		t.props[expand(t.dest, k)] = v
 	}
+	chg := map[string]dbus.Variant{}
+	inv := []string{}
 	switch signalType {
 	case SignalTypeNone:
 		return
 	case SignalTypeInvalidated:
-		inv := []string{}
 		for k := range props {
 			inv = append(inv, expand(t.dest, k))
 		}
-		go t.Emit(propsChanged.String(), t.dest, map[string]dbus.Variant{}, inv)
 	case SignalTypeChanged:
-		sig := map[string]dbus.Variant{}
 		for k, v := range props {
-			sig[expand(t.dest, k)] = dbus.MakeVariant(v)
+			chg[expand(t.dest, k)] = dbus.MakeVariant(v)
 		}
-		go t.Emit(propsChanged.String(), t.dest, sig, []string{})
 	}
+	go t.Emit(propsChanged.String(), t.dest, chg, inv)
 }
 
 // On sets up a function to be called when the given named method is invoked,
