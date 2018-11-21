@@ -68,4 +68,7 @@ data := process(raw)
 ev.Set(data)
 ```
 
+* `SetOrError(interface{}, error) bool`: Combines `Set(interface{})` and `Error(error) bool`.
+  Primarily useful for directly using the return values from functions that return `(value, error)`.
+
 * `Next()` and `Subscribe()`: Same as `Value`.
