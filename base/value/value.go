@@ -118,3 +118,13 @@ func (e *ErrorValue) Error(err error) bool {
 	e.v.Set(valueOrErr{err: err})
 	return true
 }
+
+// SetOrError combines Set and Error. It sets the error value and returns true
+// if err is non-nil, otherwise it clears the error and sets the given value.
+func (e *ErrorValue) SetOrError(val interface{}, err error) bool {
+	if err != nil {
+		return e.Error(err)
+	}
+	e.Set(val)
+	return false
+}

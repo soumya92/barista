@@ -161,6 +161,18 @@ func TestErrorValue(t *testing.T) {
 	val, err = v.Get()
 	require.NoError(err, "After Error(nil)")
 	require.Equal("...", val, "Value unchanged after Error(nil)")
+
+	require.False(v.SetOrError("foo", nil),
+		"SetOrError returns false for nil error")
+	val, err = v.Get()
+	require.NoError(err, "After SetOrError(..., nil)")
+	require.Equal("foo", val, "Value from SetOrError is set")
+
+	require.True(v.SetOrError("bar", fmt.Errorf("something")),
+		"SetOrError returns true for non-nil error")
+	val, err = v.Get()
+	require.Nil(val, "Nil value after SetOrError(..., error)")
+	require.Error(err)
 }
 
 func TestErrorValueSubscription(t *testing.T) {
