@@ -36,7 +36,6 @@ type alsaModule struct {
 }
 
 type alsaController struct {
-	*value.ErrorValue
 	elem *C.snd_mixer_elem_t
 }
 
@@ -63,32 +62,22 @@ func DefaultMixer() *Module {
 	return Mixer("default", "Master")
 }
 
-func (c alsaController) setVolume(cur Volume, newVol int64) error {
-	err := alsaError(
+func (c alsaController) setVolume(newVol int64) error {
+	return alsaError(
 		C.snd_mixer_selem_set_playback_volume_all(c.elem, C.long(newVol)),
 		"snd_mixer_selem_set_playback_volume_all")
-	if err == nil {
-		cur.Vol = newVol
-		c.Set(cur)
-	}
-	return err
 }
 
-func (c alsaController) setMuted(cur Volume, muted bool) error {
+func (c alsaController) setMuted(muted bool) error {
 	var muteInt C.int
 	if muted {
 		muteInt = C.int(0)
 	} else {
 		muteInt = C.int(1)
 	}
-	err := alsaError(
+	return alsaError(
 		C.snd_mixer_selem_set_playback_switch_all(c.elem, muteInt),
 		"snd_mixer_selem_set_playback_switch_all")
-	if err == nil {
-		cur.Mute = muted
-		c.Set(cur)
-	}
-	return err
 }
 
 // worker waits for signals from alsa and updates the stored volume.
@@ -144,7 +133,7 @@ func (m *alsaModule) worker(s *value.ErrorValue) {
 			Max:        int64(max),
 			Vol:        int64(vol),
 			Mute:       (int(mute) == 0),
-			controller: alsaController{s, elem},
+			controller: alsaController{elem},
 		})
 		errCode := C.snd_mixer_wait(handle, -1)
 		// 4 == Interrupted system call, try again.

@@ -94,7 +94,7 @@ func DefaultSink() *Module {
 	return Sink("")
 }
 
-func (c *paController) setVolume(_ Volume, newVol int64) error {
+func (c *paController) setVolume(newVol int64) error {
 	return c.sink.Call(
 		"org.freedesktop.DBus.Properties.Set",
 		0,
@@ -104,7 +104,7 @@ func (c *paController) setVolume(_ Volume, newVol int64) error {
 	).Err
 }
 
-func (c *paController) setMuted(_ Volume, muted bool) error {
+func (c *paController) setMuted(muted bool) error {
 	return c.sink.Call(
 		"org.freedesktop.DBus.Properties.Set",
 		0,

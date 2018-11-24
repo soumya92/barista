@@ -39,6 +39,7 @@ type Volume struct {
 	Min, Max, Vol int64
 	Mute          bool
 	controller    controller
+	update        func(Volume)
 }
 
 // Frac returns the current volume as a fraction of the total range.
@@ -63,9 +64,12 @@ func (v Volume) SetVolume(volume int64) {
 	if volume == v.Vol {
 		return
 	}
-	if err := v.controller.setVolume(v, volume); err != nil {
+	if err := v.controller.setVolume(volume); err != nil {
 		l.Log("Error updating volume: %v", err)
+		return
 	}
+	v.Vol = volume
+	v.update(v)
 }
 
 // SetMuted controls whether the system volume is muted.
@@ -73,14 +77,17 @@ func (v Volume) SetMuted(muted bool) {
 	if v.Mute == muted {
 		return
 	}
-	if err := v.controller.setMuted(v, muted); err != nil {
+	if err := v.controller.setMuted(muted); err != nil {
 		l.Log("Error updating mute state: %v", err)
+		return
 	}
+	v.Mute = muted
+	v.update(v)
 }
 
 type controller interface {
-	setVolume(Volume, int64) error
-	setMuted(Volume, bool) error
+	setVolume(int64) error
+	setMuted(bool) error
 }
 
 // Interface that must be implemented by individual volume implementations.
@@ -147,9 +154,10 @@ func (m *Module) Stream(s bar.Sink) {
 		if s.Error(err) {
 			return
 		}
-		if vol, ok := v.(Volume); ok {
-			s.Output(outputs.Group(outputFunc(vol)).
-				OnClick(defaultClickHandler(vol)))
+		if volume, ok := v.(Volume); ok {
+			volume.update = func(v Volume) { vol.Set(v) }
+			s.Output(outputs.Group(outputFunc(volume)).
+				OnClick(defaultClickHandler(volume)))
 		}
 		select {
 		case <-nextV:
