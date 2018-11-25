@@ -50,19 +50,19 @@ func TestCputemp(t *testing.T) {
 	shouldReturn("48800", "22200")
 
 	temp0 := New()
-	temp1 := Zone("thermal_zone1")
-	temp2 := Zone("thermal_zone2")
-	testBar.Run(temp0, temp1, temp2)
-	testBar.LatestOutput().Expect("on start")
-
-	temp1.Output(func(t unit.Temperature) bar.Output {
+	temp1 := Zone("thermal_zone1").Output(func(t unit.Temperature) bar.Output {
 		return outputs.Textf("%.0f", t.Fahrenheit())
 	})
-	temp2.Output(func(t unit.Temperature) bar.Output {
+	temp2 := Zone("thermal_zone2").Output(func(t unit.Temperature) bar.Output {
 		return outputs.Textf("%.0f", t.Kelvin())
 	})
 
-	out := testBar.LatestOutput(1) // 2 has an error.
+	testBar.Run(temp0, temp1, temp2)
+	testBar.NextOutput("first module")
+	testBar.NextOutput("second module")
+	testBar.NextOutput("third module")
+
+	out := testBar.NextOutput("on start, error handlers setup")
 	out.At(0).AssertText("48.8℃", "on start")
 	out.At(1).AssertText("72", "on start")
 	out.At(2).AssertError("on start with invalid zone")
