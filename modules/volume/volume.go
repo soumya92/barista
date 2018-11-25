@@ -16,13 +16,6 @@
 // to display and control the system volume.
 package volume // import "barista.run/modules/volume"
 
-/*
-  #cgo pkg-config: alsa
-  #include <alsa/asoundlib.h>
-  #include <alsa/mixer.h>
-  #include <stdlib.h>
-*/
-import "C"
 import (
 	"time"
 
