@@ -59,9 +59,9 @@ func (c *Config) IncludeFlightCat() *Config {
 	return c
 }
 
-// Provider wraps an ADDS XML url and configuration
+// provider wraps an ADDS XML url and configuration
 // so that it can be used as a weather.Provider.
-type Provider struct {
+type provider struct {
 	url              string
 	stripRemarks     bool
 	includeFlightCat bool
@@ -84,7 +84,7 @@ func (c *Config) Build() weather.Provider {
 	q.Set("mostRecent", "true")
 	u.RawQuery = q.Encode()
 
-	return Provider{
+	return &provider{
 		url:              u.String(),
 		stripRemarks:     c.stripRemarks,
 		includeFlightCat: c.includeFlightCat,
@@ -136,7 +136,7 @@ func satVaporPressure(temp float64) float64 {
 
 // See also: http://andrew.rsmas.miami.edu/bmcnoldy/Humidity.html
 func relativeHumidity(temp float64, dewpoint float64) float64 {
-	return 100 * (satVaporPressure(dewpoint) / satVaporPressure(temp))
+	return satVaporPressure(dewpoint) / satVaporPressure(temp)
 }
 
 var remarksPattern = regexp.MustCompile(` RMK (.*)$`)
@@ -295,7 +295,7 @@ func (m metar) getCondition() weather.Condition {
 }
 
 // GetWeather gets weather information from NOAA ADDS.
-func (p Provider) GetWeather() (weather.Weather, error) {
+func (p *provider) GetWeather() (weather.Weather, error) {
 	response, err := http.Get(p.url)
 	if err != nil {
 		return weather.Weather{}, err
