@@ -24,7 +24,8 @@ import (
 )
 
 func TestSingleNameOwnerWatch(t *testing.T) {
-	s := SetupTestBus().RegisterService()
+	bus := SetupTestBus()
+	s := bus.RegisterService()
 
 	w := WatchNameOwner(Test, "org.i3barista.test.Service")
 	defer w.Unsubscribe()
@@ -45,10 +46,15 @@ func TestSingleNameOwnerWatch(t *testing.T) {
 	notifier.AssertNoUpdate(t, w2.C, "on start")
 	require.NotEmpty(t, w2.GetOwner(), "has owner on start")
 
+	// Need to make sure the listen() goroutine has started.
+	s1 := bus.RegisterService("org.i3barista.test.Service")
+	notifier.AssertNotified(t, w.C, "new owner")
+	notifier.AssertNotified(t, w2.C, "new owner")
+
 	w2.Unsubscribe()
 	notifier.AssertNoUpdate(t, w2.C, "on unsubscribe")
 
-	s.Unregister()
+	s1.Unregister()
 	notifier.AssertNotified(t, w.C, "name released")
 	notifier.AssertNoUpdate(t, w2.C, "after unsubscribe")
 
