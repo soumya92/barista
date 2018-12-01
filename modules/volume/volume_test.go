@@ -104,6 +104,8 @@ func TestModule(t *testing.T) {
 	out.At(0).LeftClick()
 	testBar.AssertNoOutput("click within 20ms")
 
+	oldRateLimiter := rateLimiter
+	defer func() { rateLimiter = oldRateLimiter }()
 	// To speed up the tests.
 	rateLimiter = rate.NewLimiter(rate.Inf, 0)
 
