@@ -26,7 +26,7 @@ import (
 )
 
 // Time to wait for events that are expected. Overridden in tests.
-var positiveTimeout = time.Second
+var positiveTimeout = 10 * time.Second
 
 // Time to wait for events that are not expected.
 var negativeTimeout = 10 * time.Millisecond

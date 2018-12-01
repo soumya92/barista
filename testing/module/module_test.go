@@ -131,8 +131,10 @@ func TestClick(t *testing.T) {
 	require.Equal(t, evt3, evt, "new events received")
 	m.AssertNotClicked("no extra events")
 
+	oldTimeout := positiveTimeout
+	defer func() { positiveTimeout = oldTimeout }()
 	positiveTimeout = 10 * time.Millisecond
-	defer func() { positiveTimeout = time.Second }()
+
 	fail.AssertFails(t, func(fakeT *testing.T) {
 		m = New(fakeT)
 		m.AssertClicked("fails when not started")
@@ -209,8 +211,10 @@ func TestStarted(t *testing.T) {
 		finishedWithin(func() { <-doneChan }, time.Second),
 		"AssertStarted after streaming")
 
+	oldTimeout := positiveTimeout
+	defer func() { positiveTimeout = oldTimeout }()
 	positiveTimeout = 10 * time.Millisecond
-	defer func() { positiveTimeout = time.Second }()
+
 	fail.AssertFails(t, func(fakeT *testing.T) {
 		m3 := New(fakeT)
 		require.False(t, fakeT.Failed())

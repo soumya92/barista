@@ -167,8 +167,10 @@ func TestTick(t *testing.T) {
 }
 
 func assertFails(t *testing.T, testFunc func(*module.TestModule), args ...interface{}) {
+	oldTimeout := positiveTimeout
+	defer func() { positiveTimeout = oldTimeout }()
 	positiveTimeout = 10 * time.Millisecond
-	defer func() { positiveTimeout = time.Second }()
+
 	m := module.New(t)
 
 	fail.Setup(func(fakeT *testing.T) {
