@@ -52,7 +52,14 @@ never be called.
 
 ## Now
 
-The `timing` package also provides `Now()`, with the same signature as `time.Now()`, useful for
-testing. (In fact, in non-test code, `timing.Now = time.Now`). When using `timing.TestMode()`, the
-value returned by `timing.Now()` will be consistent with how the schedulers are triggered. See the
-[timing tests](https://github.com/soumya92/barista/blob/master/timing/testmode_test.go) for examples.
+The `timing` package also provides `Now()`, with the same signature as `time.Now()`, but with a few
+barista-specific changes:
+
+- When using `timing.TestMode()`, the value returned by `timing.Now()` will be frozen until advanced
+  using `NextTick()` or `Advance...()`. The movement of test time is consistent with how schedulers
+  are triggered. See the [timing tests](https://github.com/soumya92/barista/blob/master/timing/testmode_test.go)
+  for examples.
+
+- The returned `time.Time` will try to be in the machine's local time zone, even if the zone has
+  changed since startup. This differs from `time.Now()`, which is pinned to the zone set when the
+  binary starts.
