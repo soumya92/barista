@@ -22,6 +22,7 @@ import (
 	"barista.run/bar"
 	"barista.run/base/value"
 	"barista.run/base/watchers/dbus"
+	"barista.run/base/watchers/localtz"
 	"barista.run/outputs"
 	"barista.run/timing"
 
@@ -172,7 +173,7 @@ func timeFromUsec(usecValue interface{}) time.Time {
 	}
 	sec := int64(usec / usecInSec)
 	usecOnly := int64(usec % usecInSec)
-	return time.Unix(sec, usecOnly*1000 /* nsec */)
+	return time.Unix(sec, usecOnly*1000 /* nsec */).In(localtz.Get())
 }
 
 func getUnitInfo(w *dbus.PropertiesWatcher) (UnitInfo, map[string]interface{}) {

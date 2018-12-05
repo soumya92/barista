@@ -28,8 +28,6 @@ import (
 
 func init() {
 	busType = dbus.Test
-	// TODO: This is hacky; test times properly.
-	time.Local = time.UTC
 }
 
 func TestService(t *testing.T) {

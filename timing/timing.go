@@ -32,11 +32,30 @@ the module with fresh information:
 This will automatically suspend processing when the bar is hidden.
 
 Modules should also use timing.Now() instead of time.Now() to control time
-during tests.
+during tests, as well as correctly track the machine's time zone.
 */
 package timing // import "barista.run/timing"
 
-import "time"
+import (
+	"time"
 
-// Now returns the current time.
-var Now = time.Now
+	"barista.run/base/watchers/localtz"
+)
+
+// Now returns the current time, in the machine's local time zone.
+//
+// IMPORTANT: This function differs from time.Now() in that the time zone can
+// change between invocations. Use timing.Now().Local() to get a consistent
+// zone, however note that the zone will be the machine's zone at the start
+// of the bar and may be out of date.
+func Now() time.Time {
+	mu.Lock()
+	defer mu.Unlock()
+	var now time.Time
+	if testMode {
+		now = testNow()
+	} else {
+		now = time.Now()
+	}
+	return now.In(localtz.Get())
+}

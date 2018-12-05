@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"barista.run/base/watchers/localtz"
 	l "barista.run/logging"
 )
 
@@ -52,10 +53,11 @@ func testNow() time.Time {
 func TestMode() {
 	reset(func() {
 		testMode = true
-		Now = testNow
 		// Set to non-zero time when entering test mode so that any IsZero
 		// checks don't unexpectedly pass.
 		nowInTest.Store(time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC))
+		// Also simplify tests by fixing the timezone.
+		localtz.SetForTest(time.UTC)
 	})
 }
 
@@ -64,7 +66,7 @@ func TestMode() {
 func ExitTestMode() {
 	reset(func() {
 		testMode = false
-		Now = time.Now
+		localtz.SetForTest(time.Local)
 	})
 }
 
