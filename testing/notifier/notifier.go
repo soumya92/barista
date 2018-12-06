@@ -24,7 +24,7 @@ import (
 )
 
 var positiveTimeout = 10 * time.Millisecond
-var negativeTimeout = time.Second
+var negativeTimeout = 10 * time.Second
 
 // AssertNotified asserts that the given channel received a notification.
 func AssertNotified(t *testing.T, ch <-chan struct{}, formatAndArgs ...interface{}) {
