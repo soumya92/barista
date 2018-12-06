@@ -18,7 +18,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -46,12 +45,6 @@ func assertNotified(t *testing.T, ch <-chan struct{}, formatAndArgs ...interface
 	}
 }
 
-func waitForStart(w *Watcher) {
-	for !atomic.CompareAndSwapInt32(&w.started, 1, 0) {
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
 func TestWatchOnExistingFile(t *testing.T) {
 	tempDir := testDir(t)
 	defer os.RemoveAll(tempDir)
@@ -60,7 +53,6 @@ func TestWatchOnExistingFile(t *testing.T) {
 
 	w := Watch(tmpFile)
 	defer w.Unsubscribe()
-	waitForStart(w)
 	notifier.AssertNoUpdate(t, w.Updates, "On start")
 
 	ioutil.WriteFile(tmpFile, []byte(`bar`), 0644)
@@ -78,7 +70,6 @@ func TestDeleteAndRecreate(t *testing.T) {
 
 	w := Watch(tmpFile)
 	defer w.Unsubscribe()
-	waitForStart(w)
 
 	os.Remove(tmpFile)
 	assertNotified(t, w.Updates, "On delete")
@@ -96,7 +87,6 @@ func TestSubdirectories(t *testing.T) {
 
 	w := Watch(target)
 	defer w.Unsubscribe()
-	waitForStart(w)
 	notifier.AssertNoUpdate(t, w.Updates, "on start with non-existent file")
 
 	ioutil.WriteFile(target, []byte(`foo`), 0644)
@@ -133,7 +123,6 @@ func TestStress(t *testing.T) {
 
 	w := Watch(target)
 	defer w.Unsubscribe()
-	waitForStart(w)
 
 	for i := 0; i < 1000; i++ {
 		os.MkdirAll(subdir, 0755)
@@ -182,7 +171,6 @@ func TestErrors(t *testing.T) {
 	w = Watch(subdir)
 	defer w.Unsubscribe()
 	notifier.AssertNoUpdate(t, w.Updates, "On start")
-	waitForStart(w)
 
 	os.RemoveAll(path.Join(tempDir, "foo"))
 	assertNotified(t, w.Updates, "On parent deletion")

@@ -48,8 +48,8 @@ type Watcher struct {
 	notifyFn func()
 	errorCh  chan error
 	done     int32 // atomic bool.
-	// For test synchronisation.
-	started int32 // atomic bool.
+	// For synchronisation.
+	started chan struct{}
 }
 
 // Unsubscribe stops listening for updates and frees any resources used.
@@ -77,20 +77,29 @@ func (w *Watcher) watchLoop() {
 	}
 }
 
+func (w *Watcher) markStarted() {
+	select {
+	case w.started <- struct{}{}:
+	default:
+	}
+}
+
 func (w *Watcher) tryWatch(restarted bool) error {
 	currentLvl := -1
 	for lvl, p := range w.hierarchy {
 		err := w.fswatcher.Add(p)
 		if err == nil {
 			currentLvl = lvl
-			l.Fine("Watch added for %s", p)
+			l.Fine("%s: Watch added for %s", l.ID(w), p)
 			break
 		} else if !os.IsNotExist(err) {
 			l.Log("%s: %v", l.ID(w), err)
+			w.markStarted()
 			return err
 		}
 	}
 	if currentLvl == -1 {
+		w.markStarted()
 		return fmt.Errorf("Unable to add file watch for any of %v", w.hierarchy)
 	}
 	if restarted {
@@ -98,7 +107,7 @@ func (w *Watcher) tryWatch(restarted bool) error {
 			w.notifyFn()
 		}
 	}
-	atomic.StoreInt32(&w.started, 1)
+	w.markStarted()
 	for {
 		select {
 		case event, ok := <-w.fswatcher.Events:
@@ -136,8 +145,8 @@ func (w *Watcher) tryWatch(restarted bool) error {
 					break
 				}
 				w.fswatcher.Remove(w.hierarchy[currentLvl])
-				l.Fine("Watch moved from %s -> %s",
-					w.hierarchy[currentLvl], w.hierarchy[newLvl])
+				l.Fine("%s: Watch moved from %s -> %s",
+					l.ID(w), w.hierarchy[currentLvl], w.hierarchy[newLvl])
 				currentLvl = newLvl
 				newLvl--
 			}
@@ -173,7 +182,9 @@ func Watch(filename string) *Watcher {
 		}
 	}
 	w.notifyFn, w.Updates = notifier.New()
+	w.started = make(chan struct{}, 1)
 	l.Register(w, "Updates", "Errors")
 	go w.watchLoop()
+	<-w.started
 	return w
 }
