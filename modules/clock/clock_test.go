@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"barista.run/bar"
+	"barista.run/base/watchers/localtz"
 	"barista.run/outputs"
 	testBar "barista.run/testing/bar"
 	"barista.run/timing"
@@ -26,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var fixedTime = time.Date(2017, time.March, 1, 0, 0, 0, 0, time.Local)
+var fixedTime = time.Date(2017, time.March, 1, 0, 0, 0, 0, time.UTC)
 
 func TestSimpleTicking(t *testing.T) {
 	testBar.New(t)
@@ -150,19 +151,26 @@ func TestZones(t *testing.T) {
 	require.NoError(t, err)
 	tokyo.OutputFormat("15:04:05")
 
-	testBar.Run(pst, berlin, tokyo)
+	local := Local().OutputFormat("15:04:05")
+
+	testBar.Run(pst, berlin, tokyo, local)
 
 	_, err = ZoneByName("Global/Unknown")
 	require.Error(t, err, "when loading unknown zone")
 
 	testBar.LatestOutput().AssertText(
-		[]string{"05:15:00", "14:15:00", "22:15:00"},
+		[]string{"05:15:00", "14:15:00", "22:15:00", "13:15:00"},
 		"on start")
 
 	timing.NextTick()
 	testBar.LatestOutput().AssertText(
-		[]string{"05:15:01", "14:15:01", "22:15:01"},
+		[]string{"05:15:01", "14:15:01", "22:15:01", "13:15:01"},
 		"on tick")
+
+	tok, _ := time.LoadLocation("Asia/Tokyo")
+	localtz.SetForTest(tok)
+	testBar.NextOutput(3).At(3).AssertText("22:15:01",
+		"on local time zone change")
 
 	berlin.Timezone(la)
 	testBar.LatestOutput(1).At(1).AssertText(

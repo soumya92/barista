@@ -21,6 +21,7 @@ import (
 
 	"barista.run/bar"
 	"barista.run/base/value"
+	"barista.run/base/watchers/localtz"
 	l "barista.run/logging"
 	"barista.run/outputs"
 	"barista.run/timing"
@@ -60,7 +61,7 @@ func Zone(timezone *time.Location) *Module {
 
 // Local constructs a clock module for the current machine's timezone.
 func Local() *Module {
-	return Zone(time.Local)
+	return Zone(nil)
 }
 
 // ZoneByName constructs a clock module for the given zone name,
@@ -123,17 +124,32 @@ func (m *Module) Timezone(timezone *time.Location) *Module {
 func (m *Module) Stream(s bar.Sink) {
 	sch := timing.NewScheduler()
 	l.Attach(m, sch, ".scheduler")
+
 	cfg := m.getConfig()
 	nextCfg, done := m.config.Subscribe()
 	defer done()
+
+	var tzChange <-chan struct{}
+
 	for {
 		now := timing.Now()
 		next := now.Add(cfg.granularity).Truncate(cfg.granularity)
 		sch.At(next)
-		s.Output(cfg.outputFunc(now.In(cfg.timezone)))
+
+		if cfg.timezone == nil {
+			if tzChange == nil {
+				tzChange = localtz.Next()
+			}
+		} else {
+			now = now.In(cfg.timezone)
+			tzChange = nil
+		}
+		s.Output(cfg.outputFunc(now))
 
 		select {
 		case <-sch.C:
+		case <-tzChange:
+			tzChange = nil
 		case <-nextCfg:
 			cfg = m.getConfig()
 		}
