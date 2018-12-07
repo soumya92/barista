@@ -42,9 +42,9 @@ type Scheduler struct {
 	waiting  int32 // basically bool, but we need atomics.
 
 	// For test mode
-	testMode  bool
-	startTime time.Time
-	interval  time.Duration
+	testModeID uint32
+	startTime  time.Time
+	interval   time.Duration
 }
 
 var (
@@ -60,9 +60,15 @@ var (
 
 // NewScheduler creates a new scheduler.
 func NewScheduler() *Scheduler {
+	s := new(Scheduler)
 	mu.Lock()
-	s := &Scheduler{testMode: testMode}
+	inTestMode := testMode
 	mu.Unlock()
+	if inTestMode {
+		triggersMu.Lock()
+		s.testModeID = testModeID
+		triggersMu.Unlock()
+	}
 	s.notifyFn, s.C = notifier.New()
 	l.Register(s, "C")
 	return s
@@ -114,7 +120,7 @@ func (s *Scheduler) Tick() bool {
 // At sets the scheduler to trigger a specific time.
 // This will replace any pending triggers.
 func (s *Scheduler) At(when time.Time) *Scheduler {
-	if s.testMode {
+	if s.testModeID > 0 {
 		return s.testModeAt(when)
 	}
 	l.Fine("%s At(%v)", l.ID(s), when)
@@ -128,7 +134,7 @@ func (s *Scheduler) At(when time.Time) *Scheduler {
 // After sets the scheduler to trigger after a delay.
 // This will replace any pending triggers.
 func (s *Scheduler) After(delay time.Duration) *Scheduler {
-	if s.testMode {
+	if s.testModeID > 0 {
 		return s.testModeAfter(delay)
 	}
 	l.Fine("%s After(%v)", l.ID(s), delay)
@@ -145,7 +151,7 @@ func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 	if interval <= 0 {
 		panic(errors.New("non-positive interval for Scheduler#Every"))
 	}
-	if s.testMode {
+	if s.testModeID > 0 {
 		return s.testModeEvery(interval)
 	}
 	l.Fine("%s Every(%v)", l.ID(s), interval)
@@ -177,7 +183,7 @@ func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 
 // Stop cancels all further triggers for the scheduler.
 func (s *Scheduler) Stop() {
-	if s.testMode {
+	if s.testModeID > 0 {
 		s.testModeStop()
 		return
 	}

@@ -280,4 +280,19 @@ func TestTestModeReset(t *testing.T) {
 	require.Equal(t, startTime.Add(2*time.Minute), NextTick())
 	notifier.AssertNoUpdate(t, sch1.C, "previous scheduler is not triggered")
 	notifier.AssertNotified(t, sch2.C, "new scheduler is repeatedly triggered")
+
+	sch1.After(time.Millisecond)
+	require.Equal(t, startTime.Add(3*time.Minute), NextTick())
+	notifier.AssertNoUpdate(t, sch1.C, "previous scheduler is not triggered")
+	notifier.AssertNotified(t, sch2.C, "new scheduler is repeatedly triggered")
+
+	TestMode()
+	sch1 = NewScheduler().After(time.Minute)
+	sch2 = NewScheduler().Every(2 * time.Minute)
+
+	TestMode()
+	AdvanceBy(time.Hour)
+
+	notifier.AssertNoUpdate(t, sch1.C, "previous scheduler is not triggered")
+	notifier.AssertNoUpdate(t, sch2.C, "previous scheduler is not triggered")
 }

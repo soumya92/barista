@@ -43,6 +43,11 @@ var (
 // nowInTest tracks the current time in test mode.
 var nowInTest atomic.Value // of time.Time
 
+// testModeID tracks the test instance, to prevent test schedulers from crossing
+// test boundaries. Each call to TestMode() changes this ID, and any schedulers
+// with a different ID are ignored.
+var testModeID uint32
+
 func testNow() time.Time {
 	return nowInTest.Load().(time.Time)
 }
@@ -53,6 +58,7 @@ func testNow() time.Time {
 func TestMode() {
 	reset(func() {
 		testMode = true
+		testModeID++
 		// Set to non-zero time when entering test mode so that any IsZero
 		// checks don't unexpectedly pass.
 		nowInTest.Store(time.Date(2016, time.November, 25, 20, 47, 0, 0, time.UTC))
@@ -86,12 +92,12 @@ func (s *Scheduler) setNextTrigger(when time.Time) *Scheduler {
 	triggersMu.Lock()
 	defer triggersMu.Unlock()
 	for _, t := range triggers {
-		if t.what != s {
+		if t.what != s && t.what.testModeID == testModeID {
 			newTriggers = append(newTriggers, t)
 		}
 	}
 	triggers = newTriggers
-	if !when.IsZero() {
+	if !when.IsZero() && s.testModeID == testModeID {
 		triggers = append(triggers, trigger{s, when})
 	}
 	sort.Sort(triggers)
