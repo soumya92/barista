@@ -16,7 +16,7 @@
 Package fontawesome provides support for FontAwesome Icons
 from https://github.com/FortAwesome/Font-Awesome
 
-It uses scss/_variables.scss to get the list of icons,
+It uses metadata/icons.yml to get the list of icons,
 and requires fonts/fontawesome-webfont.ttf to be installed.
 */
 package fontawesome // import "barista.run/pango/icons/fontawesome"
@@ -41,7 +41,7 @@ var fs = afero.NewOsFs()
 
 // Load initialises the fontawesome icon provider from the given repo.
 func Load(repoPath string) error {
-	f, err := fs.Open(filepath.Join(repoPath, "advanced-options/metadata/icons.yml"))
+	f, err := fs.Open(filepath.Join(repoPath, "metadata/icons.yml"))
 	if err != nil {
 		return err
 	}

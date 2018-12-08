@@ -68,7 +68,7 @@ bad-icon:
 
 func TestValid(t *testing.T) {
 	fs = afero.NewMemMapFs()
-	afero.WriteFile(fs, "/src/fa/advanced-options/metadata/icons.yml", []byte(
+	afero.WriteFile(fs, "/src/fa/metadata/icons.yml", []byte(
 		`
 some-icon:
   styles:
