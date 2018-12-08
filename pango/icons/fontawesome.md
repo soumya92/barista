@@ -9,9 +9,9 @@ title: FontAwesome
 * Repository: [`https://github.com/FortAwesome/Font-Awesome`](https://github.com/FortAwesome/Font-Awesome)
 
 * Font files:
-  - `/use-on-desktop/Font Awesome 5 Free-Solid-900.otf`
-  - `/use-on-desktop/Font Awesome 5 Free-Regular-400.otf`
-  - `/use-on-desktop/Font Awesome 5 Brands-Regular-400.otf`
+  - `/otfs/Font Awesome 5 Free-Solid-900.otf`
+  - `/otfs/Font Awesome 5 Free-Regular-400.otf`
+  - `/otfs/Font Awesome 5 Brands-Regular-400.otf`
 
 * Icon search: [FontAwesome gallery](https://fontawesome.com/icons?d=gallery&m=free)
 

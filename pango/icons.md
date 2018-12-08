@@ -80,9 +80,9 @@ ln -s $PWD/MaterialDesign-Webfont/fonts/materialdesignicons-webfont.ttf ~/.fonts
 
 # FontAwesome
 git clone --depth 1 https://github.com/FortAwesome/Font-Awesome
-ln -s "$PWD/Font-Awesome/use-on-desktop/Font Awesome 5 Free-Solid-900.otf" ~/.fonts/
-ln -s "$PWD/Font-Awesome/use-on-desktop/Font Awesome 5 Free-Regular-400.otf" ~/.fonts/
-ln -s "$PWD/Font-Awesome/use-on-desktop/Font Awesome 5 Brands-Regular-400.otf" ~/.fonts/
+ln -s "$PWD/Font-Awesome/otfs/Font Awesome 5 Free-Solid-900.otf" ~/.fonts/
+ln -s "$PWD/Font-Awesome/otfs/Font Awesome 5 Free-Regular-400.otf" ~/.fonts/
+ln -s "$PWD/Font-Awesome/otfs/Font Awesome 5 Brands-Regular-400.otf" ~/.fonts/
 
 # Ionicons
 git clone --depth 1 https://github.com/ionic-team/ionicons
