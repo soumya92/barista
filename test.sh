@@ -34,7 +34,7 @@ go list ./... \
 | sed "s|_$PWD|.|" \
 | tac \
 | xargs -n1 -P$NPAR -IPKG sh -c \
-'go test -coverprofile=profiles/$(echo "PKG" | sed -e "s|./||" -e "s|/|_|g").out -race -covermode=atomic "PKG"'
+'go test -timeout 90s -coverprofile=profiles/$(echo "PKG" | sed -e "s|./||" -e "s|/|_|g").out -race -covermode=atomic "PKG"'
 
 echo "Test: Logging with -tags debuglog"
 # Debug log tests need the build tag, otherwise the nop versions will be used.
