@@ -16,18 +16,17 @@ package volume
 
 /*
   #cgo pkg-config: alsa
-  #include <alsa/asoundlib.h>
-  #include <alsa/mixer.h>
-  #include <stdlib.h>
+  #include <asoundlib.h>
 */
 import "C"
 import (
 	"fmt"
-	"unsafe"
 
 	"barista.run/base/value"
 	l "barista.run/logging"
 )
+
+//go:generate ruby capi.rb
 
 // ALSA implementation.
 type alsaModule struct {
@@ -36,11 +35,11 @@ type alsaModule struct {
 }
 
 type alsaController struct {
-	elem *C.snd_mixer_elem_t
+	elem *ctyp_snd_mixer_elem_t
 }
 
-func alsaError(result C.int, desc string) error {
-	if int(result) < 0 {
+func alsaError(result int32, desc string) error {
+	if result < 0 {
 		return fmt.Errorf("%s: %d", desc, result)
 	}
 	return nil
@@ -64,86 +63,80 @@ func DefaultMixer() *Module {
 
 func (c alsaController) setVolume(newVol int64) error {
 	return alsaError(
-		C.snd_mixer_selem_set_playback_volume_all(c.elem, C.long(newVol)),
+		alsa.snd_mixer_selem_set_playback_volume_all(c.elem, newVol),
 		"snd_mixer_selem_set_playback_volume_all")
 }
 
 func (c alsaController) setMuted(muted bool) error {
-	var muteInt C.int
+	var muteInt int32
 	if muted {
-		muteInt = C.int(0)
+		muteInt = 0
 	} else {
-		muteInt = C.int(1)
+		muteInt = 1
 	}
 	return alsaError(
-		C.snd_mixer_selem_set_playback_switch_all(c.elem, muteInt),
+		alsa.snd_mixer_selem_set_playback_switch_all(c.elem, muteInt),
 		"snd_mixer_selem_set_playback_switch_all")
 }
 
 // worker waits for signals from alsa and updates the stored volume.
 func (m *alsaModule) worker(s *value.ErrorValue) {
-	cardName := C.CString(m.cardName)
-	defer C.free(unsafe.Pointer(cardName))
-	mixerName := C.CString(m.mixerName)
-	defer C.free(unsafe.Pointer(mixerName))
 	// Structs for querying ALSA.
-	var handle *C.snd_mixer_t
-	var sid *C.snd_mixer_selem_id_t
+	var handle *ctyp_snd_mixer_t
+	var sid *ctyp_snd_mixer_selem_id_t
 	// Shortcut for error handling
-	var err = func(result C.int, desc string) bool {
+	var err = func(result int32, desc string) bool {
 		return s.Error(alsaError(result, desc))
 	}
-	// Set up query for master mixer.
-	if err(C.snd_mixer_selem_id_malloc(&sid), "snd_mixer_selem_id_malloc") {
+	if err(alsa.snd_mixer_selem_id_malloc(&sid), "snd_mixer_selem_id_malloc") {
 		return
 	}
-	defer C.snd_mixer_selem_id_free(sid)
-	C.snd_mixer_selem_id_set_index(sid, 0)
-	C.snd_mixer_selem_id_set_name(sid, mixerName)
+	defer alsa.snd_mixer_selem_id_free(sid)
+	alsa.snd_mixer_selem_id_set_index(sid, 0)
+	alsa.snd_mixer_selem_id_set_name(sid, m.mixerName)
 	// Connect to alsa
-	if err(C.snd_mixer_open(&handle, 0), "snd_mixer_open") {
+	if err(alsa.snd_mixer_open(&handle, 0), "snd_mixer_open") {
 		return
 	}
-	defer C.snd_mixer_close(handle)
-	if err(C.snd_mixer_attach(handle, cardName), "snd_mixer_attach") {
+	defer alsa.snd_mixer_close(handle)
+	if err(alsa.snd_mixer_attach(handle, m.cardName), "snd_mixer_attach") {
 		return
 	}
-	defer C.snd_mixer_detach(handle, cardName)
-	if err(C.snd_mixer_load(handle), "snd_mixer_load") {
+	defer alsa.snd_mixer_detach(handle, m.cardName)
+	if err(alsa.snd_mixer_load(handle), "snd_mixer_load") {
 		return
 	}
-	defer C.snd_mixer_free(handle)
-	if err(C.snd_mixer_selem_register(handle, nil, nil), "snd_mixer_selem_register") {
+	defer alsa.snd_mixer_free(handle)
+	if err(alsa.snd_mixer_selem_register(handle, nil, nil), "snd_mixer_selem_register") {
 		return
 	}
-	// Get master default thing
-	elem := C.snd_mixer_find_selem(handle, sid)
+	elem := alsa.snd_mixer_find_selem(handle, sid)
 	if elem == nil {
 		s.Error(fmt.Errorf("snd_mixer_find_selem NULL"))
 		return
 	}
-	var min, max, vol C.long
-	var mute C.int
-	C.snd_mixer_selem_get_playback_volume_range(elem, &min, &max)
+	var min, max, vol int64
+	var mute int32
+	alsa.snd_mixer_selem_get_playback_volume_range(elem, &min, &max)
 	for {
-		C.snd_mixer_selem_get_playback_volume(elem, C.SND_MIXER_SCHN_MONO, &vol)
-		C.snd_mixer_selem_get_playback_switch(elem, C.SND_MIXER_SCHN_MONO, &mute)
+		alsa.snd_mixer_selem_get_playback_volume(elem, C.SND_MIXER_SCHN_MONO, &vol)
+		alsa.snd_mixer_selem_get_playback_switch(elem, C.SND_MIXER_SCHN_MONO, &mute)
 		s.Set(Volume{
-			Min:        int64(min),
-			Max:        int64(max),
-			Vol:        int64(vol),
-			Mute:       (int(mute) == 0),
+			Min:        min,
+			Max:        max,
+			Vol:        vol,
+			Mute:       (mute == 0),
 			controller: alsaController{elem},
 		})
-		errCode := C.snd_mixer_wait(handle, -1)
+		errCode := alsa.snd_mixer_wait(handle, -1)
 		// 4 == Interrupted system call, try again.
-		for int(errCode) == -4 {
-			errCode = C.snd_mixer_wait(handle, -1)
+		for errCode == -4 {
+			errCode = alsa.snd_mixer_wait(handle, -1)
 		}
 		if err(errCode, "snd_mixer_wait") {
 			return
 		}
-		if err(C.snd_mixer_handle_events(handle), "snd_mixer_handle_events") {
+		if err(alsa.snd_mixer_handle_events(handle), "snd_mixer_handle_events") {
 			return
 		}
 	}
