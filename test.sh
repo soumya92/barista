@@ -40,6 +40,11 @@ echo "Test: Logging with -tags debuglog"
 # Debug log tests need the build tag, otherwise the nop versions will be used.
 go test -tags debuglog -coverprofile=profiles/logging_real.out -race -covermode=atomic barista.run/logging
 
+# Remove all _capi.go coverage since those will intentionally not be tested.
+for profile in profiles/*.out; do
+	perl -i -ne 'print unless /_capi\.go:/' "$profile"
+done
+
 # Merge all code coverage reports. Although codecov does something similar internally,
 # doing it here means that after running ./test.sh, you can run
 #     go tool cover -html=coverage.txt
