@@ -133,11 +133,11 @@ func defaultClickHandler(v Volume) func(bar.Event) {
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	var vol value.ErrorValue
-	go m.impl.worker(&vol)
 
 	v, err := vol.Get()
 	nextV, done := vol.Subscribe()
 	defer done()
+	go m.impl.worker(&vol)
 
 	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
 	nextOutputFunc, done := m.outputFunc.Subscribe()
