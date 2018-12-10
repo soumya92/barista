@@ -16,6 +16,7 @@ package modal
 
 import (
 	"testing"
+	"time"
 	"unicode"
 
 	"barista.run/bar"
@@ -23,6 +24,7 @@ import (
 	testBar "barista.run/testing/bar"
 	testModule "barista.run/testing/module"
 	"barista.run/testing/output"
+	"barista.run/timing"
 
 	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/stretchr/testify/require"
@@ -61,7 +63,7 @@ func TestModal(t *testing.T) {
 		m[key] = testModule.New(t)
 	}
 
-	modal := New()
+	modal := New().AutoReset(time.Minute)
 	modal.Mode("a").Detail(m["a0"], m["a1"]).Summary(m["A2"])
 	modal.Mode("b").Detail(m["b0"], m["b1"])
 	modal.Mode("c").Detail(m["c0"])
@@ -153,4 +155,38 @@ func TestModal(t *testing.T) {
 		"A2", "D0", "Ee0", "Ee1", "E2", "F1",
 		"a", "c", "d", "e", "custom",
 	}, "resets to no active mode")
+
+	ctrl.Activate("f")
+	latestOut = testBar.NextOutput("on controller mode activation")
+	latestOut.AssertText([]string{"f0", "f2", "a", "c", "d", "e", "custom"})
+
+	start := timing.Now()
+	require.Equal(t, start.Add(time.Minute), timing.NextTick(),
+		"Ticks on auto reset interval elapse")
+	latestOut = testBar.NextOutput("on controller reset")
+	latestOut.AssertText([]string{
+		"A2", "D0", "Ee0", "Ee1", "E2", "F1",
+		"a", "c", "d", "e", "custom",
+	}, "resets to no active mode")
+	require.Equal(t, "", ctrl.Current(), "Resets after auto-reset interval")
+
+	ctrl.Activate("c")
+	testBar.NextOutput("on mode switch")
+	require.Equal(t, "c", ctrl.Current())
+	start = timing.Now()
+	timing.AdvanceBy(30 * time.Second)
+	ctrl.AutoReset(time.Hour)
+	require.Equal(t, start.Add(time.Hour+30*time.Second), timing.NextTick(),
+		"Auto reset interval re-calculated on change")
+	testBar.NextOutput("on auto reset")
+	require.Equal(t, "", ctrl.Current())
+
+	ctrl.Activate("b")
+	testBar.NextOutput("on mode switch")
+	require.Equal(t, "b", ctrl.Current())
+	start = timing.Now()
+	ctrl.AutoReset(0)
+	require.Equal(t, start, timing.NextTick())
+	testBar.AssertNoOutput("With 0 autoreset interval")
+	require.Equal(t, "b", ctrl.Current())
 }

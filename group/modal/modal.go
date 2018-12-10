@@ -35,6 +35,7 @@ package modal // import "barista.run/group/modal"
 import (
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"barista.run/bar"
 	"barista.run/base/click"
@@ -43,6 +44,7 @@ import (
 	"barista.run/group"
 	l "barista.run/logging"
 	"barista.run/outputs"
+	"barista.run/timing"
 )
 
 const (
@@ -63,6 +65,8 @@ type Controller interface {
 	Toggle(string)
 	// Reset clears the active mode.
 	Reset()
+	// AutoReset automatically resets the active mode after a given duration.
+	AutoReset(time.Duration)
 	// SetOutput sets the output segment for a given mode. The default output
 	// is a plain text segment with the mode name.
 	SetOutput(string, *bar.Segment)
@@ -76,6 +80,9 @@ type grouper struct {
 	modeNames []string
 	output    map[string]*bar.Segment
 
+	autoReset time.Duration
+	resetter  *timing.Scheduler
+
 	sync.Mutex
 	notifyCh <-chan struct{}
 	notifyFn func()
@@ -87,6 +94,7 @@ type grouper struct {
 type Modal struct {
 	modes     map[string]*Mode
 	modeNames []string
+	autoReset time.Duration
 }
 
 // Mode represents a mode added to an existing modal group. It provides methods
@@ -100,6 +108,12 @@ type Mode struct {
 // New creates a new modal group.
 func New() *Modal {
 	return &Modal{modes: map[string]*Mode{}}
+}
+
+// AutoReset automatically resets the active mode after a given duration.
+func (m *Modal) AutoReset(interval time.Duration) *Modal {
+	m.autoReset = interval
+	return m
 }
 
 // Mode creates a new mode.
@@ -155,6 +169,8 @@ func (m *Modal) Build() (bar.Module, Controller) {
 		showWhen:  map[int]int{},
 		mode:      map[int]string{},
 		output:    map[string]*bar.Segment{},
+		resetter:  timing.NewScheduler(),
+		autoReset: m.autoReset,
 	}
 	modules := []bar.Module{}
 	for _, modeName := range m.modeNames {
@@ -171,6 +187,7 @@ func (m *Modal) Build() (bar.Module, Controller) {
 	}
 	g.current.Store("")
 	g.notifyFn, g.notifyCh = notifier.New()
+	go g.autoResetWorker()
 	return group.New(g, modules...), g
 }
 
@@ -242,12 +259,34 @@ func (g *grouper) Reset() {
 func (g *grouper) set(mode string) {
 	g.Lock()
 	defer g.Unlock()
+	if g.autoReset > 0 && mode != "" {
+		g.resetter.After(g.autoReset)
+	} else {
+		g.resetter.Stop()
+	}
 	if g.Current() == mode {
 		return
 	}
 	g.current.Store(mode)
 	l.Fine("%s switched to '%s'", l.ID(g), mode)
 	g.notifyFn()
+}
+
+func (g *grouper) AutoReset(interval time.Duration) {
+	g.Lock()
+	defer g.Unlock()
+	g.autoReset = interval
+	if interval == 0 {
+		g.resetter.Stop()
+	} else if g.Current() != "" {
+		g.resetter.After(interval)
+	}
+}
+
+func (g *grouper) autoResetWorker() {
+	for g.resetter.Tick() {
+		g.Reset()
+	}
 }
 
 func (g *grouper) SetOutput(mode string, segment *bar.Segment) {
