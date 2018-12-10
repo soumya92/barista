@@ -26,9 +26,10 @@ testing or wrapping existing modules.
 
 - `sink.Value()`
 
-  Returns a sink that stores the latest output in a [base/value](/base/value).
+  Returns a sink that stores the latest output in a [base/value](/base/value), as `bar.Segments`.
+  Call `.Get().(bar.Segments)` to get the latest output.
 
-## Example
+## Examples
 
 ```go
 ch, sink := sink.New()
@@ -36,5 +37,22 @@ go someModule.Stream(sink)
 
 for out := range ch {
 	// out will contain each output from someModule.
+}
+```
+
+Using a value sink:
+
+```go
+val, sink := sink.New()
+go someModule.Stream(sink)
+
+sub, done := val.Subscribe()
+defer done()
+
+for range sub {
+	out := val.Get().(bar.Segments)
+	// out will contain the latest output from the module.
+	// Because of coalescing, some outputs may be dropped if a new output is received before the
+	// previous output was completely processed.
 }
 ```
