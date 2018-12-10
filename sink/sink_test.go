@@ -124,11 +124,14 @@ func TestNullSink(t *testing.T) {
 func TestValueSink(t *testing.T) {
 	v, s := Value()
 
+	out := v.Get().(bar.Segments)
+	require.Nil(t, out, "before any output to sink")
+
 	next := v.Next()
 	s.Output(outputs.Text("foo"))
 
 	<-next
-	out := v.Get().(bar.Segments)
+	out = v.Get().(bar.Segments)
 	txt, _ := out[0].Content()
 	require.Equal(t, "foo", txt)
 
@@ -136,5 +139,6 @@ func TestValueSink(t *testing.T) {
 	s.Output(nil)
 
 	<-next
-	require.Nil(t, v.Get(), "nil output")
+	out = v.Get().(bar.Segments)
+	require.Nil(t, out, "nil output")
 }

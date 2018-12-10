@@ -62,5 +62,6 @@ func Value() (*value.Value, bar.Sink) {
 			val.Set(o)
 		}
 	}(ch, val)
+	val.Set(bar.Segments(nil))
 	return val, sink
 }
