@@ -13,3 +13,6 @@ pkg: 'noimport'
 
 * [multicast](/modules/meta/multicast): Allows a module to be added to the bar multiple times.
   Especially useful when using groups.
+
+* [slot](/modules/meta/slot): Allows a module to occupy named "slots", with the active slot being
+  changeable at runtime, allowing limited repositioning of module output.
