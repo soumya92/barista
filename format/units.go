@@ -33,7 +33,7 @@ type Value struct {
 	Unit   string
 }
 
-// Number returns a representaion that occupies at least `width` characters,
+// Number returns a representation that occupies at least `width` characters,
 // increasing precision to fill the available space.
 func (v Value) Number(width int) string {
 	minWidth := strings.IndexRune(v.number, '.')

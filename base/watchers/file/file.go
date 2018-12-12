@@ -29,7 +29,7 @@ import (
 
 // Watcher watches for changes to a single named file or directory. It notifies
 // the Updates chan on any changes to the watched file, while also handling
-// parts of the path heirarchy to the file being removed and recreated.
+// parts of the path hierarchy to the file being removed and recreated.
 type Watcher struct {
 	Updates <-chan struct{}
 	Errors  <-chan error

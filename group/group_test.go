@@ -304,7 +304,7 @@ func TestUpdatingGrouper(t *testing.T) {
 	case <-g.updated[1]:
 		require.Fail(t, "Expected no updated", "on click")
 	case <-time.After(10 * time.Millisecond):
-		// test passed, expected no udpate.
+		// test passed, expected no update.
 	}
 }
 
