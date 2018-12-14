@@ -609,8 +609,7 @@ func main() {
 				ConcatText(format.IByterate(r.Total()))
 		})
 
-	mediaSummary, mediaDetail := split.New(
-		media.New("rhythmbox").Output(mediaFormatFunc), 1)
+	mediaSummary, mediaDetail := split.New(media.Auto().Output(mediaFormatFunc), 1)
 
 	ghNotify := github.New("%%GITHUB_CLIENT_ID%%", "%%GITHUB_CLIENT_SECRET%%").
 		Output(func(n github.Notifications) bar.Output {
