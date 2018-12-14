@@ -3,6 +3,7 @@ title: Media Player
 ---
 
 Show information about the currently playing track: `media.New("rhythmbox")`.
+Automatically follow the most recently connected player: `media.Auto(/* exclusions */)`.
 
 The name of the player should match what it uses to register its MPRIS interface with D-Bus. Use
 [`playerctl --list-all`](https://github.com/acrisci/playerctl) with the media player running to get
@@ -11,6 +12,10 @@ the name to use here.
 Not all media players register with D-Bus by default. Some require a setting to be enabled, while
 others may need a plugin to be installed. Searching for MPRIS or D-Bus in your player's docs should
 yield instructions on how to enable D-Bus registration.
+
+`media.Auto()` will use the most recently connected player, falling back to the previously connected
+player when it disconnects. The optional exclusions list can be used to ignore certain media players
+that might be misbehaving, or used for non-media purposes.
 
 ## Configuration
 
