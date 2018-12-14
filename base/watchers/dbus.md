@@ -15,9 +15,10 @@ name and namespaced wildcard names.
 
 - `WatchNameOwners(pattern string)` watches all services within the namespace pattern.
 
-Any updates to relevant service owners will trigger a notification on the `.C` channel, and calling
-`GetOwner()` will return the service owner, while `GetOwners()` will return a map of service names
-to owners (useful in case of multiple services within the namespace active at the same time).
+Any updates to relevant service owners will trigger a notification on the `.Updates` channel, with
+the name and new owner of the triggering name. Calling `GetOwner()` will return the service owner,
+while `GetOwners()` will return a map of service names to owners (useful in case of multiple
+services within the namespace active at the same time).
 
 ## PropertiesWatcher
 
