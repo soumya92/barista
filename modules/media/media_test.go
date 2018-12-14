@@ -207,6 +207,106 @@ func TestMedia(t *testing.T) {
 	require.False(t, lastInfo.Stopped(), "Playing != Stopped()")
 }
 
+func TestAutoMedia(t *testing.T) {
+	testBar.New(t)
+	bus := dbusWatcher.SetupTestBus()
+
+	srvA := bus.RegisterService("org.mpris.MediaPlayer2.A")
+	objA := srvA.Object("/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player")
+	objA.SetProperties(map[string]interface{}{
+		"PlaybackStatus": "Paused",
+		"Metadata": map[string]dbus.Variant{
+			"xesam:title":  dbus.MakeVariant("TitleA"),
+			"xesam:artist": dbus.MakeVariant([]string{"Artist1", "Artist2"}),
+		},
+	}, dbusWatcher.SignalTypeNone)
+
+	auto := Auto("Ignored")
+	testBar.Run(auto)
+	testBar.NextOutput("on start").AssertText([]string{"TitleA"})
+
+	srvB := bus.RegisterService()
+	objB := srvB.Object("/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player")
+	objB.SetProperties(map[string]interface{}{
+		"PlaybackStatus": "Stopped",
+		"Metadata": map[string]dbus.Variant{
+			"xesam:title": dbus.MakeVariant("TitleB"),
+		},
+	}, dbusWatcher.SignalTypeNone)
+	srvB.AddName("org.mpris.MediaPlayer2.B")
+
+	testBar.NextOutput("on new player").AssertText([]string{"TitleB"})
+
+	objA.SetProperties(map[string]interface{}{"PlaybackStatus": "Stopped"},
+		dbusWatcher.SignalTypeChanged)
+	testBar.AssertNoOutput("on change of previous player")
+
+	objB.SetProperties(map[string]interface{}{"PlaybackStatus": "Paused"},
+		dbusWatcher.SignalTypeChanged)
+	testBar.NextOutput("on active player state change").
+		AssertText([]string{"TitleB"})
+
+	auto.RepeatingOutput(func(i Info) bar.Output {
+		return outputs.Textf("[%v] %s - %s", i.PlaybackStatus, i.Title, i.Artist)
+	})
+	testBar.NextOutput("on output format change").
+		AssertText([]string{"[Paused] TitleB - "})
+
+	srvC := bus.RegisterService()
+	objC := srvC.Object("/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player")
+	objC.SetProperties(map[string]interface{}{
+		"PlaybackStatus": "Stopped",
+		"Metadata": map[string]dbus.Variant{
+			"xesam:title":  dbus.MakeVariant("TitleC"),
+			"xesam:artist": dbus.MakeVariant([]string{"Artist"}),
+		},
+	}, dbusWatcher.SignalTypeNone)
+	srvC.AddName("org.mpris.MediaPlayer2.C")
+	testBar.NextOutput("on new player").
+		AssertText([]string{"[Stopped] TitleC - Artist"})
+
+	auto.Output(func(i Info) bar.Output {
+		return outputs.Textf("%v: %s", i.PlaybackStatus, i.Title)
+	})
+	testBar.NextOutput("on output format change").
+		AssertText([]string{"Stopped: TitleC"})
+
+	srvIgn := bus.RegisterService("org.mpris.MediaPlayer2.Ignored")
+	testBar.AssertNoOutput("On ignored player connection")
+
+	objB.SetProperties(map[string]interface{}{"PlaybackStatus": "Playing"},
+		dbusWatcher.SignalTypeChanged)
+	testBar.AssertNoOutput("on inactive player change")
+	srvB.Unregister()
+	testBar.AssertNoOutput("on inactive player disconnect")
+
+	srvC.Unregister()
+	out := testBar.NextOutput("on active player disconnect")
+	// There is a race here that's very hard to solve. There can be one of two
+	// cases:
+	// - The disconnection update from the active player is received first, in
+	//   which case the order will be [": ", "Stopped: TitleA"]
+	// - The name owner change is received first, in which case the module will
+	//   switch to the new player, and the disconnection update from the
+	//   previous player will be ignored, making the order ["Stopped: TitleA"].
+	// Instead of hacking something in to fix the race, we'll make the test
+	// work around it.
+	content, _ := out.At(0).Segment().Content()
+	if content == ": " {
+		testBar.NextOutput("on fallback to previous player").
+			AssertText([]string{"Stopped: TitleA"})
+	} else {
+		require.Equal(t, "Stopped: TitleA", content)
+	}
+
+	srvIgn.Unregister()
+	testBar.AssertNoOutput("On ignored player disconnection")
+
+	srvA.Unregister()
+	testBar.NextOutput("on disconnect").
+		AssertText([]string{": "})
+}
+
 func TestDbusLongAndFloats(t *testing.T) {
 	for _, tc := range []struct {
 		val      interface{}

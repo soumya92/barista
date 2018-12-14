@@ -17,6 +17,7 @@ package media // import "barista.run/modules/media"
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"barista.run/bar"
@@ -44,6 +45,7 @@ const (
 
 // Info represents the current information from the media player.
 type Info struct {
+	PlayerName     string
 	PlaybackStatus PlaybackStatus
 	Shuffle        bool
 	// From Metadata
@@ -71,19 +73,20 @@ type Info struct {
 // Module represents a bar.Module that displays media information
 // from an MPRIS-compatible media player.
 type Module struct {
-	playerName string
+	playerName value.Value // of string
 	outputFunc value.Value // of func(Info) bar.Output
 }
 
 // New constructs an instance of the media module for the given player.
 func New(player string) *Module {
-	m := &Module{playerName: player}
+	m := new(Module)
+	m.playerName.Set(player)
 	l.Label(m, player)
-	l.Register(m, "outputFunc")
+	l.Register(m, "playerName", "outputFunc")
 	// Default output is just the currently playing track.
 	m.Output(func(i Info) bar.Output {
 		if i.Playing() {
-			return outputs.Repeat(func(t time.Time) bar.Output {
+			return outputs.Repeat(func(time.Time) bar.Output {
 				return outputs.Textf("%v: %s", i.TruncatedPosition("s"), i.Title)
 			}).Every(time.Second)
 		}
@@ -92,6 +95,14 @@ func New(player string) *Module {
 		}
 		return nil
 	})
+	return m
+}
+
+// Player sets the name of the player to track. This will disconnect the module
+// from the previous player.
+func (m *Module) Player(player string) *Module {
+	l.Label(m, player)
+	m.playerName.Set(player)
 	return m
 }
 
@@ -112,6 +123,39 @@ func (m *Module) RepeatingOutput(outputFunc func(Info) bar.Output) *Module {
 		}
 		return outputFunc(i)
 	})
+}
+
+// AutoModule is a media module that automatically switches to the newest media
+// player seen on D-Bus.
+type AutoModule struct {
+	module   *Module
+	excluded map[string]bool
+}
+
+// Auto constructs an instance of the media module that shows the most recently
+// connected player (based on D-Bus name acquisition). It can optionally ignore
+// one or more named players from this detection.
+func Auto(excluding ...string) *AutoModule {
+	excluded := map[string]bool{}
+	for _, e := range excluding {
+		excluded[e] = true
+	}
+	m := &AutoModule{New(""), excluded}
+	l.Attach(m.module, m, "~auto")
+	return m
+}
+
+// Output configures a module to display the output of a user-defined function.
+func (m *AutoModule) Output(outputFunc func(Info) bar.Output) *AutoModule {
+	m.module.Output(outputFunc)
+	return m
+}
+
+// RepeatingOutput configures a module to display the output of a user-defined
+// function, automatically repeating it every second while playing.
+func (m *AutoModule) RepeatingOutput(outputFunc func(Info) bar.Output) *AutoModule {
+	m.module.RepeatingOutput(outputFunc)
+	return m
 }
 
 // Throttle seek calls to once every ~50ms to allow more control
@@ -150,29 +194,94 @@ func (m *Module) Stream(s bar.Sink) {
 	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 
+	playerName := m.playerName.Get().(string)
+	nextPlayerName, done := m.playerName.Subscribe()
+	defer done()
+
+	w, info := subscribeToPlayer(playerName)
+	for {
+		s.Output(outputs.Group(outputFunc(info)).
+			OnClick(defaultClickHandler(info)))
+		select {
+		case <-nextPlayerName:
+			w.Unsubscribe()
+			playerName = m.playerName.Get().(string)
+			w, info = subscribeToPlayer(playerName)
+		case <-nextOutputFunc:
+			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
+		case u := <-w.Updates:
+			for k, v := range u {
+				info.set(k, v[1])
+			}
+		}
+	}
+}
+
+// subscribes to the player with the given mpris name via dbus. Returns a dbus
+// properties watcher and the intial media info from the player.
+func subscribeToPlayer(playerName string) (*dbus.PropertiesWatcher, Info) {
 	w := dbus.WatchProperties(busType,
-		fmt.Sprintf("org.mpris.MediaPlayer2.%s", m.playerName),
+		fmt.Sprintf("org.mpris.MediaPlayer2.%s", playerName),
 		"/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player").
 		Add("Rate", "Shuffle", "PlaybackStatus", "Metadata").
 		FetchOnSignal("Position").
 		AddSignalHandler("Seeked", func(s *dbus.Signal, _ dbus.Fetcher) map[string]interface{} {
 			return map[string]interface{}{"Position": s.Body[0]}
 		})
-
-	info := Info{call: w.Call}
+	info := Info{PlayerName: playerName, call: w.Call}
 	for k, v := range w.Get() {
 		info.set(k, v)
 	}
+	l.Fine("subscribe to %s: %v", playerName, info)
+	return w, info
+}
 
-	for {
-		s.Output(outputs.Group(outputFunc(info)).
-			OnClick(defaultClickHandler(info)))
-		select {
-		case <-nextOutputFunc:
-			outputFunc = m.outputFunc.Get().(func(Info) bar.Output)
-		case u := <-w.Updates:
-			for k, v := range u {
-				info.set(k, v[1])
+// Stream starts the module and the D-Bus listener for media player name
+// acquisitions and releases.
+func (m *AutoModule) Stream(s bar.Sink) {
+	w := dbus.WatchNameOwners(busType, "org.mpris.MediaPlayer2")
+	defer w.Unsubscribe()
+	ownerStack := []string{}
+	for k, _ := range w.GetOwners() {
+		if len(ownerStack) == 0 {
+			l.Fine("%s, starting with %s", l.ID(m), k)
+			m.playerName(k)
+		}
+		ownerStack = append(ownerStack, k)
+	}
+	go m.listenForPlayerUpdates(w.Updates, ownerStack)
+	m.module.Stream(s)
+}
+
+func (m *AutoModule) playerName(dbusName string) {
+	m.module.Player(strings.TrimPrefix(dbusName, "org.mpris.MediaPlayer2."))
+}
+
+func (m *AutoModule) listenForPlayerUpdates(updates <-chan dbus.NameOwnerChange, ownerStack []string) {
+	for u := range updates {
+		if m.excluded[strings.TrimPrefix(u.Name, "org.mpris.MediaPlayer2.")] {
+			continue
+		}
+		if u.Owner != "" {
+			// New player, switch to it.
+			l.Fine("%s: switching to new player %s", l.ID(m), u.Name)
+			m.playerName(u.Name)
+			ownerStack = append(ownerStack, u.Name)
+			continue
+		}
+		for i, n := range ownerStack {
+			if n == u.Name {
+				ownerStack = append(ownerStack[:i], ownerStack[i+1:]...)
+			}
+		}
+		l.Fine("player %s disconnected", u.Name)
+		curr := m.module.playerName.Get().(string)
+		if u.Name == "org.mpris.MediaPlayer2."+curr {
+			l.Fine("%s: current player %s disconnected", l.ID(m), u.Name)
+			count := len(ownerStack)
+			if count > 0 {
+				l.Fine("%s: switching to %s", l.ID(m), ownerStack[count-1])
+				m.playerName(ownerStack[count-1])
 			}
 		}
 	}
