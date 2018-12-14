@@ -135,10 +135,10 @@ func (p *PropertiesWatcher) Call(name string, args ...interface{}) ([]interface{
 // Unsubscribe clears all subscriptions and internal state. The watcher cannot
 // be used after calling this method. Usually `defer`d when creating a watcher.
 func (p *PropertiesWatcher) Unsubscribe() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.conn.RemoveSignal(p.dbusCh)
 	p.conn.Close()
-	p.mu.RLock()
-	defer p.mu.RUnlock()
 	p.lastProps = nil
 	p.owner = ""
 }
