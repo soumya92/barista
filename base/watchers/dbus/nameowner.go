@@ -18,22 +18,26 @@ import (
 	"strings"
 	"sync"
 
-	"barista.run/base/notifier"
-
 	"github.com/godbus/dbus"
 )
+
+// NameOwnerChange is emitted on NameOwnerWatcher.Updates whenever any name
+// is acquired or released. The Owner is the new owner of the name, and is empty
+// if the name was released.
+type NameOwnerChange struct {
+	Name, Owner string
+}
 
 // NameOwnerWatcher is a watcher for a single or wildcard service name owner.
 // It notifies on any changes to names of interest, and provides methods to get
 // the current owner(s) of those names.
 type NameOwnerWatcher struct {
-	C <-chan struct{}
+	Updates  <-chan NameOwnerChange
+	onChange chan<- NameOwnerChange
 
 	conn   dbusConn
 	dbusCh chan *dbus.Signal
 	match  dbus.MatchOption
-
-	notifyFn func()
 
 	owners   map[string]string
 	ownersMu sync.RWMutex
@@ -87,7 +91,7 @@ func (n *NameOwnerWatcher) listen() {
 			n.owners[name] = newOwner
 		}
 		n.ownersMu.Unlock()
-		n.notifyFn()
+		n.onChange <- NameOwnerChange{name, newOwner}
 	}
 }
 
@@ -119,12 +123,14 @@ func watchNameOwner(
 	busType BusType, matcher func(string) bool, matchOption dbus.MatchOption,
 ) *NameOwnerWatcher {
 	conn := busType()
+	updates := make(chan NameOwnerChange, 1)
 	watcher := &NameOwnerWatcher{
-		conn:   conn,
-		owners: map[string]string{},
-		dbusCh: make(chan *dbus.Signal, 10),
+		conn:     conn,
+		owners:   map[string]string{},
+		dbusCh:   make(chan *dbus.Signal, 10),
+		onChange: updates,
+		Updates:  updates,
 	}
-	watcher.notifyFn, watcher.C = notifier.New()
 	var names []string
 	listNames.call(conn).Store(&names)
 	for _, n := range names {
