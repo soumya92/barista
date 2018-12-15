@@ -117,6 +117,25 @@ func TestConditions(t *testing.T) {
 	}
 }
 
+func TestProviderBuilder(t *testing.T) {
+	for _, tc := range []struct {
+		expected    string
+		actual      weather.Provider
+		description string
+	}{
+		{"key=foo&q=29617", New("foo").Query("29617"), "Zip code"},
+		{"key=foo&q=Paris", New("foo").Query("Paris"), "City name"},
+		{"key=foo&q=145.77%2C-16.92", New("foo").Query("145.77,-16.92"), "Latitude and Longitude"},
+		{"key=foo&q=metar%3AEGLL", New("foo").Query("metar:EGLL"), "METAR"},
+		{"key=foo&q=iata%3ADXB", New("foo").Query("iata:DXB"), "IATA"},
+		{"key=foo&q=100.0.0.1", New("foo").Query("100.0.0.1"), "IP lookup"},
+		{"key=foo&q=auto%3Aip", New("foo").Query("auto:ip"), "Auto IP lookup"},
+	} {
+		expected := "http://api.apixu.com/v1/current.json?" + tc.expected
+		require.Equal(t, expected, string(tc.actual.(Provider)), tc.description)
+	}
+}
+
 func TestLive(t *testing.T) {
 	cron.Test(t, func() error {
 		wthr, err := New(os.Getenv("APIXU_API_KEY")).
