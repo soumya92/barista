@@ -43,20 +43,14 @@ type Provider string
 // apixuWeather represents an Apixu json response.
 type apixuWeather struct {
 	Location struct {
-		Name           string  `json:"name"`
-		Region         string  `json:"region"`
-		Country        string  `json:"country"`
-		Lat            float64 `json:"lat"`
-		Lon            float64 `json:"lon"`
-		TzID           string  `json:"tz_id"`
-		LocaltimeEpoch int64   `json:"localtime_epoch"`
-		Localtime      string  `json:"localtime"`
+		Name    string `json:"name"`
+		Region  string `json:"region"`
+		Country string `json:"country"`
 	} `json:"location"`
 
 	Current struct {
 		Condition struct {
 			Text string `json:"text"`
-			Icon string `json:"icon"`
 			// Code is a code for describing weather (see https://www.apixu.com/doc/weather-conditions.aspx)
 			Code int `json:"code"`
 		} `json:"condition"`
@@ -64,41 +58,19 @@ type apixuWeather struct {
 		LastUpdated      string `json:"last_updated"`
 		LastUpdatedEpoch int64  `json:"last_updated_epoch"`
 
-		TempC float64 `json:"temp_c"`
 		TempF float64 `json:"temp_f"`
-
-		FeelsLikeC float64 `json:"feelslike_c"`
-		FeelsLikeF float64 `json:"feelslike_f"`
 
 		WindMPH    float64 `json:"wind_mph"`
 		WindKPH    float64 `json:"wind_kph"`
 		WindDegree int     `json:"wind_degree"`
-		WindDir    string  `json:"wind_dir"`
-
-		// IsDay is day (1) or night (0)
-		IsDay int `json:"is_day"`
 
 		// PressureMB is pressure in millibars
 		PressureMB float64 `json:"pressure_mb"`
-		// PressureIN is pressure in inches
-		PressureIN float64 `json:"pressure_in"`
-
-		// PrecipMM is precipitation in millimeters
-		PrecipMM float64 `json:"precip_mm"`
-		// PrecipIN is precipitation in inches
-		PrecipIN float64 `json:"precip_in"`
 
 		Humidity int `json:"humidity"`
 
 		// Cloud is cloud cover as percentage
 		Cloud int `json:"cloud"`
-
-		// VisKM is visibility is kilometers
-		VisKM float64 `json:"vis_km"`
-		// VisMiles is visibility is miles
-		VisMiles float64 `json:"vis_miles"`
-
-		UV float64 `json:"uv"`
 	} `json:"current"`
 }
 
