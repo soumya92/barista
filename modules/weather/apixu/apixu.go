@@ -171,7 +171,7 @@ func (apixuProvider Provider) GetWeather() (weather.Weather, error) {
 		CloudCover:  float64(a.Current.Cloud) / 100.0,
 		Updated:     time.Unix(a.Current.LastUpdatedEpoch, 0),
 		Wind: weather.Wind{
-			Speed:     unit.Speed(a.Current.WindKPH) * unit.MetersPerSecond,
+			Speed:     unit.Speed(a.Current.WindKPH) * unit.KilometersPerHour,
 			Direction: weather.Direction(a.Current.WindDegree),
 		},
 		Attribution: "Apixu",
