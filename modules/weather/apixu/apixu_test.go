@@ -138,7 +138,7 @@ func TestProviderBuilder(t *testing.T) {
 
 func TestLive(t *testing.T) {
 	cron.Test(t, func() error {
-		wthr, err := New(os.Getenv("APIXU_API_KEY")).
+		wthr, err := New(os.Getenv("WEATHER_APIXU_API_KEY")).
 			Query("29617").
 			GetWeather()
 		if err != nil {
