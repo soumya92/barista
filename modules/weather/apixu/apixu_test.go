@@ -34,7 +34,7 @@ func TestGood(t *testing.T) {
 		Pressure:    1016.0 * unit.Millibar,
 		Temperature: unit.FromFahrenheit(48.0),
 		Wind: weather.Wind{
-			Speed:     unit.Speed(19.1) * unit.KilometersPerHour,
+			Speed:     unit.Speed(11.9) * unit.MilesPerHour,
 			Direction: weather.Direction(40),
 		},
 		CloudCover:  1.0,

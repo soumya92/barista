@@ -61,7 +61,6 @@ type apixuWeather struct {
 		TempF float64 `json:"temp_f"`
 
 		WindMPH    float64 `json:"wind_mph"`
-		WindKPH    float64 `json:"wind_kph"`
 		WindDegree int     `json:"wind_degree"`
 
 		// PressureMB is pressure in millibars
@@ -143,7 +142,7 @@ func (apixuProvider Provider) GetWeather() (weather.Weather, error) {
 		CloudCover:  float64(a.Current.Cloud) / 100.0,
 		Updated:     time.Unix(a.Current.LastUpdatedEpoch, 0),
 		Wind: weather.Wind{
-			Speed:     unit.Speed(a.Current.WindKPH) * unit.KilometersPerHour,
+			Speed:     unit.Speed(a.Current.WindMPH) * unit.MilesPerHour,
 			Direction: weather.Direction(a.Current.WindDegree),
 		},
 		Attribution: "Apixu",
