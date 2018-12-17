@@ -242,7 +242,7 @@ func (m *AutoModule) Stream(s bar.Sink) {
 	w := dbus.WatchNameOwners(busType, "org.mpris.MediaPlayer2")
 	defer w.Unsubscribe()
 	ownerStack := []string{}
-	for k, _ := range w.GetOwners() {
+	for k := range w.GetOwners() {
 		if len(ownerStack) == 0 {
 			l.Fine("%s, starting with %s", l.ID(m), k)
 			m.playerName(k)
