@@ -281,23 +281,9 @@ func TestAutoMedia(t *testing.T) {
 	testBar.AssertNoOutput("on inactive player disconnect")
 
 	srvC.Unregister()
-	out := testBar.NextOutput("on active player disconnect")
-	// There is a race here that's very hard to solve. There can be one of two
-	// cases:
-	// - The disconnection update from the active player is received first, in
-	//   which case the order will be [": ", "Stopped: TitleA"]
-	// - The name owner change is received first, in which case the module will
-	//   switch to the new player, and the disconnection update from the
-	//   previous player will be ignored, making the order ["Stopped: TitleA"].
-	// Instead of hacking something in to fix the race, we'll make the test
-	// work around it.
-	content, _ := out.At(0).Segment().Content()
-	if content == ": " {
-		testBar.NextOutput("on fallback to previous player").
-			AssertText([]string{"Stopped: TitleA"})
-	} else {
-		require.Equal(t, "Stopped: TitleA", content)
-	}
+	testBar.
+		Drain(time.Second, "on active player disconnect").
+		AssertText([]string{"Stopped: TitleA"})
 
 	srvIgn.Unregister()
 	testBar.AssertNoOutput("On ignored player disconnection")
