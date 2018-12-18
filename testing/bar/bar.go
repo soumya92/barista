@@ -159,6 +159,34 @@ func LatestOutput(indices ...int) output.Assertions {
 	return output.New(t, segments)
 }
 
+// Drain drains all outputs until the given deadline elapses. Can be useful for
+// working around coalescing issues where the exact number of outputs can vary
+// based on goroutine scheduling. At least one output is expected, and the last
+// output received before the deadline is provided for further assertions.
+func Drain(wait time.Duration, formatAndArgs ...interface{}) output.Assertions {
+	deadline := time.After(wait)
+	t := instance.Load().(*TestBar)
+	l.Fine("%s waiting for %v", l.ID(t.moduleSet), wait)
+
+	var segments bar.Segments
+	hasOutput := false
+	waiting := true
+	for waiting {
+		select {
+		case out := <-t.outputs:
+			segments = out.segments
+			hasOutput = true
+			l.Fine("%s got output: %v", l.ID(t.moduleSet), debugOut(segments))
+		case <-deadline:
+			waiting = false
+		}
+	}
+	if !hasOutput {
+		require.Fail(t, "Expected at least one output", formatAndArgs...)
+	}
+	return output.New(t, segments)
+}
+
 func hasAllUpdates(updated map[int]bool, indices []int) bool {
 	for _, i := range indices {
 		if !updated[i] {

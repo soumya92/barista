@@ -68,6 +68,22 @@ func TestOutput(t *testing.T) {
 
 	m.Output(nil)
 	NextOutput().AssertEmpty("on empty output")
+
+	go func() {
+		for i := 0; i < 5; i++ {
+			m.Output(outputs.Textf("%d", i))
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	Drain(time.Second).AssertText([]string{"4"})
+
+	go func() {
+		for i := 0; i < 5; i++ {
+			m.Output(outputs.Textf("%d", i))
+			time.Sleep(time.Second)
+		}
+	}()
+	Drain(time.Second + 250*time.Millisecond).AssertText([]string{"1"})
 }
 
 func TestEvents(t *testing.T) {
@@ -183,6 +199,10 @@ func assertFails(t *testing.T, testFunc func(*module.TestModule), args ...interf
 }
 
 func TestNoOutput(t *testing.T) {
+	oldTimeout := negativeTimeout
+	defer func() { negativeTimeout = oldTimeout }()
+	negativeTimeout = time.Second
+
 	assertFails(t, func(m *module.TestModule) {
 		m.OutputText("test")
 		AssertNoOutput("with output")
@@ -226,6 +246,10 @@ func TestOutputErrors(t *testing.T) {
 		m.OutputText("5678")
 		NextOutput().AssertEmpty()
 	}, "Asserting empty with non-empty output")
+
+	assertFails(t, func(m *module.TestModule) {
+		Drain(10 * time.Millisecond)
+	}, "Drain with no output")
 }
 
 func TestSegmentErrors(t *testing.T) {
