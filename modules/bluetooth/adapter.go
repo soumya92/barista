@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package bluetooth provides modules for watching the status of Bluetooth adapters.
+// Package bluetooth provides modules for watching the status of Bluetooth adapters and devices.
 package bluetooth // import "barista.run/modules/bluetooth"
 
 import (
@@ -21,8 +21,8 @@ import (
 	"barista.run/base/watchers/dbus"
 )
 
-// Module represents a Bluetooth bar module.
-type Module struct {
+// AdapterModule represents a Bluetooth bar module.
+type AdapterModule struct {
 	adapter    string
 	outputFunc value.Value
 }
@@ -39,24 +39,23 @@ type AdapterInfo struct {
 }
 
 // DefaultAdapter constructs an instance of the bluetooth module using the first adapter ("hci0").
-func DefaultAdapter() *Module {
+func DefaultAdapter() *AdapterModule {
 	return Adapter("hci0")
 }
 
 // Adapter constructs an instance of the bluetooth module with the provided device name (ex. "hci1").
-func Adapter(name string) *Module {
-	bt := &Module{adapter: name}
-	return bt
+func Adapter(name string) *AdapterModule {
+	return &AdapterModule{adapter: name}
 }
 
 // Output configures a module to display the output of a user-defined function.
-func (bt *Module) Output(outputFunc func(AdapterInfo) bar.Output) *Module {
+func (bt *AdapterModule) Output(outputFunc func(AdapterInfo) bar.Output) *AdapterModule {
 	bt.outputFunc.Set(outputFunc)
 	return bt
 }
 
 // Stream starts the module.
-func (bt *Module) Stream(sink bar.Sink) {
+func (bt *AdapterModule) Stream(sink bar.Sink) {
 	w := dbus.WatchProperties(
 		dbus.System,
 		"org.bluez",
