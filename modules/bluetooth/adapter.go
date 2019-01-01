@@ -38,6 +38,9 @@ type AdapterInfo struct {
 	Discovering  bool
 }
 
+// replaced in tests.
+var busType = dbus.System
+
 // DefaultAdapter constructs an instance of the bluetooth module using the first adapter ("hci0").
 func DefaultAdapter() *AdapterModule {
 	return Adapter("hci0")
@@ -57,7 +60,7 @@ func (bt *AdapterModule) Output(outputFunc func(AdapterInfo) bar.Output) *Adapte
 // Stream starts the module.
 func (bt *AdapterModule) Stream(sink bar.Sink) {
 	w := dbus.WatchProperties(
-		dbus.System,
+		busType,
 		"org.bluez",
 		"/org/bluez/"+bt.adapter,
 		"org.bluez.Adapter1",
