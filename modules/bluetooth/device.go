@@ -45,7 +45,7 @@ type DeviceInfo struct {
 
 // Device constructs a bluetooth device module instance for the given adapter and MAC address.
 func Device(adapter, mac string) *DeviceModule {
-	macPath := strings.Replace(mac, ":", "_", -1)
+	macPath := strings.Replace(strings.ToUpper(mac), ":", "_", -1)
 	return &DeviceModule{path: "/org/bluez/" + adapter + "/dev_" + macPath}
 }
 
