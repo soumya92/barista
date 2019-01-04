@@ -31,12 +31,9 @@ func init() {
 
 func TestAdapter(t *testing.T) {
 	testBar.New(t)
-	bus := dbus.SetupTestBus()
-	bluez := bus.RegisterService("org.bluez")
 
 	adapterName := "hci0"
-	adapterObjPath := godbus.ObjectPath("/org/bluez/" + adapterName)
-	adapter := bluez.Object(adapterObjPath, "org.bluez.Adapter1")
+	adapter := setupTestAdapter(adapterName)
 	adapter.SetProperties(map[string]interface{}{
 		"Name":         "foo",
 		"Alias":        "foo alias",
@@ -60,4 +57,50 @@ func TestAdapter(t *testing.T) {
 	testBar.LatestOutput().AssertText([]string{
 		"foo: ON",
 	})
+}
+
+func TestAdapterDisconnect(t *testing.T) {
+	testBar.New(t)
+
+	adapterName := "hci0"
+	adapter := setupTestAdapter(adapterName)
+	adapter.SetProperties(map[string]interface{}{
+		"Name":         "foo",
+		"Alias":        "foo alias",
+		"Address":      "28:C2:DD:8B:73:8C",
+		"Discoverable": false,
+		"Pairable":     true,
+		"Powered":      true,
+		"Discovering":  false,
+	}, dbus.SignalTypeNone)
+
+	btModule := Adapter(adapterName)
+	btModule.Output(func(i AdapterInfo) bar.Output {
+		state := "OFF"
+		if i.Powered {
+			state = "ON"
+		}
+		return outputs.Textf("%s", state)
+	})
+	testBar.Run(btModule)
+
+	testBar.LatestOutput().AssertText([]string{
+		"ON",
+	})
+
+	adapter.SetProperty("Powered", false, dbus.SignalTypeChanged)
+
+	testBar.LatestOutput().AssertText([]string{
+		"OFF",
+	})
+}
+
+func setupTestAdapter(adapterName string) *dbus.TestBusObject {
+	bus := dbus.SetupTestBus()
+	bluez := bus.RegisterService("org.bluez")
+
+	adapterObjPath := godbus.ObjectPath("/org/bluez/" + adapterName)
+	adapter := bluez.Object(adapterObjPath, "org.bluez.Adapter1")
+
+	return adapter
 }
