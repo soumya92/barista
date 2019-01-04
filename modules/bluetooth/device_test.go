@@ -28,14 +28,10 @@ import (
 
 func TestDevice(t *testing.T) {
 	testBar.New(t)
-	bus := dbus.SetupTestBus()
-	bluez := bus.RegisterService("org.bluez")
 
 	adapterName := "hci0"
 	deviceMac := "00:00:00:00:25:9F"
-	devicePath := "dev_" + strings.Replace(deviceMac, ":", "_", -1)
-	deviceObjPath := godbus.ObjectPath("/org/bluez/" + adapterName + "/" + devicePath)
-	device := bluez.Object(deviceObjPath, "org.bluez.Device1")
+	device := setupTestDevice(adapterName, deviceMac)
 	device.SetProperties(map[string]interface{}{
 		"Name":      "foo",
 		"Alias":     "foo alias",
@@ -59,4 +55,52 @@ func TestDevice(t *testing.T) {
 	testBar.LatestOutput().AssertText([]string{
 		"foo: YES",
 	})
+}
+
+func TestDeviceDisconnect(t *testing.T) {
+	testBar.New(t)
+
+	adapterName := "hci0"
+	deviceMac := "00:00:00:00:25:9F"
+	device := setupTestDevice(adapterName, deviceMac)
+	device.SetProperties(map[string]interface{}{
+		"Name":      "foo",
+		"Alias":     "foo alias",
+		"Address":   deviceMac,
+		"Paired":    true,
+		"Connected": true,
+		"Trusted":   true,
+		"Blocked":   false,
+	}, dbus.SignalTypeNone)
+
+	devModule := Device(adapterName, deviceMac)
+	devModule.Output(func(i DeviceInfo) bar.Output {
+		connected := "NO"
+		if i.Connected {
+			connected = "YES"
+		}
+		return outputs.Textf("%s", connected)
+	})
+	testBar.Run(devModule)
+
+	testBar.LatestOutput().AssertText([]string{
+		"YES",
+	})
+
+	device.SetProperty("Connected", false, dbus.SignalTypeChanged)
+
+	testBar.LatestOutput().AssertText([]string{
+		"NO",
+	})
+}
+
+func setupTestDevice(adapterName, deviceMac string) *dbus.TestBusObject {
+	bus := dbus.SetupTestBus()
+	bluez := bus.RegisterService("org.bluez")
+
+	devicePath := "dev_" + strings.Replace(deviceMac, ":", "_", -1)
+	deviceObjPath := godbus.ObjectPath("/org/bluez/" + adapterName + "/" + devicePath)
+	device := bluez.Object(deviceObjPath, "org.bluez.Device1")
+
+	return device
 }
