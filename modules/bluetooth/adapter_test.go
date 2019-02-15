@@ -74,7 +74,7 @@ func TestAdapterDisconnect(t *testing.T) {
 		"Discovering":  false,
 	}, dbus.SignalTypeNone)
 
-	btModule := Adapter(adapterName)
+	btModule := DefaultAdapter()
 	btModule.Output(func(i AdapterInfo) bar.Output {
 		state := "OFF"
 		if i.Powered {

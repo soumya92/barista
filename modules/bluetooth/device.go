@@ -37,6 +37,7 @@ type DeviceInfo struct {
 	Alias     string
 	Address   string
 	Adapter   string
+	Battery   int
 	Paired    bool
 	Connected bool
 	Trusted   bool
@@ -66,23 +67,33 @@ func (m *DeviceModule) Stream(sink bar.Sink) {
 		Add("Name", "Alias", "Address", "Adapter", "Paired", "Connected", "Trusted", "Blocked")
 	defer w.Unsubscribe()
 
+	batt := dbus.WatchProperties(
+		busType,
+		"org.bluez",
+		m.path,
+		"org.bluez.Battery1",
+	).Add("Percentage")
+	defer batt.Unsubscribe()
+
 	outputFunc := m.outputFunc.Get().(func(DeviceInfo) bar.Output)
 	nextOutputFunc, done := m.outputFunc.Subscribe()
 	defer done()
 
-	info := getDeviceInfo(w)
+	info := getDeviceInfo(w, batt)
 	for {
 		sink.Output(outputFunc(info))
 		select {
 		case <-w.Updates:
-			info = getDeviceInfo(w)
+			info = getDeviceInfo(w, batt)
+		case <-batt.Updates:
+			info = getDeviceInfo(w, batt)
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(DeviceInfo) bar.Output)
 		}
 	}
 }
 
-func getDeviceInfo(w *dbus.PropertiesWatcher) DeviceInfo {
+func getDeviceInfo(w, batt *dbus.PropertiesWatcher) DeviceInfo {
 	i := DeviceInfo{}
 	props := w.Get()
 
@@ -98,6 +109,8 @@ func getDeviceInfo(w *dbus.PropertiesWatcher) DeviceInfo {
 	i.Connected, _ = props["Connected"].(bool)
 	i.Trusted, _ = props["Trusted"].(bool)
 	i.Blocked, _ = props["Blocked"].(bool)
-
+	if battery, ok := batt.Get()["Percentage"].(byte); ok {
+		i.Battery = int(battery)
+	}
 	return i
 }

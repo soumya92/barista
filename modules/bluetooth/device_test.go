@@ -31,7 +31,7 @@ func TestDevice(t *testing.T) {
 
 	adapterName := "hci0"
 	deviceMac := "00:00:00:00:25:9F"
-	device := setupTestDevice(adapterName, deviceMac)
+	device, battery := setupTestDevice(adapterName, deviceMac)
 	device.SetProperties(map[string]interface{}{
 		"Name":      "foo",
 		"Alias":     "foo alias",
@@ -41,6 +41,7 @@ func TestDevice(t *testing.T) {
 		"Trusted":   true,
 		"Blocked":   false,
 	}, dbus.SignalTypeNone)
+	battery.SetProperty("Percentage", byte(40), dbus.SignalTypeNone)
 
 	devModule := Device(adapterName, deviceMac)
 	devModule.Output(func(i DeviceInfo) bar.Output {
@@ -48,13 +49,14 @@ func TestDevice(t *testing.T) {
 		if i.Paired {
 			paired = "YES"
 		}
-		return outputs.Textf("%s: %s", i.Name, paired)
+		return outputs.Textf("%s: %s (%d%%)", i.Name, paired, i.Battery)
 	})
 	testBar.Run(devModule)
 
-	testBar.LatestOutput().AssertText([]string{
-		"foo: YES",
-	})
+	testBar.NextOutput().AssertText([]string{"foo: YES (40%)"})
+
+	battery.SetProperty("Percentage", byte(30), dbus.SignalTypeChanged)
+	testBar.NextOutput().AssertText([]string{"foo: YES (30%)"})
 }
 
 func TestDeviceDisconnect(t *testing.T) {
@@ -62,7 +64,7 @@ func TestDeviceDisconnect(t *testing.T) {
 
 	adapterName := "hci0"
 	deviceMac := "00:00:00:00:25:9F"
-	device := setupTestDevice(adapterName, deviceMac)
+	device, _ := setupTestDevice(adapterName, deviceMac)
 	device.SetProperties(map[string]interface{}{
 		"Name":      "foo",
 		"Alias":     "foo alias",
@@ -83,24 +85,20 @@ func TestDeviceDisconnect(t *testing.T) {
 	})
 	testBar.Run(devModule)
 
-	testBar.LatestOutput().AssertText([]string{
-		"YES",
-	})
+	testBar.NextOutput().AssertText([]string{"YES"})
 
 	device.SetProperty("Connected", false, dbus.SignalTypeChanged)
-
-	testBar.LatestOutput().AssertText([]string{
-		"NO",
-	})
+	testBar.NextOutput().AssertText([]string{"NO"})
 }
 
-func setupTestDevice(adapterName, deviceMac string) *dbus.TestBusObject {
+func setupTestDevice(adapterName, deviceMac string) (device, battery *dbus.TestBusObject) {
 	bus := dbus.SetupTestBus()
 	bluez := bus.RegisterService("org.bluez")
 
 	devicePath := "dev_" + strings.Replace(deviceMac, ":", "_", -1)
 	deviceObjPath := godbus.ObjectPath("/org/bluez/" + adapterName + "/" + devicePath)
-	device := bluez.Object(deviceObjPath, "org.bluez.Device1")
 
-	return device
+	device = bluez.Object(deviceObjPath, "org.bluez.Device1")
+	battery = bluez.Object(deviceObjPath, "org.bluez.Battery1")
+	return // device, battery
 }
