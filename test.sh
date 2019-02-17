@@ -59,12 +59,12 @@ for profile in profiles/*.out; do
 	perl -i -ne 'print unless /_capi\.go:/' "$profile"
 done
 
-# Merge all code coverage reports. Although codecov does something similar internally,
-# doing it here means that after running ./test.sh, you can run
-#     go tool cover -html=coverage.txt
-# and it will show a coverage report instead of complaining about a bad format.
-grep -E '^mode: \w+$' "$(find profiles/ -name '*.out' -print -quit)" > coverage.txt
-grep -hEv '^(mode: \w+)?$' profiles/*.out >> coverage.txt
+# Merge all code coverage reports. Doing this here means that after running
+# ./test.sh,
+#     go tool cover -html=c.out
+# will show a coverage report instead of complaining about a bad format.
+grep -E '^mode: \w+$' "$(find profiles/ -name '*.out' -print -quit)" > c.out
+grep -hEv '^(mode: \w+)?$' profiles/*.out >> c.out
 rm -rf profiles/
 
 echo "Test: Samples"
@@ -72,8 +72,6 @@ echo "Test: Samples"
 # This is just to make sure that all samples compile.
 go test ./samples/...
 
-# Codecov.io wants coverage.txt, but CodeClimate wants c.out.
 if [ $CODECLIMATE -eq 1 ]; then
-	cp "coverage.txt" "c.out"
 	./cc-test-reporter after-build
 fi
