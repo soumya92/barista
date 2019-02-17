@@ -32,8 +32,7 @@ script:
   - ./test.sh
 
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
-  - $HOME/gopath/bin/goveralls -coverprofile=coverage.txt -service=travis-ci -repotoken $COVERALLS_TOKEN
+  - $HOME/gopath/bin/goveralls -coverprofile=c.out -service=travis-ci -repotoken $COVERALLS_TOKEN
 
 before_deploy:
   - ./build.sh -tags prod -o sample-bar ./samples/sample-bar
