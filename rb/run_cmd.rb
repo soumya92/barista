@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+require 'open3'
+
 def run_cmd(*args)
   output, status = Open3.capture2e(*args)
   raise "Error executing #{args}: #{status}" unless status.success?

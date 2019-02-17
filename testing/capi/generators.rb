@@ -14,7 +14,7 @@
 
 require 'set'
 
-require_relative 'gofile.rb'
+require_relative '../../rb/gofile.rb'
 
 def write_capi_file(library, package, pkg_config, header_filename, c_functions)
   aliases = Set.new(

@@ -25,11 +25,9 @@
 # It requires gcc and universal ctags to be installed and in $PATH.
 # pkg-config is only required if pkg-config packages are provided.
 
-require 'open3'
-
 require_relative 'funcs.rb'
 require_relative 'generators.rb'
-require_relative 'run_cmd.rb'
+require_relative '../../rb/run_cmd.rb'
 
 def headers(header_filename, pkg_config: nil)
   include_dirs = ['.']
