@@ -39,6 +39,8 @@ import (
 	"html"
 
 	"barista.run/bar"
+	"barista.run/base/value"
+	"barista.run/format"
 )
 
 type nodeType int
@@ -196,4 +198,40 @@ func Text(s string) *Node {
 // won't give you red text.
 func Textf(format string, args ...interface{}) *Node {
 	return Text(fmt.Sprintf(format, args...))
+}
+
+func defaultUnitFormatter(val format.Values) *Node {
+	out := new(Node)
+	for i, v := range val {
+		var w int
+		switch {
+		case len(val) == 1:
+			w = 3
+		case i == 0:
+			w = 0
+		default:
+			w = 2
+		}
+		out.Append(
+			Text(v.Number(w)),
+			Textf("%s", v.Unit).Smaller(),
+		)
+	}
+	return out
+}
+
+var unitFormatter value.Value
+
+// SetUnitFormatter sets the formatter to use in pango.Unit.
+func SetUnitFormatter(f func(format.Values) *Node) {
+	unitFormatter.Set(f)
+}
+
+// Unit formats a format.Value into a pango.Node.
+func Unit(val ...format.Value) *Node {
+	fmt, ok := unitFormatter.Get().(func(format.Values) *Node)
+	if !ok {
+		fmt = defaultUnitFormatter
+	}
+	return fmt(val)
 }

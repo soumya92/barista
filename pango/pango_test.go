@@ -17,8 +17,11 @@ package pango
 import (
 	"image/color"
 	"testing"
+	"time"
 
+	"barista.run/base/value"
 	"barista.run/colors"
+	"barista.run/format"
 	"barista.run/testing/output"
 	"barista.run/testing/pango"
 
@@ -155,12 +158,39 @@ var stringifyingTests = []struct {
 			stretch='normal'
 			size='10240'>normal</span>`,
 	},
+	{
+		"unit",
+		Unit(format.SI(44000, "m")),
+		` 44<small>km</small>`,
+	},
+	{
+		"unit with decimal",
+		Unit(format.SI(4400, "m")),
+		`4.4<small>km</small>`,
+	},
+	{
+		"multiple units",
+		Unit(format.Duration(4*time.Hour + 5*time.Minute)...),
+		`4<small>h</small> 5<small>m</small>`,
+	},
 }
 
 func TestStringifying(t *testing.T) {
 	for _, tc := range stringifyingTests {
 		pango.AssertEqual(t, tc.expected, tc.node.String(), tc.desc)
 	}
+}
+
+func TestCustomUnitFormatter(t *testing.T) {
+	defer func() { unitFormatter = value.Value{} }()
+	SetUnitFormatter(func(v format.Values) *Node {
+		return Textf(v.String())
+	})
+
+	pango.AssertEqual(t, `4.40km`,
+		Unit(format.SI(4400, "m")).String())
+	pango.AssertEqual(t, `1d20h3m`,
+		Unit(format.SI(1, "d"), format.SI(20, "h"), format.SI(3.2, "m")).String())
 }
 
 var transparent = color.Transparent
