@@ -19,6 +19,10 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
+
+	"barista.run/base/value"
+	"github.com/martinlindhe/unit"
 )
 
 var suffixesSI = []string{
@@ -37,6 +41,14 @@ type Value struct {
 // increasing precision to fill the available space.
 func (v Value) Number(width int) string {
 	minWidth := strings.IndexRune(v.number, '.')
+	if minWidth == 0 {
+		minWidth = strings.IndexFunc(v.number, func(r rune) bool {
+			return r != '.' && r != '0'
+		})
+		if minWidth >= 0 {
+			minWidth++
+		}
+	}
 	if minWidth < 0 {
 		minWidth = len(v.number)
 	}
@@ -53,32 +65,148 @@ func (v Value) Number(width int) string {
 	return out
 }
 
+// String formats the value as a string
+func (v Value) String() string {
+	return v.StringW(1)
+}
+
+// StringW formats the value as a string, using the given width for the numeric
+// portion.
+func (v Value) StringW(w int) string {
+	return v.Number(w) + v.Unit
+}
+
+// Values represents an ordered list of values, e.g. hours/minutes/seconds.
+type Values []Value
+
+// String formats the values as a string
+func (v Values) String() string {
+	r := ""
+	w := 1
+	if len(v) == 1 {
+		w += 3
+	}
+	for _, val := range v {
+		r += val.StringW(w)
+	}
+	return r
+}
+
+func pow1000(n int) float64 {
+	return math.Pow10(n * 3)
+}
+
+func val(n float64, unit string) Value {
+	if n < 0 {
+		v := val(-n, unit)
+		v.number = "-" + v.number
+		return v
+	}
+	epsilon := math.Nextafter(0.0, n)
+	if n <= epsilon {
+		return Value{"0", unit}
+	}
+	valStr := fmt.Sprintf("%.7f", n)
+	valStr = strings.TrimLeft(valStr, "0")
+	return Value{valStr, unit}
+}
+
 // SI formats an SI unit value by scaling it to a sensible multiplier, and
 // returns a three-character value (four if negative) and a suffix that's either
 // empty or a single character.
 // e.g. format.SI((20480*unit.Megabyte).Bytes(), "B") == {"20.48000", "GB"}
 // or format.SI((0.001234*unit.Foot).Meter(), "m") == {"376.1232", "µm"}
-func SI(val float64, unit string) Value {
-	if val < 0 {
-		inv := SI(-val, unit)
+func SI(v float64, unit string) Value {
+	if v < 0 {
+		inv := SI(-v, unit)
 		inv.number = "-" + inv.number
 		return inv
 	}
-	f := 1e-24
-	epsilon := math.Nextafter(0.0, val)
-	if val <= epsilon {
-		return Value{"0.0", unit}
+	epsilon := math.Nextafter(0.0, v)
+	if v <= epsilon {
+		return Value{"0", unit}
 	}
-	if val < f {
-		return Value{fmt.Sprintf("%.7f", val/f)[1:], suffixesSI[0] + unit}
+	f := pow1000(-8)
+	if v < f {
+		return val(v/f, suffixesSI[0]+unit)
 	}
-	for _, s := range suffixesSI {
-		next := f * 1e3
-		if val < next {
-			return Value{fmt.Sprintf("%.7f", val/f), s + unit}
+	for i, s := range suffixesSI {
+		next := pow1000(i - 7)
+		if v < next {
+			return val(v/f, s+unit)
 		}
 		f = next
 	}
-	f = f / 1e3
-	return Value{fmt.Sprintf("%.f", val/f), suffixesSI[len(suffixesSI)-1] + unit}
+	f = pow1000(len(suffixesSI) - 8 - 1)
+	return val(v/f, suffixesSI[len(suffixesSI)-1]+unit)
+}
+
+type temperatureUnit int
+
+// Pass in these constants to SetTemperatureUnit to control the default format.
+const (
+	Celsius temperatureUnit = iota
+	Fahrenheit
+	Kelvin
+)
+
+var defaultTempUnit value.Value
+
+// SetTemperatureUnit sets the default unit used when formatting temperatures.
+func SetTemperatureUnit(f temperatureUnit) {
+	defaultTempUnit.Set(f)
+}
+
+//go:generate ruby siunit.rb
+
+// Unit formats a unit.Unit value to the most appropriately scaled base unit.
+// For example, Unit(length) is equivalent to SI(length.Meters(), "m").
+// For non-base units (e.g. feet), use SI(length.Feet(), "ft").
+func Unit(value interface{}) (Values, bool) {
+	if fVal, ok := SIUnit(value); ok {
+		return Values{fVal}, ok
+	}
+	switch v := value.(type) {
+	case unit.Unit:
+		return Values{SI(float64(v), "")}, true
+	case unit.Duration:
+		return Duration(
+			time.Duration(v.Nanoseconds()) * time.Nanosecond), true
+	case time.Duration:
+		return Duration(v), true
+	case unit.Temperature:
+		u, _ := defaultTempUnit.Get().(temperatureUnit)
+		switch u {
+		case Fahrenheit:
+			return Values{val(v.Fahrenheit(), "℉")}, true
+		case Kelvin:
+			return Values{val(v.Kelvin(), "K")}, true
+		default:
+			return Values{val(v.Celsius(), "℃")}, true
+		}
+	}
+	return nil, false
+}
+
+// Duration formats a time.Duration by providing the two most significant units.
+func Duration(d time.Duration) Values {
+	if d.Hours() >= 24 {
+		return Values{
+			val(float64(int(d.Hours()))/24.0, "d"),
+			val(float64(int(d.Hours())%24), "h"),
+		}
+	}
+	if d.Minutes() >= 60 {
+		return Values{
+			val(d.Truncate(time.Hour).Hours(), "h"),
+			val(float64(int(d.Minutes())%60), "m"),
+		}
+	}
+	if d.Seconds() >= 60 {
+		return Values{
+			val(d.Truncate(time.Minute).Minutes(), "m"),
+			val(float64(int(d.Seconds())%60), "s"),
+		}
+	}
+	return Values{SI(d.Seconds(), "s")}
 }
