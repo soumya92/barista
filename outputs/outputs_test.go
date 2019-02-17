@@ -18,11 +18,14 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"barista.run/bar"
+	"barista.run/format"
 	"barista.run/pango"
 	pangoTesting "barista.run/testing/pango"
 
+	"github.com/martinlindhe/unit"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,6 +68,11 @@ func TestTextFmt(t *testing.T) {
 	}
 }
 
+func mustFormat(thing interface{}) format.Values {
+	val, _ := format.Unit(thing)
+	return val
+}
+
 func TestPango(t *testing.T) {
 	// Most of pango is already tested by pango tests,
 	// so we'll just test collapsing here.
@@ -81,6 +89,11 @@ func TestPango(t *testing.T) {
 			"with pango node, string, and other",
 			Pango(pango.Text("<").Heavy(), 3.14159, " ", true, pango.Text(">").Heavy()),
 			"<span weight='heavy'>&lt;</span>3.14159 true<span weight='heavy'>&gt;</span>",
+		},
+		{
+			"with units of various kinds",
+			Pango(4*unit.Kilometer, " ", format.SI(3300, "g"), " ", 85*time.Minute, " ", mustFormat(4000*unit.Second)),
+			`4.0<small>km</small> 3.3<small>kg</small> 1<small>h</small>25<small>m</small> 1<small>h</small> 6<small>m</small>`,
 		},
 	}
 	for _, tc := range tests {

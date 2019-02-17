@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"barista.run/bar"
+	"barista.run/format"
 	"barista.run/pango"
 )
 
@@ -52,8 +53,16 @@ func Pango(things ...interface{}) *bar.Segment {
 			nodes = append(nodes, t)
 		case string:
 			nodes = append(nodes, pango.Text(t))
+		case format.Value:
+			nodes = append(nodes, pango.Unit(t))
+		case format.Values:
+			nodes = append(nodes, pango.Unit(t...))
 		default:
-			nodes = append(nodes, pango.Textf("%v", t))
+			if val, ok := format.Unit(t); ok {
+				nodes = append(nodes, pango.Unit(val...))
+			} else {
+				nodes = append(nodes, pango.Textf("%v", t))
+			}
 		}
 	}
 	return bar.PangoSegment(pango.New(nodes...).String())
