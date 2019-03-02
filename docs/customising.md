@@ -16,6 +16,12 @@ as a template, and experiment with changes to the file.
   <img src="/assets/images/simple-screenshot.png" alt="Another screenshot of simple bar" height="22" />
 </div>
 
+  - Setup the `barista.run` package in `$GOPATH`:
+
+  ```shell
+go get barista.run
+```
+
   - Download the sources:
 
   ```shell
