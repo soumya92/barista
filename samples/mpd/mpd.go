@@ -5,7 +5,6 @@ import (
 	"barista.run/base/value"
 	"barista.run/outputs"
 	"github.com/fhs/gompd/mpd"
-	"strconv"
 )
 
 type PlaybackStatus string
@@ -18,34 +17,41 @@ const (
 	Stopped      = PlaybackStatus("stopped")
 )
 
+type PlaybackStatusIcon string
+
+const (
+	PlayingIcon = PlaybackStatusIcon("►")
+	PausedIcon  = PlaybackStatusIcon("⏸")
+)
+
 type Info struct {
-	PlaybackStatus PlaybackStatus
-	Title          string
-	Artist         string
+	PlaybackStatus     PlaybackStatus
+	Title              string
+	Artist             string
+	PlaybackStatusIcon PlaybackStatusIcon
+	conn               *mpd.Client
+	watcher            *mpd.Watcher
 }
 
-// Global MPD connection
-var conn *mpd.Client
-
-func (i *Info) setupConnection(host string, port uint64) {
-	parsedPort := strconv.FormatUint(port, 10)
-	var err error
-	conn, err = mpd.Dial("tcp", host+":"+parsedPort)
+func (i *Info) setupConnection(host string) {
+	if host == "" {
+		host = "127.0.0.1:6600"
+	}
+	conn, err := mpd.Dial("tcp", host)
 	if err != nil {
 		conn = nil
 	}
-	status, _ := conn.Status()
-	i.PlaybackStatus = PlaybackStatus(status["state"])
-	if i.PlaybackStatus == "play" || i.PlaybackStatus == "pause" {
-		currentSong, _ := conn.CurrentSong()
-		i.Artist = currentSong["Artist"]
-		i.Title = currentSong["Title"]
+	i.conn = conn
+	watcher, err := mpd.NewWatcher("tcp", host, "")
+	if err != nil {
+		i.watcher = nil
+	} else {
+		i.watcher = watcher
 	}
 }
 
 type Module struct {
 	host       string
-	port       uint64
 	outputFunc value.Value
 }
 
@@ -57,18 +63,18 @@ func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 
 func (m *Module) Stream(s bar.Sink) {
 	var i Info
-	i.setupConnection(m.host, m.port)
-	tmp := outputs.Textf("status: %s current song: %s -- %s", i.PlaybackStatus, i.Artist, i.Title)
+	i.setupConnection(m.host)
+	i.updateInfo()
+	tmp := outputs.Textf("%s %s - %s", i.PlaybackStatusIcon, i.Artist, i.Title)
 	s.Output(tmp)
 }
 
-func New(host string, port uint64) *Module {
+func New(host string) *Module {
 	m := &Module{
 		host: host,
-		port: port,
 	}
 	m.Output(func(i Info) bar.Output {
-		return outputs.Textf("status: %s current song: %s -- %s", i.PlaybackStatus, i.Artist, i.Title)
+		return outputs.Textf("%s %s - %s", i.PlaybackStatusIcon, i.Artist, i.Title)
 	})
 	return m
 }
