@@ -8,26 +8,26 @@ import (
 	"strconv"
 )
 
+type PlaybackStatus string
+
+const (
+	// https://www.musicpd.org/doc/html/protocol.html
+	Disconnected = PlaybackStatus("")
+	Playing      = PlaybackStatus("play")
+	Paused       = PlaybackStatus("pause")
+	Stopped      = PlaybackStatus("stopped")
+)
+
+type Info struct {
+	PlaybackStatus PlaybackStatus
+	Title          string
+	Artist         string
+}
+
 // Global MPD connection
 var conn *mpd.Client
 
-// MPD represents the current state and the current song
-type MPD struct {
-	status      mpd.Attrs
-	currentSong mpd.Attrs
-}
-
-// Status returns the current state of MPD as map[string]string aka mpd.Attrs
-func (m *MPD) Status() mpd.Attrs {
-	return m.status
-}
-
-// CurrentSong returns the current song of MPD as map[string]string aka mpd.Attrs
-func (m *MPD) CurrentSong() mpd.Attrs {
-	return m.currentSong
-}
-
-func (m *MPD) setupConnection(host string, port uint64)  {
+func (i *Info) setupConnection(host string, port uint64) {
 	parsedPort := strconv.FormatUint(port, 10)
 	var err error
 	conn, err = mpd.Dial("tcp", host+":"+parsedPort)
@@ -35,37 +35,40 @@ func (m *MPD) setupConnection(host string, port uint64)  {
 		conn = nil
 	}
 	status, _ := conn.Status()
-	m.status = status
-	if m.status["state"] == "play" {
+	i.PlaybackStatus = PlaybackStatus(status["state"])
+	if i.PlaybackStatus == "play" || i.PlaybackStatus == "pause" {
 		currentSong, _ := conn.CurrentSong()
-		m.currentSong = currentSong
+		i.Artist = currentSong["Artist"]
+		i.Title = currentSong["Title"]
 	}
 }
 
 type Module struct {
-	host        string
-	port        uint64
+	host       string
+	port       uint64
 	outputFunc value.Value
 }
 
 // Output configures a module to display the output of a user-defined function.
-func (m *Module) Output(outputFunc func(MPD) bar.Output) *Module {
+func (m *Module) Output(outputFunc func(Info) bar.Output) *Module {
 	m.outputFunc.Set(outputFunc)
 	return m
 }
 
 func (m *Module) Stream(s bar.Sink) {
-	var c MPD
-	c.setupConnection(m.host, m.port)
+	var i Info
+	i.setupConnection(m.host, m.port)
+	tmp := outputs.Textf("status: %s current song: %s -- %s", i.PlaybackStatus, i.Artist, i.Title)
+	s.Output(tmp)
 }
 
 func New(host string, port uint64) *Module {
-	m := &Module {
+	m := &Module{
 		host: host,
 		port: port,
 	}
-	m.Output(func(c MPD) bar.Output {
-		return outputs.Textf("status: %s current song: %s -- %s", c.status["state"], c.currentSong["Artist"], c.currentSong["Title"])
+	m.Output(func(i Info) bar.Output {
+		return outputs.Textf("status: %s current song: %s -- %s", i.PlaybackStatus, i.Artist, i.Title)
 	})
 	return m
 }
