@@ -41,7 +41,7 @@ func TestDevice(t *testing.T) {
 		"Trusted":   true,
 		"Blocked":   false,
 	}, dbus.SignalTypeNone)
-	battery.SetProperty("Percentage", byte(40), dbus.SignalTypeNone)
+	battery.SetPropertyForTest("Percentage", byte(40), dbus.SignalTypeNone)
 
 	devModule := Device(adapterName, deviceMac)
 	devModule.Output(func(i DeviceInfo) bar.Output {
@@ -55,7 +55,7 @@ func TestDevice(t *testing.T) {
 
 	testBar.NextOutput().AssertText([]string{"foo: YES (40%)"})
 
-	battery.SetProperty("Percentage", byte(30), dbus.SignalTypeChanged)
+	battery.SetPropertyForTest("Percentage", byte(30), dbus.SignalTypeChanged)
 	testBar.NextOutput().AssertText([]string{"foo: YES (30%)"})
 }
 
@@ -87,7 +87,7 @@ func TestDeviceDisconnect(t *testing.T) {
 
 	testBar.NextOutput().AssertText([]string{"YES"})
 
-	device.SetProperty("Connected", false, dbus.SignalTypeChanged)
+	device.SetPropertyForTest("Connected", false, dbus.SignalTypeChanged)
 	testBar.NextOutput().AssertText([]string{"NO"})
 }
 

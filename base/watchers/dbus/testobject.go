@@ -182,10 +182,16 @@ const (
 	SignalTypeInvalidated
 )
 
-// SetProperty sets a property of the test object. The signal type parameter
+// SetProperty sets a property of the test object.
+func (t *TestBusObject) SetProperty(prop string, value interface{}) error {
+	t.SetPropertyForTest(prop, value, SignalTypeChanged)
+	return nil
+}
+
+// SetPropertyForTest sets a property of the test object. The signal type parameter
 // controls whether a "PropertiesChanged" signal is automatically emitted, and
 // what form the emitted signal takes.
-func (t *TestBusObject) SetProperty(prop string, value interface{}, signalType SignalType) {
+func (t *TestBusObject) SetPropertyForTest(prop string, value interface{}, signalType SignalType) {
 	t.SetProperties(map[string]interface{}{prop: value}, signalType)
 }
 

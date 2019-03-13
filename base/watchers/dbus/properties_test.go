@@ -51,7 +51,7 @@ func TestProperties(t *testing.T) {
 
 	srv := bus.RegisterService("org.i3barista.services.FooService")
 	obj := srv.Object("/org/i3barista/objects/Foo", "org.i3barista.Service")
-	obj.SetProperty("a", 1, SignalTypeNone)
+	obj.SetPropertyForTest("a", 1, SignalTypeNone)
 	<-ch // NameOwnerChanged.
 
 	w := WatchProperties(Test,
@@ -66,15 +66,15 @@ func TestProperties(t *testing.T) {
 		"a": 1,
 	}, w.Get(), "Initial values")
 
-	obj.SetProperty("a", 2, SignalTypeChanged)
+	obj.SetPropertyForTest("a", 2, SignalTypeChanged)
 	u := assertUpdated(t, w, "On property change with signal")
 	require.Equal(t, PropertiesChange{"a": {1, 2}}, u,
 		"Old value and new value in update")
 
-	obj.SetProperty("d", "baz", SignalTypeNone)
+	obj.SetPropertyForTest("d", "baz", SignalTypeNone)
 	assertNotUpdated(t, w, "On property change without signal")
 
-	obj.SetProperty("c", "anotherstring", SignalTypeInvalidated)
+	obj.SetPropertyForTest("c", "anotherstring", SignalTypeInvalidated)
 	u = assertUpdated(t, w, "On property change with signal")
 	require.Equal(t, PropertiesChange{"c": {nil, "anotherstring"}}, u,
 		"Nil old value for newly set property")
@@ -84,19 +84,19 @@ func TestProperties(t *testing.T) {
 		"c": "anotherstring",
 	}, w.Get(), "Non-signal property change ignored")
 
-	obj.SetProperty("foo", "whatever", SignalTypeInvalidated)
+	obj.SetPropertyForTest("foo", "whatever", SignalTypeInvalidated)
 	assertNotUpdated(t, w, "On uninteresting property change")
 
-	obj.SetProperty("d", 5, SignalTypeChanged)
+	obj.SetProperty("d", 5)
 	u = assertUpdated(t, w, "On property change with signal")
 	require.Equal(t, PropertiesChange{"d": {nil, 5}}, u,
 		"Nil old value for previously ignored set")
 
 	srv1 := bus.RegisterService()
 	obj = srv1.Object("/org/i3barista/objects/Foo", "org.i3barista.Service")
-	obj.SetProperty("a", 4, SignalTypeNone)
-	obj.SetProperty("b", "banana", SignalTypeNone)
-	obj.SetProperty("d", 5, SignalTypeNone)
+	obj.SetPropertyForTest("a", 4, SignalTypeNone)
+	obj.SetPropertyForTest("b", "banana", SignalTypeNone)
+	obj.SetPropertyForTest("d", 5, SignalTypeNone)
 
 	srv1.AddName("org.i3barista.services.FooService") // Replace previous.
 	u = assertUpdated(t, w, "On service move")
@@ -121,12 +121,12 @@ func TestProperties(t *testing.T) {
 	_, err = w.Call("Undefined", 3, 1, 4)
 	require.Error(t, err, "On undefined method call")
 
-	obj.SetProperty("d", 7, SignalTypeInvalidated)
+	obj.SetPropertyForTest("d", 7, SignalTypeInvalidated)
 	u = assertUpdated(t, w, "On signal after move")
 	require.Equal(t, PropertiesChange{"d": {5, 7}}, u)
 
 	obj1 := srv1.Object("/org/i3barista/objects/NotFoo", "org.i3barista.Service")
-	obj1.SetProperty("d", 8, SignalTypeChanged)
+	obj1.SetPropertyForTest("d", 8, SignalTypeChanged)
 	assertNotUpdated(t, w, "Different object in same service updated")
 
 	w.AddSignalHandler("Signal",
@@ -146,7 +146,7 @@ func TestProperties(t *testing.T) {
 		"fetched":    {nil, nil},
 	}, u)
 
-	obj.SetProperty("foo", 0, SignalTypeNone)
+	obj.SetPropertyForTest("foo", 0, SignalTypeNone)
 	obj.Emit("Signal", 8)
 	u = assertUpdated(t, w, "On signal handler")
 	require.Equal(t, PropertiesChange{
@@ -154,8 +154,8 @@ func TestProperties(t *testing.T) {
 		"fetched":    {nil, 0},
 	}, u)
 
-	obj.SetProperty("nosignal", "changed", SignalTypeNone)
-	obj.SetProperty("a", 5, SignalTypeChanged)
+	obj.SetPropertyForTest("nosignal", "changed", SignalTypeNone)
+	obj.SetPropertyForTest("a", 5, SignalTypeChanged)
 
 	u = assertUpdated(t, w, "On change")
 	require.Equal(t, PropertiesChange{
@@ -166,7 +166,7 @@ func TestProperties(t *testing.T) {
 	w.Add("org.i3barista.OtherService.Property")
 	assertNotUpdated(t, w, "Unset property added")
 	srv1.Object("/org/i3barista/objects/Foo", "org.i3barista.OtherService").
-		SetProperty("Property", 4, SignalTypeInvalidated)
+		SetPropertyForTest("Property", 4, SignalTypeInvalidated)
 	u = assertUpdated(t, w, "Fully qualified property name")
 	require.Equal(t, [2]interface{}{nil, 4},
 		u["org.i3barista.OtherService.Property"],
@@ -202,7 +202,7 @@ func TestProperties(t *testing.T) {
 	}, w.Get())
 
 	obj = srv.Object("/org/i3barista/objects/Foo", "org.i3barista.Service")
-	obj.SetProperty("manual", []string{"foo"}, SignalTypeChanged)
+	obj.SetPropertyForTest("manual", []string{"foo"}, SignalTypeChanged)
 	assertNotUpdated(t, w, "non-signal property changed")
 
 	require.Equal(t, map[string]interface{}{
@@ -213,16 +213,16 @@ func TestProperties(t *testing.T) {
 	}, w.Get(), "non-signal property included in fetch")
 
 	w.FetchOnSignal("signalOrFetch").Fetch("signalOrFetch")
-	obj.SetProperty("signalOrFetch", 2, SignalTypeChanged)
+	obj.SetPropertyForTest("signalOrFetch", 2, SignalTypeChanged)
 	u = assertUpdated(t, w, "property changed")
 	require.Equal(t, PropertiesChange{
 		"signalOrFetch": {nil, 2},
 	}, u)
 
-	obj.SetProperty("signalOrFetch", 3, SignalTypeNone)
+	obj.SetPropertyForTest("signalOrFetch", 3, SignalTypeNone)
 	assertNotUpdated(t, w, "property changed without signal")
 
-	obj.SetProperty("a", 5, SignalTypeChanged)
+	obj.SetPropertyForTest("a", 5, SignalTypeChanged)
 	u = assertUpdated(t, w, "property changed with signal")
 	require.Equal(t, PropertiesChange{
 		"signalOrFetch": {2, 3},
@@ -232,7 +232,7 @@ func TestProperties(t *testing.T) {
 	w.Unsubscribe()
 	require.Empty(t, w.Get(), "After Unsubscribe")
 
-	obj.SetProperty("a", 4, SignalTypeChanged)
+	obj.SetPropertyForTest("a", 4, SignalTypeChanged)
 	assertNotUpdated(t, w, "after Unsubscribe")
 
 	obj.Emit("Signal", "foo")

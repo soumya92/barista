@@ -126,16 +126,16 @@ func TestSignalMatching(t *testing.T) {
 	assertSignalled(t, sgn1, "arg2namespace")
 	assertSignalled(t, sgn2, "arg0path")
 
-	obj.SetProperty("anything", "value", SignalTypeChanged)
+	obj.SetPropertyForTest("anything", "value", SignalTypeChanged)
 	assertSignalled(t, sgn2, "PropertiesChanged with sender filter")
 
 	s2 := b.RegisterService("run.barista.sink.Sink")
 	s2.Object("/run/barista/sink/System", "").
-		SetProperty("foo", "baz", SignalTypeChanged)
+		SetPropertyForTest("foo", "baz", SignalTypeChanged)
 	assertNotSignalled(t, sgn2, "PropertiesChanged from different sender")
 
-	obj.SetProperty("anything", "othervalue", SignalTypeNone)
-	assertNotSignalled(t, sgn2, "SetProperty without signal")
+	obj.SetPropertyForTest("anything", "othervalue", SignalTypeNone)
+	assertNotSignalled(t, sgn2, "SetPropertyForTest without signal")
 
 	objp := s.Object("/org/i3barista/Bar", "org.freedesktop.DBus.Properties")
 	objp.Emit("PropertiesChanged", dbus.MakeVariant(map[string]interface{}{}))
@@ -153,7 +153,7 @@ func TestSignalMatching(t *testing.T) {
 	sgn2b := make(chan *dbus.Signal, 10)
 	conn2.Signal(sgn2b)
 
-	obj.SetProperty("anything", "newvalue", SignalTypeChanged)
+	obj.SetPropertyForTest("anything", "newvalue", SignalTypeChanged)
 	assertNotSignalled(t, sgn2, "PropertiesChanged after removing signal handler")
 	assertSignalled(t, sgn2b, "PropertiesChanged on newly registered signal handler")
 }

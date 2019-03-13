@@ -46,7 +46,7 @@ func TestObjects(t *testing.T) {
 	require.Equal(t, "org.freedesktop.DBus.Properties", o2p.Destination(),
 		"overridden destination service name")
 
-	o0.SetProperty("color", "red", SignalTypeNone)
+	o0.SetPropertyForTest("color", "red", SignalTypeNone)
 	val, err := Test().
 		Object("org.i3barista.Misc.BarService", "/org/i3barista/Misc/Bar").
 		GetProperty("org.i3barista.Misc.BarService.color")

@@ -88,7 +88,7 @@ func TestAdapterDisconnect(t *testing.T) {
 		"ON",
 	})
 
-	adapter.SetProperty("Powered", false, dbus.SignalTypeChanged)
+	adapter.SetPropertyForTest("Powered", false, dbus.SignalTypeChanged)
 
 	testBar.LatestOutput().AssertText([]string{
 		"OFF",
