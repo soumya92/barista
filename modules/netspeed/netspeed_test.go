@@ -30,10 +30,10 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-type testLink netlink.LinkStatistics
+type testLink netlink.LinkAttrs
 
 func (t testLink) Attrs() *netlink.LinkAttrs {
-	return &netlink.LinkAttrs{Statistics: (*netlink.LinkStatistics)(&t)}
+	return (*netlink.LinkAttrs)(&t)
 }
 func (t testLink) Type() string { return "test" }
 
@@ -46,7 +46,7 @@ func removeLink(name string) {
 	delete(ifaces, name)
 }
 
-func setLink(name string, stats netlink.LinkStatistics) {
+func setLink(name string, stats netlink.LinkAttrs) {
 	ifacesLock.Lock()
 	defer ifacesLock.Unlock()
 	ifaces[name] = testLink(stats)
@@ -75,9 +75,12 @@ func TestNetspeed(t *testing.T) {
 	require := require.New(t)
 	testBar.New(t)
 
-	setLink("if0", netlink.LinkStatistics{
-		RxBytes: 1024,
-		TxBytes: 1024,
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 1024,
+			TxBytes: 1024,
+		},
 	})
 
 	n := New("if0").
@@ -90,17 +93,23 @@ func TestNetspeed(t *testing.T) {
 	testBar.Run(n)
 	testBar.AssertNoOutput("on start")
 
-	setLink("if0", netlink.LinkStatistics{
-		RxBytes: 4096,
-		TxBytes: 2048,
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 4096,
+			TxBytes: 2048,
+		},
 	})
 	testBar.Tick()
 
 	testBar.NextOutput().AssertEqual(outputs.Text("3/1"), "on tick")
 
-	setLink("if0", netlink.LinkStatistics{
-		RxBytes: 8192,
-		TxBytes: 3072,
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 8192,
+			TxBytes: 3072,
+		},
 	})
 	testBar.Tick()
 
@@ -131,6 +140,71 @@ func TestNetspeed(t *testing.T) {
 	testBar.NextOutput().Expect("RefreshInterval change")
 }
 
+func TestConnectedState(t *testing.T) {
+	testBar.New(t)
+
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 1024,
+			TxBytes: 1024,
+		},
+	})
+
+	n := New("if0").
+		RefreshInterval(time.Second).
+		Output(func(s Speeds) bar.Output {
+			if !s.Connected() {
+				return nil
+			}
+			return outputs.Textf("%v/%v",
+				s.Rx.KibibytesPerSecond(), s.Tx.KibibytesPerSecond())
+		})
+
+	testBar.Run(n)
+	testBar.AssertNoOutput("on start")
+
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 4096,
+			TxBytes: 2048,
+		},
+	})
+	testBar.Tick()
+	testBar.NextOutput().AssertEqual(outputs.Text("3/1"), "on tick")
+
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 8192,
+			TxBytes: 3072,
+		},
+	})
+	testBar.Tick()
+	testBar.NextOutput().AssertEqual(outputs.Text("4/1"), "on tick")
+
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 3,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 8192,
+			TxBytes: 3072,
+		},
+	})
+	testBar.Tick()
+	testBar.NextOutput().AssertEmpty("on link disconnection")
+
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 8192,
+			TxBytes: 4096,
+		},
+	})
+	testBar.Tick()
+	testBar.NextOutput().AssertEqual(outputs.Text("0/1"), "on tick after reconnect")
+}
+
 func TestErrors(t *testing.T) {
 	testBar.New(t)
 
@@ -140,9 +214,12 @@ func TestErrors(t *testing.T) {
 	testBar.NextOutput().AssertError("on start for missing interface")
 	out := testBar.NextOutput("sets restart click handler")
 
-	setLink("if0", netlink.LinkStatistics{
-		RxBytes: 0,
-		TxBytes: 0,
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 0,
+			TxBytes: 0,
+		},
 	})
 	sigCh := make(chan struct{})
 	signalChan = sigCh
@@ -151,9 +228,12 @@ func TestErrors(t *testing.T) {
 	testBar.NextOutput().AssertText([]string{},
 		"clears error on click after interface is available")
 
-	setLink("if0", netlink.LinkStatistics{
-		RxBytes: 4096,
-		TxBytes: 2048,
+	setLink("if0", netlink.LinkAttrs{
+		OperState: 6,
+		Statistics: &netlink.LinkStatistics{
+			RxBytes: 4096,
+			TxBytes: 2048,
+		},
 	})
 	testBar.Tick()
 	testBar.NextOutput().AssertText(

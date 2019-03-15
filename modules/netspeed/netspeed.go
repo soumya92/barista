@@ -35,11 +35,17 @@ type Speeds struct {
 	// Keep track of whether these speeds are actually 0
 	// or uninitialised.
 	available bool
+	state     netlink.LinkOperState
 }
 
 // Total gets the total speed (both up and down).
 func (s Speeds) Total() unit.Datarate {
 	return s.Rx + s.Tx
+}
+
+// Connected returns true if the network is connected.
+func (s Speeds) Connected() bool {
+	return s.state >= 5 // IF_OPER_DORMANT
 }
 
 // Module represents a netspeed bar module. It supports setting the output
@@ -87,7 +93,7 @@ var linkByName = netlink.LinkByName
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
 	lastRead := timing.Now()
-	lastRx, lastTx, err := linkRxTx(m.iface)
+	lastRx, lastTx, _, err := linkRxTxState(m.iface)
 	if s.Error(err) {
 		return
 	}
@@ -105,7 +111,7 @@ func (m *Module) Stream(s bar.Sink) {
 		case <-nextOutputFunc:
 			outputFunc = m.outputFunc.Get().(func(Speeds) bar.Output)
 		case <-m.scheduler.C:
-			rx, tx, err := linkRxTx(m.iface)
+			rx, tx, state, err := linkRxTxState(m.iface)
 			if s.Error(err) {
 				return
 			}
@@ -115,6 +121,7 @@ func (m *Module) Stream(s bar.Sink) {
 			speeds.available = true
 			speeds.Rx = unit.Datarate(float64(rx-lastRx)/duration) * unit.BytePerSecond
 			speeds.Tx = unit.Datarate(float64(tx-lastTx)/duration) * unit.BytePerSecond
+			speeds.state = state
 
 			lastRead = now
 			lastRx = rx
@@ -123,12 +130,13 @@ func (m *Module) Stream(s bar.Sink) {
 	}
 }
 
-func linkRxTx(iface string) (rx, tx uint64, err error) {
+func linkRxTxState(iface string) (rx, tx uint64, state netlink.LinkOperState, err error) {
 	var link netlink.Link
 	link, err = linkByName(iface)
 	if err != nil {
 		return
 	}
+	state = link.Attrs().OperState
 	linkStats := link.Attrs().Statistics
 	rx = linkStats.RxBytes
 	tx = linkStats.TxBytes
