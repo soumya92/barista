@@ -87,6 +87,8 @@ func TestUnknownAndMissingStatus(t *testing.T) {
 
 	info = allBatteriesInfo()
 	require.Equal(Unknown, info.Status)
+
+	require.False(info.Discharging(), "Unknown battery is not discharging")
 }
 
 func TestGarbageFiles(t *testing.T) {
