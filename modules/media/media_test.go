@@ -61,17 +61,17 @@ func TestMedia(t *testing.T) {
 	testBar.Run(pl)
 	testBar.NextOutput("on start").AssertText([]string{"3m0s: Title"})
 
-	obj.SetProperty("PlaybackStatus", "Paused", dbusWatcher.SignalTypeChanged)
+	obj.SetPropertyForTest("PlaybackStatus", "Paused", dbusWatcher.SignalTypeChanged)
 	testBar.NextOutput("on props change").AssertText([]string{"Title"})
 
-	obj.SetProperty("Metadata", map[string]dbus.Variant{
+	obj.SetPropertyForTest("Metadata", map[string]dbus.Variant{
 		"xesam:title": dbus.MakeVariant("foo"),
 	}, dbusWatcher.SignalTypeChanged)
 	testBar.NextOutput("on title change").AssertText([]string{"foo"})
 
 	srv1 := bus.RegisterService()
 	obj = srv1.Object("/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player")
-	obj.SetProperty("PlaybackStatus", "Paused", dbusWatcher.SignalTypeNone)
+	obj.SetPropertyForTest("PlaybackStatus", "Paused", dbusWatcher.SignalTypeNone)
 	obj.OnElse(func(method string, args ...interface{}) ([]interface{}, error) {
 		c := methodCall{name: method}
 		if len(args) > 0 {
@@ -107,7 +107,7 @@ func TestMedia(t *testing.T) {
 		methodCall{"org.mpris.MediaPlayer2.Player.PlayPause", nil},
 		<-calls, "On left click")
 
-	obj.SetProperty("PlaybackStatus", "Playing", dbusWatcher.SignalTypeChanged)
+	obj.SetPropertyForTest("PlaybackStatus", "Playing", dbusWatcher.SignalTypeChanged)
 	out = testBar.NextOutput("on playstate change")
 	out.AssertText([]string{"0s: Song"})
 
@@ -132,7 +132,7 @@ func TestMedia(t *testing.T) {
 		methodCall{"org.mpris.MediaPlayer2.Player.Previous", nil},
 		<-calls, "On back click")
 
-	obj.SetProperty("Metadata", map[string]dbus.Variant{
+	obj.SetPropertyForTest("Metadata", map[string]dbus.Variant{
 		"xesam:title":   dbus.MakeVariant("Title"),
 		"xesam:artist":  dbus.MakeVariant([]string{"Artist1", "Artist2"}),
 		"xesam:album":   dbus.MakeVariant("Album"),
@@ -154,7 +154,7 @@ func TestMedia(t *testing.T) {
 		methodCall{"org.mpris.MediaPlayer2.Player.Next", nil},
 		<-calls, "On click with custom output")
 
-	obj.SetProperty("Metadata", map[string]dbus.Variant{
+	obj.SetPropertyForTest("Metadata", map[string]dbus.Variant{
 		"xesam:title":       dbus.MakeVariant("Song"),
 		"mpris:trackid":     dbus.MakeVariant("3"),
 		"xesam:albumArtist": dbus.MakeVariant([]string{"Person1", "Person2"}),
@@ -167,7 +167,7 @@ func TestMedia(t *testing.T) {
 	out = testBar.NextOutput("on time passing")
 	out.AssertText([]string{"[Playing, 1s] Song - "})
 
-	obj.SetProperty("PlaybackStatus", "Paused", dbusWatcher.SignalTypeChanged)
+	obj.SetPropertyForTest("PlaybackStatus", "Paused", dbusWatcher.SignalTypeChanged)
 	out = testBar.NextOutput("on pause")
 	out.AssertText([]string{"[Paused, 1s] Song - "})
 
@@ -182,10 +182,10 @@ func TestMedia(t *testing.T) {
 	obj.Emit("Seeked", 2*1000*1000)
 	testBar.NextOutput("on seek").AssertText([]string{"[Paused, 2s] Song - "})
 
-	obj.SetProperty("PlaybackStatus", "Stopped", dbusWatcher.SignalTypeChanged)
+	obj.SetPropertyForTest("PlaybackStatus", "Stopped", dbusWatcher.SignalTypeChanged)
 	testBar.NextOutput("on stop").AssertText([]string{"[Stopped, 0s] Song - "})
 
-	obj.SetProperty("PlaybackStatus", "Playing", dbusWatcher.SignalTypeChanged)
+	obj.SetPropertyForTest("PlaybackStatus", "Playing", dbusWatcher.SignalTypeChanged)
 	testBar.NextOutput("on play").AssertText([]string{"[Playing, 0s] Song - "})
 
 	lastInfo.Stop()

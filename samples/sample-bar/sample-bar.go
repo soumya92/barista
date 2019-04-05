@@ -335,6 +335,8 @@ func main() {
 		case weather.Clear:
 			if !w.Sunset.IsZero() && time.Now().After(w.Sunset) {
 				iconName = "night"
+			} else if !w.Sunrise.IsZero() && time.Now().Before(w.Sunrise) {
+				iconName = "night"
 			} else {
 				iconName = "sunny"
 			}

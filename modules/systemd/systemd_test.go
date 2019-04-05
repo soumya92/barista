@@ -154,7 +154,7 @@ func TestTimer(t *testing.T) {
 		"LastTriggerUSec":        uint64(timing.Now().Add(-1*time.Hour).UnixNano() / 1000),
 		"NextElapseUSecRealtime": uint64(timing.Now().Add(23*time.Hour).UnixNano() / 1000),
 	}, dbus.SignalTypeNone)
-	unit0.SetProperty("ActiveState", "active", dbus.SignalTypeChanged)
+	unit0.SetPropertyForTest("ActiveState", "active", dbus.SignalTypeChanged)
 
 	testBar.LatestOutput().AssertText([]string{
 		"foo.service@Nov 27, 02:47 (last:Nov 26, 02:47)"})

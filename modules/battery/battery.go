@@ -105,7 +105,7 @@ func (i Info) RemainingTime() time.Duration {
 
 // Discharging returns true if the battery is being discharged.
 func (i Info) Discharging() bool {
-	return i.Status != Charging && i.Status != Full
+	return i.Status == Discharging
 }
 
 // PluggedIn returns true if the laptop is plugged in.
