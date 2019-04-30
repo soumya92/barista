@@ -31,9 +31,10 @@ fi
 NPAR="$(($(nproc) + 2))"
 
 # For local runs, use golint from PATH,
-GOLINT="$(which golint)"
+GOLINT="$(which golint || echo '')"
 # but fallback to the CI path otherwise.
 [ -n "$GOLINT" ] || GOLINT="$HOME/gopath/bin/golint"
+[ -x "$GOLINT" ] || GOLINT="$HOME/go/bin/golint" 
 
 echo "Lint: $GOLINT ./..."
 $GOLINT ./...
@@ -48,7 +49,16 @@ go list ./... \
 | sed "s|_$PWD|.|" \
 | tac \
 | xargs -n1 -P$NPAR -IPKG sh -c \
-'go test -timeout 90s -coverprofile=profiles/$(echo "PKG" | sed -e "s|./||" -e "s|/|_|g").out -race -covermode=atomic "PKG"'
+'for try in `seq 1 3`; do 
+	go test \
+		-timeout 90s \
+		-coverprofile=profiles/$(echo "PKG" | sed -e "s|./||" -e "s|/|_|g").out \
+		-race \
+		-covermode=atomic \
+		"PKG" \
+	&& exit 0
+done
+exit 1'
 
 echo "Test: Logging with -tags debuglog"
 # Debug log tests need the build tag, otherwise the nop versions will be used.
