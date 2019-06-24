@@ -194,7 +194,7 @@ func (m *paModule) worker(s *value.ErrorValue) {
 		sink, err = openSinkByName(conn, core, m.sinkName)
 	} else {
 		sink, err = openFallbackSink(conn, core)
-		if err != nil {
+		if err == nil {
 			err = listen(core, "FallbackSinkUpdated")
 		}
 	}
