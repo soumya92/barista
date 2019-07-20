@@ -14,4 +14,4 @@
 
 require_relative '../../testing/capi/main.rb'
 
-make_capi 'asoundlib.h', library: 'alsa', pkg_config: 'alsa', go_src_files: ['alsa.go']
+make_capi 'alsa/asoundlib.h', library: 'alsa', pkg_config: 'alsa', go_src_files: ['alsa.go']

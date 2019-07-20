@@ -16,7 +16,7 @@ package volume
 
 /*
   #cgo pkg-config: alsa
-  #include <asoundlib.h>
+  #include <alsa/asoundlib.h>
 */
 import "C"
 import (
