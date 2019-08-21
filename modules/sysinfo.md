@@ -29,7 +29,7 @@ sysinfo.New().Output(func(i sysinfo.Info) bar.Output) {
 
 * `Uptime time.Duration`: System uptime.
 * `Loads [3]float64`: Load average for the past 1, 5, and 15 minutes.
-* `Procs uint16`: Number of processors (or cores) in the system.
+* `Procs uint16`: Number of current processes.
 * `TotalRAM unit.Datasize`
 * `FreeRAM unit.Datasize`
 * `SharedRAM unit.Datasize`
