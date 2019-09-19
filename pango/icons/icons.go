@@ -23,7 +23,6 @@ To use an icon font:
 Compatible icon fonts:
  - Material Design Icons (+community fork)
  - FontAwesome
- - Ionicons
  - Typicons
 
 Example usage:

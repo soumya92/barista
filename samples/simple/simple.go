@@ -51,7 +51,6 @@ import (
 	"barista.run/outputs"
 	"barista.run/pango"
 	"barista.run/pango/icons/fontawesome"
-	"barista.run/pango/icons/ionicons"
 	"barista.run/pango/icons/material"
 	"barista.run/pango/icons/mdi"
 	"barista.run/pango/icons/typicons"
@@ -203,7 +202,6 @@ func main() {
 	material.Load(home("Github/material-design-icons"))
 	mdi.Load(home("Github/MaterialDesign-Webfont"))
 	typicons.Load(home("Github/typicons.font"))
-	ionicons.LoadMd(home("Github/ionicons"))
 	fontawesome.Load(home("Github/Font-Awesome"))
 
 	colors.LoadBarConfig()
@@ -338,18 +336,18 @@ func main() {
 	vol := volume.DefaultMixer().Output(func(v volume.Volume) bar.Output {
 		if v.Mute {
 			return outputs.
-				Pango(pango.Icon("ion-volume-off"), "MUT").
+				Pango(pango.Icon("fa-volume-mute"), spacer, "MUT").
 				Color(colors.Scheme("degraded"))
 		}
-		iconName := "mute"
+		iconName := "off"
 		pct := v.Pct()
 		if pct > 66 {
-			iconName = "high"
+			iconName = "up"
 		} else if pct > 33 {
-			iconName = "low"
+			iconName = "down"
 		}
 		return outputs.Pango(
-			pango.Icon("ion-volume-"+iconName),
+			pango.Icon("fa-volume-"+iconName),
 			spacer,
 			pango.Textf("%2d%%", pct),
 		)
