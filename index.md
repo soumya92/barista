@@ -93,7 +93,7 @@ returns the output to be displayed on the bar. Some simple output functions are 
 [`outputs`](/outputs) package.
 
 When using a pango font, i3bar also supports
-[Pango Markup](https://developer.gnome.org/pango/stable/PangoMarkupFormat.html), which can be used
+[Pango Markup](https://developer.gnome.org/pygtk/stable/pango-markup-language.html), which can be used
 for rich in-line text formatting and icon fonts. Barista provides the [`pango`](/pango) package for
 constructing and manipulating output that uses pango markup.
 
