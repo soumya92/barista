@@ -50,11 +50,6 @@ There are a few simple steps to using an icon font in your bar:
   "the web’s most popular icon set and toolkit"  
   `pango.Icon("fa-comment-dots")`
 
-- [Ionicons](/pango/icons/ionicons)
-  
-  The premium icon pack for Ionic Framework  
-  `pango.Icon("ion-stats")`
-
 - [Typicons](/pango/icons/typicons)
   
   A Free Icon Font by Stephen Hutchings  
