@@ -24,8 +24,6 @@ A few providers are included out of the box:
 
 * [DarkSky](/modules/weather/darksky): "Hyperlocal forecast", requires an API key.
 
-* [APIXU](/modules/weather/apixu): Free, Fast, Simple and Fully Managed Weather API. Requires an API key.
-
 ## Configuration
 
 * `Output(func(Weather) bar.Output)`: Sets the output format.
