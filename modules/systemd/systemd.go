@@ -26,7 +26,7 @@ import (
 	"barista.run/outputs"
 	"barista.run/timing"
 
-	systemdbus "github.com/coreos/go-systemd/dbus"
+	systemdbus "github.com/coreos/go-systemd/v22/dbus"
 )
 
 // State represents possible states of a systemd unit.

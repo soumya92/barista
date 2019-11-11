@@ -25,7 +25,7 @@ import (
 
 	"barista.run/logging"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 )
 
 // TestBus represents a mock DBus interface for testing.

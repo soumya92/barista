@@ -18,7 +18,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 )
 
 // TestBusService represents a test service on the bus.
