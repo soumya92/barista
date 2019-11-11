@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	godbus "github.com/godbus/dbus"
+	godbus "github.com/godbus/dbus/v5"
 
 	"barista.run/bar"
 	"barista.run/base/watchers/dbus"

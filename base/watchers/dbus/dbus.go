@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 )
 
 // BusType represents a type of DBus connection: system, session, or test.

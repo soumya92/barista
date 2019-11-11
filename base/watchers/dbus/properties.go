@@ -18,7 +18,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 )
 
 // PropertiesChange is emitted on PropertiesWatcher.Updates whenever any

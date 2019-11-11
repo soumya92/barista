@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/require"
 )
 
