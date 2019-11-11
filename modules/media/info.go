@@ -21,7 +21,7 @@ import (
 
 	"barista.run/timing"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 )
 
 // Paused returns true if the media player is connected and paused.

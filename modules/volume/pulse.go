@@ -22,7 +22,7 @@ import (
 	"barista.run/base/value"
 	l "barista.run/logging"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 )
 
 // PulseAudio implementation.

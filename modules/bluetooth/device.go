@@ -18,7 +18,7 @@ package bluetooth // import "barista.run/modules/bluetooth"
 import (
 	"strings"
 
-	godbus "github.com/godbus/dbus"
+	godbus "github.com/godbus/dbus/v5"
 
 	"barista.run/bar"
 	"barista.run/base/value"
