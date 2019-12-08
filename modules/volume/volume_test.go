@@ -27,7 +27,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type testVolumeImpl struct {
+type testVolumeProvider struct {
 	sync.Mutex
 	error
 	min, max, vol int64
@@ -36,7 +36,7 @@ type testVolumeImpl struct {
 	muteChan      chan bool
 }
 
-func (t *testVolumeImpl) setVolume(vol int64) error {
+func (t *testVolumeProvider) SetVolume(vol int64) error {
 	t.Lock()
 	defer t.Unlock()
 	if t.error != nil {
@@ -46,7 +46,7 @@ func (t *testVolumeImpl) setVolume(vol int64) error {
 	return nil
 }
 
-func (t *testVolumeImpl) setMuted(mute bool) error {
+func (t *testVolumeProvider) SetMuted(mute bool) error {
 	t.Lock()
 	defer t.Unlock()
 	if t.error != nil {
@@ -56,13 +56,13 @@ func (t *testVolumeImpl) setMuted(mute bool) error {
 	return nil
 }
 
-func (t *testVolumeImpl) setError(e error) {
+func (t *testVolumeProvider) setError(e error) {
 	t.Lock()
 	defer t.Unlock()
 	t.error = e
 }
 
-func (t *testVolumeImpl) worker(v *value.ErrorValue) {
+func (t *testVolumeProvider) Worker(v *value.ErrorValue) {
 	t.Lock()
 	for {
 		v.SetOrError(Volume{
@@ -86,11 +86,11 @@ func (t *testVolumeImpl) worker(v *value.ErrorValue) {
 
 func TestModule(t *testing.T) {
 	testBar.New(t)
-	testImpl := &testVolumeImpl{
+	testProvider := &testVolumeProvider{
 		min: 0, max: 50, vol: 40, mute: false,
 		volChan: make(chan int64, 1), muteChan: make(chan bool, 1),
 	}
-	v := createModule(testImpl)
+	v := New(testProvider)
 
 	testBar.Run(v)
 
@@ -104,10 +104,10 @@ func TestModule(t *testing.T) {
 	out.At(0).LeftClick()
 	testBar.AssertNoOutput("click within 20ms")
 
-	oldRateLimiter := rateLimiter
-	defer func() { rateLimiter = oldRateLimiter }()
+	oldRateLimiter := RateLimiter
+	defer func() { RateLimiter = oldRateLimiter }()
 	// To speed up the tests.
-	rateLimiter = rate.NewLimiter(rate.Inf, 0)
+	RateLimiter = rate.NewLimiter(rate.Inf, 0)
 
 	out.At(0).Click(bar.Event{Button: bar.ScrollUp})
 	out = testBar.NextOutput("on volume change")
@@ -117,7 +117,7 @@ func TestModule(t *testing.T) {
 	out = testBar.NextOutput("on unmute")
 	out.AssertText([]string{"82%"}, "volume value updated")
 
-	testImpl.volChan <- -1
+	testProvider.volChan <- -1
 	out = testBar.NextOutput("exernal value update")
 	out.AssertText([]string{"-1%"}, "vol < min")
 
@@ -125,7 +125,7 @@ func TestModule(t *testing.T) {
 	out = testBar.NextOutput("on volume change")
 	out.AssertText([]string{"0%"}, "lower volume at <0%")
 
-	testImpl.volChan <- 100
+	testProvider.volChan <- 100
 	out = testBar.NextOutput("exernal value update")
 	out.AssertText([]string{"200%"}, "vol > max")
 
@@ -133,7 +133,7 @@ func TestModule(t *testing.T) {
 	out = testBar.NextOutput("on volume change")
 	out.AssertText([]string{"100%"}, "raise volume at >100%")
 
-	testImpl.setError(errors.New("foo"))
+	testProvider.setError(errors.New("foo"))
 
 	out.At(0).Click(bar.Event{Button: bar.ScrollDown})
 	testBar.AssertNoOutput("error during volume change")
@@ -141,7 +141,7 @@ func TestModule(t *testing.T) {
 	out.At(0).Click(bar.Event{Button: bar.ButtonLeft})
 	testBar.AssertNoOutput("error during mute")
 
-	testImpl.setError(nil)
+	testProvider.setError(nil)
 
 	v.Output(func(vol Volume) bar.Output {
 		return outputs.Textf("%d<%d<%d (%v)", vol.Min, vol.Vol, vol.Max, vol.Mute).
@@ -178,8 +178,8 @@ func TestModule(t *testing.T) {
 	out.At(0).Click(bar.Event{Button: bar.ButtonMiddle})
 	testBar.AssertNoOutput("volume already 25")
 
-	testImpl.setError(errors.New("some error"))
-	testImpl.muteChan <- true
+	testProvider.setError(errors.New("some error"))
+	testProvider.muteChan <- true
 
 	testBar.NextOutput("on error").AssertError()
 }

@@ -31,8 +31,19 @@ import (
 type Volume struct {
 	Min, Max, Vol int64
 	Mute          bool
-	controller    controller
+	controller    Controller
 	update        func(Volume)
+}
+
+// MakeVolume creates a Volume instance with the given data.
+func MakeVolume(min, max, volume int64, mute bool, controller Controller) Volume {
+	return Volume{
+		Min:        min,
+		Max:        max,
+		Vol:        volume,
+		Mute:       mute,
+		controller: controller,
+	}
 }
 
 // Frac returns the current volume as a fraction of the total range.
@@ -57,7 +68,7 @@ func (v Volume) SetVolume(volume int64) {
 	if volume == v.Vol {
 		return
 	}
-	if err := v.controller.setVolume(volume); err != nil {
+	if err := v.controller.SetVolume(volume); err != nil {
 		l.Log("Error updating volume: %v", err)
 		return
 	}
@@ -70,7 +81,7 @@ func (v Volume) SetMuted(muted bool) {
 	if v.Mute == muted {
 		return
 	}
-	if err := v.controller.setMuted(muted); err != nil {
+	if err := v.controller.SetMuted(muted); err != nil {
 		l.Log("Error updating mute state: %v", err)
 		return
 	}
@@ -78,21 +89,22 @@ func (v Volume) SetMuted(muted bool) {
 	v.update(v)
 }
 
-type controller interface {
-	setVolume(int64) error
-	setMuted(bool) error
+// Controller for a volume module implementation.
+type Controller interface {
+	SetVolume(int64) error
+	SetMuted(bool) error
 }
 
-// Interface that must be implemented by individual volume implementations.
-type moduleImpl interface {
-	// Infinite loop: push updates and errors to the provided ErrorValue.
-	worker(s *value.ErrorValue)
+// Provider is the interface that must be implemented by individual volume implementations.
+type Provider interface {
+	// Worker pushes updates and errors to the provided ErrorValue.
+	Worker(s *value.ErrorValue)
 }
 
 // Module represents a bar.Module that displays volume information.
 type Module struct {
 	outputFunc value.Value // of func(Volume) bar.Output
-	impl       moduleImpl
+	provider   Provider
 }
 
 // Output configures a module to display the output of a user-defined
@@ -102,14 +114,14 @@ func (m *Module) Output(outputFunc func(Volume) bar.Output) *Module {
 	return m
 }
 
-// Throttle volume updates to once every ~20ms to avoid unexpected behaviour.
-var rateLimiter = rate.NewLimiter(rate.Every(20*time.Millisecond), 1)
+// RateLimiter throttles volume updates to once every ~20ms to avoid unexpected behaviour.
+var RateLimiter = rate.NewLimiter(rate.Every(20*time.Millisecond), 1)
 
 // defaultClickHandler provides a simple example of the click handler capabilities.
 // It toggles mute on left click, and raises/lowers the volume on scroll.
 func defaultClickHandler(v Volume) func(bar.Event) {
 	return func(e bar.Event) {
-		if !rateLimiter.Allow() {
+		if !RateLimiter.Allow() {
 			// Don't update the volume if it was updated <20ms ago.
 			return
 		}
@@ -137,7 +149,7 @@ func (m *Module) Stream(s bar.Sink) {
 	v, err := vol.Get()
 	nextV, done := vol.Subscribe()
 	defer done()
-	go m.impl.worker(&vol)
+	go m.provider.Worker(&vol)
 
 	outputFunc := m.outputFunc.Get().(func(Volume) bar.Output)
 	nextOutputFunc, done := m.outputFunc.Subscribe()
@@ -161,9 +173,9 @@ func (m *Module) Stream(s bar.Sink) {
 	}
 }
 
-// createModule creates a new module with the given backing implementation.
-func createModule(impl moduleImpl) *Module {
-	m := &Module{impl: impl}
+// New creates a new module with the given backing implementation.
+func New(provider Provider) *Module {
+	m := &Module{provider: provider}
 	l.Register(m, "outputFunc", "impl")
 	// Default output is just the volume %, "MUT" when muted.
 	m.Output(func(v Volume) bar.Output {

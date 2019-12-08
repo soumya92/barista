@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package volume
+package alsa
 
 import (
 	"testing"
@@ -21,6 +21,7 @@ import (
 
 	"barista.run/bar"
 	"barista.run/base/value"
+	"barista.run/modules/volume"
 	testBar "barista.run/testing/bar"
 	"barista.run/testing/notifier"
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ func singleErrorTest(t *testing.T, setupFn func(*alsaTester)) {
 
 	doneChan := make(chan struct{}, 1)
 	go func() {
-		mod.worker(&value)
+		mod.Worker(&value)
 		doneChan <- struct{}{}
 	}()
 
@@ -101,7 +102,7 @@ func TestWaitErrors(t *testing.T) {
 		doneChan <- struct{}{}
 		return 0
 	})
-	go mod.worker(&value)
+	go mod.Worker(&value)
 	// first volume is successful, ignore.
 	notifier.AssertNotified(t, valSub)
 	// Only care about second volume (after wait).
@@ -125,7 +126,7 @@ func TestWaitErrors(t *testing.T) {
 		doneChan <- struct{}{}
 		return 0
 	})
-	go mod.worker(&value)
+	go mod.Worker(&value)
 	// first volume is successful, ignore.
 	notifier.AssertNotified(t, valSub)
 	// Only care about second volume (after wait).
@@ -154,9 +155,9 @@ func TestAlsaModule(t *testing.T) {
 	testBar.New(t)
 	alsaT := alsaTest()
 
-	oldRateLimiter := rateLimiter
-	defer func() { rateLimiter = oldRateLimiter }()
-	rateLimiter = rate.NewLimiter(rate.Inf, 0)
+	oldRateLimiter := volume.RateLimiter
+	defer func() { volume.RateLimiter = oldRateLimiter }()
+	volume.RateLimiter = rate.NewLimiter(rate.Inf, 0)
 
 	testHandles := map[*ctyp_snd_mixer_t]chan struct{}{}
 	testElems := map[string]*elem{
@@ -234,7 +235,7 @@ func TestAlsaModule(t *testing.T) {
 		}
 	})
 
-	testBar.Run(DefaultMixer(), Mixer("default", "Other"))
+	testBar.Run(volume.New(DefaultMixer()), volume.New(Mixer("default", "Other")))
 	testBar.LatestOutput().AssertText([]string{"MUT", "MUT"})
 
 	testElems["Other"].enabled = 1
