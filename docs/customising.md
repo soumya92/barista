@@ -25,7 +25,7 @@ go get barista.run
   - Download the sources:
 
   ```shell
-curl -L https://git.io/fxw62 -o mybar.go
+curl -L https://git.io/Je90h -o mybar.go
 ```
 
   - To make it easier to work with the placeholders in this file, download the build script:
