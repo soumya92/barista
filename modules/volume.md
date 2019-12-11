@@ -2,8 +2,25 @@
 title: Volume
 ---
 
-Show volume for an ALSA device: `volume.Mixer(card, mixer string)` / `volume.DefaultMixer()`.  
-Show volume for a PulseAudio device (using D-Bus): `volume.Sink(string)` / `volume.DefaultSink()`.
+Show volume for a device: `volume.New(someProvider)`.
+
+Volume supports displaying the current audio volume settings using a variety of pluggable
+providers, with the ability to add custom providers fairly easily. Provider is just
+
+```go
+type Provider interface {
+	Worker(s *value.ErrorValue)
+}
+```
+
+where Worker is a long-running function that pushes new Volume values when changes occur.
+The `MakeVolume` function can be used to construct Volume values and provide a controller for
+changing the volume state.
+
+A few providers are included out of the box:
+
+* [ALSA](/modules/volume/alsa)
+* [PulseAudio](/modules/volume/pulseaudio): Uses D-Bus. Pull requests to use the C API are welcome.
 
 ## Configuration
 
