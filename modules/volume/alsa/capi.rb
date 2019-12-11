@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require_relative '../../testing/capi/main.rb'
+require_relative '../../../testing/capi/main.rb'
 
 make_capi 'alsa/asoundlib.h', library: 'alsa', pkg_config: 'alsa', go_src_files: ['alsa.go']

@@ -45,6 +45,7 @@ import (
 	"barista.run/modules/netspeed"
 	"barista.run/modules/sysinfo"
 	"barista.run/modules/volume"
+	"barista.run/modules/volume/alsa"
 	"barista.run/modules/weather"
 	"barista.run/modules/weather/openweathermap"
 	"barista.run/oauth"
@@ -333,7 +334,7 @@ func main() {
 	}
 	batt.Output(showBattPct)
 
-	vol := volume.DefaultMixer().Output(func(v volume.Volume) bar.Output {
+	vol := volume.New(alsa.DefaultMixer()).Output(func(v volume.Volume) bar.Output {
 		if v.Mute {
 			return outputs.
 				Pango(pango.Icon("fa-volume-mute"), spacer, "MUT").

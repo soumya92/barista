@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package volume
+package alsa
 
 /*
   #cgo pkg-config: alsa
@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"barista.run/base/value"
-	l "barista.run/logging"
+	"barista.run/modules/volume"
 )
 
 //go:generate ruby capi.rb
@@ -47,27 +47,25 @@ func alsaError(result int32, desc string) error {
 
 // Mixer constructs an instance of the volume module for a
 // specific card and mixer on that card.
-func Mixer(card, mixer string) *Module {
-	m := createModule(&alsaModule{
+func Mixer(card, mixer string) volume.Provider {
+	return &alsaModule{
 		cardName:  card,
 		mixerName: mixer,
-	})
-	l.Labelf(m, "alsa:%s,%s", card, mixer)
-	return m
+	}
 }
 
 // DefaultMixer constructs an instance of the volume module for the default mixer.
-func DefaultMixer() *Module {
+func DefaultMixer() volume.Provider {
 	return Mixer("default", "Master")
 }
 
-func (c alsaController) setVolume(newVol int64) error {
+func (c alsaController) SetVolume(newVol int64) error {
 	return alsaError(
 		alsa.snd_mixer_selem_set_playback_volume_all(c.elem, newVol),
 		"snd_mixer_selem_set_playback_volume_all")
 }
 
-func (c alsaController) setMuted(muted bool) error {
+func (c alsaController) SetMuted(muted bool) error {
 	var muteInt int32
 	if muted {
 		muteInt = 0
@@ -79,8 +77,8 @@ func (c alsaController) setMuted(muted bool) error {
 		"snd_mixer_selem_set_playback_switch_all")
 }
 
-// worker waits for signals from alsa and updates the stored volume.
-func (m *alsaModule) worker(s *value.ErrorValue) {
+// Worker waits for signals from alsa and updates the stored volume.
+func (m *alsaModule) Worker(s *value.ErrorValue) {
 	// Structs for querying ALSA.
 	var handle *ctyp_snd_mixer_t
 	var sid *ctyp_snd_mixer_selem_id_t
@@ -121,13 +119,7 @@ func (m *alsaModule) worker(s *value.ErrorValue) {
 	for {
 		alsa.snd_mixer_selem_get_playback_volume(elem, C.SND_MIXER_SCHN_MONO, &vol)
 		alsa.snd_mixer_selem_get_playback_switch(elem, C.SND_MIXER_SCHN_MONO, &mute)
-		s.Set(Volume{
-			Min:        min,
-			Max:        max,
-			Vol:        vol,
-			Mute:       (mute == 0),
-			controller: alsaController{elem},
-		})
+		s.Set(volume.MakeVolume(min, max, vol, (mute == 0), alsaController{elem}))
 		errCode := alsa.snd_mixer_wait(handle, -1)
 		// 4 == Interrupted system call, try again.
 		for errCode == -4 {

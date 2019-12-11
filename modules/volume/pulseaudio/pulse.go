@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package volume
+package pulseaudio
 
 import (
 	"C"
@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"barista.run/base/value"
-	l "barista.run/logging"
+	"barista.run/modules/volume"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -80,21 +80,16 @@ func openPulseAudio() (*dbus.Conn, error) {
 }
 
 // Sink creates a PulseAudio volume module for a named sink.
-func Sink(sinkName string) *Module {
-	m := createModule(&paModule{sinkName: sinkName})
-	if sinkName == "" {
-		sinkName = "default"
-	}
-	l.Labelf(m, "pulse:%s", sinkName)
-	return m
+func Sink(sinkName string) volume.Provider {
+	return &paModule{sinkName: sinkName}
 }
 
 // DefaultSink creates a PulseAudio volume module that follows the default sink.
-func DefaultSink() *Module {
+func DefaultSink() volume.Provider {
 	return Sink("")
 }
 
-func (c *paController) setVolume(newVol int64) error {
+func (c *paController) SetVolume(newVol int64) error {
 	return c.sink.Call(
 		"org.freedesktop.DBus.Properties.Set",
 		0,
@@ -104,7 +99,7 @@ func (c *paController) setVolume(newVol int64) error {
 	).Err
 }
 
-func (c *paController) setMuted(muted bool) error {
+func (c *paController) SetMuted(muted bool) error {
 	return c.sink.Call(
 		"org.freedesktop.DBus.Properties.Set",
 		0,
@@ -148,19 +143,16 @@ func openFallbackSink(conn *dbus.Conn, core dbus.BusObject) (dbus.BusObject, err
 	return openSink(conn, core, path.Value().(dbus.ObjectPath))
 }
 
-func getVolume(sink dbus.BusObject) (Volume, error) {
-	v := Volume{}
-	v.Min = 0
-
+func getVolume(sink dbus.BusObject) (volume.Volume, error) {
 	max, err := sink.GetProperty("org.PulseAudio.Core1.Device.BaseVolume")
 	if err != nil {
-		return v, err
+		return volume.Volume{}, err
 	}
-	v.Max = int64(max.Value().(uint32))
+	maxVol := int64(max.Value().(uint32))
 
 	vol, err := sink.GetProperty("org.PulseAudio.Core1.Device.Volume")
 	if err != nil {
-		return v, err
+		return volume.Volume{}, err
 	}
 
 	// Take the volume as the average across all channels.
@@ -169,18 +161,18 @@ func getVolume(sink dbus.BusObject) (Volume, error) {
 	for _, ch := range channels {
 		totalVol += int64(ch)
 	}
-	v.Vol = totalVol / int64(len(channels))
+	currentVol := totalVol / int64(len(channels))
 
 	mute, err := sink.GetProperty("org.PulseAudio.Core1.Device.Mute")
 	if err != nil {
-		return v, err
+		return volume.Volume{}, err
 	}
-	v.Mute = mute.Value().(bool)
-	v.controller = &paController{sink}
-	return v, nil
+	muted := mute.Value().(bool)
+
+	return volume.MakeVolume(0, maxVol, currentVol, muted, &paController{sink}), nil
 }
 
-func (m *paModule) worker(s *value.ErrorValue) {
+func (m *paModule) Worker(s *value.ErrorValue) {
 	conn, err := openPulseAudio()
 	if s.Error(err) {
 		return
