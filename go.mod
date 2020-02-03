@@ -17,7 +17,7 @@ require (
 	github.com/spf13/afero v1.2.2
 	github.com/stretchr/testify v1.4.0
 	github.com/vishvananda/netlink v1.1.0
-	github.com/zalando/go-keyring v0.0.0-20190913082157-62750a1ff80d
+	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
 	go.opencensus.io v0.22.1 // indirect
 	golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf
 	golang.org/x/net v0.0.0-20191101175033-0deb6923b6d9
