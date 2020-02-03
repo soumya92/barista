@@ -55,8 +55,8 @@ deploy:
     repo: soumya92/barista
 
 branches:
-  except:
-  - autorelease
+  only:
+  - master
 
 notifications:
   pushover:
