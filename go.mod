@@ -19,7 +19,7 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
 	go.opencensus.io v0.22.1 // indirect
-	golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf
+	golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d
 	golang.org/x/net v0.0.0-20191101175033-0deb6923b6d9
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sys v0.0.0-20191104094858-e8c54fb511f6
