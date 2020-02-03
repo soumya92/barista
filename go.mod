@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.0.2
 	github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af
-	github.com/maximbaz/yubikey-touch-detector v0.0.0-20190725083449-25eabf6f1933
+	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200129235039-ce2c6964628a
 	github.com/spf13/afero v1.2.2
 	github.com/stretchr/testify v1.4.0
 	github.com/vishvananda/netlink v1.1.0
