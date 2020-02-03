@@ -16,8 +16,7 @@ require (
 	github.com/maximbaz/yubikey-touch-detector v0.0.0-20190725083449-25eabf6f1933
 	github.com/spf13/afero v1.2.2
 	github.com/stretchr/testify v1.4.0
-	github.com/vishvananda/netlink v1.0.0
-	github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f // indirect
+	github.com/vishvananda/netlink v1.1.0
 	github.com/zalando/go-keyring v0.0.0-20190913082157-62750a1ff80d
 	go.opencensus.io v0.22.1 // indirect
 	golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf
