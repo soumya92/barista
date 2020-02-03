@@ -75,7 +75,7 @@ var newNlRequest = func(proto, flags int) nlRequest {
 }
 
 type nlReceiver interface {
-	Receive() ([]syscall.NetlinkMessage, error)
+	Receive() ([]syscall.NetlinkMessage, *unix.SockaddrNetlink, error)
 }
 
 var nlSubscribe = func(protocol int, groups ...uint) (nlReceiver, error) {
@@ -136,7 +136,7 @@ func nlListen() {
 		return
 	}
 	for {
-		msgs, err := s.Receive()
+		msgs, _, err := s.Receive()
 		if err != nil {
 			l.Log("nl Receive failed: %s", err)
 			continue

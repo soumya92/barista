@@ -28,12 +28,12 @@ type testNlSubscriber struct {
 	errorChan <-chan error
 }
 
-func (t *testNlSubscriber) Receive() ([]syscall.NetlinkMessage, error) {
+func (t *testNlSubscriber) Receive() ([]syscall.NetlinkMessage, *unix.SockaddrNetlink, error) {
 	select {
 	case m := <-t.msgChan:
-		return []syscall.NetlinkMessage{m}, nil
+		return []syscall.NetlinkMessage{m}, nil, nil
 	case e := <-t.errorChan:
-		return nil, e
+		return nil, nil, e
 	}
 }
 
