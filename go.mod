@@ -13,7 +13,7 @@ require (
 	github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af
 	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200129235039-ce2c6964628a
 	github.com/spf13/afero v1.2.2
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/vishvananda/netlink v1.1.0
 	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
 	go.opencensus.io v0.22.1 // indirect
