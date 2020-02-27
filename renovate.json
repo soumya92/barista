@@ -2,15 +2,9 @@
   "extends": [
     "config:base"
   ],
-  "packageRules": [
-    {
-      "updateTypes": ["minor", "patch", "pin", "digest"],
-      "automerge": true
-    }
-  ],
+  "automerge": true
   "postUpdateOptions": ["gomodTidy"],
   "prConcurrentLimit": 1,
   "prCreation": "not-pending",
   "prHourlyLimit": 2
-  
 }
