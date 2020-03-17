@@ -665,7 +665,7 @@ func main() {
 
 	mainModal := modal.New()
 	sysMode := mainModal.Mode("sysinfo").
-		SetOutput(makeIconOutput("ion-analytics")).
+		SetOutput(makeIconOutput("mdi-chart-areaspline")).
 		Add(loadAvg).
 		Detail(loadAvgDetail, uptime).
 		Add(freeMem).
