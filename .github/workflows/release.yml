@@ -1,4 +1,4 @@
-name: Release from master
+name: Release
 
 on:
   push:
@@ -32,6 +32,8 @@ jobs:
       run: sudo apt-get install libasound2-dev
     
     - name: Run tests
+      env:
+        CI: true
       run: ./test.sh
     
     - name: Build binaries
