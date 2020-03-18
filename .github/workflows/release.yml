@@ -28,8 +28,8 @@ jobs:
         go get golang.org/x/tools/cmd/cover
         go get github.com/mattn/goveralls
 
-    - name: Install alsa headers
-      run: sudo apt-get install libasound2-dev
+    - name: Install apt packages
+      run: sudo apt-get install libasound2-dev jq
     
     - name: Run tests
       env:
@@ -52,6 +52,11 @@ jobs:
         git config credential.helper "store --file=.gitcredentials"
         echo "https://${{ secrets.DROID_GITHUB_TOKEN }}:@github.com" > .gitcredentials
         git push --delete origin "autorelease" || true
+
+    - name: Delete existing release
+      run: |
+        release_url="$(curl https://api.github.com/repos/soumya92/barista/releases | jq -r '.[] | select(.name == "Samples") | .url')"
+        curl -X DELETE -H "Authorization: token ${{ secrets.DROID_GITHUB_TOKEN }}" "$release_url"
     
     - name: Release binaries
       id: create_release
