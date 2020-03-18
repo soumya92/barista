@@ -37,6 +37,12 @@ jobs:
       run: ./test.sh
     
     - name: Build binaries
+      env:
+        GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+        GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        OWM_API_KEY: ${{ secrets.OWM_API_KEY }}
       run: |
         ./build.sh -tags prod -o sample-bar ./samples/sample-bar
         go build -o i3status ./samples/i3status
