@@ -1,0 +1,81 @@
+name: Release from master
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Get dependencies
+      run: go get -v -t -d ./...
+
+    - name: Install additional go dependencies
+      run: |
+        go get golang.org/x/lint/golint
+        go get golang.org/x/tools/cmd/cover
+        go get github.com/mattn/goveralls
+
+    - name: Install alsa headers
+      run: sudo apt-get install libasound2-dev
+    
+    - name: Run tests
+      run: ./test.sh
+    
+    - name: Build binaries
+      run: |
+        ./build.sh -tags prod -o sample-bar ./samples/sample-bar
+        go build -o i3status ./samples/i3status
+        
+    - name: Prepare release tag
+      run: |
+        git config credential.helper "store --file=.gitcredentials"
+        echo "https://${{ secrets.GITHUB_TOKEN }}:@github.com" > .gitcredentials
+        git push --delete origin "autorelease" || true
+        git tag "autorelease" --force
+    
+    - name: Release binaries
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: autorelease
+        release_name: Samples
+        body: Automated build of samples/sample-bar and samples/i3status
+        draft: false
+        prerelease: false
+        
+    - name: Upload i3status Sample
+      id: upload_i3status
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./i3status
+        asset_name: i3status
+        asset_content_type: application/binary
+    
+    - name: Upload Sample Bar
+      id: upload_sample_bar
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./sample-bar
+        asset_name: sample-bar
+        asset_content_type: application/binary
