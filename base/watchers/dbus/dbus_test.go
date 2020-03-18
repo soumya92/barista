@@ -24,8 +24,8 @@ import (
 )
 
 func TestBusTypes(t *testing.T) {
-	require.NotPanics(t, func() { Session() }, "session bus")
 	if os.Getenv("CI") != "true" {
+		require.NotPanics(t, func() { Session() }, "session bus")
 		require.NotPanics(t, func() { System() }, "system bus")
 	}
 
