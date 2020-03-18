@@ -36,6 +36,11 @@ jobs:
         CI: true
       run: ./test.sh
     
+    - name: Upload test coverage
+      uses: shogo82148/actions-goveralls@v1
+      with:
+        path-to-profile: c.out
+    
     - name: Build binaries
       env:
         GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
