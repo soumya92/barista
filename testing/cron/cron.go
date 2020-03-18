@@ -40,8 +40,8 @@ var waits = []int{1, 3, 7, 15}
 // allows the test function to retry by returning transient errors, while not
 // wasting attempts on non-retryable failures.
 func Test(t *testing.T, testFunc func() error) {
-	if evt := getenv("TRAVIS_EVENT_TYPE"); evt != "cron" {
-		t.Skipf("Skipping LiveVersion test for event type '%s'", evt)
+	if getenv("CRON") != "true" {
+		t.Skipf("Skipping LiveVersion test in non-cron mode")
 	}
 	for _, wait := range waits {
 		err := testFunc()
