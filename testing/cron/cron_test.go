@@ -41,17 +41,17 @@ func failNTimes(n int) func() error {
 	}
 }
 
-func mockGetenv(eventType string) func(string) string {
+func mockGetenv(cronEnvVar string) func(string) string {
 	return func(key string) string {
-		if key == "TRAVIS_EVENT_TYPE" {
-			return eventType
+		if key == "CRON" {
+			return cronEnvVar
 		}
 		return os.Getenv(key)
 	}
 }
 
 func TestNotCron(t *testing.T) {
-	getenv = mockGetenv("not-cron")
+	getenv = mockGetenv("false")
 	Test(t, func() error {
 		require.Fail(t, "test func called but not a cron build")
 		return nil
@@ -59,7 +59,7 @@ func TestNotCron(t *testing.T) {
 }
 
 func TestCron(t *testing.T) {
-	getenv = mockGetenv("cron")
+	getenv = mockGetenv("true")
 
 	start := time.Now()
 	fail.AssertFails(t, func(testT *testing.T) {
