@@ -17,7 +17,7 @@ limitations under the License.
 
 # Barista
 
-[![Build Status](https://travis-ci.org/soumya92/barista.svg?branch=master)](https://travis-ci.org/soumya92/barista)
+[![Release](https://github.com/soumya92/barista/workflows/Release/badge.svg)](https://github.com/soumya92/barista/releases/tag/autorelease)
 [![GoDoc](https://godoc.org/github.com/soumya92/barista?status.svg)](https://godoc.org/github.com/soumya92/barista)
 [![Go Report Card](https://goreportcard.com/badge/github.com/soumya92/barista)](https://goreportcard.com/report/github.com/soumya92/barista)
 [![Coverage Status](https://coveralls.io/repos/github/soumya92/barista/badge.svg?branch=master)](https://coveralls.io/github/soumya92/barista?branch=master)
