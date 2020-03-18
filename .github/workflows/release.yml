@@ -44,7 +44,7 @@ jobs:
     - name: Prepare release tag
       run: |
         git config credential.helper "store --file=.gitcredentials"
-        echo "https://${{ secrets.GITHUB_TOKEN }}:@github.com" > .gitcredentials
+        echo "https://${{ secrets.DROID_GITHUB_TOKEN }}:@github.com" > .gitcredentials
         git push --delete origin "autorelease" || true
         git tag "autorelease" --force
     
@@ -52,7 +52,7 @@ jobs:
       id: create_release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
       with:
         tag_name: autorelease
         release_name: Samples
@@ -64,7 +64,7 @@ jobs:
       id: upload_i3status
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./i3status
@@ -75,7 +75,7 @@ jobs:
       id: upload_sample_bar
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./sample-bar
