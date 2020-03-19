@@ -43,6 +43,16 @@ func (s State) Enabled() bool {
 	return s.State > netlink.NotPresent
 }
 
+// Unknown returns true if a network interface is in Unknown state.
+func (s State) Unknown() bool {
+	return s.State == netlink.Unknown
+}
+
+// Gone returns true if a network interface just disappeared..
+func (s State) Gone() bool {
+	return s.State == netlink.Gone
+}
+
 // Module represents a netinfo bar module.
 type Module struct {
 	subscriber func() *netlink.Subscription
