@@ -48,4 +48,6 @@ jobs:
       env:
         CI: true
         CRON: true
+        WEATHER_OWM_API_KEY: ${{ secrets.WEATHER_OWM_API_KEY }}
+        WEATHER_DS_API_KEY: ${{ secrets.WEATHER_DS_API_KEY }}
       run: ./test.sh
