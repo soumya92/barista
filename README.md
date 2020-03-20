@@ -19,8 +19,8 @@ limitations under the License.
 
 [![Release](https://github.com/soumya92/barista/workflows/Release/badge.svg)](https://github.com/soumya92/barista/releases/tag/autorelease)
 [![GoDoc](https://godoc.org/github.com/soumya92/barista?status.svg)](https://godoc.org/github.com/soumya92/barista)
-[![Go Report Card](https://goreportcard.com/badge/github.com/soumya92/barista)](https://goreportcard.com/report/github.com/soumya92/barista)
-[![Coverage Status](https://coveralls.io/repos/github/soumya92/barista/badge.svg?branch=master)](https://coveralls.io/github/soumya92/barista?branch=master)
+[![Maintainability](https://api.codeclimate.com/v1/badges/753f34fc34df1a05b05f/maintainability)](https://codeclimate.com/github/soumya92/barista/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/753f34fc34df1a05b05f/test_coverage)](https://codeclimate.com/github/soumya92/barista/test_coverage)
 
 Barista is an i3 status bar written in golang.
 
