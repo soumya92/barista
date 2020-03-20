@@ -14,33 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CC_TEST_REPORTER_LOC="https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64"
-
 set -e
 mkdir -p profiles/
-
-CODECLIMATE=0
-if test -n "$CC_TEST_REPORTER_ID" && curl -LSs "$CC_TEST_REPORTER_LOC" >./cc-test-reporter; then
-	CODECLIMATE=1
-	chmod +x ./cc-test-reporter
-	./cc-test-reporter before-build
-fi
 
 # Since quite a few tests have sleeps, running nproc + 2 tests should result in most
 # effective parallelisation.
 NPAR="$(($(nproc) + 2))"
 
-# For local runs, use golint from PATH,
-GOLINT="$(which golint || echo '')"
-# but fallback to the CI path otherwise.
-[ -n "$GOLINT" ] || GOLINT="$HOME/gopath/bin/golint"
-[ -x "$GOLINT" ] || GOLINT="$HOME/go/bin/golint" 
+# Skip running golint and go vet in cron, since the code hasn't changed.
+if [ "$CRON" != "true" ]; then
+	# For local runs, use golint from PATH,
+	GOLINT="$(which golint || echo '')"
+	# but fallback to the CI path otherwise.
+	[ -n "$GOLINT" ] || GOLINT="$HOME/gopath/bin/golint"
+	[ -x "$GOLINT" ] || GOLINT="$HOME/go/bin/golint"
 
-echo "Lint: $GOLINT ./..."
-$GOLINT ./...
+	echo "Lint: $GOLINT ./..."
+	$GOLINT ./...
 
-echo "Vet: go vet"
-go vet
+	echo "Vet: go vet"
+	go vet
+fi
 
 echo "Test: Running $NPAR in parallel"
 # Run tests with coverage for all barista packages
@@ -81,7 +75,3 @@ echo "Test: Samples"
 # Run tests only for samples.
 # This is just to make sure that all samples compile.
 go test ./samples/...
-
-if [ $CODECLIMATE -eq 1 ]; then
-	./cc-test-reporter after-build
-fi
