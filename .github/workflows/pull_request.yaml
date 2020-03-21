@@ -61,10 +61,6 @@ jobs:
         CI: true
       run: ./test.sh
 
-    - name: Fix up coverage report
-      run: |
-        sed -i 's|^barista.run/||g' c.out
-
     - name: Upload coverage
       env:
         CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
