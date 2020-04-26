@@ -46,10 +46,11 @@ jobs:
       run: sudo apt-get install libasound2-dev
 
     - name: Set up CodeClimate env
+      env:
+        PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
       run: |
-        git fetch --no-tags --prune --depth=1 origin +refs/heads/$GITHUB_HEAD_REF:refs/remotes/origin/$GITHUB_HEAD_REF
         echo "::set-env name=GIT_BRANCH::$GITHUB_HEAD_REF"
-        echo "::set-env name=GIT_COMMIT_SHA::$(git rev-parse origin/$GITHUB_HEAD_REF)"
+        echo "::set-env name=GIT_COMMIT_SHA::$PR_HEAD_REF"
 
     - name: Prepare CodeClimate
       env:
