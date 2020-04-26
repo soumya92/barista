@@ -45,28 +45,7 @@ jobs:
     - name: Install alsa headers
       run: sudo apt-get install libasound2-dev
 
-    - name: Set up CodeClimate env
-      env:
-        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      run: |
-        echo "::set-env name=GIT_BRANCH::$GITHUB_HEAD_REF"
-        echo "::set-env name=GIT_COMMIT_SHA::$PR_HEAD_SHA"
-
-    - name: Prepare CodeClimate
-      env:
-        CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
-      run: |
-        curl -LSs 'https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64' >./cc-test-reporter;
-        chmod +x ./cc-test-reporter
-        ./cc-test-reporter before-build
-
     - name: Run tests
       env:
         CI: true
       run: ./test.sh
-
-    - name: Upload coverage
-      env:
-        CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
-      run: |
-        ./cc-test-reporter after-build --prefix 'barista.run/'
