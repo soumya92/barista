@@ -1,4 +1,4 @@
-// Copyright 2018 Google Inc.
+// Copyright 2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -161,7 +161,7 @@ func TestProviderBuilder(t *testing.T) {
 		{"appid=foo&lat=10.000000&lon=40.000000", New("foo").Coords(10.0, 40.0), "Coords"},
 		{"appid=foo&zip=85719%2CUS", New("foo").Zipcode("85719", "US"), "Zipcode"},
 	} {
-		expected := "http://api.openweathermap.org/data/2.5/weather?" + tc.expected
+		expected := "https://api.openweathermap.org/data/2.5/weather?" + tc.expected
 		require.Equal(t, expected, string(tc.actual.(Provider)), tc.description)
 	}
 }
