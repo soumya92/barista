@@ -47,10 +47,10 @@ jobs:
 
     - name: Set up CodeClimate env
       env:
-        ENV_GH_SHA: ${{ github.sha }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         echo "::set-env name=GIT_BRANCH::$GITHUB_HEAD_REF"
-        echo "::set-env name=GIT_COMMIT_SHA::$ENV_GH_SHA"
+        echo "::set-env name=GIT_COMMIT_SHA::$PR_HEAD_SHA"
 
     - name: Prepare CodeClimate
       env:
