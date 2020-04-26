@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ func (c Config) build(query [][2]string) weather.Provider {
 		qp.Add(value[0], value[1])
 	}
 	owmURL := url.URL{
-		Scheme:   "http",
+		Scheme:   "https",
 		Host:     "api.openweathermap.org",
 		Path:     "/data/2.5/weather",
 		RawQuery: qp.Encode(),
