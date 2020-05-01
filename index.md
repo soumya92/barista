@@ -112,3 +112,9 @@ For more details and a complete example, see the guide to [writing a module](/do
 of integrating a third-party go package, see the
 [yubikey sample module](https://github.com/soumya92/barista/blob/master/samples/yubikey/yubikey.go).
 
+# Community Modules
+
+There are also other barista modules out there which are maintained by the community:
+
+- [martinohmann/barista-contrib](https://martinohmann.github.io/barista-contrib/):
+    A collection of other useful extensions and modules like keyboard, updates, dpms and ip.
