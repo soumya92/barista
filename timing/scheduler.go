@@ -1,4 +1,4 @@
-// Copyright 2018 Google Inc.
+// Copyright 2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,42 +33,34 @@ type Scheduler struct {
 	// A channel that receives an empty struct for each tick of the scheduler.
 	C <-chan struct{}
 
-	mu      sync.Mutex
-	timer   *time.Timer
-	ticker  *time.Ticker
-	quitter chan struct{}
-
 	notifyFn func()
 	waiting  int32 // basically bool, but we need atomics.
 
-	// For test mode
-	testModeID uint32
-	startTime  time.Time
-	interval   time.Duration
+	schedulerImpl schedulerImpl
 }
 
 var (
 	// A set of channels to be closed by timing.Resume.
 	// This allows schedulers to wait for resume, without
 	// requiring a reference to each created scheduler.
-	waiters  []chan struct{}
-	paused   = false
-	testMode = false
+	waiters []chan struct{}
+	paused  = false
 
 	mu sync.Mutex
 )
 
-// NewScheduler creates a new scheduler.
-func NewScheduler() *Scheduler {
+type schedulerImpl interface {
+	At(time.Time, func())
+	After(time.Duration, func())
+	Every(time.Duration, func())
+	EveryAlign(time.Duration, time.Duration, func())
+	Stop()
+	Close()
+}
+
+func newScheduler(impl schedulerImpl) *Scheduler {
 	s := new(Scheduler)
-	mu.Lock()
-	inTestMode := testMode
-	mu.Unlock()
-	if inTestMode {
-		triggersMu.Lock()
-		s.testModeID = testModeID
-		triggersMu.Unlock()
-	}
+	s.schedulerImpl = impl
 	s.notifyFn, s.C = notifier.New()
 	l.Register(s, "C")
 	return s
@@ -120,28 +112,16 @@ func (s *Scheduler) Tick() bool {
 // At sets the scheduler to trigger a specific time.
 // This will replace any pending triggers.
 func (s *Scheduler) At(when time.Time) *Scheduler {
-	if s.testModeID > 0 {
-		return s.testModeAt(when)
-	}
 	l.Fine("%s At(%v)", l.ID(s), when)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.stop()
-	s.timer = time.AfterFunc(when.Sub(Now()), s.maybeTrigger)
+	s.schedulerImpl.At(when, s.maybeTrigger)
 	return s
 }
 
 // After sets the scheduler to trigger after a delay.
 // This will replace any pending triggers.
 func (s *Scheduler) After(delay time.Duration) *Scheduler {
-	if s.testModeID > 0 {
-		return s.testModeAfter(delay)
-	}
 	l.Fine("%s After(%v)", l.ID(s), delay)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.stop()
-	s.timer = time.AfterFunc(delay, s.maybeTrigger)
+	s.schedulerImpl.After(delay, s.maybeTrigger)
 	return s
 }
 
@@ -151,46 +131,44 @@ func (s *Scheduler) Every(interval time.Duration) *Scheduler {
 	if interval <= 0 {
 		panic(errors.New("non-positive interval for Scheduler#Every"))
 	}
-	if s.testModeID > 0 {
-		return s.testModeEvery(interval)
-	}
 	l.Fine("%s Every(%v)", l.ID(s), interval)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.stop()
-	s.quitter = make(chan struct{})
-	s.ticker = time.NewTicker(interval)
-	go func() {
-		s.mu.Lock()
-		ticker := s.ticker
-		quitter := s.quitter
-		s.mu.Unlock()
-		if ticker == nil || quitter == nil {
-			// Scheduler stopped before goroutine was started.
-			return
-		}
-		for {
-			select {
-			case <-ticker.C:
-				s.maybeTrigger()
-			case <-quitter:
-				return
-			}
-		}
-	}()
+	s.schedulerImpl.Every(interval, s.maybeTrigger)
+	return s
+}
+
+// EveryAlign sets the scheduler to trigger at an interval.
+//
+// Offset specifies the scheduler alignment. For example, if interval=1min,
+// and offset=11s, the timer will trigger every minute at exactly :11 seconds
+// of the underlying clock. This makes most sense for schedulers based on
+// the real time clock.
+// Usually offset should be zero. A clock that displays the time with minute
+// precision should probably update at :00 seconds, and
+// interval=1min and offset=0 do exactly that.
+//
+// This will replace any pending triggers.
+func (s *Scheduler) EveryAlign(interval time.Duration, offset time.Duration) *Scheduler {
+	if interval <= 0 {
+		panic(errors.New("non-positive interval for Scheduler#EveryAlign"))
+	}
+	if offset < 0 {
+		panic(errors.New("negative offset for Scheduler#EveryAlign"))
+	}
+	l.Fine("%s EveryAlign(%v, %v)", l.ID(s), interval, offset)
+	s.schedulerImpl.EveryAlign(interval, offset, s.maybeTrigger)
 	return s
 }
 
 // Stop cancels all further triggers for the scheduler.
 func (s *Scheduler) Stop() {
-	if s.testModeID > 0 {
-		s.testModeStop()
-		return
-	}
 	l.Fine("%s Stop", l.ID(s))
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.stop()
+	s.schedulerImpl.Stop()
+}
+
+// Close cleans up all resources allocated by the scheduler, if necessary.
+func (s *Scheduler) Close() {
+	l.Fine("%s Close", l.ID(s))
+	s.schedulerImpl.Close()
 }
 
 func (s *Scheduler) maybeTrigger() {
@@ -202,19 +180,4 @@ func (s *Scheduler) maybeTrigger() {
 			s.notifyFn()
 		}
 	})
-}
-
-func (s *Scheduler) stop() {
-	if s.timer != nil {
-		s.timer.Stop()
-		s.timer = nil
-	}
-	if s.ticker != nil {
-		s.ticker.Stop()
-		s.ticker = nil
-	}
-	if s.quitter != nil {
-		close(s.quitter)
-		s.quitter = nil
-	}
 }

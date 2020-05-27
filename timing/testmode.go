@@ -24,8 +24,30 @@ import (
 	l "barista.run/logging"
 )
 
+var _ schedulerImpl = &testModeScheduler{}
+
+type testModeScheduler struct {
+	mu          sync.Mutex
+	testModeID  uint32
+	interval    time.Duration
+	alignOffset time.Duration
+	f           func()
+}
+
+func maybeNewTestModeScheduler() *testModeScheduler {
+	mu.Lock()
+	inTestMode := testMode
+	mu.Unlock()
+	if inTestMode {
+		triggersMu.Lock()
+		defer triggersMu.Unlock()
+		return &testModeScheduler{testModeID: testModeID}
+	}
+	return nil
+}
+
 type trigger struct {
-	what *Scheduler
+	what *testModeScheduler
 	when time.Time
 }
 
@@ -47,6 +69,8 @@ var nowInTest atomic.Value // of time.Time
 // test boundaries. Each call to TestMode() changes this ID, and any schedulers
 // with a different ID are ignored.
 var testModeID uint32
+
+var testMode = false
 
 func testNow() time.Time {
 	return nowInTest.Load().(time.Time)
@@ -87,7 +111,7 @@ func reset(fn func()) {
 	paused = false
 }
 
-func (s *Scheduler) setNextTrigger(when time.Time) *Scheduler {
+func (s *testModeScheduler) setNextTrigger(when time.Time) {
 	newTriggers := triggerList{}
 	triggersMu.Lock()
 	defer triggersMu.Unlock()
@@ -101,36 +125,64 @@ func (s *Scheduler) setNextTrigger(when time.Time) *Scheduler {
 		triggers = append(triggers, trigger{s, when})
 	}
 	sort.Sort(triggers)
-	return s
 }
 
-func (s *Scheduler) nextRepeatingTick() time.Time {
-	elapsedIntervals := Now().Sub(s.startTime) / s.interval
-	return s.startTime.Add(s.interval * (elapsedIntervals + 1))
-}
-
-func (s *Scheduler) testModeAt(when time.Time) *Scheduler {
-	l.Fine("%s At[Test](%v)", l.ID(s), when)
-	return s.setNextTrigger(when)
-}
-
-func (s *Scheduler) testModeAfter(delay time.Duration) *Scheduler {
-	l.Fine("%s After[Test](%v)", l.ID(s), delay)
-	return s.setNextTrigger(Now().Add(delay))
-}
-
-func (s *Scheduler) testModeEvery(interval time.Duration) *Scheduler {
-	l.Fine("%s Every[Test](%v)", l.ID(s), interval)
+// At implements the schedulerImpl interface.
+func (s *testModeScheduler) At(when time.Time, f func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.startTime = Now()
-	s.interval = interval
-	return s.setNextTrigger(s.nextRepeatingTick())
+	l.Fine("%s At[Test](%v)", l.ID(s), when)
+	s.f = f
+	s.setNextTrigger(when)
 }
 
-func (s *Scheduler) testModeStop() {
+// After implements the schedulerImpl interface.
+func (s *testModeScheduler) After(delay time.Duration, f func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	l.Fine("%s After[Test](%v)", l.ID(s), delay)
+	s.f = f
+	s.setNextTrigger(Now().Add(delay))
+}
+
+// Every implements the schedulerImpl interface.
+func (s *testModeScheduler) Every(interval time.Duration, f func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	l.Fine("%s Every[Test](%v)", l.ID(s), interval)
+	s.interval = interval
+	s.alignOffset = Now().Sub(Now().Truncate(interval))
+	s.f = f
+	s.setNextTrigger(s.nextRepeatingTick())
+}
+
+// EveryAlign implements the schedulerImpl interface.
+func (s *testModeScheduler) EveryAlign(interval time.Duration, offset time.Duration, f func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	l.Fine("%s EveryAlign[Test](%v)", l.ID(s), interval)
+	s.interval = interval
+	s.alignOffset = offset
+	s.f = f
+	s.setNextTrigger(s.nextRepeatingTick())
+}
+
+// Stop implements the schedulerImpl interface.
+func (s *testModeScheduler) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	l.Fine("%s Stop[Test]", l.ID(s))
+	s.f = nil
 	s.setNextTrigger(time.Time{})
+}
+
+// Close implements the schedulerImpl interface.
+func (s *testModeScheduler) Close() {
+	s.Stop()
+}
+
+func (s *testModeScheduler) nextRepeatingTick() time.Time {
+	return nextAlignedExpiration(Now(), s.interval, s.alignOffset)
 }
 
 // NextTick triggers the next scheduler and returns the trigger time.
@@ -185,7 +237,7 @@ func advanceToLocked(newTime time.Time) time.Time {
 			triggers = append(triggers, t)
 		}
 		idx = i + 1
-		t.what.maybeTrigger()
+		t.what.f()
 	}
 	triggers = triggers[idx:]
 	sort.Sort(triggers)
