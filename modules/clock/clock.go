@@ -80,7 +80,10 @@ func ZoneByName(name string) (*Module, error) {
 // For example, if the format does not have seconds, it should be time.Minute.
 //
 // The module will always update at the next second, minute, hour, etc.,
-// so large granularities will not negatively affect the output.
+// so large granularities will not negatively affect the output due to drift.
+//
+// Additionally, the module will automatically update when discontinuous change of
+// clock occurs, due to e.g. system suspend or clock adjustments.
 func (m *Module) Output(
 	granularity time.Duration,
 	outputFunc func(time.Time) bar.Output,
@@ -122,7 +125,11 @@ func (m *Module) Timezone(timezone *time.Location) *Module {
 
 // Stream starts the module.
 func (m *Module) Stream(s bar.Sink) {
-	sch := timing.NewScheduler()
+	sch, err := timing.NewRealtimeScheduler()
+	if s.Error(err) {
+		return
+	}
+	defer sch.Close()
 	l.Attach(m, sch, ".scheduler")
 
 	cfg := m.getConfig()
@@ -131,10 +138,10 @@ func (m *Module) Stream(s bar.Sink) {
 
 	var tzChange <-chan struct{}
 
+	sch.EveryAlign(cfg.granularity, time.Duration(0))
+
 	for {
 		now := timing.Now()
-		next := now.Add(cfg.granularity).Truncate(cfg.granularity)
-		sch.At(next)
 
 		if cfg.timezone == nil {
 			if tzChange == nil {
@@ -152,6 +159,7 @@ func (m *Module) Stream(s bar.Sink) {
 			tzChange = nil
 		case <-nextCfg:
 			cfg = m.getConfig()
+			sch.EveryAlign(cfg.granularity, time.Duration(0))
 		}
 	}
 }
