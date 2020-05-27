@@ -27,6 +27,7 @@ import (
 
 func TestTiming_TestMode(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 
 	sch1 := NewScheduler()
 	sch2 := NewScheduler()
@@ -75,6 +76,7 @@ func TestTiming_TestMode(t *testing.T) {
 
 func TestRepeating_TestMode(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 	sch1 := NewScheduler()
 	sch2 := NewScheduler()
 	now := Now()
@@ -102,6 +104,7 @@ func TestRepeating_TestMode(t *testing.T) {
 
 func TestRepeatingChange_TestMode(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 	sch := NewScheduler()
 	now := Now()
 
@@ -119,6 +122,7 @@ func TestRepeatingChange_TestMode(t *testing.T) {
 
 func TestMultipleTriggers_TestMode(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 	sch1 := NewScheduler()
 	sch2 := NewScheduler()
 	sch3 := NewScheduler()
@@ -141,6 +145,7 @@ func TestMultipleTriggers_TestMode(t *testing.T) {
 
 func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 
 	sch := NewScheduler()
 	sch.Every(time.Second)
@@ -173,6 +178,7 @@ func TestAdvanceWithRepeated_TestMode(t *testing.T) {
 
 func TestCoalescedUpdates_TestMode(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 
 	sch := NewScheduler()
 	sch.Every(15 * time.Millisecond)
@@ -184,6 +190,7 @@ func TestCoalescedUpdates_TestMode(t *testing.T) {
 
 func TestPauseResume_TestMode(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 
 	sch := NewScheduler()
 	start := Now()
@@ -224,6 +231,7 @@ func TestPauseResume_TestMode(t *testing.T) {
 
 func TestPastTriggers_TestMode(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 	sch := NewScheduler()
 	now := Now()
 	sch.After(-1 * time.Minute)
@@ -256,6 +264,7 @@ func TestPastTriggers_TestMode(t *testing.T) {
 
 func TestTestModeReset(t *testing.T) {
 	TestMode()
+	defer ExitTestMode()
 	sch1 := NewScheduler().Every(time.Second)
 
 	startTime := Now()
