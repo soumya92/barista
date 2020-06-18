@@ -11,7 +11,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/lucasb-eyer/go-colorful v1.0.3
 	github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af
-	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200307130350-24f6f7449a30
+	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200618191532-6ff3ff0225d2
 	github.com/spf13/afero v1.2.2
 	github.com/stretchr/testify v1.5.1
 	github.com/vishvananda/netlink v1.1.0
