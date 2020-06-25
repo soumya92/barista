@@ -49,7 +49,7 @@ jobs:
 
     - name: Set up CodeClimate env
       run: |
-        echo "::set-env name=GIT_BRANCH::$GITHUB_REF"
+        echo "::set-env name=GIT_BRANCH::${GITHUB_REF#refs/heads/}"
         echo "::set-env name=GIT_COMMIT_SHA::$GITHUB_SHA"
 
     - name: Prepare CodeClimate
