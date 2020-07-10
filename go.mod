@@ -9,7 +9,7 @@ require (
 	github.com/godbus/dbus/v5 v5.0.4-0.20200624030016-efee8394fa9a
 	github.com/lucasb-eyer/go-colorful v1.0.3
 	github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af
-	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200307130350-24f6f7449a30
+	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200618191532-6ff3ff0225d2
 	github.com/spf13/afero v1.3.0
 	github.com/stretchr/testify v1.6.1
 	github.com/vishvananda/netlink v1.1.0
@@ -20,6 +20,5 @@ require (
 	golang.org/x/sys v0.0.0-20200509044756-6aff5f38e54f
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/api v0.28.0
-	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )
