@@ -156,6 +156,15 @@ func (t *TestBusObject) GetProperty(p string) (dbus.Variant, error) {
 	return dbus.Variant{}, errors.New("No such property: " + p)
 }
 
+// StoreProperty stores the value of a named property into a given pointer.
+func (t *TestBusObject) StoreProperty(p string, dest interface{}) error {
+	val, err := t.GetProperty(p)
+	if err == nil {
+		err = dbus.Store([]interface{}{val}, dest)
+	}
+	return err
+}
+
 // Destination returns the destination that calls on are sent to.
 func (t *TestBusObject) Destination() string {
 	t.check()
