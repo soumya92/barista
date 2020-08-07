@@ -91,6 +91,7 @@ func TestCryptStore(t *testing.T) {
 	require.Equal(t, oauth2.Token{}, *loaded)
 
 	loaded, err = loadToken("simple.json")
+	require.NoError(t, err)
 	require.Equal(t, oauth2.Token{
 		AccessToken:  "foobar",
 		RefreshToken: "supersecret",
