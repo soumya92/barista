@@ -31,7 +31,7 @@ KEYS=(
 	'OWM_API_KEY'
 )
 
-TARGET_FILE="./samples/sample-bar/sample-bar.go"
+TARGET_FILE="./samples/simple/simple.go"
 
 # Save the current sample-bar, so we can revert it after building, to
 # prevent accidentally checking in the keys. We can't use git checkout
