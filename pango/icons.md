@@ -35,15 +35,10 @@ There are a few simple steps to using an icon font in your bar:
 
 ## Supported Fonts
 
-- [Material Design Icons](/pango/icons/material)
+- [Material Design Icons](/pango/icons/mdi)
   
-  Delightful, beautifully crafted symbols for common actions and items  
-  `pango.Icon("material-settings-ethernet")`
-
-	- [Community-led Iconography](/pango/icons/mdi)
-
-	  2700+ Material Design Icons from the Community  
-	  `pango.Icon("mdi-music-circle")`
+  2700+ Material Design Icons from the Community  
+  `pango.Icon("mdi-music-circle")`
 
 - [FontAwesome Free](/pango/icons/fontawesome)
   
