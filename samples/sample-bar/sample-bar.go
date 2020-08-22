@@ -58,7 +58,6 @@ import (
 	"barista.run/outputs"
 	"barista.run/pango"
 	"barista.run/pango/icons/fontawesome"
-	"barista.run/pango/icons/material"
 	"barista.run/pango/icons/mdi"
 	"barista.run/pango/icons/typicons"
 
@@ -260,7 +259,6 @@ func threshold(out *bar.Segment, urgent bool, color ...bool) *bar.Segment {
 }
 
 func main() {
-	material.Load(home("Github/material-design-icons"))
 	mdi.Load(home("Github/MaterialDesign-Webfont"))
 	typicons.Load(home("Github/typicons.font"))
 	fontawesome.Load(home("Github/Font-Awesome"))
@@ -285,7 +283,7 @@ func main() {
 	localdate := clock.Local().
 		Output(time.Second, func(now time.Time) bar.Output {
 			return outputs.Pango(
-				pango.Icon("material-today").Alpha(0.6),
+				pango.Icon("mdi-calendar-today").Alpha(0.6),
 				now.Format("Mon Jan 2"),
 			).OnClick(click.RunLeft("gsimplecal"))
 		})
@@ -521,7 +519,7 @@ func main() {
 
 	freeMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
 		out := outputs.Pango(
-			pango.Icon("material-memory").Alpha(0.8),
+			pango.Icon("mdi-memory").Alpha(0.8),
 			format.IBytesize(m.Available()),
 		)
 		freeGigs := m.Available().Gigabytes()
@@ -639,7 +637,7 @@ func main() {
 				return nil
 			}
 			return outputs.Pango(
-				pango.Icon("material-email"),
+				pango.Icon("mdi-email"),
 				spacer,
 				pango.Textf("%d", i.Unread["INBOX"]),
 			).OnClick(click.RunLeft("xdg-open", "https://mail.google.com"))
@@ -695,7 +693,7 @@ func main() {
 		SetOutput(makeIconOutput("typecn-warning-outline")).
 		Detail(wthr)
 	mainModal.Mode("timezones").
-		SetOutput(makeIconOutput("material-access-time")).
+		SetOutput(makeIconOutput("mdi-clock-outline")).
 		Detail(makeTzClock("Seattle", "America/Los_Angeles")).
 		Detail(makeTzClock("New York", "America/New_York")).
 		Detail(makeTzClock("UTC", "Etc/UTC")).

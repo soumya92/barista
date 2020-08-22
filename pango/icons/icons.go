@@ -21,14 +21,14 @@ To use an icon font:
  - Use icons as pango constructs in your bar
 
 Compatible icon fonts:
- - Material Design Icons (+community fork)
+ - Material Design Icons (community fork)
  - FontAwesome
  - Typicons
 
 Example usage:
-  material.Load("/Users/me/Github/google/material-design-icons")
+  mdi.Load("/Users/me/Github/Templarian/MaterialDesign-Webfont")
   ...
-  return pango.Icon("material-today").Color(colors.Hex("#ddd")).
+  return pango.Icon("mdi-calendar-today").Color(colors.Hex("#ddd")).
       Append(pango.Text(now.Sprintf("%H:%M")))
 */
 package icons // import "barista.run/pango/icons"
