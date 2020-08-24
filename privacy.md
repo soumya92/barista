@@ -28,6 +28,11 @@ to third-parties to fulfil a limited subset of requests. These include:
   upcoming Calendar events.
 
   This can be disabled by removing the gmail and calendar modules.
+  
+  The precompiled bars’ use of information received from Google APIs will adhere to
+  [the Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes),
+  including the Limited Use requirements. No data obtained by the bar from Google APIs
+  is transmitted or stored.
 
 These are all enabled by default in the sample-bar. You can choose to build your
 own bar with a subset of the functionality, which will also restrict requests to
