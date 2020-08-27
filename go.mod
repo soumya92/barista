@@ -9,6 +9,7 @@ require (
 	github.com/godbus/dbus/v5 v5.0.4-0.20200624030016-efee8394fa9a
 	github.com/lucasb-eyer/go-colorful v1.0.3
 	github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af
+	github.com/martinohmann/barista-contrib v0.0.0-20200512173359-33be425ccfe9 // indirect
 	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200307130350-24f6f7449a30
 	github.com/spf13/afero v1.3.2
 	github.com/stretchr/testify v1.6.1

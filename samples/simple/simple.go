@@ -33,7 +33,6 @@ import (
 	"barista.run/base/watchers/netlink"
 	"barista.run/colors"
 	"barista.run/format"
-	"barista.run/group/collapsing"
 	"barista.run/modules/battery"
 	"barista.run/modules/clock"
 	"barista.run/modules/cputemp"
@@ -227,9 +226,11 @@ func main() {
 	localtime := clock.Local().
 		Output(time.Second, func(now time.Time) bar.Output {
 			return outputs.Pango(
-				pango.Icon("material-today").Color(colors.Scheme("dim-icon")),
+				pango.Icon("far-calendar-alt").Color(colors.Scheme("dim-icon")),
+				spacer,
 				now.Format("Mon Jan 2 "),
-				pango.Icon("material-access-time").Color(colors.Scheme("dim-icon")),
+				pango.Icon("far-clock").Color(colors.Scheme("dim-icon")),
+				spacer,
 				now.Format("15:04:05"),
 			).OnClick(click.RunLeft("gsimplecal"))
 		})
@@ -242,44 +243,42 @@ func main() {
 		case weather.Thunderstorm,
 			weather.TropicalStorm,
 			weather.Hurricane:
-			iconName = "stormy"
+			iconName = "poo-storm"
 		case weather.Drizzle,
 			weather.Hail:
-			iconName = "shower"
+			iconName = "cloud-rain"
 		case weather.Rain:
-			iconName = "downpour"
+			iconName = "cloud-showers-heavy"
 		case weather.Snow,
 			weather.Sleet:
-			iconName = "snow"
+			iconName = "snowflake"
 		case weather.Mist,
 			weather.Smoke,
 			weather.Whirls,
 			weather.Haze,
 			weather.Fog:
-			iconName = "windy-cloudy"
+			iconName = "smog"
 		case weather.Clear:
 			if !w.Sunset.IsZero() && time.Now().After(w.Sunset) {
-				iconName = "night"
+				iconName = "moon"
 			} else {
-				iconName = "sunny"
+				iconName = "sun"
 			}
 		case weather.PartlyCloudy:
-			iconName = "partly-sunny"
+			iconName = "cloud-sun"
 		case weather.Cloudy, weather.Overcast:
-			iconName = "cloudy"
+			iconName = "cloud"
 		case weather.Tornado,
 			weather.Windy:
-			iconName = "windy"
+			iconName = "wind"
 		}
 		if iconName == "" {
-			iconName = "warning-outline"
-		} else {
-			iconName = "weather-" + iconName
+			iconName = "exclamation-circle"
 		}
 		return outputs.Pango(
-			pango.Icon("typecn-"+iconName), spacer,
+			pango.Icon("fa-"+iconName), spacer,
 			pango.Textf("%.1f℃", w.Temperature.Celsius()),
-			pango.Textf(" (provided by %s)", w.Attribution).XSmall(),
+			pango.Textf(" (%s)", w.Location).XSmall(),
 		)
 	})
 
@@ -374,7 +373,11 @@ func main() {
 	})
 
 	freeMem := meminfo.New().Output(func(m meminfo.Info) bar.Output {
-		out := outputs.Pango(pango.Icon("material-memory"), format.IBytesize(m.Available()))
+		out := outputs.Pango(
+			pango.Icon("fa-memory"),
+			spacer,
+			format.IBytesize(m.Available()),
+		)
 		freeGigs := m.Available().Gigabytes()
 		switch {
 		case freeGigs < 0.5:
@@ -394,7 +397,7 @@ func main() {
 		RefreshInterval(2 * time.Second).
 		Output(func(temp unit.Temperature) bar.Output {
 			out := outputs.Pango(
-				pango.Icon("mdi-fan"), spacer,
+				pango.Icon("fa-microchip"), spacer,
 				pango.Textf("%2d℃", int(temp.Celsius())),
 			)
 			switch {
@@ -423,8 +426,6 @@ func main() {
 
 	rhythmbox := media.New("rhythmbox").Output(mediaFormatFunc)
 
-	grp, _ := collapsing.Group(net, temp, freeMem, loadAvg)
-
 	ghNotify := github.New("%%GITHUB_CLIENT_ID%%", "%%GITHUB_CLIENT_SECRET%%").
 		Output(func(n github.Notifications) bar.Output {
 			if n.Total() == 0 {
@@ -452,7 +453,7 @@ func main() {
 				return nil
 			}
 			return outputs.Pango(
-				pango.Icon("material-email"),
+				pango.Icon("fa-envelope"),
 				spacer,
 				pango.Textf("%d", i.Unread["INBOX"]),
 			).OnClick(click.RunLeft("xdg-open", "https://mail.google.com"))
@@ -478,7 +479,10 @@ func main() {
 
 	panic(barista.Run(
 		rhythmbox,
-		grp,
+		net,
+		temp,
+		freeMem,
+		loadAvg,
 		gm,
 		cal,
 		ghNotify,
