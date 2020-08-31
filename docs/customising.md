@@ -25,13 +25,13 @@ go get barista.run
   - Download the sources:
 
   ```shell
-curl -L https://git.io/Je90h -o mybar.go
+curl -L https://git.io/JUq6x -o mybar.go
 ```
 
   - To make it easier to work with the placeholders in this file, download the build script:
   
   ```shell
-curl -L https://git.io/fA7iZ -o build.sh
+curl -L https://git.io/JUqiv -o build.sh
 chmod +x build.sh
 ```
 
