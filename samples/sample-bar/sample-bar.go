@@ -225,7 +225,10 @@ func setupOauthEncryption() error {
 			return err
 		}
 		secret = base64.RawURLEncoding.EncodeToString(secretBytes)
-		keyring.Set(service, username, secret)
+		err = keyring.Set(service, username, secret)
+		if err != nil {
+			return err
+		}
 	}
 	oauth.SetEncryptionKey(secretBytes)
 	return nil
