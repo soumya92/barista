@@ -35,10 +35,15 @@ There are a few simple steps to using an icon font in your bar:
 
 ## Supported Fonts
 
-- [Material Design Icons](/pango/icons/mdi)
+- [Material Design Icons](/pango/icons/material)
   
-  2700+ Material Design Icons from the Community  
-  `pango.Icon("mdi-music-circle")`
+  Delightful, beautifully crafted symbols for common actions and items  
+  `pango.Icon("material-settings-ethernet")`
+
+	- [Community-led Iconography](/pango/icons/mdi)
+
+	  2700+ Material Design Icons from the Community  
+	  `pango.Icon("mdi-music-circle")`
 
 - [FontAwesome Free](/pango/icons/fontawesome)
   
@@ -62,7 +67,7 @@ cd Github
 
 # Material Design Icons
 git clone --depth 1 https://github.com/google/material-design-icons
-ln -s $PWD/material-design-icons/iconfont/MaterialIcons-Regular.ttf ~/.fonts/
+ln -s $PWD/material-design-icons/font/MaterialIcons-Regular.ttf ~/.fonts/
 
 # Community Fork
 git clone --depth 1 https://github.com/Templarian/MaterialDesign-Webfont
