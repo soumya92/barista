@@ -41,8 +41,6 @@ import (
 	"barista.run/modules/diskio"
 	"barista.run/modules/diskspace"
 	"barista.run/modules/github"
-	"barista.run/modules/gsuite/calendar"
-	"barista.run/modules/gsuite/gmail"
 	"barista.run/modules/media"
 	"barista.run/modules/meminfo"
 	"barista.run/modules/meta/split"
@@ -186,17 +184,6 @@ func (a autoWeatherProvider) GetWeather() (weather.Weather, error) {
 		New("%%OWM_API_KEY%%").
 		Coords(lat, lng).
 		GetWeather()
-}
-
-func calendarNotifyHandler(e calendar.Event) func(bar.Event) {
-	notifyBody := e.Start.Format("15:04")
-	if !e.End.Equal(e.Start) {
-		notifyBody += " - " + e.End.Format("15:04")
-	}
-	if e.Location != "" {
-		notifyBody += "\n" + e.Location
-	}
-	return click.RunLeft("notify-send", e.Summary, notifyBody)
 }
 
 func setupOauthEncryption() error {
@@ -634,36 +621,6 @@ func main() {
 				click.RunLeft("xdg-open", "https://github.com/notifications"))
 		})
 
-	gm := gmail.New(gsuiteOauthConfig, "INBOX").
-		Output(func(i gmail.Info) bar.Output {
-			if i.Unread["INBOX"] == 0 {
-				return nil
-			}
-			return outputs.Pango(
-				pango.Icon("mdi-email"),
-				spacer,
-				pango.Textf("%d", i.Unread["INBOX"]),
-			).OnClick(click.RunLeft("xdg-open", "https://mail.google.com"))
-		})
-
-	cal := calendar.New(gsuiteOauthConfig).
-		Output(func(evts calendar.EventList) bar.Output {
-			evtsOfInterest := append(evts.InProgress, evts.Alerting...)
-			if len(evtsOfInterest) == 0 && len(evts.Upcoming) > 0 {
-				evtsOfInterest = append(evtsOfInterest, evts.Upcoming[0])
-			}
-			if len(evtsOfInterest) == 0 {
-				return nil
-			}
-			out := outputs.Group().InnerSeparators(false)
-			out.Append(pango.Icon("mdi-calendar"))
-			for _, e := range evtsOfInterest {
-				out.Append(outputs.Textf("%s", e.Start.Format("15:04")).
-					OnClick(calendarNotifyHandler(e)))
-			}
-			return out
-		})
-
 	mainModal := modal.New()
 	sysMode := mainModal.Mode("sysinfo").
 		SetOutput(makeIconOutput("mdi-chart-areaspline")).
@@ -685,7 +642,7 @@ func main() {
 		Detail(mediaDetail)
 	mainModal.Mode("notifications").
 		SetOutput(nil).
-		Add(gm, cal, ghNotify)
+		Add(ghNotify)
 	mainModal.Mode("battery").
 		// Filled in by the battery module if one is available.
 		SetOutput(nil).

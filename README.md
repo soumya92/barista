@@ -26,16 +26,6 @@ Barista is an i3 status bar written in golang.
 
 **This is not an official Google product**
 
-To emphasize how not-Google this project is, the ability to use Google OAuth services (GSuite mail and calendar) may be removed from the default bar in the upcoming weeks. This is necessary to prevent the shared cloud project from being shutdown for violating Terms of Service (and to keep me from losing access to my email, movies, music, mobile apps, phone number, etc.).
-
-**This only affects the pre-built binaries produced on CI and linked from GitHub. Any custom binaries are not affected.**
-
-Users are free to build their own variant as long as they can provide the necessary API keys. It does seem that "personal use" is not subject to the same degree of scrutiny, only when the project sees more than ~50 users does it become problematic. So if each user creates a separate cloud project, this should never be a problem.
-
-I have submitted the cloud project used by the CI for "review", but unless I receive confirmation that the project is in the clear, I will take this step as a precaution. If it's cleared later, I will reinstate GSuite mail and calendar support.
-
-Locally built binaries using a different client ID will store their configuration in a different file, so you will need to re-authenticate once if you switch to a locally built binary. However, the previous configuration will remain available, in the event that I am able to provide sample-bar with GSuite modules in the future.
-
 ## Features
 
 - Based on push rather than fixed interval polling. This allows immediate updates
