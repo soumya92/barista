@@ -37,7 +37,3 @@ to third-parties to fulfil a limited subset of requests. These include:
 These are all enabled by default in the sample-bar. You can choose to build your
 own bar with a subset of the functionality, which will also restrict requests to
 third-parties.
-
-The barista website uses Google Analytics to track the most popular pages, in an
-effort to better focus development efforts. This can be disabled by installing
-the [Google Analytics opt-out browser add-on](https://support.google.com/analytics/answer/181881?hl=en).
