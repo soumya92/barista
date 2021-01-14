@@ -13,7 +13,7 @@ require (
 	github.com/spf13/afero v1.5.1
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.0
-	github.com/zalando/go-keyring v0.1.0
+	github.com/zalando/go-keyring v0.1.1
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102
 	golang.org/x/oauth2 v0.0.0-20201109201403-9fd604954f58
