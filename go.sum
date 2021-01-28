@@ -149,8 +149,8 @@ github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORN
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
-github.com/lucasb-eyer/go-colorful v1.0.3 h1:QIbQXiugsb+q10B+MI+7DI1oQLdmnep86tWFlaaUAac=
-github.com/lucasb-eyer/go-colorful v1.0.3/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
+github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
+github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af h1:4bEyeobv/dO+lT1Qp1hr+/DcNjy6Ob8BDaSrxX6nQsQ=
 github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af/go.mod h1:TfoBMGnmSr50HiDNgz6W6mobVXv1B2VJUO3zUR8b6O4=
 github.com/maximbaz/yubikey-touch-detector v0.0.0-20200307130350-24f6f7449a30 h1:JNBI3x7eJshGBf4BFojo2Eohz3J9Qc1QZ11ZE/2Seos=
