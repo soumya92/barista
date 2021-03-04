@@ -3,7 +3,7 @@ module barista.run
 go 1.13
 
 require (
-	github.com/coreos/go-systemd/v22 v22.1.0
+	github.com/coreos/go-systemd/v22 v22.2.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/godbus/dbus/v5 v5.0.4-0.20200624030016-efee8394fa9a
