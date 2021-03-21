@@ -5,7 +5,7 @@ title: VPN
 Show the VPN status for tun0: `vpn.DefaultInterface()`.  
 Show the VPN status for a specific interface: `vpn.New("tun1")`.
 
-VPN shows the VPN status as one of three states: Disconnected, Coneecting, or Connected. It was
+VPN shows the VPN status as one of three states: Disconnected, Connecting, or Connected. It was
 written before netinfo was available, but now a superset of this module's functionality is available
 in the netinfo module.
 
