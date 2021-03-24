@@ -17,7 +17,9 @@ package battery // import "barista.run/modules/battery"
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"strconv"
 	"strings"
@@ -307,7 +309,12 @@ func allBatteriesInfo() Info {
 	}
 	var infos []Info
 	for _, batt := range batts {
-		if !strings.HasPrefix(batt, "BAT") {
+		powerSupplyTypePath := fmt.Sprintf("/sys/class/power_supply/%s/type", batt)
+		powerSupplyType, err := ioutil.ReadFile(powerSupplyTypePath)
+		if err != nil {
+			continue
+		}
+		if !bytes.Equal([]byte("Battery\n"), powerSupplyType) {
 			continue
 		}
 		infos = append(infos, batteryInfo(batt))
