@@ -19,7 +19,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"strconv"
 	"strings"
@@ -310,7 +309,7 @@ func allBatteriesInfo() Info {
 	var infos []Info
 	for _, batt := range batts {
 		powerSupplyTypePath := fmt.Sprintf("/sys/class/power_supply/%s/type", batt)
-		powerSupplyType, err := ioutil.ReadFile(powerSupplyTypePath)
+		powerSupplyType, err := afero.ReadFile(fs, powerSupplyTypePath)
 		if err != nil {
 			continue
 		}
