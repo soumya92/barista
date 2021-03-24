@@ -17,6 +17,7 @@ package battery
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,6 +44,14 @@ func write(battery battery) {
 		"/sys/class/power_supply/%s/uevent",
 		battery["NAME"].(string))
 	afero.WriteFile(fs, batteryFile, buffer.Bytes(), 0644)
+	batteryTypeFile := fmt.Sprintf(
+		"/sys/class/power_supply/%s/type",
+		battery["NAME"].(string))
+	if strings.HasPrefix(battery["NAME"].(string), "BAT") {
+		afero.WriteFile(fs, batteryTypeFile, []byte("Battery\n"), 0644)
+	} else {
+		afero.WriteFile(fs, batteryTypeFile, []byte("Mains\n"), 0644)
+	}
 }
 
 func TestDisconnected(t *testing.T) {
