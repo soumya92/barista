@@ -22,46 +22,32 @@ and requires src/font/typicons.ttf to be installed.
 package typicons // import "barista.run/pango/icons/typicons"
 
 import (
+	"encoding/json"
 	"path/filepath"
-	"strings"
 
 	"barista.run/pango/icons"
 
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v2"
 )
-
-type typiconsConfig struct {
-	Glyphs []struct {
-		Name string `yaml:"css"`
-		Code string `yaml:"code"`
-	} `yaml:"glyphs"`
-}
 
 var fs = afero.NewOsFs()
 
 // Load initialises the typicons icon provider from the given repo.
 func Load(repoPath string) error {
-	f, err := fs.Open(filepath.Join(repoPath, "config.yml"))
+	f, err := fs.Open(filepath.Join(repoPath, "src/font/typicons.json"))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	t := icons.NewProvider("typecn")
 	t.Font("Typicons")
-	var conf typiconsConfig
-	err = yaml.NewDecoder(f).Decode(&conf)
+	var conf map[string]int
+	err = json.NewDecoder(f).Decode(&conf)
 	if err != nil {
 		return err
 	}
-	for _, glyph := range conf.Glyphs {
-		err = t.Hex(
-			glyph.Name,
-			strings.TrimPrefix(glyph.Code, "0x"),
-		)
-		if err != nil {
-			return err
-		}
+	for name, glyphCode := range conf {
+		t.Symbol(name, string(rune(glyphCode)))
 	}
 	return nil
 }
