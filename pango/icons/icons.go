@@ -101,5 +101,5 @@ func SymbolFromHex(hex string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(intVal), nil
+	return string(rune(intVal)), nil
 }
