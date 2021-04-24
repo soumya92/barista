@@ -250,6 +250,7 @@ func batteryInfo(name string) Info {
 
 	var info Info
 	var energyNow, powerNow, energyFull, energyMax electricValue
+	var energyNowProvided = false
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if !strings.Contains(line, "=") {
@@ -264,8 +265,10 @@ func batteryInfo(name string) Info {
 		switch key {
 		case "CHARGE_NOW":
 			energyNow = uamps(value)
+			energyNowProvided = true
 		case "ENERGY_NOW":
 			energyNow = uwatts(value)
+			energyNowProvided = true
 		case "CHARGE_FULL":
 			energyFull = uamps(value)
 		case "ENERGY_FULL":
@@ -288,9 +291,18 @@ func batteryInfo(name string) Info {
 			info.Capacity, _ = strconv.Atoi(value)
 		}
 	}
-	info.EnergyNow = energyNow.toWatts(info.Voltage)
-	info.EnergyMax = energyMax.toWatts(info.Voltage)
+
 	info.EnergyFull = energyFull.toWatts(info.Voltage)
+
+	if energyNowProvided {
+		info.EnergyNow = energyNow.toWatts(info.Voltage)
+	} else {
+		// Not all drivers implement {ENERGY,CHARGE}_NOW. So we can calculate
+		// based on the CAPACITY and the {ENERGY,CHARGE}_FULL.
+		info.EnergyNow = info.EnergyFull * float64(info.Capacity) / 100
+	}
+
+	info.EnergyMax = energyMax.toWatts(info.Voltage)
 	info.Power = powerNow.toWatts(info.Voltage)
 	return info
 }
