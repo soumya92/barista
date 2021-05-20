@@ -16,9 +16,9 @@ require (
 	github.com/zalando/go-keyring v0.1.1
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
-	golang.org/x/oauth2 v0.0.0-20210427180440-81ed05c6b58c
-	golang.org/x/sys v0.0.0-20210503080704-8803ae5d1324
+	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
+	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	google.golang.org/api v0.46.0
+	google.golang.org/api v0.47.0
 	gopkg.in/yaml.v2 v2.4.0
 )
