@@ -25,19 +25,21 @@ import (
 	"github.com/godbus/dbus/v5"
 )
 
-// PulseAudio implementation.
-type DeviceType int
+type deviceType int
+
 const (
-	SinkDevice DeviceType = iota
-	SourceDevice
+	SinkDevice deviceType = iota // Sinks (audio outputs, e.g. headphones)
+	SourceDevice // Sources (audio inputs, e.g. microphones)
 )
-func (deviceType DeviceType) String() string {
+
+func (deviceType deviceType) String() string {
 	return ([]string{"Sink", "Source"})[deviceType]
 }
 
+// PulseAudio implementation.
 type paModule struct {
 	deviceName string
-	deviceType DeviceType
+	deviceType deviceType
 }
 
 type paController struct {
@@ -90,7 +92,7 @@ func openPulseAudio() (*dbus.Conn, error) {
 }
 
 // Device creates a PulseAduio volume module for a named device that can either be a sink or a source.
-func Device(deviceName string, deviceType DeviceType) volume.Provider {
+func Device(deviceName string, deviceType deviceType) volume.Provider {
 	return &paModule{deviceName: deviceName, deviceType: deviceType}
 }
 
@@ -143,7 +145,7 @@ func listen(core dbus.BusObject, signal string, objects ...dbus.ObjectPath) erro
 	).Err
 }
 
-func openDevice(conn *dbus.Conn, core dbus.BusObject, devicePath dbus.ObjectPath, deviceType DeviceType) (dbus.BusObject, error) {
+func openDevice(conn *dbus.Conn, core dbus.BusObject, devicePath dbus.ObjectPath, deviceType deviceType) (dbus.BusObject, error) {
 	device := conn.Object("org.PulseAudio.Core1."+deviceType.String(), devicePath)
 	if err := listen(core, "Device.VolumeUpdated", devicePath); err != nil {
 		return nil, err
@@ -151,7 +153,7 @@ func openDevice(conn *dbus.Conn, core dbus.BusObject, devicePath dbus.ObjectPath
 	return device, listen(core, "Device.MuteUpdated", devicePath)
 }
 
-func openDeviceByName(conn *dbus.Conn, core dbus.BusObject, name string, deviceType DeviceType) (dbus.BusObject, error) {
+func openDeviceByName(conn *dbus.Conn, core dbus.BusObject, name string, deviceType deviceType) (dbus.BusObject, error) {
 	var path dbus.ObjectPath
 	err := core.Call("org.PulseAudio.Core1.Get"+deviceType.String()+"ByName", 0, name).Store(&path)
 	if err != nil {
@@ -160,7 +162,7 @@ func openDeviceByName(conn *dbus.Conn, core dbus.BusObject, name string, deviceT
 	return openDevice(conn, core, path, deviceType)
 }
 
-func openFallbackDevice(conn *dbus.Conn, core dbus.BusObject, deviceType DeviceType) (dbus.BusObject, error) {
+func openFallbackDevice(conn *dbus.Conn, core dbus.BusObject, deviceType deviceType) (dbus.BusObject, error) {
 	path, err := core.GetProperty("org.PulseAudio.Core1.Fallback" + deviceType.String())
 	if err != nil {
 		return nil, err
