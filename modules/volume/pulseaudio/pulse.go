@@ -26,12 +26,22 @@ import (
 )
 
 // PulseAudio implementation.
+type DeviceType int
+const (
+	SinkDevice DeviceType = iota
+	SourceDevice
+)
+func (deviceType DeviceType) String() string {
+	return ([]string{"Sink", "Source"})[deviceType]
+}
+
 type paModule struct {
-	sinkName string
+	deviceName string
+	deviceType DeviceType
 }
 
 type paController struct {
-	sink dbus.BusObject
+	device dbus.BusObject
 }
 
 func dialAndAuth(addr string) (*dbus.Conn, error) {
@@ -79,9 +89,14 @@ func openPulseAudio() (*dbus.Conn, error) {
 	return dialAndAuth(path.Value().(string))
 }
 
+// Device creates a PulseAduio volume module for a named device that can either be a sink or a source.
+func Device(deviceName string, deviceType DeviceType) volume.Provider {
+	return &paModule{deviceName: deviceName, deviceType: deviceType}
+}
+
 // Sink creates a PulseAudio volume module for a named sink.
 func Sink(sinkName string) volume.Provider {
-	return &paModule{sinkName: sinkName}
+	return Device(sinkName, SinkDevice)
 }
 
 // DefaultSink creates a PulseAudio volume module that follows the default sink.
@@ -89,8 +104,18 @@ func DefaultSink() volume.Provider {
 	return Sink("")
 }
 
+// Source creates a PulseAudio volume module for a named source.
+func Source(sourceName string) volume.Provider {
+	return Device(sourceName, SourceDevice)
+}
+
+// DefaultSource creates a PulseAudio volume module that follows the default source.
+func DefaultSource() volume.Provider {
+	return Source("")
+}
+
 func (c *paController) SetVolume(newVol int64) error {
-	return c.sink.Call(
+	return c.device.Call(
 		"org.freedesktop.DBus.Properties.Set",
 		0,
 		"org.PulseAudio.Core1.Device",
@@ -100,7 +125,7 @@ func (c *paController) SetVolume(newVol int64) error {
 }
 
 func (c *paController) SetMuted(muted bool) error {
-	return c.sink.Call(
+	return c.device.Call(
 		"org.freedesktop.DBus.Properties.Set",
 		0,
 		"org.PulseAudio.Core1.Device",
@@ -118,39 +143,39 @@ func listen(core dbus.BusObject, signal string, objects ...dbus.ObjectPath) erro
 	).Err
 }
 
-func openSink(conn *dbus.Conn, core dbus.BusObject, sinkPath dbus.ObjectPath) (dbus.BusObject, error) {
-	sink := conn.Object("org.PulseAudio.Core1.Sink", sinkPath)
-	if err := listen(core, "Device.VolumeUpdated", sinkPath); err != nil {
+func openDevice(conn *dbus.Conn, core dbus.BusObject, devicePath dbus.ObjectPath, deviceType DeviceType) (dbus.BusObject, error) {
+	device := conn.Object("org.PulseAudio.Core1."+deviceType.String(), devicePath)
+	if err := listen(core, "Device.VolumeUpdated", devicePath); err != nil {
 		return nil, err
 	}
-	return sink, listen(core, "Device.MuteUpdated", sinkPath)
+	return device, listen(core, "Device.MuteUpdated", devicePath)
 }
 
-func openSinkByName(conn *dbus.Conn, core dbus.BusObject, name string) (dbus.BusObject, error) {
+func openDeviceByName(conn *dbus.Conn, core dbus.BusObject, name string, deviceType DeviceType) (dbus.BusObject, error) {
 	var path dbus.ObjectPath
-	err := core.Call("org.PulseAudio.Core1.GetSinkByName", 0, name).Store(&path)
+	err := core.Call("org.PulseAudio.Core1.Get"+deviceType.String()+"ByName", 0, name).Store(&path)
 	if err != nil {
 		return nil, err
 	}
-	return openSink(conn, core, path)
+	return openDevice(conn, core, path, deviceType)
 }
 
-func openFallbackSink(conn *dbus.Conn, core dbus.BusObject) (dbus.BusObject, error) {
-	path, err := core.GetProperty("org.PulseAudio.Core1.FallbackSink")
+func openFallbackDevice(conn *dbus.Conn, core dbus.BusObject, deviceType DeviceType) (dbus.BusObject, error) {
+	path, err := core.GetProperty("org.PulseAudio.Core1.Fallback" + deviceType.String())
 	if err != nil {
 		return nil, err
 	}
-	return openSink(conn, core, path.Value().(dbus.ObjectPath))
+	return openDevice(conn, core, path.Value().(dbus.ObjectPath), deviceType)
 }
 
-func getVolume(sink dbus.BusObject) (volume.Volume, error) {
-	max, err := sink.GetProperty("org.PulseAudio.Core1.Device.BaseVolume")
+func getVolume(device dbus.BusObject) (volume.Volume, error) {
+	max, err := device.GetProperty("org.PulseAudio.Core1.Device.BaseVolume")
 	if err != nil {
 		return volume.Volume{}, err
 	}
 	maxVol := int64(max.Value().(uint32))
 
-	vol, err := sink.GetProperty("org.PulseAudio.Core1.Device.Volume")
+	vol, err := device.GetProperty("org.PulseAudio.Core1.Device.Volume")
 	if err != nil {
 		return volume.Volume{}, err
 	}
@@ -163,13 +188,13 @@ func getVolume(sink dbus.BusObject) (volume.Volume, error) {
 	}
 	currentVol := totalVol / int64(len(channels))
 
-	mute, err := sink.GetProperty("org.PulseAudio.Core1.Device.Mute")
+	mute, err := device.GetProperty("org.PulseAudio.Core1.Device.Mute")
 	if err != nil {
 		return volume.Volume{}, err
 	}
 	muted := mute.Value().(bool)
 
-	return volume.MakeVolume(0, maxVol, currentVol, muted, &paController{sink}), nil
+	return volume.MakeVolume(0, maxVol, currentVol, muted, &paController{device}), nil
 }
 
 func (m *paModule) Worker(s *value.ErrorValue) {
@@ -181,19 +206,19 @@ func (m *paModule) Worker(s *value.ErrorValue) {
 
 	core := conn.Object("org.PulseAudio.Core1", "/org/pulseaudio/core1")
 
-	var sink dbus.BusObject
-	if m.sinkName != "" {
-		sink, err = openSinkByName(conn, core, m.sinkName)
+	var device dbus.BusObject
+	if m.deviceName != "" {
+		device, err = openDeviceByName(conn, core, m.deviceName, m.deviceType)
 	} else {
-		sink, err = openFallbackSink(conn, core)
+		device, err = openFallbackDevice(conn, core, m.deviceType)
 		if err == nil {
-			err = listen(core, "FallbackSinkUpdated")
+			err = listen(core, "Fallback"+m.deviceType.String()+"Updated")
 		}
 	}
 	if s.Error(err) {
 		return
 	}
-	if s.SetOrError(getVolume(sink)) {
+	if s.SetOrError(getVolume(device)) {
 		return
 	}
 
@@ -202,14 +227,14 @@ func (m *paModule) Worker(s *value.ErrorValue) {
 
 	// Listen for signals from D-Bus, and update appropriately.
 	for signal := range signals {
-		// If the fallback sink changed, open the new one.
-		if m.sinkName == "" && signal.Path == core.Path() {
-			sink, err = openFallbackSink(conn, core)
+		// If the fallback device changed, open the new one.
+		if m.deviceName == "" && signal.Path == core.Path() {
+			device, err = openFallbackDevice(conn, core, m.deviceType)
 			if s.Error(err) {
 				return
 			}
 		}
-		if s.SetOrError(getVolume(sink)) {
+		if s.SetOrError(getVolume(device)) {
 			return
 		}
 	}
