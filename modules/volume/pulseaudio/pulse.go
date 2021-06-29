@@ -28,8 +28,10 @@ import (
 type deviceType int
 
 const (
-	SinkDevice deviceType = iota // Sinks (audio outputs, e.g. headphones)
-	SourceDevice // Sources (audio inputs, e.g. microphones)
+	// SinkDevice represents devices used for audio output, e.g. headphones.
+	SinkDevice deviceType = iota
+	// SourceDevice represents devices used for audio input, e.g. microphones.
+	SourceDevice
 )
 
 func (deviceType deviceType) String() string {
