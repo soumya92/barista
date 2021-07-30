@@ -19,6 +19,6 @@ require (
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	google.golang.org/api v0.51.0
+	google.golang.org/api v0.52.0
 	gopkg.in/yaml.v2 v2.4.0
 )
