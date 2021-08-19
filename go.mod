@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/dustin/go-humanize v1.0.0
-	github.com/fsnotify/fsnotify v1.4.9
+	github.com/fsnotify/fsnotify v1.5.0
 	github.com/godbus/dbus/v5 v5.0.4
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af
