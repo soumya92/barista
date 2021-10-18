@@ -154,9 +154,14 @@ func (i *Info) updateMetadata(metadata map[string]dbus.Variant) {
 	}
 	i.AlbumArtist = ""
 	if aArtist, ok := metadata["xesam:albumArtist"]; ok {
-		artists, _ := aArtist.Value().([]string)
-		if len(artists) > 0 {
-			i.AlbumArtist = artists[0]
+		sArtists, ok := aArtist.Value().([]string)
+		if !ok {
+			artists, _ := aArtist.Value().(string)
+			i.AlbumArtist = artists
+		} else {
+			if len(sArtists) > 0 {
+				i.AlbumArtist = sArtists[0]
+			}
 		}
 	}
 	i.Album = ""
