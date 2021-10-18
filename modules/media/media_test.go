@@ -143,8 +143,12 @@ func TestMedia(t *testing.T) {
 	var lastInfo Info
 	pl.RepeatingOutput(func(i Info) bar.Output {
 		lastInfo = i
+		artist := i.Artist
+		if artist == "" {
+			artist = i.AlbumArtist
+		}
 		return outputs.Textf("[%s, %v] %s - %s",
-			i.PlaybackStatus, i.TruncatedPosition("k"), i.Title, i.Artist)
+			i.PlaybackStatus, i.TruncatedPosition("k"), i.Title, artist)
 	})
 	out = testBar.NextOutput("on output format change")
 	out.AssertText([]string{"[Playing, 0s] Title - Artist1"})
@@ -160,16 +164,27 @@ func TestMedia(t *testing.T) {
 		"xesam:albumArtist": dbus.MakeVariant([]string{"Person1", "Person2"}),
 		"mpris:length":      dbus.MakeVariant(180 * 1000 * 1000),
 	}, dbusWatcher.SignalTypeInvalidated)
-	out = testBar.NextOutput("on metadata update")
-	out.AssertText([]string{"[Playing, 0s] Song - "})
+
+	out = testBar.NextOutput("on metadata update, albumArtist array")
+	out.AssertText([]string{"[Playing, 0s] Song - Person1"})
+
+	obj.SetPropertyForTest("Metadata", map[string]dbus.Variant{
+		"xesam:title":       dbus.MakeVariant("Song"),
+		"mpris:trackid":     dbus.MakeVariant("3"),
+		"xesam:albumArtist": dbus.MakeVariant("Person"),
+		"mpris:length":      dbus.MakeVariant(180 * 1000 * 1000),
+	}, dbusWatcher.SignalTypeInvalidated)
+
+	out = testBar.NextOutput("on metadata update, albumArtist string")
+	out.AssertText([]string{"[Playing, 0s] Song - Person"})
 
 	timing.AdvanceBy(time.Second)
 	out = testBar.NextOutput("on time passing")
-	out.AssertText([]string{"[Playing, 1s] Song - "})
+	out.AssertText([]string{"[Playing, 1s] Song - Person"})
 
 	obj.SetPropertyForTest("PlaybackStatus", "Paused", dbusWatcher.SignalTypeChanged)
 	out = testBar.NextOutput("on pause")
-	out.AssertText([]string{"[Paused, 1s] Song - "})
+	out.AssertText([]string{"[Paused, 1s] Song - Person"})
 
 	timing.AdvanceBy(time.Second)
 	testBar.AssertNoOutput("on time passing, but paused")
@@ -180,13 +195,13 @@ func TestMedia(t *testing.T) {
 		<-calls, "On scroll with custom output")
 
 	obj.Emit("Seeked", 2*1000*1000)
-	testBar.NextOutput("on seek").AssertText([]string{"[Paused, 2s] Song - "})
+	testBar.NextOutput("on seek").AssertText([]string{"[Paused, 2s] Song - Person"})
 
 	obj.SetPropertyForTest("PlaybackStatus", "Stopped", dbusWatcher.SignalTypeChanged)
-	testBar.NextOutput("on stop").AssertText([]string{"[Stopped, 0s] Song - "})
+	testBar.NextOutput("on stop").AssertText([]string{"[Stopped, 0s] Song - Person"})
 
 	obj.SetPropertyForTest("PlaybackStatus", "Playing", dbusWatcher.SignalTypeChanged)
-	testBar.NextOutput("on play").AssertText([]string{"[Playing, 0s] Song - "})
+	testBar.NextOutput("on play").AssertText([]string{"[Playing, 0s] Song - Person"})
 
 	lastInfo.Stop()
 	require.Equal(t,
