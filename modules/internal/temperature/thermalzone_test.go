@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cputemp
+package temperature
 
 import (
 	"fmt"
@@ -28,14 +28,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setTypes(types ...string) {
+func setTypesThermal(types ...string) {
 	for zoneIndex, typ := range types {
 		tempFile := fmt.Sprintf("/sys/class/thermal/thermal_zone%d/type", zoneIndex)
 		afero.WriteFile(fs, tempFile, []byte(typ), 0644)
 	}
 }
 
-func shouldReturn(temps ...string) {
+func shouldReturnThermal(temps ...string) {
 	for zoneIndex, temp := range temps {
 		tempFile := fmt.Sprintf("/sys/class/thermal/thermal_zone%d/temp", zoneIndex)
 		afero.WriteFile(fs, tempFile, []byte(temp), 0644)
@@ -46,14 +46,14 @@ func TestCputemp(t *testing.T) {
 	fs = afero.NewMemMapFs()
 	testBar.New(t)
 
-	setTypes("x86_pkg_temp")
-	shouldReturn("48800", "22200")
+	setTypesThermal("x86_pkg_temp")
+	shouldReturnThermal("48800", "22200")
 
-	temp0 := New()
-	temp1 := Zone("thermal_zone1").Output(func(t unit.Temperature) bar.Output {
+	temp0 := NewDefaultThermal()
+	temp1 := ThermalZone("thermal_zone1").Output(func(t unit.Temperature) bar.Output {
 		return outputs.Textf("%.0f", t.Fahrenheit())
 	})
-	temp2 := Zone("thermal_zone2").Output(func(t unit.Temperature) bar.Output {
+	temp2 := ThermalZone("thermal_zone2").Output(func(t unit.Temperature) bar.Output {
 		return outputs.Textf("%.0f", t.Kelvin())
 	})
 
@@ -67,7 +67,7 @@ func TestCputemp(t *testing.T) {
 	out.At(1).AssertText("72", "on start")
 	out.At(2).AssertError("on start with invalid zone")
 
-	shouldReturn("42123", "20000")
+	shouldReturnThermal("42123", "20000")
 	testBar.AssertNoOutput("until refresh")
 	testBar.Tick()
 
@@ -83,7 +83,7 @@ func TestCputemp(t *testing.T) {
 	testBar.LatestOutput(2).At(2).AssertError("error persists at restart")
 	testBar.LatestOutput(2).Expect("sets restart click handler")
 
-	shouldReturn("22222", "22222")
+	shouldReturnThermal("22222", "22222")
 	testBar.Tick()
 
 	out = testBar.LatestOutput(0, 1)
@@ -95,7 +95,7 @@ func TestCputemp(t *testing.T) {
 	temp2.RefreshInterval(time.Second)
 	testBar.AssertNoOutput("on refresh interval change")
 
-	shouldReturn("0", "0", "0")
+	shouldReturnThermal("0", "0", "0")
 	out.At(2).LeftClick()
 	// TODO: cleanup.
 	testBar.LatestOutput(2).Expect(
@@ -111,7 +111,7 @@ func TestCputemp(t *testing.T) {
 		"273 kelvin",
 		"on next tick when zone becomes available")
 
-	shouldReturn("0", "0", "invalid")
+	shouldReturnThermal("0", "0", "invalid")
 	testBar.Tick()
 	// 0 and 1 are unchanged, so only 2 should update.
 	testBar.LatestOutput(2).At(2).AssertError("On invalid numeric value")
@@ -123,11 +123,11 @@ func TestDefaultZoneDetection(t *testing.T) {
 	fs = afero.NewMemMapFs()
 	testBar.New(t)
 
-	setTypes("acpitz", "iwlwifi")
-	shouldReturn("0", "0")
+	setTypesThermal("acpitz", "iwlwifi")
+	shouldReturnThermal("0", "0")
 
-	tempDefault := New()
-	tempWifi := OfType("iwlwifi")
+	tempDefault := NewDefaultThermal()
+	tempWifi := ThermalOfType("iwlwifi")
 	testBar.Run(tempDefault, tempWifi)
 	out := testBar.LatestOutput()
 	out.At(0).AssertError("no x86_pkg_temp")
@@ -135,11 +135,11 @@ func TestDefaultZoneDetection(t *testing.T) {
 
 	testBar.New(t)
 
-	setTypes("acpitz", "iwlwifi", "x86_pkg_temp")
-	shouldReturn("0", "0")
+	setTypesThermal("acpitz", "iwlwifi", "x86_pkg_temp")
+	shouldReturnThermal("0", "0")
 
-	tempDefault = New()
-	tempNotFound := OfType("not_found")
+	tempDefault = NewDefaultThermal()
+	tempNotFound := ThermalOfType("not_found")
 	testBar.Run(tempDefault, tempNotFound)
 	out = testBar.LatestOutput()
 	out.At(0).AssertError("temperature missing")
