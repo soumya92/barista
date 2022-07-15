@@ -10,7 +10,7 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af
 	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200307130350-24f6f7449a30
-	github.com/spf13/afero v1.8.2
+	github.com/spf13/afero v1.9.0
 	github.com/stretchr/testify v1.8.0
 	github.com/vishvananda/netlink v1.1.0
 	github.com/zalando/go-keyring v0.2.1
