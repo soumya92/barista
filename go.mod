@@ -15,10 +15,10 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	github.com/zalando/go-keyring v0.2.1
 	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa
-	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
-	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
-	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
+	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
+	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	google.golang.org/api v0.68.0
+	google.golang.org/api v0.101.0
 	gopkg.in/yaml.v2 v2.4.0
 )
