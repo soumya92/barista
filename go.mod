@@ -7,6 +7,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/godbus/dbus/v5 v5.1.0
+	github.com/jfreymuth/pulse v0.1.1-0.20221101213618-75628dabd933
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/martinlindhe/unit v0.0.0-20190604142932-3b6be53d49af
 	github.com/maximbaz/yubikey-touch-detector v0.0.0-20200307130350-24f6f7449a30
