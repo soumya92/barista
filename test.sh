@@ -21,17 +21,8 @@ mkdir -p profiles/
 # effective parallelisation.
 NPAR="$(($(nproc) + 2))"
 
-# Skip running golint and go vet in cron, since the code hasn't changed.
+# Skip running go vet in cron, since the code hasn't changed.
 if [ "$CRON" != "true" ]; then
-	# For local runs, use golint from PATH,
-	GOLINT="$(which golint || echo '')"
-	# but fallback to the CI path otherwise.
-	[ -n "$GOLINT" ] || GOLINT="$HOME/gopath/bin/golint"
-	[ -x "$GOLINT" ] || GOLINT="$HOME/go/bin/golint"
-
-	echo "Lint: $GOLINT ./..."
-	$GOLINT ./...
-
 	echo "Vet: go vet"
 	go vet
 fi
