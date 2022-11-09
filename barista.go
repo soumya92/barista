@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package barista provides the building blocks for a custom i3 status bar.
 package barista // import "barista.run"
 
 import (

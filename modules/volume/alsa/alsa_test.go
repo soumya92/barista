@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 	"unsafe"
+	"reflect"
 
 	"barista.run/bar"
 	"barista.run/base/value"
@@ -167,7 +168,7 @@ func TestAlsaModule(t *testing.T) {
 
 	alsaT.on_snd_mixer_open(func(ptrToPtr **ctyp_snd_mixer_t, _ int32) int32 {
 		handle := new(handle)
-		*ptrToPtr = (*ctyp_snd_mixer_t)(unsafe.Pointer(handle))
+		*ptrToPtr = (*ctyp_snd_mixer_t)(unsafe.Pointer(reflect.ValueOf(handle).Pointer()))
 		testHandles[*ptrToPtr] = make(chan struct{}, 1)
 		return 0
 	})
@@ -177,7 +178,7 @@ func TestAlsaModule(t *testing.T) {
 	})
 	alsaT.on_snd_mixer_selem_id_malloc(func(ptrToPtr **ctyp_snd_mixer_selem_id_t) int32 {
 		selem := new(selem)
-		*ptrToPtr = (*ctyp_snd_mixer_selem_id_t)(unsafe.Pointer(selem))
+		*ptrToPtr = (*ctyp_snd_mixer_selem_id_t)(unsafe.Pointer(reflect.ValueOf(selem).Pointer()))
 		return 0
 	})
 	alsaT.on_snd_mixer_selem_id_set_index(func(cptrSelem *ctyp_snd_mixer_selem_id_t, i uint32) {

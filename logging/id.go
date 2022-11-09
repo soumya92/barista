@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build debuglog
+// +build baristadebuglog
 
 package logging
 
@@ -264,7 +264,7 @@ func Label(thing interface{}, label string) {
 }
 
 // Labelf is Label with built-in formatting. Because all logging functions
-// are no-ops without debuglog, having the sprintf be part of the Labelf
+// are no-ops without baristadebuglog, having the sprintf be part of the Labelf
 // function means that it will only be executed if debug logging is on.
 func Labelf(thing interface{}, format string, args ...interface{}) {
 	Label(thing, fmt.Sprintf(format, args...))

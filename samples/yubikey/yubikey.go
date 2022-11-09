@@ -16,10 +16,10 @@
 package yubikey
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"strings"
+	"sync"
 
 	"barista.run/bar"
 	"barista.run/base/value"
@@ -32,21 +32,14 @@ import (
 // Module represents a yubikey barista module that shows an indicator whenever
 // the plugged-in yubikey is waiting for user input.
 type Module struct {
-	u2fAuthPendingPath string
-	gpgPubringPath     string
-	outputFunc         value.Value // of func(bool, bool) bar.Output
+	gpgPubringPath string
+	outputFunc     value.Value // of func(bool, bool) bar.Output
 }
 
-// U2FAuthPendingPath is the default path for the u2f pending file. This file is
-// created whenever the yubikey is waiting for input to complete u2f authentication.
-var U2FAuthPendingPath = fmt.Sprintf("/var/run/user/%d/pam-u2f-authpending", os.Getuid())
-
-// ForPaths constructs a yubikey module with the given paths for the u2f pending
-// file and gpg keyring.
-func ForPaths(u2fAuthPendingPath string, gpgPubringPath string) *Module {
+// ForPath constructs a yubikey module with the given path to the gpg keyring.
+func ForPath(gpgPubringPath string) *Module {
 	m := &Module{
-		u2fAuthPendingPath: u2fAuthPendingPath,
-		gpgPubringPath:     gpgPubringPath,
+		gpgPubringPath: gpgPubringPath,
 	}
 	m.Output(func(gpg, u2f bool) bar.Output {
 		reason := []string{}
@@ -69,9 +62,9 @@ func ForPaths(u2fAuthPendingPath string, gpgPubringPath string) *Module {
 func New() *Module {
 	gpgHome := os.Getenv("GNUPGHOME")
 	if gpgHome != "" {
-		return ForPaths(U2FAuthPendingPath, path.Join(gpgHome, "pubring.kbx"))
+		return ForPath(path.Join(gpgHome, "pubring.kbx"))
 	}
-	return ForPaths(U2FAuthPendingPath, os.ExpandEnv("$HOME/.gnupg/pubring.kbx"))
+	return ForPath(os.ExpandEnv("$HOME/.gnupg/pubring.kbx"))
 }
 
 // Output sets the output format for the module.
@@ -83,19 +76,23 @@ func (m *Module) Output(outputFunc func(bool, bool) bar.Output) *Module {
 // Stream starts the module.
 func (m *Module) Stream(sink bar.Sink) {
 	ykChan := make(chan ykNotifier.Message, 10)
-	notifiers := map[string]chan ykNotifier.Message{"barista": ykChan}
+	notifiers := new(sync.Map)
+	notifiers.Store("barista", ykChan)
 
 	requestGPGCheck := make(chan bool)
 	go detector.CheckGPGOnRequest(requestGPGCheck, notifiers)
-	go detector.WatchU2F(m.u2fAuthPendingPath, notifiers)
+	go detector.WatchU2F(notifiers)
 	go detector.WatchGPG(m.gpgPubringPath, requestGPGCheck)
 
-	exits := make(map[string]chan bool)
+	exits := new(sync.Map)
 	go detector.WatchSSH(requestGPGCheck, exits)
-	defer func(exits map[string]chan bool) {
-		for _, c := range exits {
-			c <- true
-		}
+	defer func(exits *sync.Map) {
+		exits.Range(func(_, value any) bool {
+			if ch, ok := value.(chan bool); ok {
+				ch <- true
+			}
+			return true
+		})
 	}(exits)
 
 	gpg := false

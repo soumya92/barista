@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !debuglog
+// +build !baristadebuglog
 
 // Package logging provides logging functions for use in the bar and modules.
 // It uses build tags to provide nop functions in the default case, and
-// actual logging functions when built with `-tags debuglog`.
+// actual logging functions when built with `-tags baristadebuglog`.
 package logging
 
 import "io"
@@ -49,7 +49,7 @@ func ID(thing interface{}) string { return "" }
 func Label(thing interface{}, label string) {}
 
 // Labelf is Label with built-in formatting. Because all logging functions
-// are no-ops without debuglog, having the sprintf be part of the Labelf
+// are no-ops without baristadebuglog, having the sprintf be part of the Labelf
 // function means that it will only be executed if debug logging is on.
 func Labelf(thing interface{}, format string, args ...interface{}) {}
 

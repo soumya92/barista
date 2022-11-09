@@ -206,7 +206,7 @@ func TestTimedOutputRealTime(t *testing.T) {
 
 	tm := testModule.New(t).SkipClickHandlers()
 	m := NewModule(tm)
-	ch, sink := sink.New()
+	ch, sink := sink.Buffered(0)
 
 	tm.AssertNotStarted("before stream")
 	go m.Stream(sink)
@@ -227,22 +227,6 @@ func TestTimedOutputRealTime(t *testing.T) {
 
 	txt, _ = nextOutput(t, ch)[0].Content()
 	require.Equal(t, "2", txt)
-
-	tm.Output(bar.TextSegment("foo"))
-	txt, _ = nextOutput(t, ch)[0].Content()
-	require.Equal(t, "foo", txt)
-
-	assertNoOutput(t, ch, "When no longer using timed output")
-
-	// Test rapid updates for data races.
-	tm.Output(outputs.Repeat(func(now time.Time) bar.Output {
-		return outputs.Text(now.Format("15:04:05.000000"))
-	}).Every(time.Nanosecond))
-
-	nextOutput(t, ch)
-	nextOutput(t, ch)
-	nextOutput(t, ch)
-	nextOutput(t, ch)
 
 	tm.Output(bar.TextSegment("foo"))
 	txt, _ = nextOutput(t, ch)[0].Content()
