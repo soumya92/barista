@@ -45,9 +45,9 @@ go list ./... \
 done
 exit 1'
 
-echo "Test: Logging with -tags debuglog"
+echo "Test: Logging with -tags baristadebuglog"
 # Debug log tests need the build tag, otherwise the nop versions will be used.
-go test -tags debuglog -coverprofile=profiles/logging_real.out -race -covermode=atomic barista.run/logging
+go test -tags baristadebuglog -coverprofile=profiles/logging_real.out -race -covermode=atomic barista.run/logging
 
 # Remove all _capi.go coverage since those will intentionally not be tested.
 for profile in profiles/*.out; do
