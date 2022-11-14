@@ -202,8 +202,12 @@ func (m *paModule) Worker(s *value.ErrorValue) {
 	}
 
 	for {
-		if s.SetOrError(getVolume(client, m.deviceName, m.deviceType)) {
-			return
+		vol, err := getVolume(client, m.deviceName, m.deviceType)
+		// Ignore ErrNoSuchEntity because devices may easily go away.
+		if err != proto.ErrNoSuchEntity {
+			if s.SetOrError(vol, err) {
+				return
+			}
 		}
 		<-ch
 	}
