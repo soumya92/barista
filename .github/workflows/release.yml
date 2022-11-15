@@ -84,8 +84,9 @@ jobs:
       run: |
         git config credential.helper "store --file=.gitcredentials"
         echo "https://${{ secrets.DROID_GITHUB_TOKEN }}:@github.com" > .gitcredentials
-        git push --delete origin "autorelease" || true
-
+        git tag -f -a autorelease
+        git push -f --tags
+        
     - name: Create Release
       uses: ncipollo/release-action@v1.11.2
       with:
