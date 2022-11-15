@@ -86,41 +86,13 @@ jobs:
         echo "https://${{ secrets.DROID_GITHUB_TOKEN }}:@github.com" > .gitcredentials
         git push --delete origin "autorelease" || true
 
-    - name: Delete existing release
-      run: |
-        release_url="$(curl https://api.github.com/repos/soumya92/barista/releases | jq -r '.[] | select(.name == "Samples") | .url')"
-        test -n "$release_url" && curl -X DELETE -H "Authorization: token ${{ secrets.DROID_GITHUB_TOKEN }}" "$release_url" || true
-
-    - name: Create new release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
+    - name: Create Release
+      uses: ncipollo/release-action@v1.11.2
       with:
-        tag_name: autorelease
-        release_name: Samples
+        allowUpdates: true
+        artifacts: './i3status,./sample-bar'
+        artifactContentType: application/binary
         body: Automated build of samples/sample-bar and samples/i3status
-        draft: false
-        prerelease: false
-
-    - name: Upload i3status Sample
-      id: upload_i3status
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./i3status
-        asset_name: i3status
-        asset_content_type: application/binary
-
-    - name: Upload Sample Bar
-      id: upload_sample_bar
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./sample-bar
-        asset_name: sample-bar
-        asset_content_type: application/binary
+        name: Samples
+        tag: autorelease
+        token: ${{ secrets.DROID_GITHUB_TOKEN }}
