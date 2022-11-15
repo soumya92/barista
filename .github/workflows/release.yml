@@ -80,12 +80,14 @@ jobs:
         ./build.sh -tags prod -o sample-bar ./samples/sample-bar
         go build -o i3status ./samples/i3status
 
-    - name: Remove remote release tag
-      run: |
-        git config credential.helper "store --file=.gitcredentials"
-        echo "https://${{ secrets.DROID_GITHUB_TOKEN }}:@github.com" > .gitcredentials
-        git push --delete origin autorelease
-        
+    - name: Delete old tag and release
+      uses: dev-drprasad/delete-tag-and-release@v0.2.0
+      with:
+        delete_release: true
+        tag_name: autorelease
+      env:
+        GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
+
     - name: Create Release
       uses: ncipollo/release-action@v1.11.2
       with:
