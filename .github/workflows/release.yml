@@ -89,7 +89,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
 
     - name: Create Release
-      uses: ncipollo/release-action@v1.11.2
+      uses: ncipollo/release-action@v1.12.0
       with:
         allowUpdates: true
         artifacts: './i3status,./sample-bar'
