@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/coreos/go-systemd/v22 v22.5.0
-	github.com/dustin/go-humanize v1.0.0
+	github.com/dustin/go-humanize v1.0.1
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/jfreymuth/pulse v0.1.1-0.20221101213618-75628dabd933
