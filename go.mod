@@ -12,7 +12,7 @@ require (
 	github.com/martinlindhe/unit v0.0.0-20220817221856-f7b595b5f97e
 	github.com/maximbaz/yubikey-touch-detector v0.0.0-20220526224932-a2161c415e60
 	github.com/spf13/afero v1.9.4
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	github.com/vishvananda/netlink v1.1.0
 	github.com/zalando/go-keyring v0.2.2
 	golang.org/x/crypto v0.6.0
