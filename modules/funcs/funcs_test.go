@@ -120,4 +120,14 @@ func TestRepeated(t *testing.T) {
 	testBar.Tick()
 	testBar.NextOutput().AssertText(
 		[]string{"3"}, "Function is called on next tick")
+	atomic.StoreInt64(&count, 0)
+	testBar.Tick()
+	out := testBar.NextOutput("second output with click handler")
+	out.AssertText(
+		[]string{"1"}, "Function called when streaming")
+	out.At(0).Click(bar.Event{Button: bar.ButtonMiddle})
+	testBar.NextOutput().AssertText(
+		[]string{"2"}, "Function is called on click")
+	testBar.AssertNoOutput("Function is not called again until next tick")
+
 }

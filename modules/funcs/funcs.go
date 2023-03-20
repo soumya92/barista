@@ -16,10 +16,11 @@
 package funcs // import "barista.run/modules/funcs"
 
 import (
+	"barista.run/base/notifier"
+	"barista.run/timing"
 	"time"
 
 	"barista.run/bar"
-	"barista.run/timing"
 )
 
 // Func receives a bar.Sink and uses it for output.
@@ -68,21 +69,36 @@ func (o OnclickModule) Stream(s bar.Sink) {
 // Every constructs a bar module that repeatedly runs the given function.
 // Useful if the function needs to poll a resource for output.
 func Every(d time.Duration, f Func) *RepeatingModule {
-	return &RepeatingModule{fn: f, duration: d}
+	r := &RepeatingModule{fn: f}
+	r.scheduler = timing.NewScheduler().Every(d)
+	r.notifyFn, r.notifyCh = notifier.New()
+
+	return r
 }
 
 // RepeatingModule represents a bar.Module that runs a function at a fixed
 // interval (while accounting for bar paused/resumed state).
 type RepeatingModule struct {
-	fn       Func
-	duration time.Duration
+	notifyCh  <-chan struct{}
+	notifyFn  func()
+	fn        Func
+	scheduler *timing.Scheduler
 }
 
 // Stream starts the module.
 func (r *RepeatingModule) Stream(s bar.Sink) {
-	sch := timing.NewScheduler().Every(r.duration)
+	r.fn(s)
 	for {
-		r.fn(s)
-		sch.Tick()
+		select {
+		case <-r.notifyCh:
+			r.fn(s)
+		case <-r.scheduler.C:
+			r.fn(s)
+		}
 	}
+}
+
+// Refresh fetches updated weather information.
+func (r *RepeatingModule) Refresh() {
+	r.notifyFn()
 }
