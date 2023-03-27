@@ -145,5 +145,4 @@ func TestRepeated(t *testing.T) {
 	testBar.AssertNoOutput("Function is not called on non middle clicks")
 	out.At(0).Click(bar.Event{Button: bar.ScrollRight})
 	testBar.AssertNoOutput("Function is not called on non middle clicks")
-
 }
