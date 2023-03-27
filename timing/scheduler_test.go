@@ -146,7 +146,7 @@ func TestTick(t *testing.T) {
 		50*time.Millisecond, "Tick waits for expected duration")
 }
 
-func TestRefreshInterval(t *testing.T) {
+func TestReplaceInterval(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping real repeating test in short mode")
 	}
