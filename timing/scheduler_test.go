@@ -145,3 +145,26 @@ func TestTick(t *testing.T) {
 		now.Add(3*time.Second), <-timeChan,
 		50*time.Millisecond, "Tick waits for expected duration")
 }
+
+func TestReplaceInterval(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping real repeating test in short mode")
+	}
+	ExitTestMode()
+	sch := NewScheduler()
+
+	sch.Every(100 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
+	notifier.AssertNotified(t, sch.C, "after interval elapses")
+	time.Sleep(100 * time.Millisecond)
+	notifier.AssertNotified(t, sch.C, "after interval elapses")
+	time.Sleep(100 * time.Millisecond)
+	notifier.AssertNotified(t, sch.C, "after interval elapses")
+	Pause()
+	sch.Every(1 * time.Second)
+	Resume()
+	time.Sleep(100 * time.Millisecond)
+	notifier.AssertNoUpdate(t, sch.C, "after interval elapses")
+	time.Sleep(1 * time.Second)
+	notifier.AssertNotified(t, sch.C, "after interval elapses")
+}
