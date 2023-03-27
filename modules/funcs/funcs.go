@@ -92,7 +92,6 @@ func (r *RepeatingModule) Stream(s bar.Sink) {
 	for {
 		select {
 		case <-r.notifyCh:
-			r.scheduler.Close()
 			r.scheduler = timing.NewScheduler().Every(r.d)
 			r.fn(s)
 		case <-r.scheduler.C:
