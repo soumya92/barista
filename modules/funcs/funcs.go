@@ -69,7 +69,7 @@ func (o OnclickModule) Stream(s bar.Sink) {
 // Every constructs a bar module that repeatedly runs the given function.
 // Useful if the function needs to poll a resource for output.
 func Every(d time.Duration, f Func) *RepeatingModule {
-	r := &RepeatingModule{fn: f}
+	r := &RepeatingModule{fn: f, d: d}
 	r.scheduler = timing.NewScheduler().Every(d)
 	r.notifyFn, r.notifyCh = notifier.New()
 
@@ -82,7 +82,12 @@ type RepeatingModule struct {
 	notifyCh  <-chan struct{}
 	notifyFn  func()
 	fn        Func
+	d         time.Duration
 	scheduler *timing.Scheduler
+}
+
+func (r *RepeatingModule) GetScheduler() *timing.Scheduler {
+	return r.scheduler
 }
 
 // Stream starts the module.
@@ -91,6 +96,8 @@ func (r *RepeatingModule) Stream(s bar.Sink) {
 	for {
 		select {
 		case <-r.notifyCh:
+			r.scheduler.Close()
+			r.scheduler = timing.NewScheduler().Every(r.d)
 			r.fn(s)
 		case <-r.scheduler.C:
 			r.fn(s)
@@ -98,7 +105,7 @@ func (r *RepeatingModule) Stream(s bar.Sink) {
 	}
 }
 
-// Refresh fetches updated weather information.
+// Refresh forces a refresh of the data being displayed.
 func (r *RepeatingModule) Refresh() {
 	r.notifyFn()
 }
