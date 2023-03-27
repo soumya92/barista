@@ -86,10 +86,6 @@ type RepeatingModule struct {
 	scheduler *timing.Scheduler
 }
 
-func (r *RepeatingModule) GetScheduler() *timing.Scheduler {
-	return r.scheduler
-}
-
 // Stream starts the module.
 func (r *RepeatingModule) Stream(s bar.Sink) {
 	r.fn(s)
