@@ -92,6 +92,7 @@ jobs:
       uses: ncipollo/release-action@v1.12.0
       with:
         allowUpdates: true
+        makeLatest: true
         artifacts: './i3status,./sample-bar'
         artifactContentType: application/binary
         body: Automated build of samples/sample-bar and samples/i3status
