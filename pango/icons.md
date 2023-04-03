@@ -3,7 +3,7 @@ title: Icon Fonts
 pkg: noimport
 ---
 
-Although i3bar can only display text, it supports [Pango Markup](https://developer.gnome.org/pygtk/stable/pango-markup-language.html),
+Although i3bar can only display text, it supports [Pango Markup](https://docs.gtk.org/Pango/pango_markup.html),
 which means that any icon font installed on the system can be used to add pictograms to the bar.
 
 There are a few simple steps to using an icon font in your bar:

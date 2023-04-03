@@ -3,7 +3,7 @@ title: Pango Formatting
 ---
 
 When using a Pango font, i3bar supports formatting the output using
-[Pango Markup](https://developer.gnome.org/pygtk/stable/pango-markup-language.html). This allows rich
+[Pango Markup](https://docs.gtk.org/Pango/pango_markup.html). This allows rich
 in-line formatting in each segment of the output.
 
 Barista provides formatting primitives that allow type-safe construction of markup strings,
