@@ -65,7 +65,7 @@ type UnitInfo struct {
 	call func(string, ...interface{}) ([]interface{}, error)
 }
 
-// Start enqeues a start job, and possibly depending jobs.
+// Start enqueues a start job, and possibly dependant jobs.
 func (u UnitInfo) Start() {
 	u.call("Start", "fail")
 }
@@ -87,13 +87,10 @@ func (u UnitInfo) Reload() {
 	u.call("Reload", "fail")
 }
 
-// replaced in tests.
-var busType = dbus.System
-
-func watchUnit(unitName string) *dbus.PropertiesWatcher {
-	escapedName := systemdbus.PathBusEscape(unitName)
+func watchUnit(name string, busType ...dbus.BusType) *dbus.PropertiesWatcher {
+	escapedName := systemdbus.PathBusEscape(name)
 	unitPath := "/org/freedesktop/systemd1/unit/" + escapedName
-	return dbus.WatchProperties(busType,
+	return dbus.WatchProperties(getBusType(busType...),
 		"org.freedesktop.systemd1", unitPath, "org.freedesktop.systemd1.Unit").
 		Add("ActiveState", "SubState", "Id", "Description").
 		FetchOnSignal("StateChangeTimestamp")
@@ -110,12 +107,13 @@ type ServiceInfo struct {
 // ServiceModule watches a systemd service and updates on status change
 type ServiceModule struct {
 	name       string
+	busType    dbus.BusType
 	outputFunc value.Value
 }
 
 // Service creates a module that watches the status of a systemd service.
-func Service(name string) *ServiceModule {
-	s := &ServiceModule{name: name}
+func Service(name string, busType ...dbus.BusType) *ServiceModule {
+	s := &ServiceModule{name: name, busType: getBusType(busType...)}
 	s.Output(func(i ServiceInfo) bar.Output {
 		if i.Since.IsZero() {
 			return outputs.Textf("%s (%s)", i.State, i.SubState)
@@ -139,7 +137,7 @@ const serviceIface = "org.freedesktop.systemd1.Service"
 
 // Stream starts the module.
 func (s *ServiceModule) Stream(sink bar.Sink) {
-	w := watchUnit(s.name + ".service")
+	w := watchUnit(s.name+".service", s.busType)
 	defer w.Unsubscribe()
 
 	w.FetchOnSignal(
@@ -204,6 +202,14 @@ func getServiceInfo(w *dbus.PropertiesWatcher) ServiceInfo {
 	return i
 }
 
+func getBusType(busType ...dbus.BusType) dbus.BusType {
+	if len(busType) == 0 {
+		return dbus.System
+	}
+
+	return busType[0]
+}
+
 // TimerInfo represents the state of a systemd timer.
 type TimerInfo struct {
 	UnitInfo
@@ -215,12 +221,13 @@ type TimerInfo struct {
 // TimerModule watches a systemd timer and updates on status change
 type TimerModule struct {
 	name       string
+	busType    dbus.BusType
 	outputFunc value.Value
 }
 
 // Timer creates a module that watches the status of a systemd timer.
-func Timer(name string) *TimerModule {
-	t := &TimerModule{name: name}
+func Timer(name string, busType ...dbus.BusType) *TimerModule {
+	t := &TimerModule{name: name, busType: getBusType(busType...)}
 	t.Output(func(i TimerInfo) bar.Output {
 		last := "never"
 		if !i.LastTrigger.IsZero() {
@@ -245,7 +252,7 @@ const timerIface = "org.freedesktop.systemd1.Timer"
 
 // Stream starts the module.
 func (t *TimerModule) Stream(sink bar.Sink) {
-	w := watchUnit(t.name + ".timer")
+	w := watchUnit(t.name+".timer", t.busType)
 	defer w.Unsubscribe()
 
 	w.FetchOnSignal(
