@@ -81,21 +81,21 @@ jobs:
         go build -o i3status ./samples/i3status
 
     - name: Delete old tag and release
-      uses: dev-drprasad/delete-tag-and-release@v0.2.1
+      uses: dev-drprasad/delete-tag-and-release@v1.0
       with:
         delete_release: true
         tag_name: autorelease
       env:
         GITHUB_TOKEN: ${{ secrets.DROID_GITHUB_TOKEN }}
 
-    - name: Create Release
-      uses: ncipollo/release-action@v1.12.0
+
+    - name: Create/Update Release
+      uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        allowUpdates: true
-        makeLatest: true
-        artifacts: './i3status,./sample-bar'
-        artifactContentType: application/binary
-        body: Automated build of samples/sample-bar and samples/i3status
-        name: Samples
-        tag: autorelease
-        token: ${{ secrets.DROID_GITHUB_TOKEN }}
+        repo_token: "${{ secrets.DROID_GITHUB_TOKEN }}"
+        automatic_release_tag: "autorelease"
+        prerelease: false
+        title: "Automated build of samples/sample-bar and samples/i3status"
+        files: |
+          i3status
+          sample-bar
