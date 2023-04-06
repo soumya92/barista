@@ -26,10 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func init() {
-	busType = dbus.Test
-}
-
 func TestService(t *testing.T) {
 	testBar.New(t)
 	bus := dbus.SetupTestBus()
@@ -66,8 +62,8 @@ func TestService(t *testing.T) {
 		"Type": "oneshot",
 	}, dbus.SignalTypeNone)
 
-	m0 := Service("foo")
-	m1 := Service("baz-srv")
+	m0 := Service("foo", dbus.Test)
+	m1 := Service("baz-srv", dbus.Test)
 	testBar.Run(m0, m1)
 
 	testBar.LatestOutput().AssertText([]string{
@@ -143,7 +139,7 @@ func TestTimer(t *testing.T) {
 		"NextElapseUSecRealtime": uint64(timing.Now().Add(6*time.Hour).UnixNano() / 1000),
 	}, dbus.SignalTypeNone)
 
-	m0 := Timer("foo")
+	m0 := Timer("foo", dbus.Test)
 	testBar.Run(m0)
 
 	testBar.LatestOutput().AssertText([]string{
