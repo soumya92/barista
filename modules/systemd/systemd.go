@@ -111,9 +111,18 @@ type ServiceModule struct {
 	outputFunc value.Value
 }
 
+// UserService create a module that watches the status of a systemd user service.
+func UserService(name string) *ServiceModule {
+	return service(name, dbus.Session)
+}
+
 // Service creates a module that watches the status of a systemd service.
-func Service(name string, busType ...dbus.BusType) *ServiceModule {
-	s := &ServiceModule{name: name, busType: getBusType(busType...)}
+func Service(name string) *ServiceModule {
+	return service(name, dbus.System)
+}
+
+func service(name string, dbusType dbus.BusType) *ServiceModule {
+	s := &ServiceModule{name: name, busType: dbusType}
 	s.Output(func(i ServiceInfo) bar.Output {
 		if i.Since.IsZero() {
 			return outputs.Textf("%s (%s)", i.State, i.SubState)
@@ -225,9 +234,18 @@ type TimerModule struct {
 	outputFunc value.Value
 }
 
+// UserTimer creates a module that watches the status of a systemd user timer.
+func UserTimer(name string) *TimerModule {
+	return timer(name, dbus.Session)
+}
+
 // Timer creates a module that watches the status of a systemd timer.
-func Timer(name string, busType ...dbus.BusType) *TimerModule {
-	t := &TimerModule{name: name, busType: getBusType(busType...)}
+func Timer(name string) *TimerModule {
+	return timer(name, dbus.System)
+}
+
+func timer(name string, dbusType dbus.BusType) *TimerModule {
+	t := &TimerModule{name: name, busType: dbusType}
 	t.Output(func(i TimerInfo) bar.Output {
 		last := "never"
 		if !i.LastTrigger.IsZero() {
