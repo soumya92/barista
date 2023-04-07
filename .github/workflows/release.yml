@@ -95,7 +95,7 @@ jobs:
         repo_token: "${{ secrets.DROID_GITHUB_TOKEN }}"
         automatic_release_tag: "autorelease"
         prerelease: false
-        title: "Automated build of samples/sample-bar and samples/i3status"
+        title: "Automated build"
         files: |
           i3status
           sample-bar
