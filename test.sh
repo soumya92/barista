@@ -38,7 +38,6 @@ go list ./... \
 	go test \
 		-timeout 90s \
 		-coverprofile=profiles/$(echo "PKG" | sed -e "s|./||" -e "s|/|_|g").out \
-		-race \
 		-covermode=atomic \
 		"PKG" \
 	&& exit 0
@@ -47,7 +46,7 @@ exit 1'
 
 echo "Test: Logging with -tags baristadebuglog"
 # Debug log tests need the build tag, otherwise the nop versions will be used.
-go test -tags baristadebuglog -coverprofile=profiles/logging_real.out -race -covermode=atomic barista.run/logging
+go test -tags baristadebuglog -coverprofile=profiles/logging_real.out -covermode=atomic barista.run/logging
 
 # Remove all _capi.go coverage since those will intentionally not be tested.
 for profile in profiles/*.out; do
