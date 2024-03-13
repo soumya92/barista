@@ -15,10 +15,10 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/vishvananda/netlink v1.1.0
 	github.com/zalando/go-keyring v0.2.3
-	golang.org/x/crypto v0.19.0
+	golang.org/x/crypto v0.21.0
 	golang.org/x/net v0.21.0
 	golang.org/x/oauth2 v0.17.0
-	golang.org/x/sys v0.17.0
+	golang.org/x/sys v0.18.0
 	golang.org/x/time v0.5.0
 	google.golang.org/api v0.169.0
 	gopkg.in/yaml.v2 v2.4.0
