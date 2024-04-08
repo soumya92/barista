@@ -81,7 +81,7 @@ jobs:
         go build -o i3status ./samples/i3status
 
     - name: Delete old tag and release
-      uses: dev-drprasad/delete-tag-and-release@v1.0
+      uses: dev-drprasad/delete-tag-and-release@v1.1
       with:
         delete_release: true
         tag_name: autorelease
