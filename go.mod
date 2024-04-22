@@ -16,17 +16,17 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	github.com/zalando/go-keyring v0.2.4
 	golang.org/x/crypto v0.22.0
-	golang.org/x/net v0.23.0
+	golang.org/x/net v0.24.0
 	golang.org/x/oauth2 v0.19.0
 	golang.org/x/sys v0.19.0
 	golang.org/x/time v0.5.0
-	google.golang.org/api v0.174.0
+	google.golang.org/api v0.175.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
-	cloud.google.com/go/auth v0.2.0 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.0 // indirect
+	cloud.google.com/go/auth v0.2.2 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.1 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/danieljoos/wincred v1.2.0 // indirect
@@ -54,7 +54,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415180920-8c6c420018be // indirect
-	google.golang.org/grpc v1.63.0 // indirect
+	google.golang.org/grpc v1.63.2 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
