@@ -1,4 +1,4 @@
-module barista.run
+module github.com/soumya92/barista
 
 go 1.19
 

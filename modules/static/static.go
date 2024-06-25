@@ -16,11 +16,11 @@
 // with methods to set the content. In a pinch, this can be used to create
 // buttons, or show additional information by setting the output from within
 // a format function.
-package static // import "barista.run/modules/static"
+package static
 
 import (
-	"barista.run/bar"
-	"barista.run/base/value"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
 )
 
 // Module represents a module that displays static content on the bar.

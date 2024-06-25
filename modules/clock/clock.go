@@ -13,18 +13,18 @@
 // limitations under the License.
 
 // Package clock displays a clock.
-package clock // import "barista.run/modules/clock"
+package clock
 
 import (
 	"strings"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/base/watchers/localtz"
-	l "barista.run/logging"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/base/watchers/localtz"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // Module represents a clock bar module. It supports setting the click handler,

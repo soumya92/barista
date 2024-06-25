@@ -17,7 +17,7 @@ Package pango provides provides a method to test markup equality.
 It compares to strings that represent pango markup while ignoring
 differences in attribute order, escaping, etc.
 */
-package pango // import "barista.run/testing/pango"
+package pango
 
 import (
 	"fmt"

@@ -31,16 +31,16 @@ or:
    Color(colors.Hex("#ff0000")).
    Append(pango.Text("Bold Text").Bold())
 */
-package pango // import "barista.run/pango"
+package pango
 
 import (
 	"bytes"
 	"fmt"
 	"html"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/format"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/format"
 )
 
 type nodeType int

@@ -16,14 +16,14 @@
 // moved between various positions on the bar. When used carefully, this can be
 // useful for conveying limited information by re-ordering modules, but it has
 // the potential to become too distracting if overused.
-package slot // import "barista.run/modules/meta/slot"
+package slot
 
 import (
 	"sync"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/sink"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/sink"
 )
 
 // Slotter provides the ability to display the output of a module into named

@@ -14,15 +14,15 @@
 
 // Package group provides a module that groups existing modules, and uses
 // a provided Grouper to selectively display output from these modules.
-package group // import "barista.run/group"
+package group
 
 import (
 	"sync"
 
-	"barista.run/bar"
-	"barista.run/core"
-	l "barista.run/logging"
-	"barista.run/outputs"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/core"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // Grouper controls how a group displays the output from it's modules.

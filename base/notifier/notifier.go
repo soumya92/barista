@@ -20,12 +20,12 @@ will not be created. This is useful in scenarios like formatting changes,
 where if multiple updates come in before the first one is processed, it
 is preferable to apply just the final format, ignoring the intermediate ones.
 */
-package notifier // import "barista.run/base/notifier"
+package notifier
 
 import (
 	"sync"
 
-	l "barista.run/logging"
+	l "github.com/soumya92/barista/logging"
 )
 
 // New constructs a new notifier. It returns a func that triggers a notification,

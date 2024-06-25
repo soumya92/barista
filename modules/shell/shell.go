@@ -18,18 +18,18 @@ It supports both long-running commands, where the output is the last line,
 e.g. dmesg or tail -f /var/log/some.log, and repeatedly running commands,
 e.g. whoami, date +%s.
 */
-package shell // import "barista.run/modules/shell"
+package shell
 
 import (
 	"os/exec"
 	"strings"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/notifier"
-	"barista.run/base/value"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/notifier"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // Module represents a shell module that updates on a timer or on demand.

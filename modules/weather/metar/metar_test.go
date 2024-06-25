@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"barista.run/modules/weather"
-	testServer "barista.run/testing/httpserver"
+	"github.com/soumya92/barista/modules/weather"
+	testServer "github.com/soumya92/barista/testing/httpserver"
 
 	"github.com/martinlindhe/unit"
 	"github.com/stretchr/testify/require"

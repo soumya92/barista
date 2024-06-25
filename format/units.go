@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package format provides utility methods for formatting units.
-package format // import "barista.run/format"
+package format
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"barista.run/base/value"
+	"github.com/soumya92/barista/base/value"
 	"github.com/martinlindhe/unit"
 )
 

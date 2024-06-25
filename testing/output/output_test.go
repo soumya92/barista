@@ -17,9 +17,9 @@ package output
 import (
 	"testing"
 
-	"barista.run/bar"
-	"barista.run/outputs"
-	"barista.run/testing/fail"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/testing/fail"
 
 	"github.com/stretchr/testify/require"
 )

@@ -13,14 +13,14 @@
 // limitations under the License.
 
 // Package outputs provides helper functions to construct bar.Outputs.
-package outputs // import "barista.run/outputs"
+package outputs
 
 import (
 	"fmt"
 
-	"barista.run/bar"
-	"barista.run/format"
-	"barista.run/pango"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/format"
+	"github.com/soumya92/barista/pango"
 )
 
 // Errorf constructs a bar output that indicates an error,

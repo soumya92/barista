@@ -14,7 +14,7 @@
 
 // Package cpuload implements an i3bar module that shows load averages.
 // Deprecated in favour of SysInfo, which can show more than just load average.
-package cpuload // import "barista.run/modules/cpuload"
+package cpuload
 
 //#include <stdlib.h>
 import "C"
@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	l "barista.run/logging"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 // LoadAvg represents the CPU load average for the past 1, 5, and 15 minutes.

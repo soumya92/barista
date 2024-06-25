@@ -17,8 +17,8 @@ package outputs
 import (
 	"time"
 
-	"barista.run/bar"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/timing"
 )
 
 // AtTimeDelta creates a TimedOutput from a function by repeatedly calling it at

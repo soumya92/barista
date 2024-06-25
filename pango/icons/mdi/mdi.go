@@ -21,7 +21,7 @@ https://github.com/Templarian/MaterialDesign-Webfont,
 uses scss/_variables.scss to get the list of icons,
 and requires fonts/materialdesignicons-webfont.ttf to be installed.
 */
-package mdi // import "barista.run/pango/icons/mdi"
+package mdi
 
 import (
 	"bufio"
@@ -31,8 +31,8 @@ import (
 	"strings"
 	"unicode"
 
-	"barista.run/pango"
-	"barista.run/pango/icons"
+	"github.com/soumya92/barista/pango"
+	"github.com/soumya92/barista/pango/icons"
 
 	"github.com/spf13/afero"
 )

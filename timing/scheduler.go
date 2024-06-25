@@ -20,8 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"barista.run/base/notifier"
-	l "barista.run/logging"
+	"github.com/soumya92/barista/base/notifier"
+	l "github.com/soumya92/barista/logging"
 )
 
 // Scheduler represents a trigger that can be repeating or one-off, and

@@ -19,8 +19,8 @@ import (
 	"math"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/timing"
 )
 
 // SegmentGroup represents a group of Segments to be

@@ -15,7 +15,7 @@
 // Package httpserver provides a test http server that can serve some
 // canned responses, e.g. modification time header, infinite redirect loop,
 // various http status codes, and templated responses using query params.
-package httpserver // import "barista.run/testing/httpserver"
+package httpserver
 
 import (
 	"html/template"

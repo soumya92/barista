@@ -24,8 +24,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	l "barista.run/logging"
-	"barista.run/timing/internal/timerfd"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/timing/internal/timerfd"
 )
 
 var _ schedulerImpl = &timerfdScheduler{}

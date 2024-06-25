@@ -14,15 +14,15 @@
 
 // Package volume provides an i3bar module that interfaces with alsa or pulse
 // to display and control the system volume.
-package volume // import "barista.run/modules/volume"
+package volume
 
 import (
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	l "barista.run/logging"
-	"barista.run/outputs"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 
 	"golang.org/x/time/rate"
 )

@@ -13,18 +13,18 @@
 // limitations under the License.
 
 // Package systemd provides modules for watching the status of a systemd unit.
-package systemd // import "barista.run/modules/systemd"
+package systemd
 
 import (
 	"strings"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/base/watchers/dbus"
-	"barista.run/base/watchers/localtz"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/base/watchers/dbus"
+	"github.com/soumya92/barista/base/watchers/localtz"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 
 	systemdbus "github.com/coreos/go-systemd/v22/dbus"
 )

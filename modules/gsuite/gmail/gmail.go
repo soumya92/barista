@@ -13,17 +13,17 @@
 // limitations under the License.
 
 // Package gmail provides a gmail barista module.
-package gmail // import "barista.run/modules/gsuite/gmail"
+package gmail
 
 import (
 	"net/http"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/oauth"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/oauth"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 
 	"golang.org/x/oauth2/google"
 	gmail "google.golang.org/api/gmail/v1"

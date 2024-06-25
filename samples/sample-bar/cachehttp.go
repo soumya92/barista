@@ -25,7 +25,7 @@
 package main
 
 import "net/http"
-import "barista.run/testing/httpcache"
+import "github.com/soumya92/barista/testing/httpcache"
 
 func init() {
 	http.DefaultTransport = httpcache.Wrap(http.DefaultTransport)

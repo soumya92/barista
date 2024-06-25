@@ -13,17 +13,17 @@
 // limitations under the License.
 
 // Package sysinfo implements i3bar modules that show system information.
-package sysinfo // import "barista.run/modules/sysinfo"
+package sysinfo
 
 import (
 	"sync"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	l "barista.run/logging"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/martinlindhe/unit"
 	"golang.org/x/sys/unix"

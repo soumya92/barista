@@ -29,7 +29,7 @@ be rebuilt and restarted hundreds of times without counting towards any quota.
 The cache is located at ~/.cache/barista/http (using XDG_CACHE_HOME for ~/.cache
 if set). Individual responses can be deleted if a fresher copy is needed.
 */
-package httpcache // import "barista.run/testing/httpcache"
+package httpcache
 
 import (
 	"bufio"

@@ -19,14 +19,14 @@ from https://github.com/FortAwesome/Font-Awesome
 It uses metadata/icons.yml to get the list of icons,
 and requires fonts/fontawesome-webfont.ttf to be installed.
 */
-package fontawesome // import "barista.run/pango/icons/fontawesome"
+package fontawesome
 
 import (
 	"fmt"
 	"path/filepath"
 
-	"barista.run/pango"
-	"barista.run/pango/icons"
+	"github.com/soumya92/barista/pango"
+	"github.com/soumya92/barista/pango/icons"
 
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"

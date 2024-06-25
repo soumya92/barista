@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // Package hwmon implements an i3bar module that shows the temperature from /sys/class/hwmon
-package hwmon // import "barista.run/modules/cputemp"
+package hwmon
 
 import (
-	"barista.run/modules/internal/temperature"
+	"github.com/soumya92/barista/modules/internal/temperature"
 )
 
 // Module represents a hwmon bar module. It supports setting the output

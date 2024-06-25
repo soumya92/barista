@@ -19,13 +19,13 @@ from https://github.com/stephenhutchings/typicons.font
 It uses config.yml to get the list of icons,
 and requires src/font/typicons.ttf to be installed.
 */
-package typicons // import "barista.run/pango/icons/typicons"
+package typicons
 
 import (
 	"encoding/json"
 	"path/filepath"
 
-	"barista.run/pango/icons"
+	"github.com/soumya92/barista/pango/icons"
 
 	"github.com/spf13/afero"
 )

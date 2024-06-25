@@ -13,13 +13,13 @@
 // limitations under the License.
 
 // Package httpclient provides a testable wrapper around an existing *http.Client.
-package httpclient // import "barista.run/testing/httpclient"
+package httpclient
 
 import (
 	"net/http"
 	"net/url"
 
-	l "barista.run/logging"
+	l "github.com/soumya92/barista/logging"
 
 	"golang.org/x/oauth2"
 )

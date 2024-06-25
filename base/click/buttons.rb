@@ -24,7 +24,7 @@ write_go_file('buttons.go') do |out|
   out.puts <<~HEADER
     package click
 
-    import "barista.run/bar"
+    import "github.com/soumya92/barista/bar"
   HEADER
 
   method_and_btn.each do |method, btn|

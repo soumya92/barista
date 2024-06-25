@@ -30,21 +30,21 @@
 // Then by default the modules displayed will be ["A0", "B1", "B2"].
 // Activating "A" will replace that with ["A0", "a1", "a2", "a3"],
 // "B" will show ["b0", "B1", "B2"], and "C" will show ["c0", "c1", "c2"].
-package modal // import "barista.run/group/modal"
+package modal
 
 import (
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/click"
-	"barista.run/base/notifier"
-	"barista.run/colors"
-	"barista.run/group"
-	l "barista.run/logging"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/click"
+	"github.com/soumya92/barista/base/notifier"
+	"github.com/soumya92/barista/colors"
+	"github.com/soumya92/barista/group"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 )
 
 const (

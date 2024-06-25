@@ -19,18 +19,18 @@ and a controller to allow programmatic expansion/collapse.
 When collapsed (default state), only a button to expand is visible.
 When expanded, all module outputs are shown, and buttons to collapse.
 */
-package collapsing // import "barista.run/group/collapsing"
+package collapsing
 
 import (
 	"sync"
 	"sync/atomic"
 
-	"barista.run/bar"
-	"barista.run/base/click"
-	"barista.run/base/notifier"
-	"barista.run/group"
-	l "barista.run/logging"
-	"barista.run/outputs"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/click"
+	"github.com/soumya92/barista/base/notifier"
+	"github.com/soumya92/barista/group"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // ButtonFunc produces outputs for buttons in a collapsing group.

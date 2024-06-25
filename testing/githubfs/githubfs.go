@@ -14,7 +14,7 @@
 
 // Package githubfs provides an afero FS that's backed by github.com.
 // Useful for testing against master for a repository, especially in cron.
-package githubfs // import "barista.run/testing/githubfs"
+package githubfs
 
 import (
 	"errors"

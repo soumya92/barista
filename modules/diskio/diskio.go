@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package diskio implements an i3bar module to show disk IO rates.
-package diskio // import "barista.run/modules/diskio"
+package diskio
 
 import (
 	"bufio"
@@ -22,12 +22,12 @@ import (
 	"sync"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/format"
-	l "barista.run/logging"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/format"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/martinlindhe/unit"
 	"github.com/spf13/afero"

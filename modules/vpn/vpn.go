@@ -13,14 +13,14 @@
 // limitations under the License.
 
 // Package vpn provides an i3bar module for openvpn information.
-package vpn // import "barista.run/modules/vpn"
+package vpn
 
 import (
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/base/watchers/netlink"
-	l "barista.run/logging"
-	"barista.run/outputs"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/base/watchers/netlink"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // State represents the vpn state.

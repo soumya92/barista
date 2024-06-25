@@ -13,14 +13,14 @@
 // limitations under the License.
 
 // Package funcs provides the ability to construct i3bar modules from simple Funcs.
-package funcs // import "barista.run/modules/funcs"
+package funcs
 
 import (
-	"barista.run/base/notifier"
-	"barista.run/timing"
+	"github.com/soumya92/barista/base/notifier"
+	"github.com/soumya92/barista/timing"
 	"time"
 
-	"barista.run/bar"
+	"github.com/soumya92/barista/bar"
 )
 
 // Func receives a bar.Sink and uses it for output.

@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // Package output provides utilities for testing barista outputs and segments.
-package output // import "barista.run/testing/output"
+package output
 
 import (
-	"barista.run/bar"
+	"github.com/soumya92/barista/bar"
 
 	"github.com/stretchr/testify/require"
 )

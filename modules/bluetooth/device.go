@@ -13,16 +13,16 @@
 // limitations under the License.
 
 // Package bluetooth provides modules for watching the status of Bluetooth adapters and devices.
-package bluetooth // import "barista.run/modules/bluetooth"
+package bluetooth
 
 import (
 	"strings"
 
 	godbus "github.com/godbus/dbus/v5"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/base/watchers/dbus"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/base/watchers/dbus"
 )
 
 // DeviceModule represents a Bluetooth devices bar module.

@@ -24,11 +24,11 @@ import (
 	"testing"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/outputs"
-	"barista.run/testing/mockio"
-	testModule "barista.run/testing/module"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/testing/mockio"
+	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"

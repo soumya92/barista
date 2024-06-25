@@ -14,19 +14,19 @@
 
 // Package bar provides utilities for testing barista modules
 // using a fake bar instance.
-package bar // import "barista.run/testing/bar"
+package bar
 
 import (
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/core"
-	l "barista.run/logging"
-	"barista.run/oauth"
-	"barista.run/testing/output"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/core"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/oauth"
+	"github.com/soumya92/barista/testing/output"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/stretchr/testify/require"
 )

@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	testServer "barista.run/testing/httpserver"
+	testServer "github.com/soumya92/barista/testing/httpserver"
 
 	"github.com/stretchr/testify/require"
 )

@@ -20,7 +20,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"barista.run/testing/httpserver"
+	"github.com/soumya92/barista/testing/httpserver"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 )

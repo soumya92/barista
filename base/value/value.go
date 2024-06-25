@@ -13,14 +13,14 @@
 // limitations under the License.
 
 // Package value provides atomic values with update notifications.
-package value // import "barista.run/base/value"
+package value
 
 import (
 	"sync"
 	"sync/atomic"
 
-	"barista.run/base/notifier"
-	l "barista.run/logging"
+	"github.com/soumya92/barista/base/notifier"
+	l "github.com/soumya92/barista/logging"
 )
 
 // To allow storing different concrete types in the atomic.Value, for example

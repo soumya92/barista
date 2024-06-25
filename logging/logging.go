@@ -14,7 +14,7 @@
 
 // +build baristadebuglog
 
-package logging // import "barista.run/logging"
+package logging
 
 import (
 	"fmt"

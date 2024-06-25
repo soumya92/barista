@@ -34,15 +34,15 @@ folders, with the detail module placed in a collapsible group.
 		})
 	inbox, others := split.SplitModule(mail, 1)
 */
-package split // import "barista.run/modules/meta/split"
+package split
 
 import (
 	"sync"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/core"
-	"barista.run/sink"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/core"
+	"github.com/soumya92/barista/sink"
 )
 
 type module struct {

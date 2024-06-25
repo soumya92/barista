@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package github provides a barista module to show github notifications.
-package github // import "barista.run/modules/github"
+package github
 
 import (
 	"encoding/json"
@@ -23,11 +23,11 @@ import (
 	"strconv"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/oauth"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/oauth"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"

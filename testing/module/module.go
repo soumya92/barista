@@ -13,14 +13,14 @@
 // limitations under the License.
 
 // Package module provides a test module that can be used in tests.
-package module // import "barista.run/testing/module"
+package module
 
 import (
 	"sync"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/outputs"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/outputs"
 
 	"github.com/stretchr/testify/require"
 )

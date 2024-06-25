@@ -13,18 +13,18 @@
 // limitations under the License.
 
 // Package media provides an i3bar module for an MPRIS-compatible media player.
-package media // import "barista.run/modules/media"
+package media
 
 import (
 	"fmt"
 	"strings"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/base/watchers/dbus"
-	l "barista.run/logging"
-	"barista.run/outputs"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/base/watchers/dbus"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 
 	"golang.org/x/time/rate"
 )

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package barista provides the building blocks for a custom i3 status bar.
-package barista // import "barista.run"
+package barista
 
 import (
 	"encoding/json"
@@ -26,11 +26,11 @@ import (
 	"strconv"
 	"sync"
 
-	"barista.run/bar"
-	"barista.run/core"
-	l "barista.run/logging"
-	"barista.run/oauth"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/core"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/oauth"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/sys/unix"

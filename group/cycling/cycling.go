@@ -14,17 +14,17 @@
 
 // Package cycling provides a group that continuously cycles between
 // all modules at a fixed interval.
-package cycling // import "barista.run/group/cycling"
+package cycling
 
 import (
 	"sync"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/notifier"
-	"barista.run/group"
-	l "barista.run/logging"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/notifier"
+	"github.com/soumya92/barista/group"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/timing"
 )
 
 // Controller provides an interface to control a collapsing group.

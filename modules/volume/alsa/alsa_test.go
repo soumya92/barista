@@ -20,11 +20,11 @@ import (
 	"unsafe"
 	"reflect"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/modules/volume"
-	testBar "barista.run/testing/bar"
-	"barista.run/testing/notifier"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/modules/volume"
+	testBar "github.com/soumya92/barista/testing/bar"
+	"github.com/soumya92/barista/testing/notifier"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 )

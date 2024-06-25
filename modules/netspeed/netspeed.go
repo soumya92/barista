@@ -13,17 +13,17 @@
 // limitations under the License.
 
 // Package netspeed provides an i3bar module to display network utilisation.
-package netspeed // import "barista.run/modules/netspeed"
+package netspeed
 
 import (
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/format"
-	l "barista.run/logging"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/format"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/martinlindhe/unit"
 	"github.com/vishvananda/netlink"

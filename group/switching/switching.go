@@ -14,18 +14,18 @@
 
 // Package switching provides a group that displays modules one at a time,
 // and a controller to switch to the next/previous/specific module.
-package switching // import "barista.run/group/switching"
+package switching
 
 import (
 	"sync"
 	"sync/atomic"
 
-	"barista.run/bar"
-	"barista.run/base/click"
-	"barista.run/base/notifier"
-	"barista.run/group"
-	l "barista.run/logging"
-	"barista.run/outputs"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/click"
+	"github.com/soumya92/barista/base/notifier"
+	"github.com/soumya92/barista/group"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
 )
 
 // ButtonFunc produces outputs for buttons in a switching group.

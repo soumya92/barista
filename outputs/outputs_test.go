@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/format"
-	"barista.run/pango"
-	pangoTesting "barista.run/testing/pango"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/format"
+	"github.com/soumya92/barista/pango"
+	pangoTesting "github.com/soumya92/barista/testing/pango"
 
 	"github.com/martinlindhe/unit"
 	"github.com/stretchr/testify/require"

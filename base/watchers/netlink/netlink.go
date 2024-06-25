@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package netlink uses the netlink library to watch for changes in link states.
-package netlink // import "barista.run/base/watchers/netlink"
+package netlink
 
 import (
 	"net"
@@ -21,8 +21,8 @@ import (
 	"strings"
 	"sync"
 
-	"barista.run/base/value"
-	l "barista.run/logging"
+	"github.com/soumya92/barista/base/value"
+	l "github.com/soumya92/barista/logging"
 )
 
 // OperState represents the operating state of a link.

@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	testBar "barista.run/testing/bar"
-	testModule "barista.run/testing/module"
-	"barista.run/timing"
+	testBar "github.com/soumya92/barista/testing/bar"
+	testModule "github.com/soumya92/barista/testing/module"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/stretchr/testify/require"
 )

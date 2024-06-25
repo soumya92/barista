@@ -25,15 +25,15 @@ which don't allow for colours or borders. You can add those using reformat:
    return o.Background("red").Padding(20)
  })
 */
-package reformat // import "barista.run/modules/meta/reformat"
+package reformat
 
 import (
 	"sync/atomic"
 
-	"barista.run/bar"
-	"barista.run/core"
-	l "barista.run/logging"
-	"barista.run/sink"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/core"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/sink"
 )
 
 // FormatFunc takes the module's output and returns a modified version.

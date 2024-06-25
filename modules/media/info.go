@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"barista.run/timing"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/godbus/dbus/v5"
 )

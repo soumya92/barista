@@ -14,7 +14,7 @@
 
 // Package dbus provides watchers that notify when dbus name owners or object
 // properties change, and infrastructure for testing code that uses them.
-package dbus // import "barista.run/base/watchers/dbus"
+package dbus
 
 import (
 	"strings"

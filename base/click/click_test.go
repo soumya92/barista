@@ -21,7 +21,7 @@ import (
 	"path"
 	"testing"
 
-	"barista.run/bar"
+	"github.com/soumya92/barista/bar"
 	"github.com/stretchr/testify/require"
 )
 

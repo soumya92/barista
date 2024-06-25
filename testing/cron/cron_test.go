@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"barista.run/testing/fail"
+	"github.com/soumya92/barista/testing/fail"
 
 	"github.com/stretchr/testify/require"
 )

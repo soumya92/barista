@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package localtz watches for changes to the local machine's time zone.
-package localtz // import "barista.run/base/watchers/localtz"
+package localtz
 
 import (
 	"errors"
@@ -23,9 +23,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"barista.run/base/value"
-	"barista.run/base/watchers/file"
-	l "barista.run/logging"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/base/watchers/file"
+	l "github.com/soumya92/barista/logging"
 )
 
 // Overridden in tests.

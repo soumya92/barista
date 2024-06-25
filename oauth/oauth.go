@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package oauth provides oauth capabilities to barista and modules.
-package oauth // import "barista.run/oauth"
+package oauth
 
 import (
 	"context"
@@ -31,7 +31,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	l "barista.run/logging"
+	l "github.com/soumya92/barista/logging"
 
 	"golang.org/x/oauth2"
 )

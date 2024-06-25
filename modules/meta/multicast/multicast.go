@@ -15,15 +15,15 @@
 // Package multicast provides a method to convert any bar.Module into one that
 // can be added to the bar multiple times. When combined with group.Simple, this
 // allows multiple combinations of modules without creating extra instances.
-package multicast // import "barista.run/modules/meta/multicast"
+package multicast
 
 import (
 	"sync"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	"barista.run/core"
-	"barista.run/sink"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	"github.com/soumya92/barista/core"
+	"github.com/soumya92/barista/sink"
 )
 
 type module struct {

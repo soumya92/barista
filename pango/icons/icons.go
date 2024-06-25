@@ -31,12 +31,12 @@ Example usage:
   return pango.Icon("material-today").Color(colors.Hex("#ddd")).
       Append(pango.Text(now.Sprintf("%H:%M")))
 */
-package icons // import "barista.run/pango/icons"
+package icons
 
 import (
 	"strconv"
 
-	"barista.run/pango"
+	"github.com/soumya92/barista/pango"
 )
 
 // Provider provides pango nodes for icons

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package colors provides helper functions to manage color and color schemes.
-package colors // import "barista.run/colors"
+package colors
 
 import (
 	"bufio"

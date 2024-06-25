@@ -17,11 +17,6 @@ limitations under the License.
 
 # Barista
 
-[![Release](https://github.com/soumya92/barista/workflows/Release/badge.svg)](https://github.com/soumya92/barista/releases/tag/autorelease)
-[![GoDoc](https://godoc.org/barista.run?status.svg)](https://godoc.org/barista.run)
-[![Maintainability](https://api.codeclimate.com/v1/badges/753f34fc34df1a05b05f/maintainability)](https://codeclimate.com/github/soumya92/barista/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/753f34fc34df1a05b05f/test_coverage)](https://codeclimate.com/github/soumya92/barista/test_coverage)
-
 Barista is an i3 status bar written in golang.
 
 **This is not an official Google product**
@@ -60,4 +55,3 @@ bar {
 }
 ```
 
-See the [quickstart](https://barista.run/#quickstart) for more details.

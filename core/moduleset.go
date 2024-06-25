@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package core // import "barista.run/core"
+package core
 
 import (
 	"sync"
 
-	"barista.run/bar"
-	l "barista.run/logging"
-	"barista.run/sink"
+	"github.com/soumya92/barista/bar"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/sink"
 )
 
 // ModuleSet is a group of modules. It provides a channel for identifying module

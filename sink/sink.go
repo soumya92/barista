@@ -13,11 +13,11 @@
 // limitations under the License.
 
 // Package sink provides functions to create sinks.
-package sink // import "barista.run/sink"
+package sink
 
 import (
-	"barista.run/bar"
-	"barista.run/base/value"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
 )
 
 // Func creates a bar.Sink that sends sends output in the form of Segments.

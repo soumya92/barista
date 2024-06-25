@@ -13,12 +13,12 @@
 // limitations under the License.
 
 // Package click provides methods to compose click handlers.
-package click // import "barista.run/base/click"
+package click
 
 import (
 	"os/exec"
 
-	"barista.run/bar"
+	"github.com/soumya92/barista/bar"
 )
 
 // DiscardEvent wraps a function with no arguments in a function that takes a

@@ -14,7 +14,7 @@
 
 // Package notifier provides assertions that notifier channels (<-chan struct{})
 // received or did not receive a signal.
-package notifier // import "barista.run/testing/notifier"
+package notifier
 
 import (
 	"testing"

@@ -14,13 +14,13 @@
 
 // Package following provides a group that always shows the output from
 // the most recently updated module in the set.
-package following // import "barista.run/group/following"
+package following
 
 import (
 	"sync/atomic"
 
-	"barista.run/bar"
-	"barista.run/group"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/group"
 )
 
 // grouper implements a following grouper.

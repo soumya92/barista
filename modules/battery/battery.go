@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package battery provides a battery status i3bar module.
-package battery // import "barista.run/modules/battery"
+package battery
 
 import (
 	"bufio"
@@ -24,11 +24,11 @@ import (
 	"strings"
 	"time"
 
-	"barista.run/bar"
-	"barista.run/base/value"
-	l "barista.run/logging"
-	"barista.run/outputs"
-	"barista.run/timing"
+	"github.com/soumya92/barista/bar"
+	"github.com/soumya92/barista/base/value"
+	l "github.com/soumya92/barista/logging"
+	"github.com/soumya92/barista/outputs"
+	"github.com/soumya92/barista/timing"
 
 	"github.com/spf13/afero"
 )

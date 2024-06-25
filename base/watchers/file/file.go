@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package file uses the fsnotify library to watch for changes to files.
-package file // import "barista.run/base/watchers/file"
+package file
 
 import (
 	"fmt"
@@ -21,8 +21,8 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"barista.run/base/notifier"
-	l "barista.run/logging"
+	"github.com/soumya92/barista/base/notifier"
+	l "github.com/soumya92/barista/logging"
 
 	"github.com/fsnotify/fsnotify"
 )
